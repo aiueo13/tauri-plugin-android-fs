@@ -6,7 +6,7 @@ use crate::*;
 /// # Examples
 /// ```
 /// fn example(app: &tauri::AppHandle) {
-///     use tauri_plugin_android_fs::AndroidFsExt;
+///     use tauri_plugin_android_fs::AndroidFsExt as _;
 /// 
 ///     let api = app.android_fs();
 ///     let private_storage = api.private_storage();

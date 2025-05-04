@@ -1,3 +1,8 @@
+# Version 9.4.0
+- Add `AndroidFs::resolve_uri`
+- Improvement `AndroidFs::resolve_initial_location`.
+- Update documentation.
+
 # Version 9.3.0
 - Add `ImageFormat`
 - Deprecate `DecodeOption`

@@ -6,7 +6,7 @@ use crate::*;
 /// # Examples
 /// ```
 /// fn example(app: &tauri::AppHandle) {
-///     use tauri_plugin_android_fs::AndroidFsExt;
+///     use tauri_plugin_android_fs::AndroidFsExt as _;
 /// 
 ///     let api = app.android_fs();
 ///     let public_storage = api.public_storage();
@@ -79,13 +79,13 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// 
     /// # Support
     /// Android 10 (API level 29) or higher.  
-    /// Lower are need runtime request of `WRITE_EXTERNAL_STORAGE`. (This option will be made available in the future)
     ///
-    /// [`PublicAudioDir::Audiobooks`] is not available on Android 9 (API level 28) and lower.
+    /// Note :  
+    /// - [`PublicAudioDir::Audiobooks`] is not available on Android 9 (API level 28) and lower.
     /// Availability on a given device can be verified by calling [`PublicStorage::is_audiobooks_dir_available`].  
-    /// [`PublicAudioDir::Recordings`] is not available on Android 11 (API level 30) and lower.
+    /// - [`PublicAudioDir::Recordings`] is not available on Android 11 (API level 30) and lower.
     /// Availability on a given device can be verified by calling [`PublicStorage::is_recordings_dir_available`].  
-    /// Others are available in all Android versions.
+    /// - Others dirs are available in all Android versions.
     pub fn create_file_in_public_dir(
         &self,
         dir: impl Into<PublicDir>,

@@ -7,7 +7,7 @@ use crate::*;
 /// # Examples
 /// ```
 /// fn example(app: &tauri::AppHandle) {
-///     use tauri_plugin_android_fs::AndroidFsExt;
+///     use tauri_plugin_android_fs::AndroidFsExt as _;
 /// 
 ///     let api = app.android_fs();
 /// }
@@ -436,6 +436,35 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         })
     }
 
+    /// Build the URI of a file or dir located at a relative path from the specified directory.  
+    /// 
+    /// The permissions and validity period of the returned URIs depend on the origin directory 
+    /// (e.g., the top directory selected by [`AndroidFs::show_open_dir_dialog`]) 
+    /// 
+    /// Note this does not perform a validity check for args and returned uri. 
+    /// Even if **dir** of args refers to a file, err not occur.  
+    /// If need, check its presence using [`AndroidFs::get_mime_type`] and etc.
+    /// 
+    /// 
+    /// # Performance
+    /// This operation is relatively fast 
+    /// because it only involves concatenating and encoding strings on Rust side.
+    /// 
+    /// # Support
+    /// All.
+    pub fn resolve_uri(&self, dir: &FileUri, relative_path: impl AsRef<str>) -> crate::Result<FileUri> {
+        on_android!({
+            let base_dir = &dir.uri;
+            let relative_path = relative_path.as_ref().trim_matches('/');
+            let relative_path = encode_document_id(relative_path);
+
+            Ok(FileUri {
+                document_top_tree_uri: dir.document_top_tree_uri.clone(),
+                uri: format!("{base_dir}%2F{relative_path}")
+            })
+        })
+    }
+
     /// See [`AndroidFs::get_thumbnail_to`] for descriptions.  
     /// 
     /// If thumbnail does not wrote to dest, return false.
@@ -644,10 +673,10 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Args  
     /// - ***initial_location*** :  
     /// Indicate the initial location of dialog.  
+    /// There is no need to use this if there is no special reason.  
     /// System will do its best to launch the dialog in the specified entry 
     /// if it's a directory, or the directory that contains the specified file if not.  
-    /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.
-    /// There is no need to use this if there is no special reason.  
+    /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.  
     /// This must be a URI taken from following :   
     ///     - [`AndroidFs::resolve_initial_location`]
     ///     - [`AndroidFs::show_open_file_dialog`]
@@ -796,10 +825,10 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Args  
     /// - ***initial_location*** :  
     /// Indicate the initial location of dialog.    
+    /// There is no need to use this if there is no special reason.  
     /// System will do its best to launch the dialog in the specified entry 
     /// if it's a directory, or the directory that contains the specified file if not.  
-    /// If this is missing or failed to resolve the desired initial location, the initial location is system specific. 
-    /// There is no need to use this if there is no special reason.  
+    /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.   
     /// This must be a URI taken from following :   
     ///     - [`AndroidFs::resolve_initial_location`]
     ///     - [`AndroidFs::show_open_file_dialog`]
@@ -855,10 +884,10 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Args  
     /// - ***initial_location*** :  
     /// Indicate the initial location of dialog.  
+    /// There is no need to use this if there is no special reason.  
     /// System will do its best to launch the dialog in the specified entry 
     /// if it's a directory, or the directory that contains the specified file if not.  
-    /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.
-    /// There is no need to use this if there is no special reason.  
+    /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.  
     /// This must be a URI taken from following :   
     ///     - [`AndroidFs::resolve_initial_location`]
     ///     - [`AndroidFs::show_open_file_dialog`]
@@ -905,14 +934,16 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     }
 
     /// Create an **restricted** URI for the specified directory.  
-    /// 
     /// This should only be used as `initial_location` in the dialog. 
     /// It must not be used for any other purpose.  
-    /// And this is an informal method and is not guaranteed to work reliably.
-    /// But this URI does not cause the dialog to error.  
     /// 
+    /// This is useful when selecting (creating) new files and folders, 
+    /// but when selecting existing entries, `initial_location` is often better with None.
+    /// 
+    /// Note this is an informal method and is not guaranteed to work reliably.
+    /// But this URI does not cause the dialog to error.  
     /// So please use this with the mindset that it’s better than doing nothing.  
-    ///  
+    /// 
     /// # Examples
     /// ```
     /// use tauri_plugin_android_fs::{AndroidFs, AndroidFsExt, InitialLocation, PublicGeneralPurposeDir, PublicImageDir};
@@ -975,7 +1006,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
                                 .and_then(|u| self.remove_file(&u));
                         }
             
-                        let sub_dirs = relative_path.replace("/", "%2F");
+                        let sub_dirs = encode_document_id(relative_path);
                         format!("{TOP_DIR}{base_dir}%2F{sub_dirs}")
                     }
                 }

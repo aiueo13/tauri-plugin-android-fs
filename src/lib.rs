@@ -5,13 +5,12 @@
 mod models;
 mod error;
 mod api;
+mod utils;
 
 pub use models::*;
 pub use error::{Error, Result};
 pub use api::{AndroidFs, PrivateStorage, PublicStorage};
-
-
-pub(crate) const TMP_DIR_RELATIVE_PATH: &str = "pluginAndroidFs-tmpDir-33bd1538-4434-dc4e-7e2f-515405cccbf9";
+pub(crate) use utils::*;
 
 /// Initializes the plugin.
 pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
