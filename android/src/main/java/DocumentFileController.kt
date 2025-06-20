@@ -32,7 +32,7 @@ class DocumentFileController(private val activity: Activity): FileController {
             }
         }
 
-        throw Error("Failed to get name from ${uri.uri}")
+        throw Error("Failed to find entry: ${uri.uri}")
     }
 
     override fun getName(uri: FileUri): String {
@@ -110,6 +110,7 @@ class DocumentFileController(private val activity: Activity): FileController {
         return buffer
     }
 
+    @Synchronized
     override fun createFile(dirUri: FileUri, relativePath: String, mimeType: String): JSObject {
         if (relativePath.endsWith('/')) {
             throw Error("Illegal file path format, ends with '/'. $relativePath")
@@ -197,6 +198,19 @@ class DocumentFileController(private val activity: Activity): FileController {
         return null
     }
 
+    override fun rename(uri: FileUri, newName: String): JSObject {
+        val documentUri = Uri.parse(uri.uri)
+        val updatedUri = DocumentsContract.renameDocument(
+            activity.contentResolver, 
+            documentUri, 
+            newName
+        )
+
+        val res = JSObject()
+        res.put("uri", updatedUri.toString())
+        res.put("documentTopTreeUri", uri.documentTopTreeUri)
+        return res
+    }
 
     private fun findIdFromName(
         activity: Context,

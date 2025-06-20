@@ -18,18 +18,18 @@ use serde::{Deserialize, Serialize};
 /// # Typescript type
 /// ```typescript
 /// type FileUri = {
-///     uri: string, // This can use for official tauri_plugin_fs as path
+///     uri: string, // This can use as path for official tauri_plugin_fs
 ///     documentTopTreeUri: string | null
 /// }
-/// 
-/// // But if possible, you should use the following type.  
-/// type FileUri = string
 /// ```
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileUri {
-    pub(crate) uri: String,
-    pub(crate) document_top_tree_uri: Option<String>,
+    /// `file://` or `content://` URI of file or directory.
+    pub uri: String,
+
+    /// Only files/directories under the directory obtained by AndroidFs::show_manage_dir_dialog will own this.
+    pub document_top_tree_uri: Option<String>,
 }
 
 impl FileUri {
@@ -215,8 +215,8 @@ pub enum FileAccessMode {
     Read,
 
     /// Opens the file in write-only mode.  
-    /// **This may or may not truncate.**
-    /// So please use `WriteTruncate` or `WriteAppend` instead.  
+    /// **This may or may not truncate existing contents.**  
+    /// So please use [`FileAccessMode::WriteTruncate`] or [`FileAccessMode::WriteAppend`] instead.  
     ///
     /// FileDescriptor mode: "w"
     #[deprecated(note = "This may or may not truncate existing contents. So please use WriteTruncate or WriteAppend instead.")]

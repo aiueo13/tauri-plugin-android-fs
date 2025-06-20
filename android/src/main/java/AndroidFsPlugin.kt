@@ -142,6 +142,12 @@ class DeleteArgs {
 }
 
 @InvokeArg
+class RenameArgs {
+    lateinit var uri: FileUri
+    lateinit var newName: String
+}
+
+@InvokeArg
 class ReadDirArgs {
     lateinit var uri: FileUri
 }
@@ -744,6 +750,19 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             invoke.resolve()
         } catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke deleteDirAll."
+            Logger.error(message)
+            invoke.reject(message)
+        }
+    }
+
+    @Command
+    fun rename(invoke: Invoke) {
+        try {
+            val args = invoke.parseArgs(RenameArgs::class.java)
+            val uri = getFileController(args.uri).rename(args.uri, args.newName)
+            invoke.resolve(uri)
+        } catch (ex: Exception) {
+            val message = ex.message ?: "Failed to invoke rename."
             Logger.error(message)
             invoke.reject(message)
         }

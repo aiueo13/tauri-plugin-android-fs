@@ -1,3 +1,17 @@
+# Version 9.5.0
+- Add `AndroidFs::rename`
+- Add `AndroidFs::copy`
+- Add `AndroidFs::get_file_uri`
+- Add `AndroidFs::get_dir_uri`
+- Add `PublicStorage::create_file`
+- Add `PublicStorage::create_file_in_app_dir`
+- Add `PublicStorage::app_dir_name`
+- Expose fields of `FileUri`
+- Deprecate `PublicStorage::create_file_in_public_dir`
+- Deprecate `PublicStorage::create_file_in_public_app_dir`
+- Synchronise folder creation on Kotolin side
+- Update documentation.
+
 # Version 9.4.0
 - Add `AndroidFs::resolve_uri`
 - Improvement `AndroidFs::resolve_initial_location`.

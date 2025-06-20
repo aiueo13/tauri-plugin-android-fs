@@ -16,17 +16,17 @@ pub struct PublicStorage<'a, R: tauri::Runtime>(pub(crate) &'a AndroidFs<R>);
 
 impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
 
-    /// See [`PublicStorage::create_file_in_public_dir`] for description.  
+    /// See [`PublicStorage::create_file`] for description.  
     /// 
     /// This is the same as following: 
     /// ```ignore
-    /// create_file_in_public_dir(
+    /// create_file(
     ///     dir,
     ///     format!("{app_name}/{relative_path}"),
     ///     mime_type
-    /// );
+    /// )
     /// ```
-    pub fn create_file_in_public_app_dir(
+    pub fn create_file_in_app_dir(
         &self,
         dir: impl Into<PublicDir>,
         relative_path: impl AsRef<str>, 
@@ -34,15 +34,9 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     ) -> crate::Result<FileUri> {
 
         on_android!({
-            let config = self.0.app.config();
-            let app_name = config.product_name.as_deref().unwrap_or("");
-            let app_name = match app_name.is_empty() {
-                true => &config.identifier,
-                false => app_name
-            };
-            let app_name = app_name.replace('/', " ");
+            let app_dir_name = self.app_dir_name()?;
             let relative_path = relative_path.as_ref().trim_start_matches('/');
-            let relative_path_with_subdir = format!("{app_name}/{relative_path}");
+            let relative_path_with_subdir = format!("{app_dir_name}/{relative_path}");
 
             self.create_file_in_public_dir(dir, relative_path_with_subdir, mime_type)
         })
@@ -70,7 +64,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// Please specify a subdirectory in this, 
     /// such as `MyApp/file.txt` or `MyApp/2025-2-11/file.txt`. Do not use `file.txt`.  
     /// As shown above, it is customary to specify the app name at the beginning of the subdirectory, 
-    /// and in this case, using [`PublicStorage::create_file_in_public_app_dir`] is recommended.
+    /// and in this case, using [`PublicStorage::create_file_in_app_dir`] is recommended.
     ///  
     /// - ***mime_type*** :  
     /// The MIME type of the file to be created.  
@@ -86,7 +80,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// - [`PublicAudioDir::Recordings`] is not available on Android 11 (API level 30) and lower.
     /// Availability on a given device can be verified by calling [`PublicStorage::is_recordings_dir_available`].  
     /// - Others dirs are available in all Android versions.
-    pub fn create_file_in_public_dir(
+    pub fn create_file(
         &self,
         dir: impl Into<PublicDir>,
         relative_path_with_subdir: impl AsRef<str>, 
@@ -149,5 +143,55 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
                 .map(|v| v.value)
                 .map_err(Into::into)
         })
+    }
+
+    /// # Support
+    /// All.
+    pub fn app_dir_name(&self) -> crate::Result<&str> {
+        on_android!({
+            use std::sync::OnceLock;
+            
+            static APP_DIR_NAME: OnceLock<String> = OnceLock::new();
+
+            if APP_DIR_NAME.get().is_none() {
+                let config = self.0.app.config();
+                let app_name = config.product_name
+                    .as_deref()
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or(&config.identifier)
+                    .replace('/', " ");
+                
+                // The cell is guaranteed to contain a value when set returns
+                let _ = APP_DIR_NAME.set(app_name);
+            }
+
+            Ok(&APP_DIR_NAME.get().unwrap())
+        })
+    }
+
+
+    /// Use [`PublicStorage::create_file_in_app_dir`] instead.
+    #[deprecated = "Use PublicStorage::create_file_in_app_dir instead."]
+    #[warn(deprecated)]
+    pub fn create_file_in_public_app_dir(&self,
+        dir: impl Into<PublicDir>,
+        relative_path: impl AsRef<str>, 
+        mime_type: Option<&str>
+    ) -> crate::Result<FileUri> {
+
+        self.create_file_in_app_dir(dir, relative_path, mime_type)
+    }
+
+    /// Use [`PublicStorage::create_file`] instead.
+    #[deprecated = "Use PublicStorage::create_file instead."]
+    #[warn(deprecated)]
+    pub fn create_file_in_public_dir(
+        &self,
+        dir: impl Into<PublicDir>,
+        relative_path_with_subdir: impl AsRef<str>, 
+        mime_type: Option<&str>
+    ) -> crate::Result<FileUri> {
+
+        self.create_file(dir, relative_path_with_subdir, mime_type)
     }
 }

@@ -254,7 +254,7 @@ fn save_file_with_dir_dialog(
 
 ### 2. Public Storage
 File storage that is available to other applications and users.
-Currently, this is for Android 10 (API level 29) or higher.  
+This is for Android 10 (API level 29) or higher.  
 
 ```rust
 use tauri_plugin_android_fs::{AndroidFsExt, PublicGeneralPurposeDir, PublicImageDir};

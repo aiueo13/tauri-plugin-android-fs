@@ -32,7 +32,7 @@ class MediaFileController(private val activity: Activity): FileController {
             }
         }
 
-        throw Error("Failed to get name from $uri")
+        throw Error("Failed to find entry: ${uri.uri}")
     }
 
     override fun getName(uri: FileUri): String {
@@ -49,7 +49,7 @@ class MediaFileController(private val activity: Activity): FileController {
             }
         }
 
-        throw Error("Failed to get name from $uri")
+        throw Error("Failed to find entry: ${uri.uri}")
     }
 
     @Suppress("NAME_SHADOWING")
@@ -106,6 +106,28 @@ class MediaFileController(private val activity: Activity): FileController {
         catch (ignore: Exception) {}
 
         return null
+    }
+
+    override fun rename(uri: FileUri, newName: String): JSObject {
+        if (getName(uri) != newName) {
+            val updated = activity.contentResolver.update(
+                Uri.parse(uri.uri),
+                ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, newName)
+                },
+                null,
+                null
+            )
+
+            if (updated == 0) {
+                throw Error("Failed to rename: ${uri.uri}")
+            }
+        }
+
+        val res = JSObject()
+        res.put("uri", uri.uri)
+        res.put("documentTopTreeUri", uri.documentTopTreeUri)
+        return res
     }
     
 

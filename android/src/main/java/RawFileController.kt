@@ -41,6 +41,7 @@ class RawFileController: FileController {
     }
 
     // この関数が返すUriは他のアプリに共有できない
+    @Synchronized
     override fun createFile(dirUri: FileUri, relativePath: String, mimeType: String): JSObject {
         val dir = File(Uri.parse(dirUri.uri).path!!)
         val baseFile = File(dir.path + "/" + relativePath.trimStart('/'))
@@ -118,6 +119,23 @@ class RawFileController: FileController {
         return null
     }
 
+    override fun rename(uri: FileUri, newName: String): JSObject {
+        val file = File(Uri.parse(uri.uri).path!!)
+        val newFile = File(file.parentFile, newName)
+
+        if (newFile.exists()) {
+            throw Error("File already exists: ${newFile.path}")
+        }
+
+        if (!file.renameTo(newFile)) {
+            throw Error("Failed to rename file: ${uri.uri}")
+        }
+
+        val res = JSObject()
+        res.put("uri", Uri.fromFile(newFile).toString())
+        res.put("documentTopTreeUri", uri.documentTopTreeUri)
+        return res
+    }
 
     private fun deleteRecursive(fileOrDirectory: File): Boolean {
         if (fileOrDirectory.isDirectory) {

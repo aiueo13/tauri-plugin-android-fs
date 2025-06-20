@@ -59,6 +59,7 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
                 let paths = self.0.api
                     .run_mobile_plugin::<Paths>("getPrivateBaseDirAbsolutePaths", "")?;
 
+                // The cell is guaranteed to contain a value when set returns
                 let _ = PATHS.set(paths);
             }
 
