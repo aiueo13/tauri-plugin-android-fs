@@ -1,8 +1,8 @@
 # Version 9.5.0
 - Add `AndroidFs::rename`
 - Add `AndroidFs::copy`
-- Add `AndroidFs::get_file_uri`
-- Add `AndroidFs::get_dir_uri`
+- Add `AndroidFs::try_resolve_file_uri`
+- Add `AndroidFs::try_resolve_dir_uri`
 - Add `PublicStorage::create_file`
 - Add `PublicStorage::create_file_in_app_dir`
 - Add `PublicStorage::app_dir_name`

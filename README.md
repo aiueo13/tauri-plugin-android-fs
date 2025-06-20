@@ -19,26 +19,6 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-```
-
-The current dialog in this plugin has an [issue](https://github.com/aiueo13/tauri-plugin-android-fs/issues/1). To avoid this, please follow these two steps:
-
-`src-tauri/Cargo.toml`
-```toml
-[dependencies]
-tauri-plugin-android-fs = { features = ["avoid-issue1"], .. }
-```
-
-`src-tauri/capabilities/default.json`
-```json
-{
-  ..
-  "permissions": [
-    "android-fs:default",
-    ..
-  ]
-}
-```
 
 # Usage
 Currently, this plugin only provides a Rust-side API, not a NPM library.  
