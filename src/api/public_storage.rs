@@ -20,11 +20,12 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// 
     /// This is the same as following: 
     /// ```ignore
-    /// create_file(
+    /// let app_name = public_storage.app_dir_name()?;
+    /// public_storage.create_file(
     ///     dir,
     ///     format!("{app_name}/{relative_path}"),
     ///     mime_type
-    /// )
+    /// )?;
     /// ```
     pub fn create_file_in_app_dir(
         &self,
@@ -38,7 +39,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
             let relative_path = relative_path.as_ref().trim_start_matches('/');
             let relative_path_with_subdir = format!("{app_dir_name}/{relative_path}");
 
-            self.create_file_in_public_dir(dir, relative_path_with_subdir, mime_type)
+            self.create_file(dir, relative_path_with_subdir, mime_type)
         })
     }
 
@@ -47,7 +48,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     ///  
     /// The created file has following features :   
     /// - Will be registered with the corresponding MediaStore as needed.  
-    /// - Always supports remove.
+    /// - Always supports remove and rename by this app until the app uninstalled.
     /// - Not removed when the app is uninstalled.
     /// 
     /// # Args
@@ -115,6 +116,89 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         })
     }
 
+    /// Recursively create a directory and all of its parent components if they are missing.
+    /// 
+    /// [`PublicStorage::create_file`] does this automatically, so there is no need to use it together.
+    /// 
+    /// # Args  
+    /// - ***dir*** :  
+    /// The URI of the base directory.  
+    /// This needs to be **read-write**.
+    ///  
+    /// - ***relative_path*** :  
+    /// The directory path relative to the base directory.    
+    ///  
+    /// # Support
+    /// All.
+    pub fn create_dir_all(
+        &self,
+        dir: impl Into<PublicDir>,
+        relative_path: impl AsRef<str>, 
+    ) -> Result<()> {
+
+        on_android!({
+            let relative_path = relative_path.as_ref().trim_matches('/');
+            if relative_path.is_empty() {
+                return Ok(())
+            }
+
+            // TODO:
+            // create_file経由ではなく folder作成専用のkotlin apiを作成し呼び出す
+            let dir = dir.into();
+            let mime_type = match dir {
+                PublicDir::Image(_) => "image/png",
+                PublicDir::Audio(_) => "audio/mp3",
+                PublicDir::Video(_) => "video/mp4",
+                PublicDir::GeneralPurpose(_) => "application/octet-stream"
+            };
+            let uri = self.create_file(
+                dir, 
+                format!("{relative_path}/TMP-01K3CGCKYSAQ1GHF8JW5FGD4RW"), 
+                Some(mime_type)
+            )?;
+            let _ = self.0.remove_file(&uri);
+
+            Ok(())
+        })
+    }
+
+    /// Recursively create a directory and all of its parent components if they are missing.
+    /// 
+    /// [`PublicStorage::create_file_in_app_dir`] does this automatically, so there is no need to use it together.  
+    /// 
+    /// This is the same as following: 
+    /// ```ignore
+    /// let app_name = public_storage.app_dir_name()?;
+    /// public_storage.create_dir_all(
+    ///     dir,
+    ///     format!("{app_name}/{relative_path}"),
+    /// )?;
+    /// ```
+    /// # Args  
+    /// - ***dir*** :  
+    /// The URI of the base directory.  
+    /// This needs to be **read-write**.
+    ///  
+    /// - ***relative_path*** :  
+    /// The directory path relative to the base directory.    
+    ///  
+    /// # Support
+    /// All.
+    pub fn create_dir_all_in_app_dir(
+        &self,
+        dir: impl Into<PublicDir>,
+        relative_path: impl AsRef<str>, 
+    ) -> Result<()> {
+
+        on_android!({
+            let app_dir_name = self.app_dir_name()?;
+            let relative_path = relative_path.as_ref().trim_start_matches('/');
+            let relative_path_with_subdir = format!("{app_dir_name}/{relative_path}");
+
+            self.create_dir_all(dir, relative_path_with_subdir)
+        })
+    }
+
     /// Verify whether [`PublicAudioDir::Audiobooks`] is available on a given device.
     /// 
     /// # Support
@@ -145,6 +229,9 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         })
     }
 
+    /// Resolve the app dir name from Tauri's config.  
+    /// Path separator will replace to space.
+    /// 
     /// # Support
     /// All.
     pub fn app_dir_name(&self) -> crate::Result<&str> {
@@ -167,31 +254,5 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
 
             Ok(&APP_DIR_NAME.get().unwrap())
         })
-    }
-
-
-    /// Use [`PublicStorage::create_file_in_app_dir`] instead.
-    #[deprecated = "Use PublicStorage::create_file_in_app_dir instead."]
-    #[warn(deprecated)]
-    pub fn create_file_in_public_app_dir(&self,
-        dir: impl Into<PublicDir>,
-        relative_path: impl AsRef<str>, 
-        mime_type: Option<&str>
-    ) -> crate::Result<FileUri> {
-
-        self.create_file_in_app_dir(dir, relative_path, mime_type)
-    }
-
-    /// Use [`PublicStorage::create_file`] instead.
-    #[deprecated = "Use PublicStorage::create_file instead."]
-    #[warn(deprecated)]
-    pub fn create_file_in_public_dir(
-        &self,
-        dir: impl Into<PublicDir>,
-        relative_path_with_subdir: impl AsRef<str>, 
-        mime_type: Option<&str>
-    ) -> crate::Result<FileUri> {
-
-        self.create_file(dir, relative_path_with_subdir, mime_type)
     }
 }

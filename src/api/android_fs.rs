@@ -513,7 +513,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         on_android!({
             let uri = self.resolve_uri(dir, relative_path)?;            
             if self.get_mime_type(&uri)?.is_none() {
-                return Err(crate::Error::PluginInvoke(format!("This is a directory, not a file: {uri:?}")))
+                return Err(crate::Error { msg: format!("This is a directory, not a file: {uri:?}").into() })
             }
             Ok(uri)
         })
@@ -531,7 +531,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         on_android!({
             let uri = self.resolve_uri(dir, relative_path)?;
             if self.get_mime_type(&uri)?.is_some() {
-                return Err(crate::Error::PluginInvoke(format!("This is a file, not a directory: {uri:?}")));
+                return Err(crate::Error { msg: format!("This is a file, not a directory: {uri:?}").into() })
             }
             Ok(uri)
         })
@@ -594,11 +594,11 @@ impl<R: tauri::Runtime> AndroidFs<R> {
             impl_de!(struct Res { value: bool });
 
             let (quality, format) = match format {
-                DecodeOption::Png => (1.0, "Png"),
-                DecodeOption::Jpeg => (0.75, "Jpeg"),
-                DecodeOption::Webp => (0.7, "Webp"),
-                DecodeOption::JpegWith { quality } => (quality, "Jpeg"),
-                DecodeOption::WebpWith { quality } => (quality, "Webp"),
+                ImageFormat::Png => (1.0, "Png"),
+                ImageFormat::Jpeg => (0.75, "Jpeg"),
+                ImageFormat::Webp => (0.7, "Webp"),
+                ImageFormat::JpegWith { quality } => (quality, "Jpeg"),
+                ImageFormat::WebpWith { quality } => (quality, "Webp"),
             };
             let quality = (quality * 100.0).clamp(0.0, 100.0) as u8;
             let Size { width, height } = preferred_size;
@@ -720,6 +720,47 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         })
     }
 
+    /// Recursively create a directory and all of its parent components if they are missing,
+    /// then return the URI.
+    /// 
+    /// [`AndroidFs::create_file`] does this automatically, so there is no need to use it together.
+    /// 
+    /// # Args  
+    /// - ***dir*** :  
+    /// The URI of the base directory.  
+    /// This needs to be **read-write**.
+    ///  
+    /// - ***relative_path*** :  
+    /// The directory path relative to the base directory.    
+    ///  
+    /// # Support
+    /// All.
+    pub fn create_dir_all(
+        &self,
+        dir: &FileUri, 
+        relative_path: impl AsRef<str>, 
+    ) -> Result<FileUri> {
+
+        on_android!({
+            let relative_path = relative_path.as_ref().trim_matches('/');
+            if relative_path.is_empty() {
+                return Ok(dir.clone())
+            }
+
+            // TODO:
+            // create_file経由ではなく folder作成専用のkotlin apiを作成し呼び出すようにする
+            let tmp_file_uri = self.create_file(
+                dir, 
+                format!("{relative_path}/TMP-01K3CGCKYSAQ1GHF8JW5FGD4RW"), 
+                Some("application/octet-stream")
+            )?;
+            let _ = self.remove_file(&tmp_file_uri);
+            let uri = self.resolve_uri(dir, relative_path)?;
+
+            Ok(uri)
+        })
+    }
+
     /// Returns the child files and directories of the specified directory.  
     /// The order of the entries is not guaranteed.  
     /// 
@@ -788,7 +829,11 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ///     - [`AndroidFs::show_open_file_dialog`]
     ///     - [`AndroidFs::show_save_file_dialog`]
     ///     - [`AndroidFs::show_manage_dir_dialog`]
-    ///     - [`AndroidFs::read_dir`] (with `AndroidFs::show_manage_dir_dialog`)
+    ///     - [`AndroidFs::resolve_uri`]
+    ///     - [`AndroidFs::try_resolve_file_uri`]
+    ///     - [`AndroidFs::try_resolve_dir_uri`]
+    ///     - [`AndroidFs::read_dir`]
+    ///     - [`AndroidFs::create_file`]
     /// 
     /// - ***mime_types*** :  
     /// The MIME types of the file to be selected.  
@@ -940,7 +985,11 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ///     - [`AndroidFs::show_open_file_dialog`]
     ///     - [`AndroidFs::show_save_file_dialog`]
     ///     - [`AndroidFs::show_manage_dir_dialog`]
-    ///     - [`AndroidFs::read_dir`] (with `AndroidFs::show_manage_dir_dialog`)
+    ///     - [`AndroidFs::resolve_uri`]
+    ///     - [`AndroidFs::try_resolve_file_uri`]
+    ///     - [`AndroidFs::try_resolve_dir_uri`]
+    ///     - [`AndroidFs::read_dir`]
+    ///     - [`AndroidFs::create_file`]
     /// 
     /// # Support
     /// All.
@@ -999,7 +1048,11 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ///     - [`AndroidFs::show_open_file_dialog`]
     ///     - [`AndroidFs::show_save_file_dialog`]
     ///     - [`AndroidFs::show_manage_dir_dialog`]
-    ///     - [`AndroidFs::read_dir`] (with `AndroidFs::show_manage_dir_dialog`)
+    ///     - [`AndroidFs::resolve_uri`]
+    ///     - [`AndroidFs::try_resolve_file_uri`]
+    ///     - [`AndroidFs::try_resolve_dir_uri`]
+    ///     - [`AndroidFs::read_dir`]
+    ///     - [`AndroidFs::create_file`]
     /// 
     /// - ***initial_file_name*** :  
     /// An initial file name, but the user may change this value before creating the file.  
@@ -1108,7 +1161,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
                     else {
                         if create_dirs {
                             let _ = self.public_storage()
-                                .create_file_in_public_dir(base_dir, format!("{relative_path}/tmp"), Some("application/octet-stream"))
+                                .create_file(base_dir, format!("{relative_path}/tmp"), Some("application/octet-stream"))
                                 .and_then(|u| self.remove_file(&u));
                         }
             

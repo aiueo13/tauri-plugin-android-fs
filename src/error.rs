@@ -1,29 +1,34 @@
+use std::borrow::Cow;
 use serde::{ser::Serializer, Serialize};
+
 
 pub type Result<T> = std::result::Result<T, crate::Error>;
 
-#[derive(Debug, thiserror::Error)]
-#[non_exhaustive]
-pub enum Error {
-
-    #[error("This device is not running Android. This plugin is only supported on Android.")]
-    NotAndroid,
-
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
-
-    #[error(transparent)]
-    SerdeJson(#[from] serde_json::Error),
-  
-    #[error("{0}")]
-    PluginInvoke(String),
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("{msg}")]
+pub struct Error {
+    pub(crate) msg: Cow<'static, str>
 }
 
 #[cfg(target_os = "android")]
 impl From<tauri::plugin::mobile::PluginInvokeError> for crate::Error {
 
     fn from(value: tauri::plugin::mobile::PluginInvokeError) -> Self {
-        Self::PluginInvoke(format!("{value}"))
+        Self { msg: Cow::Owned(value.to_string())}
+    }
+}
+
+impl From<std::io::Error> for crate::Error {
+
+    fn from(value: std::io::Error) -> Self {
+        Self { msg: Cow::Owned(value.to_string())}
+    }
+}
+
+impl From<serde_json::Error> for crate::Error {
+
+    fn from(value: serde_json::Error) -> Self {
+        Self { msg: Cow::Owned(value.to_string())}
     }
 }
 
@@ -33,6 +38,6 @@ impl Serialize for crate::Error {
     where
         S: Serializer,
     {
-        serializer.serialize_str(self.to_string().as_ref())
+        serializer.serialize_str(&self.msg)
     }
 }

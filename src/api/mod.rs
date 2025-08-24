@@ -1,7 +1,7 @@
 macro_rules! on_android {
     ($action: expr) => {{
         #[cfg(not(target_os = "android"))] {
-            Err(crate::Error::NotAndroid)
+            Err(crate::Error { msg: std::borrow::Cow::Borrowed("This plugin is only for Android") })
         }
         #[cfg(target_os = "android")] {
             $action
@@ -9,7 +9,7 @@ macro_rules! on_android {
     }};
     ($phantom: ty, $action: expr) => {{
         #[cfg(not(target_os = "android"))] {
-            Err::<$phantom, _>(crate::Error::NotAndroid)
+            Err::<$phantom, _>(crate::Error { msg: std::borrow::Cow::Borrowed("This plugin is only for Android") })
         }
         #[cfg(target_os = "android")] {
             $action

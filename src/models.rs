@@ -72,7 +72,8 @@ impl From<FileUri> for tauri_plugin_fs::FilePath {
     fn from(value: FileUri) -> Self {
         let result: std::result::Result<_, std::convert::Infallible> = value.uri.parse();
 
-        // This will not cause panic. Because result err is infallible.
+        // This will not cause panic. 
+        // Because result err is infallible.
         result.unwrap()
     }
 }
@@ -163,9 +164,6 @@ pub struct Size {
     pub width: u32,
     pub height: u32
 }
-
-#[deprecated(note = "Wrong name. Use ImageFormat instead")]
-pub type DecodeOption = ImageFormat;
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[non_exhaustive]

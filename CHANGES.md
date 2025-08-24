@@ -1,3 +1,11 @@
+# Version 10.0.0
+- Remove deperecated items.
+- Change `Error` from enum to stcuct.
+- Add `AndroidFs::create_dir_all`
+- Add `PublicStorage::create_dir_all`
+- Add `PublicStorage::create_dir_all_in_app_dir`
+- Update documentation.
+
 # Version 9.5.0
 - Add `AndroidFs::rename`
 - Add `AndroidFs::copy`

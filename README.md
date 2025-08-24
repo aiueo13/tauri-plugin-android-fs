@@ -4,10 +4,8 @@ Note: **I’m using a translation tool, so there may be some inappropriate expre
 
 The Android file system is strict and complex. This plugin was created to provide practical file operations. You don’t need to set special permissions or configurations. 
 
-This crate aims to provide practicality through detailed and clear documentation and a wide range of options, rather than focusing on clean functions that require minimal attention. If an error or unexpected behavior occurs, please first check the documentation for the function and  functions that provided arguments. If the issue persists, it would be helpful if you could let us know on [Github](https://github.com/aiueo13/tauri-plugin-android-fs/issues/new). Function requests are also welcome. 
-
 # Setup
-Register this plugin with your Tauri project: 
+Register this plugin in your Tauri project:
 
 `src-tauri/src/lib.rs`
 
@@ -15,15 +13,19 @@ Register this plugin with your Tauri project:
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_android_fs::init()) // This
+        // Add following
+        .plugin(tauri_plugin_android_fs::init())
+        //
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+```
 
 # Usage
-Currently, this plugin only provides a Rust-side API, not a NPM library.  
+This plugin only provides a Rust-side API. 
+If you need to use file data on frontend, consider using Tauri’s custom protocols for efficient transmission. Or convert `tauri_plugin_android_fs::FileUri` to `tauri_plugin_fs::FilePath` and use tauri_plugin_fs functions on frontend. 
 
-Then, there are three main ways to manipulate files:
+There are three main ways to manipulate files:
 
 ### 1. Dialog
 
@@ -47,6 +49,10 @@ fn file_picker_example(app: tauri::AppHandle) -> tauri_plugin_android_fs::Result
     }
     else {
         for uri in selected_files {
+            // This is FilePath::Url(..)
+            // Not FilePath::Path(..)
+            let file_path: tauri_plugin_fs::FilePath = uri.into();
+
             let file_type = api.get_mime_type(&uri)?.unwrap(); // If file, this returns no None.
             let file_name = api.get_name(&uri)?;
             let file_thumbnail = api.get_thumbnail(
@@ -65,11 +71,6 @@ fn file_picker_example(app: tauri::AppHandle) -> tauri_plugin_android_fs::Result
                 // This truncate existing contents.
                 let file: std::fs::File = api.open_file(&uri, FileAccessMode::WriteTruncate)?;
             }
-
-            // If you need to use file data on frontend, 
-            // consider using Tauri’s custom protocols for efficient transmission.
-            // Or convert to FilePath and use tauri_plugin_fs functions such as 'read' on frontend.
-            let file_path: tauri_plugin_fs::FilePath = uri.into();
         }
     }
     Ok(())
@@ -81,7 +82,7 @@ use tauri_plugin_android_fs::{AndroidFsExt, Entry};
 fn dir_picker_example(app: tauri::AppHandle) -> tauri_plugin_android_fs::Result<()> {
     let api = app.android_fs();
 
-    // pick folder to read and write
+    // Pick folder to read and write
     let selected_folder = api.show_manage_dir_dialog(
         None, // Initial location
     )?;
@@ -90,10 +91,10 @@ fn dir_picker_example(app: tauri::AppHandle) -> tauri_plugin_android_fs::Result<
         for entry in api.read_dir(&dir_uri)? {
             match entry {
                 Entry::File { name, uri, last_modified, len, mime_type, .. } => {
-                    // handle file
+                    // Handle file
                 },
                 Entry::Dir { name, uri, last_modified, .. } => {
-                    // handle folder
+                    // Handle folder
                 },
             }
         }
@@ -112,7 +113,7 @@ use tauri_plugin_android_fs::{AndroidFsExt, FileUri, InitialLocation, Persistabl
 /// 
 /// return Ok(false) when canceled by user.  
 /// return Ok(true) when success.
-fn save_file_with_dialog(
+fn save_file_with_file_dialog(
     app: tauri::AppHandle,
     file_name: &str,
     mime_type: &str,
@@ -121,7 +122,7 @@ fn save_file_with_dialog(
 
     let api = app.android_fs();
 
-    // pick file to write
+    // Pick file to write
     let file_uri = api.show_save_file_dialog(
         None, // Initial location
         file_name, // Initial file name
@@ -132,9 +133,9 @@ fn save_file_with_dialog(
         return Ok(false)
     };
 
-    // write contents
+    // Write contents
     if let Err(e) = api.write(&file_uri, contents) {
-        // handle err
+        // Handle err
         let _ = api.remove_file(&file_uri);
         return Err(e)
     }
@@ -184,7 +185,7 @@ fn save_file_with_dir_dialog(
         Some(dest_dir_uri) => dest_dir_uri,
         None => {
             // Get initial location for folder picker.
-            // But returned uri might be ignored by it.
+            // But this returned uri might be ignored by it.
             let initial_location = api.resolve_initial_location(
                 InitialLocation::TopPublicDir,
                 false
@@ -214,16 +215,16 @@ fn save_file_with_dir_dialog(
         },
     };
     
-    // create a new empty file in dest folder
+    // Create a new empty file in dest folder
     let new_file_uri = api.create_file(
         &dest_dir_uri, 
         relative_path, 
         Some(mime_type)
     )?;
 
-    // write contents
+    // Write contents
     if let Err(e) = api.write(&new_file_uri, contents) {
-        // handle err
+        // Handle err
         let _ = api.remove_file(&new_file_uri);
         return Err(e)
     }
@@ -244,19 +245,19 @@ fn example(app: tauri::AppHandle) -> tauri_plugin_android_fs::Result<()> {
     let storage = api.public_storage();
     let contents = &[];
 
-    // create a new empty PNG image file
+    // Create a new empty PNG image file
     //
     // This path is represented as follows:
     //   ~/Pictures/{app_name}/my-image.png
     //   $HOME/Pictures/{app_name}/my-image.png
     //   /storage/emulated/0/Pictures/{app_name}/my-image.png
-    let uri = storage.create_file_in_public_app_dir(
+    let uri = storage.create_file_in_app_dir(
          PublicImageDir::Pictures, // Base directory
          "my-image.png", // Relative file path
          Some("image/png") // Mime type
     )?;
 
-    // write the contents to the PNG image
+    // Write the contents to the PNG image
     if let Err(e) = api.write(&uri, contents) {
         // handle err
         let _ = api.remove_file(&uri);
@@ -264,21 +265,22 @@ fn example(app: tauri::AppHandle) -> tauri_plugin_android_fs::Result<()> {
     }
 
 
-    // create a new empty text file
+    // Create a new empty text file.
+    // All subdirectories are created automatically.
     //
     // This path is represented as follows:
     //   ~/Documents/{app_name}/2025-3-2/data.txt
     //   $HOME/Documents/{app_name}/2025-3-2/data.txt
     //   /storage/emulated/0/Documents/{app_name}/2025-3-2/data.txt
-    let uri = storage.create_file_in_public_app_dir(
+    let uri = storage.create_file_in_app_dir(
          PublicGeneralPurposeDir::Documents, // Base directory
          "2025-3-2/data.txt", // Relative file path
          Some("text/plain") // Mime type
     )?;
 
-    // write the contents to the text file
+    // Write the contents to the text file
     if let Err(e) = api.write(&uri, contents) {
-        // handle err
+        // Handle err
         let _ = api.remove_file(&uri);
         return Err(e)
     }

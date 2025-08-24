@@ -36,9 +36,6 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             ;(async function () {
                 const noop = async () => await window.__TAURI_INTERNALS__.invoke('plugin:android-fs|noop');
 
-                // check noop is allowed
-                await noop()
-
                 setInterval(noop, 800)
             })();
         ";
