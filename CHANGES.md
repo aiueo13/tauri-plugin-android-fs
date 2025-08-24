@@ -1,3 +1,6 @@
+# Version 10.0.1
+- Update documentation.
+
 # Version 10.0.0
 - Remove deperecated items.
 - Change `Error` from enum to stcuct.

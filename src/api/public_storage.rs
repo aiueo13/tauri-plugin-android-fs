@@ -122,8 +122,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// 
     /// # Args  
     /// - ***dir*** :  
-    /// The URI of the base directory.  
-    /// This needs to be **read-write**.
+    /// The base directory.  
     ///  
     /// - ***relative_path*** :  
     /// The directory path relative to the base directory.    
@@ -176,8 +175,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// ```
     /// # Args  
     /// - ***dir*** :  
-    /// The URI of the base directory.  
-    /// This needs to be **read-write**.
+    /// The base directory.  
     ///  
     /// - ***relative_path*** :  
     /// The directory path relative to the base directory.    
