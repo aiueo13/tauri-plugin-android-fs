@@ -680,11 +680,14 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         })
     }
 
-    /// Creates a new empty file in the specified location and returns a URI.  
+    /// Creates a new empty file in the specified location and returns a URI.   
     /// 
     /// The permissions and validity period of the returned URIs depend on the origin directory 
     /// (e.g., the top directory selected by [`AndroidFs::show_manage_dir_dialog`]) 
     ///  
+    /// Please note that this has a different meaning from `std::fs::create` that open the file in write mod.
+    /// If you need it, use [`AndroidFs::open_file`] with [`FileAccessMode::WriteTrucncate`].
+    /// 
     /// # Args  
     /// - ***dir*** :  
     /// The URI of the base directory.  
@@ -692,8 +695,12 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ///  
     /// - ***relative_path*** :  
     /// The file path relative to the base directory.  
-    /// If a file with the same name already exists, a sequential number will be appended to ensure uniqueness.  
     /// Any missing subdirectories in the specified path will be created automatically.  
+    /// If a file with the same name already exists, 
+    /// the system append a sequential number to ensure uniqueness.  
+    /// If no extension is present, 
+    /// the system may infer one from ***mime_type*** and may append it to the file name. 
+    /// But this append-extension operation depends on the model and version.  
     ///  
     /// - ***mime_type*** :  
     /// The MIME type of the file to be created.  
@@ -721,7 +728,8 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     }
 
     /// Recursively create a directory and all of its parent components if they are missing,
-    /// then return the URI.
+    /// then return the URI.  
+    /// If it already exists, do nothing and just return the direcotry uri.
     /// 
     /// [`AndroidFs::create_file`] does this automatically, so there is no need to use it together.
     /// 
@@ -971,7 +979,8 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// By default, returned URI is valid until the app is terminated. 
     /// If you want to persist it across app restarts, use [`AndroidFs::take_persistable_uri_permission`].
     /// 
-    /// This provides a standardized file explorer-style interface.
+    /// This provides a standardized file explorer-style interface,
+    /// and also allows file selection from part of third-party apps or cloud storage.
     /// 
     /// # Args  
     /// - ***initial_location*** :  
@@ -1055,7 +1064,11 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ///     - [`AndroidFs::create_file`]
     /// 
     /// - ***initial_file_name*** :  
-    /// An initial file name, but the user may change this value before creating the file.  
+    /// An initial file name.  
+    /// The user may change this value before creating the file.  
+    /// If no extension is present, 
+    /// the system may infer one from ***mime_type*** and may append it to the file name. 
+    /// But this append-extension operation depends on the model and version.
     /// 
     /// - ***mime_type*** :  
     /// The MIME type of the file to be saved.  
@@ -1110,7 +1123,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// fn sample(app: tauri::AppHandle) {
     ///     let api = app.android_fs();
     ///
-    ///     // Get URI of the top directory
+    ///     // Get URI of the top public directory in primary volume
     ///     let initial_location = api.resolve_initial_location(
     ///         InitialLocation::TopPublicDir,
     ///         false,
@@ -1147,27 +1160,36 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ) -> crate::Result<FileUri> {
 
         on_android!({
-            const TOP_DIR: &str = "content://com.android.externalstorage.documents/document/primary%3A";
+            const TOP_DIR: &str = "content://com.android.externalstorage.documents/document/primary";
 
             let uri = match dir.into() {
-                InitialLocation::TopPublicDir => TOP_DIR.into(),
-                InitialLocation::PublicDir(dir) => format!("{TOP_DIR}{dir}"),
+                InitialLocation::TopPublicDir => format!("{TOP_DIR}%3A"),
+                InitialLocation::PublicDir(dir) => format!("{TOP_DIR}%3A{dir}"),
                 InitialLocation::DirInPublicDir { base_dir, relative_path } => {
                     let relative_path = relative_path.trim_matches('/');
 
                     if relative_path.is_empty() {
-                        format!("{TOP_DIR}{base_dir}")
+                        format!("{TOP_DIR}%3A{base_dir}")
                     }
                     else {
                         if create_dirs {
-                            let _ = self.public_storage()
-                                .create_file(base_dir, format!("{relative_path}/tmp"), Some("application/octet-stream"))
-                                .and_then(|u| self.remove_file(&u));
+                            let _ = self.public_storage().create_dir_all(base_dir, relative_path);
                         }
-            
                         let sub_dirs = encode_document_id(relative_path);
-                        format!("{TOP_DIR}{base_dir}%2F{sub_dirs}")
+                        format!("{TOP_DIR}%3A{base_dir}%2F{sub_dirs}")
                     }
+                },
+                InitialLocation::DirInPublicAppDir { base_dir, relative_path } => {
+                    let relative_path = &format!(
+                        "{}/{}", 
+                        self.public_storage().app_dir_name()?,
+                        relative_path.trim_matches('/'),
+                    );
+                  
+                    return self.resolve_initial_location(
+                        InitialLocation::DirInPublicDir { base_dir, relative_path }, 
+                        create_dirs
+                    )
                 }
             };
 

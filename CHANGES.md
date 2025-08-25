@@ -1,3 +1,8 @@
+# Version 10.1.0
+- Fix an issue that directory creation by `AndroidFs::resolve_initial_locaiton` may not working properly
+- Add `InitialLocation::DirInPublicAppDir`
+- Update documentation.
+
 # Version 10.0.1
 - Update documentation.
 

@@ -476,6 +476,11 @@ pub enum InitialLocation<'a> {
     DirInPublicDir {
         base_dir: PublicDir,
         relative_path: &'a str,
+    },
+
+    DirInPublicAppDir {
+        base_dir: PublicDir,
+        relative_path: &'a str,
     }
 }
 
