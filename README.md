@@ -38,7 +38,7 @@ fn file_picker_example(app: tauri::AppHandle) -> tauri_plugin_android_fs::Result
     let api = app.android_fs();
     
     // pick files to read and write
-    let selected_files = api.show_open_file_dialog(
+    let selected_files = api.file_picker().pick_files(
         None, // Initial location
         &["*/*"], // Target MIME types
         true, // Allow multiple files
@@ -51,7 +51,7 @@ fn file_picker_example(app: tauri::AppHandle) -> tauri_plugin_android_fs::Result
         for uri in selected_files {
             // This is FilePath::Url(..)
             // Not FilePath::Path(..)
-            let file_path: tauri_plugin_fs::FilePath = uri.into();
+            let file_path: tauri_plugin_fs::FilePath = uri.clone().into();
 
             let file_type = api.get_mime_type(&uri)?.unwrap(); // If file, this returns no None.
             let file_name = api.get_name(&uri)?;
@@ -83,7 +83,7 @@ fn dir_picker_example(app: tauri::AppHandle) -> tauri_plugin_android_fs::Result<
     let api = app.android_fs();
 
     // Pick folder to read and write
-    let selected_folder = api.show_manage_dir_dialog(
+    let selected_folder = api.file_picker().pick_dir(
         None, // Initial location
     )?;
 
@@ -123,7 +123,7 @@ fn save_file_with_file_dialog(
     let api = app.android_fs();
 
     // Pick file to write
-    let file_uri = api.show_save_file_dialog(
+    let file_uri = api.file_picker().save_file(
         None, // Initial location
         file_name, // Initial file name
         Some(mime_type), // MIME type
@@ -192,7 +192,7 @@ fn save_file_with_dir_dialog(
             )?;
 
             // Show folder picker
-            let uri = api.show_manage_dir_dialog(
+            let uri = api.file_picker().pick_dir(
                 Some(&initial_location)
             )?;
 

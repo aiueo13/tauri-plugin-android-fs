@@ -1,4 +1,7 @@
 # Version 10.2.0
+- Update documentation.
+
+# Version 10.2.0
 - Deprecate `AndroidFs::can_share_file` 
 - Deprecate `AndroidFs::can_view_file` 
 - Deprecate `AndroidFs::show_share_file_dialog`
