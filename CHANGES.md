@@ -1,3 +1,19 @@
+# Version 10.2.0
+- Deprecate `AndroidFs::can_share_file` 
+- Deprecate `AndroidFs::can_view_file` 
+- Deprecate `AndroidFs::show_share_file_dialog`
+- Deprecate `AndroidFs::show_view_file_dialog`
+- Deprecate `AndroidFs::show_open_file_dialog`
+- Deprecate `AndroidFs::show_open_visual_media_dialog`
+- Deprecate `AndroidFs::show_open_content_dialog`
+- Deprecate `AndroidFs::show_save_file_dialog`
+- Deprecate `AndroidFs::show_manage_dir_dialog`
+- Add `AndroidFs::file_sender`
+- Add `AndroidFs::file_picker`
+- Add `FileSender`
+- Add `FilePicker`
+- Update documentation.
+
 # Version 10.1.0
 - Fix an issue that directory creation by `AndroidFs::resolve_initial_locaiton` may not working properly
 - Add `InitialLocation::DirInPublicAppDir`

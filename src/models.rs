@@ -28,7 +28,7 @@ pub struct FileUri {
     /// `file://` or `content://` URI of file or directory.
     pub uri: String,
 
-    /// Only files/directories under the directory obtained by AndroidFs::show_manage_dir_dialog will own this.
+    /// Only files/directories under the directory obtained by AndroidFs::show_picker_for_manage_dir will own this.
     pub document_top_tree_uri: Option<String>,
 }
 

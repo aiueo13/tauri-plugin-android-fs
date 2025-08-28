@@ -42,9 +42,13 @@ macro_rules! impl_de {
 }
 
 mod android_fs;
+mod file_picker;
+mod file_sender;
 mod private_storage;
 mod public_storage;
 
 pub use android_fs::AndroidFs;
+pub use file_picker::FilePicker;
+pub use file_sender::FileSender;
 pub use private_storage::PrivateStorage;
 pub use public_storage::PublicStorage;

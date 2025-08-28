@@ -8,8 +8,8 @@ mod api;
 mod utils;
 
 pub use models::*;
-pub use error::{Error, Result};
-pub use api::{AndroidFs, PrivateStorage, PublicStorage};
+pub use error::*;
+pub use api::*;
 pub(crate) use utils::*;
 
 /// Initializes the plugin.

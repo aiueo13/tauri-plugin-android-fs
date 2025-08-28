@@ -25,7 +25,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// - Not removed when the app is uninstalled.
     ///
     /// Please note that this has a different meaning from `std::fs::create` that open the file in write mod.
-    /// If you need it, use [`AndroidFs::open_file`] with [`FileAccessMode::WriteTrucncate`].
+    /// If you need it, use [`AndroidFs::open_file`] with [`FileAccessMode::WriteTruncate`].
     /// 
     /// This is the same as following: 
     /// ```ignore
@@ -92,7 +92,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// - Not removed when the app is uninstalled.
     ///
     /// Please note that this has a different meaning from `std::fs::create` that open the file in write mod.
-    /// If you need it, use [`AndroidFs::open_file`] with [`FileAccessMode::WriteTrucncate`].
+    /// If you need it, use [`AndroidFs::open_file`] with [`FileAccessMode::WriteTruncate`].
     /// 
     /// # Args
     /// - ***dir*** :  

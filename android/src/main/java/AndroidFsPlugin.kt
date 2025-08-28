@@ -3,6 +3,7 @@ package com.plugin.android_fs
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
+import android.content.ActivityNotFoundException
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
@@ -188,13 +189,45 @@ class CopyFileArgs {
 }
 
 @InvokeArg
-class ShareFileArgs {
-    lateinit var uri: FileUri
+class ShareFilesArgs {
+    lateinit var uris: Array<FileUri>
+    var commonMimeType: String? = null
+    var useAppChooser: Boolean = true
+    var excludeSelfFromAppChooser: Boolean = true
+}
+
+@InvokeArg
+class CanShareFilesArgs {
+    lateinit var uris: Array<FileUri>
+    var commonMimeType: String? = null
 }
 
 @InvokeArg
 class ViewFileArgs {
     lateinit var uri: FileUri
+    var mimeType: String? = null
+    var useAppChooser: Boolean = true
+    var excludeSelfFromAppChooser: Boolean = true
+}
+
+@InvokeArg
+class CanViewFileArgs {
+    lateinit var uri: FileUri
+    var mimeType: String? = null
+}
+
+@InvokeArg
+class EditFileArgs {
+    lateinit var uri: FileUri
+    var mimeType: String? = null
+    var useAppChooser: Boolean = true
+    var excludeSelfFromAppChooser: Boolean = true
+}
+
+@InvokeArg
+class CanEditFileArgs {
+    lateinit var uri: FileUri
+    var mimeType: String? = null
 }
 
 @TauriPlugin
@@ -810,39 +843,59 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
-    fun shareFile(invoke: Invoke) {
+    fun shareFiles(invoke: Invoke) {
         try {
-            val args = invoke.parseArgs(ShareFileArgs::class.java)
-            val intent = createShareFileIntent(
-                Uri.parse(args.uri.uri),
-                null
+            val args = invoke.parseArgs(ShareFilesArgs::class.java)
+            var intent = createShareFilesIntent(
+                args.uris.map { Uri.parse(it.uri) },
+                args.commonMimeType
             )
 
-		    activity.applicationContext.startActivity(intent)
+            if (args.useAppChooser) {
+                intent = createShareFilesIntentChooser(intent, args.excludeSelfFromAppChooser)
+            }
+
+            // 対応できるアプリがないときExceptionになる。
+            // resolveActivityやqueryIntentActivitiesなどによる判定はAndroid11以降特別な権限が必要。
+            try {
+                activity.applicationContext.startActivity(intent)
+            }
+            catch (_: ActivityNotFoundException) {}
+
             invoke.resolve()
         }
         catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke shareFile."
+            val message = ex.message ?: "Failed to invoke shareFiles."
             Logger.error(message)
             invoke.reject(message)
         }
     }
 
     @Command
-    fun canShareFile(invoke: Invoke) {
+    fun canShareFiles(invoke: Invoke) {
         try {
-            val args = invoke.parseArgs(ShareFileArgs::class.java)
-            val intent = createShareFileIntent(
-                Uri.parse(args.uri.uri),
-                null
-            )
+            val args = invoke.parseArgs(CanShareFilesArgs::class.java)
+            val uris = args.uris.map { Uri.parse(it.uri) }
+
+            var ok = true
+            for (uri in uris) {
+                if (uri.scheme == "file") {
+                    ok = false
+                    break
+                }
+            }
+
+            if (ok) {
+                val intent = createShareFilesIntent(uris, args.commonMimeType)
+                ok = intent.resolveActivity(activity.packageManager) != null
+            }
 
             val res = JSObject()
-            res.put("value", intent.resolveActivity(activity.packageManager) != null)
+            res.put("value", ok)
             invoke.resolve(res)
         }
         catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke cabShareFile."
+            val message = ex.message ?: "Failed to invoke canShareFiles."
             Logger.error(message)
             invoke.reject(message)
         }
@@ -852,12 +905,22 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun viewFile(invoke: Invoke) {
         try {
             val args = invoke.parseArgs(ViewFileArgs::class.java)
-            val intent = createViewFileIntent(
+            var intent = createViewFileIntent(
                 Uri.parse(args.uri.uri),
-                null
+                args.mimeType
             ) 
 
-            activity.applicationContext.startActivity(intent)
+            if (args.useAppChooser) {
+                intent = createViewFileIntentChooser(intent, args.excludeSelfFromAppChooser)
+            }
+
+            // 対応できるアプリがないときExceptionになる。
+            // resolveActivityやqueryIntentActivitiesなどによる判定はAndroid11以降特別な権限が必要。
+            try {
+                activity.applicationContext.startActivity(intent)
+            }
+            catch (_: ActivityNotFoundException) {}
+
             invoke.resolve()
         }
         catch (ex: Exception) {
@@ -870,18 +933,75 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun canViewFile(invoke: Invoke) {
         try {
-            val args = invoke.parseArgs(ViewFileArgs::class.java)
-            val intent = createViewFileIntent(
-                Uri.parse(args.uri.uri),
-                null
-            ) 
+            val args = invoke.parseArgs(CanViewFileArgs::class.java)
+            val uri = Uri.parse(args.uri.uri)
+            val ok = when {
+                uri.scheme == "file" -> false
+                else -> {
+                    val intent = createViewFileIntent(uri, args.mimeType)
+                    intent.resolveActivity(activity.packageManager) != null
+                }
+            }
 
             val res = JSObject()
-            res.put("value", intent.resolveActivity(activity.packageManager) != null)
+            res.put("value", ok)
             invoke.resolve(res)
         }
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke cabViewFile."
+            Logger.error(message)
+            invoke.reject(message)
+        }
+    }
+
+    @Command
+    fun editFile(invoke: Invoke) {
+        try {
+            val args = invoke.parseArgs(EditFileArgs::class.java)
+            var intent = createEditFileIntent(
+                Uri.parse(args.uri.uri),
+                args.mimeType
+            ) 
+
+            if (args.useAppChooser) {
+                intent = createEditFileIntentChooser(intent, args.excludeSelfFromAppChooser)
+            }
+
+            // 対応できるアプリがないときExceptionになる。
+            // resolveActivityやqueryIntentActivitiesなどによる判定はAndroid11以降特別な権限が必要。
+            try {
+                activity.applicationContext.startActivity(intent)
+            }
+            catch (_: ActivityNotFoundException) {}
+
+            invoke.resolve()
+        }
+        catch (ex: Exception) {
+            val message = ex.message ?: "Failed to invoke editFile."
+            Logger.error(message)
+            invoke.reject(message)
+        }
+    }
+
+    @Command
+    fun canEditFile(invoke: Invoke) {
+        try {
+            val args = invoke.parseArgs(CanEditFileArgs::class.java)
+            val uri = Uri.parse(args.uri.uri)
+            val ok = when {
+                uri.scheme == "file" -> false
+                else -> {
+                    val intent = createEditFileIntent(uri, args.mimeType)
+                    intent.resolveActivity(activity.packageManager) != null
+                }
+            }
+
+            val res = JSObject()
+            res.put("value", ok)
+            invoke.resolve(res)
+        }
+        catch (ex: Exception) {
+            val message = ex.message ?: "Failed to invoke canEditFile."
             Logger.error(message)
             invoke.reject(message)
         }
@@ -1259,39 +1379,120 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         mimeType: String?
     ): Intent {
 
-        val baseIntent = Intent(Intent.ACTION_VIEW)
+        return Intent(Intent.ACTION_VIEW)
             .setDataAndType(uri, mimeType ?: activity.contentResolver.getType(uri))
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
 
-        val intent = Intent.createChooser(baseIntent, "")
+    private fun createViewFileIntentChooser(
+        viewFileIntent: Intent,
+        excludeSelfFromAppChooser: Boolean
+    ): Intent {
+
+        val chooser = Intent.createChooser(viewFileIntent, "")
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            intent.putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(activity.componentName))
+        if (excludeSelfFromAppChooser && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            chooser.putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(activity.componentName))
         }
 
-        return intent
+        return chooser
     }
 
-    private fun createShareFileIntent(
+    private fun createShareFilesIntent(
+        uris: List<Uri>,
+        commonMimeType: String? = null
+    ): Intent {
+
+        if (uris.isEmpty()) throw IllegalArgumentException("uris must not be empty")
+
+        val mimeType = commonMimeType ?: run {
+            val types = uris.map { activity.contentResolver.getType(it) ?: "*/*" }
+            getCommonMimeType(types)
+        }
+
+        val builder = ShareCompat.IntentBuilder(activity)
+            .setType(mimeType)
+
+        for (uri in uris) {
+            builder.addStream(uri)
+        }
+
+        return builder.intent
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+
+    private fun createShareFilesIntentChooser(
+        shareFileIntent: Intent,
+        excludeSelfFromAppChooser: Boolean
+    ): Intent {
+
+        val chooser = Intent.createChooser(shareFileIntent, "")
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+        if (excludeSelfFromAppChooser && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            chooser.putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(activity.componentName))
+        }
+
+        return chooser
+    }
+
+    private fun createEditFileIntent(
         uri: Uri,
         mimeType: String?
     ): Intent {
 
-        val builder = ShareCompat.IntentBuilder(activity)
-            .setStream(uri)
-            .setType(mimeType ?: activity.contentResolver.getType(uri))
-
-        val intent = builder
-            .createChooserIntent()
+        return Intent(Intent.ACTION_EDIT)
+            .setDataAndType(uri, mimeType ?: activity.contentResolver.getType(uri))
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+
+    private fun createEditFileIntentChooser(
+        editFileIntent: Intent,
+        excludeSelfFromAppChooser: Boolean
+    ): Intent {
+
+        val chooser = Intent.createChooser(editFileIntent, "")
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            intent.putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(activity.componentName))
+        if (excludeSelfFromAppChooser && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            chooser.putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(activity.componentName))
         }
 
-        return intent
+        return chooser
+    }
+
+    private fun getCommonMimeType(mimeTypes: List<String>): String {
+        if (mimeTypes.isEmpty()) return "*/*"
+
+        // 最初の MIME タイプを基準に分割
+        val firstParts = mimeTypes[0].split("/")
+        if (firstParts.size != 2) throw Error("Illegal mimeType format: ${mimeTypes[0]}")
+
+        val type = firstParts[0]
+        var subtype = firstParts[1]
+
+        for (mime in mimeTypes.drop(1)) {
+            val parts = mime.split("/")
+            if (parts.size != 2) throw Error("Illegal mimeType format: ${mime}")
+
+            // typeが共通でなければ共通MIMEはなし
+            if (parts[0] != type) return "*/*"
+
+            // subtypeが異なる場合はワイルドカードに
+            if (parts[1] != subtype) {
+                subtype = "*"
+            }
+        }
+
+        return "$type/$subtype"
     }
 }

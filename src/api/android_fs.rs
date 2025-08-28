@@ -57,6 +57,26 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         cfg!(target_os = "android")
     }
 
+    /// API of file storage intended for the app's use only.
+    pub fn private_storage(&self) -> PrivateStorage<'_, R> {
+        PrivateStorage(self)
+    }
+
+    /// API of file storage that is available to other applications and users.
+    pub fn public_storage(&self) -> PublicStorage<'_, R> {
+        PublicStorage(self)
+    }
+
+    /// API of file/dir picker.
+    pub fn file_picker(&self) -> FilePicker<'_, R> {
+        FilePicker(self)
+    }
+
+    /// API of sharing files with other apps.
+    pub fn file_sender(&self) -> FileSender<'_, R> {
+        FileSender(self)
+    }
+
     /// Get the file or directory name.  
     /// 
     /// # Args
@@ -505,7 +525,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Error occurs, if the file does not exist.  
     /// 
     /// The permissions and validity period of the returned URI depend on the origin directory 
-    /// (e.g., the top directory selected by [`AndroidFs::show_manage_dir_dialog`]) 
+    /// (e.g., the top directory selected by [`FilePicker::pick_dir`]) 
     /// 
     /// # Support
     /// All.
@@ -523,7 +543,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Error occurs, if the directory does not exist.  
     /// 
     /// The permissions and validity period of the returned URI depend on the origin directory 
-    /// (e.g., the top directory selected by [`AndroidFs::show_manage_dir_dialog`]) 
+    /// (e.g., the top directory selected by [`FilePicker::pick_dir`]) 
     /// 
     /// # Support
     /// All.
@@ -547,7 +567,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Or use this with [`AndroidFs::get_mime_type`].
     /// 
     /// The permissions and validity period of the returned URI depend on the origin directory 
-    /// (e.g., the top directory selected by [`AndroidFs::show_manage_dir_dialog`]) 
+    /// (e.g., the top directory selected by [`FilePicker::pick_dir`]) 
     /// 
     /// # Performance
     /// This operation is relatively fast 
@@ -683,10 +703,10 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Creates a new empty file in the specified location and returns a URI.   
     /// 
     /// The permissions and validity period of the returned URIs depend on the origin directory 
-    /// (e.g., the top directory selected by [`AndroidFs::show_manage_dir_dialog`]) 
+    /// (e.g., the top directory selected by [`FilePicker::pick_dir`]) 
     ///  
     /// Please note that this has a different meaning from `std::fs::create` that open the file in write mod.
-    /// If you need it, use [`AndroidFs::open_file`] with [`FileAccessMode::WriteTrucncate`].
+    /// If you need it, use [`AndroidFs::open_file`] with [`FileAccessMode::WriteTruncate`].
     /// 
     /// # Args  
     /// - ***dir*** :  
@@ -773,7 +793,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// The order of the entries is not guaranteed.  
     /// 
     /// The permissions and validity period of the returned URIs depend on the origin directory 
-    /// (e.g., the top directory selected by [`AndroidFs::show_manage_dir_dialog`])  
+    /// (e.g., the top directory selected by [`FilePicker::pick_dir`])  
     /// 
     /// # Args
     /// - ***uri*** :  
@@ -813,49 +833,8 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         })
     }
 
-    /// Opens a system file picker and returns a **read-write** URIs.  
-    /// If no file is selected or the user cancels, an empty vec is returned.  
-    /// 
-    /// By default, returned URI is valid until the app is terminated. 
-    /// If you want to persist it across app restarts, use [`AndroidFs::take_persistable_uri_permission`].
-    /// 
-    /// This provides a standardized file explorer-style interface, 
-    /// and also allows file selection from part of third-party apps or cloud storage.
-    ///
-    /// Removing the returned files is also supported in most cases, 
-    /// but note that files provided by third-party apps may not be removable.  
-    ///  
-    /// # Args  
-    /// - ***initial_location*** :  
-    /// Indicate the initial location of dialog.  
-    /// There is no need to use this if there is no special reason.  
-    /// System will do its best to launch the dialog in the specified entry 
-    /// if it's a directory, or the directory that contains the specified file if not.  
-    /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.  
-    /// This must be a URI taken from following :   
-    ///     - [`AndroidFs::resolve_initial_location`]
-    ///     - [`AndroidFs::show_open_file_dialog`]
-    ///     - [`AndroidFs::show_save_file_dialog`]
-    ///     - [`AndroidFs::show_manage_dir_dialog`]
-    ///     - [`AndroidFs::resolve_uri`]
-    ///     - [`AndroidFs::try_resolve_file_uri`]
-    ///     - [`AndroidFs::try_resolve_dir_uri`]
-    ///     - [`AndroidFs::read_dir`]
-    ///     - [`AndroidFs::create_file`]
-    /// 
-    /// - ***mime_types*** :  
-    /// The MIME types of the file to be selected.  
-    /// However, there is no guarantee that the returned file will match the specified types.  
-    /// If left empty, all file types will be available (equivalent to `["*/*"]`).  
-    ///  
-    /// - ***multiple*** :  
-    /// Indicates whether multiple file selection is allowed.  
-    /// 
-    /// # Support
-    /// All.
-    /// 
-    /// # References
-    /// <https://developer.android.com/reference/android/content/Intent#ACTION_OPEN_DOCUMENT>
+    /// Use [`FilePicker::pick_files`] instead.
+    #[deprecated = "Use FilePicker::pick_files instead"]
     pub fn show_open_file_dialog(
         &self,
         initial_location: Option<&FileUri>,
@@ -863,250 +842,62 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         multiple: bool,
     ) -> crate::Result<Vec<FileUri>> {
 
-        on_android!({
-            impl_se!(struct Req<'a> { 
-                mime_types: &'a [&'a str],
-                multiple: bool,
-                initial_location: Option<&'a FileUri>
-            });
-            impl_de!(struct Res { uris: Vec<FileUri> });
-    
-            let _guard = self.intent_lock.lock();
-            self.api
-                .run_mobile_plugin::<Res>("showOpenFileDialog", Req { mime_types, multiple, initial_location })
-                .map(|v| v.uris)
-                .map_err(Into::into)
-        })
+        self.file_picker().pick_files(initial_location, mime_types, multiple)
     }
 
-    /// Opens a file picker and returns a **readonly** URIs.  
-    /// If no file is selected or the user cancels, an empty vec is returned.  
-    ///  
-    /// Returned URI is valid until the app is terminated. Can not persist it.
-    /// 
-    /// This works differently depending on the model and version.  
-    /// But recent devices often have the similar behaviour as [`AndroidFs::show_open_visual_media_dialog`] or [`AndroidFs::show_open_file_dialog`].  
-    /// Use this, if you want your app to simply read/import data.
-    /// 
-    /// # Args  
-    /// - ***mime_types*** :  
-    /// The MIME types of the file to be selected.  
-    /// However, there is no guarantee that the returned file will match the specified types.  
-    /// If left empty, all file types will be available (equivalent to `["*/*"]`).  
-    ///  
-    /// - ***multiple*** :  
-    /// Indicates whether multiple file selection is allowed.  
-    /// 
-    /// # Support
-    /// All.
-    /// 
-    /// # References
-    /// <https://developer.android.com/reference/android/content/Intent#ACTION_GET_CONTENT>
+    /// Use [`FilePicker::pick_contents`] instead.
+    #[deprecated = "Use FilePicker::pick_contents instead"]
     pub fn show_open_content_dialog(
         &self,
         mime_types: &[&str],
         multiple: bool
     ) -> crate::Result<Vec<FileUri>> {
 
-        on_android!({
-            impl_se!(struct Req<'a> { mime_types: &'a [&'a str], multiple: bool });
-            impl_de!(struct Res { uris: Vec<FileUri> });
-
-            let _guard = self.intent_lock.lock();
-            self.api
-                .run_mobile_plugin::<Res>("showOpenContentDialog", Req { mime_types, multiple })
-                .map(|v| v.uris)
-                .map_err(Into::into)
-        })
+        self.file_picker().pick_contents(mime_types, multiple)
     }
 
-    /// Opens a media picker and returns a **readonly** URIs.  
-    /// If no file is selected or the user cancels, an empty vec is returned.  
-    ///  
-    /// By default, returned URI is valid until the app is terminated. 
-    /// If you want to persist it across app restarts, use [`AndroidFs::take_persistable_uri_permission`].
-    ///  
-    /// This media picker provides a browsable interface that presents the user with their media library, 
-    /// sorted by date from newest to oldest. 
-    /// 
-    /// # Args  
-    /// - ***target*** :  
-    /// The media type of the file to be selected.  
-    /// Images or videos, or both.  
-    ///  
-    /// - ***multiple*** :  
-    /// Indicates whether multiple file selection is allowed.  
-    ///  
-    /// # Note
-    /// The file obtained from this function cannot retrieve the correct file name using [`AndroidFs::get_name`].  
-    /// Instead, it will be assigned a sequential number, such as `1000091523.png`. 
-    /// And this is marked intended behavior, not a bug.
-    /// - <https://issuetracker.google.com/issues/268079113>  
-    ///  
-    /// # Support
-    /// This feature is available on devices that meet the following criteria:  
-    /// - Running Android 11 (API level 30) or higher  
-    /// - Receive changes to Modular System Components through Google System Updates  
-    ///  
-    /// Availability on a given device can be verified by calling [`AndroidFs::is_visual_media_dialog_available`].  
-    /// If not supported, this function behaves the same as [`AndroidFs::show_open_file_dialog`].  
-    /// 
-    /// # References
-    /// <https://developer.android.com/training/data-storage/shared/photopicker>
+    /// Use [`FilePicker::pick_visual_medias`] instead.
+    #[deprecated = "Use FilePicker::pick_visual_medias instead"]
     pub fn show_open_visual_media_dialog(
         &self,
         target: VisualMediaTarget,
         multiple: bool,
     ) -> crate::Result<Vec<FileUri>> {
 
-        on_android!({
-            impl_se!(struct Req { multiple: bool, target: VisualMediaTarget });
-            impl_de!(struct Res { uris: Vec<FileUri> });
-    
-            let _guard = self.intent_lock.lock();
-            self.api
-                .run_mobile_plugin::<Res>("showOpenVisualMediaDialog", Req { multiple, target })
-                .map(|v| v.uris)
-                .map_err(Into::into)
-        })
+        self.file_picker().pick_visual_medias(target, multiple)
     }
 
-    /// Opens a system directory picker, allowing the creation of a new directory or the selection of an existing one, 
-    /// and returns a **read-write** directory URI. 
-    /// App can fully manage entries within the returned directory.  
-    /// If no directory is selected or the user cancels, `None` is returned. 
-    /// 
-    /// By default, returned URI is valid until the app is terminated. 
-    /// If you want to persist it across app restarts, use [`AndroidFs::take_persistable_uri_permission`].
-    /// 
-    /// This provides a standardized file explorer-style interface,
-    /// and also allows file selection from part of third-party apps or cloud storage.
-    /// 
-    /// # Args  
-    /// - ***initial_location*** :  
-    /// Indicate the initial location of dialog.    
-    /// There is no need to use this if there is no special reason.  
-    /// System will do its best to launch the dialog in the specified entry 
-    /// if it's a directory, or the directory that contains the specified file if not.  
-    /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.   
-    /// This must be a URI taken from following :   
-    ///     - [`AndroidFs::resolve_initial_location`]
-    ///     - [`AndroidFs::show_open_file_dialog`]
-    ///     - [`AndroidFs::show_save_file_dialog`]
-    ///     - [`AndroidFs::show_manage_dir_dialog`]
-    ///     - [`AndroidFs::resolve_uri`]
-    ///     - [`AndroidFs::try_resolve_file_uri`]
-    ///     - [`AndroidFs::try_resolve_dir_uri`]
-    ///     - [`AndroidFs::read_dir`]
-    ///     - [`AndroidFs::create_file`]
-    /// 
-    /// # Support
-    /// All.
-    /// 
-    /// # References
-    /// <https://developer.android.com/reference/android/content/Intent#ACTION_OPEN_DOCUMENT_TREE>
+    /// Use [`FilePicker::pick_dir`] instead.
+    #[deprecated = "Use FilePicker::pick_dir instead"]
     pub fn show_manage_dir_dialog(
         &self,
         initial_location: Option<&FileUri>,
     ) -> crate::Result<Option<FileUri>> {
 
-        on_android!({
-            impl_se!(struct Req<'a> { initial_location: Option<&'a FileUri> });
-            impl_de!(struct Res { uri: Option<FileUri> });
-
-            let _guard = self.intent_lock.lock();
-            self.api
-                .run_mobile_plugin::<Res>("showManageDirDialog", Req { initial_location })
-                .map(|v| v.uri)
-                .map_err(Into::into)
-        })
+        self.file_picker().pick_dir(initial_location)
     }
 
-    /// Please use [`AndroidFs::show_manage_dir_dialog`] instead.
-    #[deprecated = "Confusing name. Please use show_manage_dir_dialog instead."]
-    #[warn(deprecated)]
+    /// Use [`FilePicker::pick_dir`] instead.
+    #[deprecated = "Use FilePicker::pick_dir instead."]
     pub fn show_open_dir_dialog(&self) -> crate::Result<Option<FileUri>> {
-        on_android!({
-            self.show_manage_dir_dialog(None)
-        })
+        self.file_picker().pick_dir(None)
     }
 
-    /// Opens a dialog to save a file and returns a **writeonly** URI.  
-    /// The returned file may be a newly created file with no content,
-    /// or it may be an existing file with the requested MIME type.  
-    /// If the user cancels, `None` is returned. 
-    /// 
-    /// By default, returned URI is valid until the app is terminated. 
-    /// If you want to persist it across app restarts, use [`AndroidFs::take_persistable_uri_permission`].
-    /// 
-    /// This provides a standardized file explorer-style interface, 
-    /// and also allows file selection from part of third-party apps or cloud storage.
-    /// 
-    /// Removing and reading the returned files is also supported in most cases, 
-    /// but note that files provided by third-party apps may not.  
-    ///  
-    /// # Args  
-    /// - ***initial_location*** :  
-    /// Indicate the initial location of dialog.  
-    /// There is no need to use this if there is no special reason.  
-    /// System will do its best to launch the dialog in the specified entry 
-    /// if it's a directory, or the directory that contains the specified file if not.  
-    /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.  
-    /// This must be a URI taken from following :   
-    ///     - [`AndroidFs::resolve_initial_location`]
-    ///     - [`AndroidFs::show_open_file_dialog`]
-    ///     - [`AndroidFs::show_save_file_dialog`]
-    ///     - [`AndroidFs::show_manage_dir_dialog`]
-    ///     - [`AndroidFs::resolve_uri`]
-    ///     - [`AndroidFs::try_resolve_file_uri`]
-    ///     - [`AndroidFs::try_resolve_dir_uri`]
-    ///     - [`AndroidFs::read_dir`]
-    ///     - [`AndroidFs::create_file`]
-    /// 
-    /// - ***initial_file_name*** :  
-    /// An initial file name.  
-    /// The user may change this value before creating the file.  
-    /// If no extension is present, 
-    /// the system may infer one from ***mime_type*** and may append it to the file name. 
-    /// But this append-extension operation depends on the model and version.
-    /// 
-    /// - ***mime_type*** :  
-    /// The MIME type of the file to be saved.  
-    /// If this is None, MIME type is inferred from the extension of ***initial_file_name*** (not file name by user input)
-    /// and if that fails, `application/octet-stream` is used.  
-    ///  
-    /// # Support
-    /// All.
-    /// 
-    /// # References
-    /// <https://developer.android.com/reference/android/content/Intent#ACTION_CREATE_DOCUMENT>
+
+    /// Use [`FilePicker::save_file`] instead.
+    #[deprecated = "Use FilePicker::save_file instead."]
     pub fn show_save_file_dialog(
         &self,
         initial_location: Option<&FileUri>,
         initial_file_name: impl AsRef<str>,
         mime_type: Option<&str>,
     ) -> crate::Result<Option<FileUri>> {
-
-        on_android!({
-            impl_se!(struct Req<'a> {
-                initial_file_name: &'a str, 
-                mime_type: Option<&'a str>, 
-                initial_location: Option<&'a FileUri> 
-            });
-            impl_de!(struct Res { uri: Option<FileUri> });
-    
-            let initial_file_name = initial_file_name.as_ref();
         
-            let _guard = self.intent_lock.lock();
-            self.api
-                .run_mobile_plugin::<Res>("showSaveFileDialog", Req { initial_file_name, mime_type, initial_location })
-                .map(|v| v.uri)
-                .map_err(Into::into)
-        })
+        self.file_picker().save_file(initial_location, initial_file_name, mime_type)
     }
 
     /// Create an **restricted** URI for the specified directory.  
-    /// This should only be used as `initial_location` in the dialog. 
+    /// This should only be used as `initial_location` in the file picker. 
     /// It must not be used for any other purpose.  
     /// 
     /// This is useful when selecting (creating) new files and folders, 
@@ -1117,8 +908,8 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// So please use this with the mindset that it's better than doing nothing.  
     /// 
     /// # Examples
-    /// ```
-    /// use tauri_plugin_android_fs::{AndroidFs, AndroidFsExt, InitialLocation, PublicGeneralPurposeDir, PublicImageDir};
+    /// ```rust
+    ///  use tauri_plugin_android_fs::{AndroidFsExt, InitialLocation, PublicGeneralPurposeDir, PublicImageDir};
     ///
     /// fn sample(app: tauri::AppHandle) {
     ///     let api = app.android_fs();
@@ -1145,9 +936,9 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ///     ).expect("Should be on Android");
     ///
     ///     // Open dialog with initial_location
-    ///     let _ = api.show_save_file_dialog(Some(&initial_location), "", None);
-    ///     let _ = api.show_open_file_dialog(Some(&initial_location), &[], true);
-    ///     let _ = api.show_manage_dir_dialog(Some(&initial_location));
+    ///     let _ = api.file_picker().save_file(Some(&initial_location), "", None);
+    ///     let _ = api.file_picker().pick_file(Some(&initial_location), &[]);
+    ///     let _ = api.file_picker().pick_dir(Some(&initial_location));
     /// }
     /// ```
     /// 
@@ -1197,96 +988,30 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         })
     }
 
-    /// Opens a dialog for sharing file to other apps.  
-    /// 
-    /// An error will occur if there is no app that can handle the request. 
-    /// Please use [`AndroidFs::can_share_file`] to confirm.
-    /// 
-    /// # Args
-    /// - **uri** :  
-    /// Target file uri to share.  
-    /// This needs to be **readable**.  
-    /// Files in [`PrivateStorage`] ***cannot*** be used.
-    /// 
-    /// # Support
-    /// All.
+    /// Use [`FileSender::share_file`] instead
+    #[deprecated = "Use FileSender::share_file instead."]
     pub fn show_share_file_dialog(&self, uri: &FileUri) -> crate::Result<()> {
-        on_android!({
-            impl_se!(struct Req<'a> { uri: &'a FileUri });
-            impl_de!(struct Res;);
-
-            self.api
-                .run_mobile_plugin::<Res>("shareFile", Req { uri })
-                .map(|_| ())
-                .map_err(Into::into)
-        })
+        self.file_sender().share_file(uri)
     }
-
-    /// Opens a dialog for viewing file on other apps.  
-    /// This performs the general "open file" action.
-    /// 
-    /// An error will occur if there is no app that can handle the request. 
-    /// Please use [`AndroidFs::can_view_file`] to confirm.
-    /// 
-    /// # Args
-    /// - **uri** :  
-    /// Target file uri to view.  
-    /// This needs to be **readable**.  
-    /// Files in [`PrivateStorage`] ***cannot*** be used.
-    /// 
-    /// # Support
-    /// All.
-    pub fn show_view_file_dialog(&self, uri: &FileUri) -> crate::Result<()> {
-        on_android!({
-            impl_se!(struct Req<'a> { uri: &'a FileUri });
-            impl_de!(struct Res;);
     
-            self.api
-                .run_mobile_plugin::<Res>("viewFile", Req { uri })
-                .map(|_| ())
-                .map_err(Into::into)
-        })
+    /// Use [`FileSender::open_file`] instead
+    #[deprecated = "Use FileSender::open_file instead."]
+    pub fn show_view_file_dialog(&self, uri: &FileUri) -> crate::Result<()> {
+        self.file_sender().open_file(uri)
     }
 
-    /// Determines whether the specified file can be used with [`AndroidFs::show_share_file_dialog`].
-    /// # Args
-    /// - **uri** :  
-    /// Target file uri.  
-    /// This needs to be **readable**.
-    /// 
-    /// # Support
-    /// All.
+    /// Use [`FileSender::can_share_file`] instead
+    #[deprecated = "Use FileSender::can_share_file instead"]
     pub fn can_share_file(&self, uri: &FileUri) -> crate::Result<bool> {
-        on_android!({
-            impl_se!(struct Req<'a> { uri: &'a FileUri });
-            impl_de!(struct Res { value: bool });
-
-            self.api
-                .run_mobile_plugin::<Res>("canShareFile", Req { uri })
-                .map(|v| v.value)
-                .map_err(Into::into)
-        })
+        #[allow(deprecated)]
+        self.file_sender().can_share_file(uri)
     }
 
-    /// Determines whether the specified file can be used with [`AndroidFs::show_view_file_dialog`].
-    /// 
-    /// # Args
-    /// - **uri** :  
-    /// Target file uri.  
-    /// This needs to be **readable**.
-    /// 
-    /// # Support
-    /// All.
+    /// Use [`FileSender::can_open_file`] instead
+    #[deprecated = "Use FileSender::can_open_file instead"]
     pub fn can_view_file(&self, uri: &FileUri) -> crate::Result<bool> {
-        on_android!({
-            impl_se!(struct Req<'a> { uri: &'a FileUri });
-            impl_de!(struct Res { value: bool });
-
-            self.api
-                .run_mobile_plugin::<Res>("canViewFile", Req { uri })
-                .map(|v| v.value)
-                .map_err(Into::into)
-        })
+        #[allow(deprecated)]
+        self.file_sender().can_open_file(uri)
     }
 
     /// Take persistent permission to access the file, directory and its descendants.  
@@ -1303,13 +1028,15 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Args
     /// - **uri** :  
     /// URI of the target file or directory. This must be a URI taken from following :  
-    ///     - [`AndroidFs::show_open_file_dialog`]
-    ///     - [`AndroidFs::show_open_visual_media_dialog`]
-    ///     - [`AndroidFs::show_save_file_dialog`]
-    ///     - [`AndroidFs::show_manage_dir_dialog`]  
-    ///     - [`AndroidFs::read_dir`] :  
-    ///         If this, the permissions of the origin directory URI is persisted, not a entry iteself. 
-    ///         Because the permissions and validity period of the entry URIs depend on the origin directory.
+    ///     - [`FilePicker::pick_files`]  
+    ///     - [`FilePicker::pick_file`]  
+    ///     - [`FilePicker::pick_visual_medias`]  
+    ///     - [`FilePicker::pick_visual_media`]  
+    ///     - [`FilePicker::pick_dir`]  
+    ///     - [`FilePicker::save_file`]  
+    ///     - [`AndroidFs::try_resolve_file_uri`], [`AndroidFs::try_resolve_dir_uri`], [`AndroidFs::resolve_uri`], [`AndroidFs::read_dir`], [`AndroidFs::create_file`], [`AndroidFs::create_dir_all`] :  
+    ///     If use URI from thoese fucntions, the permissions of the origin directory URI is persisted, not a entry iteself by this function. 
+    ///     Because the permissions and validity period of the descendant entry URIs depend on the origin directory.   
     /// 
     /// # Support
     /// All. 
@@ -1409,28 +1136,9 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         })
     }
 
-    /// Verify whether [`AndroidFs::show_open_visual_media_dialog`] is available on a given device.
-    /// 
-    /// # Support
-    /// All.
+    /// Use [`FilePicker::is_visual_media_picker_available`] instead.
+    #[deprecated = "Use FilePicker::is_visual_media_picker_available instead"]
     pub fn is_visual_media_dialog_available(&self) -> crate::Result<bool> {
-        on_android!({
-            impl_de!(struct Res { value: bool });
-
-            self.api
-                .run_mobile_plugin::<Res>("isVisualMediaDialogAvailable", "")
-                .map(|v| v.value)
-                .map_err(Into::into)
-        })
-    }
-
-    /// File storage intended for the app's use only.
-    pub fn private_storage(&self) -> PrivateStorage<'_, R> {
-        PrivateStorage(self)
-    }
-
-    /// File storage that is available to other applications and users.
-    pub fn public_storage(&self) -> PublicStorage<'_, R> {
-        PublicStorage(self)
+        self.file_picker().is_visual_media_picker_available()
     }
 }
