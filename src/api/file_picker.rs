@@ -306,7 +306,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If you want to persist it across app restarts, use [`AndroidFs::take_persistable_uri_permission`].
     /// 
     /// This provides a standardized file explorer-style interface,
-    /// and also allows file selection from part of third-party apps or cloud storage.
+    /// and also allows directory selection from part of third-party apps or cloud storage.
     /// 
     /// # Args  
     /// - ***initial_location*** :  
