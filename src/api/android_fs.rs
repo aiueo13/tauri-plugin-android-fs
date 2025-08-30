@@ -156,24 +156,22 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ///     - [`FileAccessMode::ReadWrite`]
     ///     - [`FileAccessMode::ReadWriteTruncate`]  
     ///     - [`FileAccessMode::WriteAppend`]  
-    /// (ex: Files on GoogleDrive)  
     ///
     /// # Note
-    /// This method uses a FileDescriptor internally. 
-    /// However, if the target file does not physically exist on the device, such as cloud-based files, 
-    /// the write operation using a FileDescriptor may not be reflected properly.
-    /// In such cases, consider using [AndroidFs::write_via_kotlin], 
-    /// which writes using a standard method, 
-    /// or [AndroidFs::write], which automatically falls back to that approach when necessary.
-    /// If you specifically need to write using stream not entire contents, see [AndroidFs::write_via_kotlin_in] or [AndroidFs::copy_via_kotlin] with temporary file.  
-    /// 
-    /// It seems that the issue does not occur on all cloud storage platforms. At least, files on Google Drive have issues, 
-    /// but files on Dropbox can be written to correctly using a FileDescriptor.
-    /// If you encounter issues with cloud storage other than Google Drive, please let me know on [Github](https://github.com/aiueo13/tauri-plugin-android-fs/issues/new). 
-    /// This information will be used in [AndroidFs::need_write_via_kotlin] used by `AndroidFs::write`.  
-    /// 
-    /// There are no problems with file reading.
-    /// 
+    /// For files that do not physically exist on the device, such as those stored in cloud storage,
+    /// the system first downloads the data to a temporary file before opening it. 
+    /// As a result, this function may take some time to complete.  
+    /// And write operations on such files may not always be applied correctly. 
+    /// To ensure reliable writes, use [`AndroidFs::write_via_kotlin`] directly, 
+    /// or [`AndroidFs::write`], which automatically falls back to this method when necessary.  
+    /// If you need to write data via a stream rather than the entire file, 
+    /// it is recommended to use [`AndroidFs::write_via_kotlin_in`] or, via a temporary file, [`AndroidFs::copy_via_kotlin`].  
+    /// This issue does not occur on all cloud storage platforms. 
+    /// For example, files on Google Drive may have problems, 
+    /// whereas files on Dropbox can be written correctly using this function, at least on my device.
+    /// If you encounter issues with files on app other than Google Drive, please let me know on [GitHub](https://github.com/aiueo13/tauri-plugin-android-fs/issues/new). 
+    /// This information is used by [`AndroidFs::need_write_via_kotlin`], which is utilized by [`AndroidFs::write`].
+    ///
     /// # Support
     /// All.
     pub fn open_file(&self, uri: &FileUri, mode: FileAccessMode) -> crate::Result<std::fs::File> {
@@ -360,7 +358,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// All.
     pub fn need_write_via_kotlin(&self, uri: &FileUri) -> crate::Result<bool> {
         on_android!({
-            Ok(uri.uri.starts_with("content://com.google.android.apps.docs.storage"))
+            Ok(uri.uri.starts_with("content://com.google.android.apps.docs"))
         })
     }
 

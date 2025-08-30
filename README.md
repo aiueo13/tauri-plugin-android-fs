@@ -109,11 +109,12 @@ fn dir_picker_example(app: tauri::AppHandle) -> tauri_plugin_android_fs::Result<
 ```rust
 use tauri_plugin_android_fs::{AndroidFsExt, FileUri, InitialLocation, PersistableAccessMode, PrivateDir};
 
-/// Opens a dialog to save the file and write contents to the selected file.
+/// Opens a dialog to save the file,
+/// then write contents to the selected file.
 /// 
 /// return Ok(false) when canceled by user.  
 /// return Ok(true) when success.
-fn save_file_with_file_dialog(
+fn save_file_with_file_saver(
     app: tauri::AppHandle,
     file_name: &str,
     mime_type: &str,
@@ -145,12 +146,12 @@ fn save_file_with_file_dialog(
 
 /// Open a dialog to select a directory, 
 /// and create a new file at the relative_path position from it,
-/// then write contents to it.  
+/// then write contents.  
 /// If a folder has been selected in the past, use it without opening a dialog.
 /// 
 /// return Ok(false) when canceled by user.  
 /// return Ok(true) when success.  
-fn save_file_with_dir_dialog(
+fn save_file_with_dir_picker(
     app: tauri::AppHandle, 
     relative_path: &str,
     mime_type: &str,
@@ -228,6 +229,8 @@ fn save_file_with_dir_dialog(
         let _ = api.remove_file(&new_file_uri);
         return Err(e)
     }
+    // or
+    // let mut file: std::fs::File = api.open_file(&new_file_uri, FileAccessMode::WriteTruncate)?;
     
     Ok(true)
 }

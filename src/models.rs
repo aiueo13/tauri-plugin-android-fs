@@ -222,14 +222,12 @@ pub enum FileAccessMode {
 
     /// Opens the file in write-only mode.
     /// The existing content is truncated (deleted), and new data is written from the beginning.
-    /// Creates a new file if it does not exist.
     ///
     /// FileDescriptor mode: "wt"
     WriteTruncate,
 
     /// Opens the file in write-only mode.
     /// The existing content is preserved, and new data is appended to the end of the file.
-    /// Creates a new file if it does not exist.
     /// 
     /// FileDescriptor mode: "wa"
     WriteAppend,
@@ -241,7 +239,6 @@ pub enum FileAccessMode {
 
     /// Opens the file in read-write mode.
     /// The existing content is truncated (deleted), and new data is written from the beginning.
-    /// Creates a new file if it does not exist.
     ///
     /// FileDescriptor mode: "rwt"
     ReadWriteTruncate,
