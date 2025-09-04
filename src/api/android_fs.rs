@@ -1,3 +1,4 @@
+#[allow(unused)]
 use std::io::{Read as _, Write as _};
 use crate::*;
 
@@ -49,14 +50,6 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 
 impl<R: tauri::Runtime> AndroidFs<R> {
 
-    /// Verify whether this plugin is available.  
-    /// 
-    /// On Android, this returns true.  
-    /// On other platforms, this returns false.  
-    pub fn is_available(&self) -> bool {
-        cfg!(target_os = "android")
-    }
-
     /// API of file storage intended for the app's use only.
     pub fn private_storage(&self) -> PrivateStorage<'_, R> {
         PrivateStorage(self)
@@ -82,7 +75,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Args
     /// - ***uri*** :  
     /// Target URI.  
-    /// This needs to be **readable**.
+    /// Must be **readable**.
     /// 
     /// # Support
     /// All.
@@ -98,28 +91,59 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         })
     }
 
-    /// Query the provider to get mime type.  
-    /// If the directory, this returns `None`.  
-    /// If the file, this returns no `None`.  
-    /// If the file type is unknown or unset, this returns `Some("application/octet-stream")`.  
+    /// Queries the provider to get the MIME type.
     ///
-    /// In the case of files in [`PrivateStorage`], this is determined from the extension.
+    /// For files in [`PrivateStorage`], the MIME type is determined from the file extension.  
+    /// In most other cases, it uses the MIME type that was associated with the file when it was created.  
+    /// If the MIME type is unknown or unset, it falls back to `"application/octet-stream"`.  
+    /// 
+    /// If the target is a directory, an error will occur.  
+    /// To check whether the target is a file or a directory, use [`AndroidFs::get_type`].  
+    /// 
+    /// # Args
+    /// - ***uri*** :  
+    /// Target file URI.  
+    /// Must be **readable**.
+    /// 
+    /// # Support
+    /// All.
+    pub fn get_mime_type(&self, uri: &FileUri) -> crate::Result<String> {
+        on_android!({
+            let mime_type = self.get_type(uri)?
+                .into_mime_type()
+                .ok_or_else(|| Error { msg: "This is not file".into() })?;
+
+            Ok(mime_type)
+        })
+    }
+
+    /// Gets the entry type.
+    ///
+    /// If the target is a directory, returns [`EntryType::Dir`].
+    ///
+    /// If the target is a file, returns [`EntryType::File { mime_type }`](EntryType::File).  
+    /// For files in [`PrivateStorage`], the MIME type is determined from the file extension.  
+    /// In most other cases, it uses the MIME type that was associated with the file when it was created.  
+    /// If the MIME type is unknown or unset, it falls back to `"application/octet-stream"`.  
     /// 
     /// # Args
     /// - ***uri*** :  
     /// Target URI.  
-    /// This needs to be **readable**.
+    /// Must be **readable**.
     /// 
     /// # Support
     /// All.
-    pub fn get_mime_type(&self, uri: &FileUri) -> crate::Result<Option<String>> {
+    pub fn get_type(&self, uri: &FileUri) -> crate::Result<EntryType> {
         on_android!({
             impl_se!(struct Req<'a> { uri: &'a FileUri });
             impl_de!(struct Res { value: Option<String> });
 
             self.api
                 .run_mobile_plugin::<Res>("getMimeType", Req { uri })
-                .map(|v| v.value)
+                .map(|v| match v.value {
+                    Some(mime_type) => EntryType::File { mime_type },
+                    None => EntryType::Dir,
+                })
                 .map_err(Into::into)
         })
     }
@@ -129,7 +153,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Args
     /// - ***uri*** :  
     /// Target URI.  
-    /// This needs to be **readable**.
+    /// Must be **readable**.
     /// 
     /// # Note
     /// This uses [`AndroidFs::open_file`] internally.
@@ -138,17 +162,121 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// All.
     pub fn get_metadata(&self, uri: &FileUri) -> crate::Result<std::fs::Metadata> {
         on_android!({
-            let file = self.open_file(uri, FileAccessMode::Read)?;
+            let file = self.open_file_readable(uri)?;
             Ok(file.metadata()?)
         })
     }
 
-    /// Open a file in the specified mode.
+    /// Open the file in **readable** mode.  
+    /// 
+    /// # Note
+    /// If the target is a file on cloud storage or otherwise not physically present on the device,
+    /// the system creates a temporary file, downloads the data into it,
+    /// and then opens it. As a result, this processing may take longer than with regular local files.
     /// 
     /// # Args
     /// - ***uri*** :  
     /// Target file URI.  
-    /// This must have corresponding permissions (read, write, or both) for the specified **mode**.
+    /// This need to be **readable**.
+    /// 
+    /// # Support
+    /// All.
+    pub fn open_file_readable(&self, uri: &FileUri) -> Result<std::fs::File> {
+        self.open_file(uri, FileAccessMode::Read)
+    }
+
+    /// Open the file in **writable** mode.  
+    /// This truncates the existing contents.  
+    /// 
+    /// If you only need a [`std::io::Write`] instead of a [`std::fs::File`], or if applicable, 
+    /// please use [`AndroidFs::open_writable_stream`] instead.
+    /// 
+    /// # Note
+    /// If the target is a file on cloud storage or otherwise not actually present on the device, 
+    /// writing with such files may not correctly reflect the changes.  
+    /// In this case, this function may causes an error, or may not.  
+    /// If you need write with such files, use [`AndroidFs::open_writable_stream`].
+    /// <https://issuetracker.google.com/issues/126362828>   
+    /// <https://stackoverflow.com/questions/51490194/file-written-using-action-create-document-is-empty-on-google-drive-but-not-local>   
+    ///
+    /// # Args
+    /// - ***uri*** :  
+    /// Target file URI.  
+    /// This need to be **writable**.
+    /// 
+    /// # Support
+    /// All.
+    pub fn open_file_writable(
+        &self, 
+        uri: &FileUri, 
+    ) -> crate::Result<std::fs::File> {
+
+        on_android!(#[allow(deprecated)] {
+            // サイレントエラーをなるべく避けるため強制的にエラーにする。
+            if self.need_write_via_kotlin(uri)? {
+                return Err(Error { msg: "This content does not support write via file descriptor. Please use AndroidFs::open_writable_stream instead.".into() })
+            }
+
+            // Android 9 以下の場合、w は既存コンテンツを切り捨てる
+            if self.api_level()? <= 28 {
+                self.open_file(uri, FileAccessMode::Write)
+            }
+            // Android 10 以上の場合、w は既存コンテンツの切り捨てを保証しない。
+            // そのため切り捨ててファイルを開くには wt を用いる必要があるが、
+            // wt は全ての file provider が対応しているとは限らないため、
+            // フォールバックを用いてなるべく多くの状況に対応する。
+            // https://issuetracker.google.com/issues/180526528?pli=1
+            else {
+                let (file, mode) = self.open_file_with_fallback(uri, [
+                    FileAccessMode::WriteTruncate, 
+                    FileAccessMode::ReadWriteTruncate,
+                    FileAccessMode::Write
+                ])?;
+
+                if mode == FileAccessMode::Write {
+                    // file provider が既存コンテンツを切り捨てず、
+                    // かつ書き込むデータ量が元のそれより少ない場合、ファイルが壊れる可能性がある。
+                    // これを避けるため強制的にデータを切り捨てる。
+                    // file provider の実装によっては set_len は失敗することがある。
+                    file.set_len(0)?;
+                }
+
+                Ok(file)
+            }
+        })
+    }
+
+    /// Open the file in the specified mode.  
+    /// 
+    /// # Note
+    /// If the target is a file on cloud storage or otherwise not physically present on the device,
+    /// the system creates a temporary file, downloads the data into it,
+    /// and then opens it. As a result, this processing may take longer than with regular local files.
+    /// 
+    /// When writing to a file with this function,
+    /// pay attention to the following points:
+    /// 
+    /// 1. **Files that do not exist on the device**:  
+    /// Writing to files that are not physically present on the device may not correctly
+    /// reflect changes. If you need to write to such files, use [`AndroidFs::open_writable_stream`].
+    /// <https://issuetracker.google.com/issues/126362828>   
+    /// <https://stackoverflow.com/questions/51490194/file-written-using-action-create-document-is-empty-on-google-drive-but-not-local>   
+    ///
+    /// 2. **File mode restrictions**:  
+    /// Files provided by third-party apps may not support writable modes other than
+    /// [`FileAccessMode::Write`]. However, [`FileAccessMode::Write`] does not guarantee
+    /// that existing contents will always be truncated.  
+    /// As a result, if the new contents are shorter than the original, the file may
+    /// become corrupted. To avoid this, consider using
+    /// [`AndroidFs::open_file_writable`] or [`AndroidFs::open_writable_stream`], which
+    /// ensure that existing contents are truncated and also automatically apply the
+    /// maximum possible fallbacks.  
+    /// <https://issuetracker.google.com/issues/180526528>
+    /// 
+    /// # Args
+    /// - ***uri*** :  
+    /// Target file URI.  
+    /// This must have corresponding permissions (read, write, or both) for the specified ***mode***.
     /// 
     /// - ***mode*** :  
     /// Indicates how the file is opened and the permissions granted.  
@@ -156,21 +284,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ///     - [`FileAccessMode::ReadWrite`]
     ///     - [`FileAccessMode::ReadWriteTruncate`]  
     ///     - [`FileAccessMode::WriteAppend`]  
-    ///
-    /// # Note
-    /// For files that do not physically exist on the device, such as those stored in cloud storage,
-    /// the system first downloads the data to a temporary file before opening it. 
-    /// As a result, this function may take some time to complete.  
-    /// And write operations on such files may not always be applied correctly. 
-    /// To ensure reliable writes, use [`AndroidFs::write_via_kotlin`] directly, 
-    /// or [`AndroidFs::write`], which automatically falls back to this method when necessary.  
-    /// If you need to write data via a stream rather than the entire file, 
-    /// it is recommended to use [`AndroidFs::write_via_kotlin_in`] or, via a temporary file, [`AndroidFs::copy_via_kotlin`].  
-    /// This issue does not occur on all cloud storage platforms. 
-    /// For example, files on Google Drive may have problems, 
-    /// whereas files on Dropbox can be written correctly using this function, at least on my device.
-    /// If you encounter issues with files on app other than Google Drive, please let me know on [GitHub](https://github.com/aiueo13/tauri-plugin-android-fs/issues/new). 
-    /// This information is used by [`AndroidFs::need_write_via_kotlin`], which is utilized by [`AndroidFs::write`].
+    ///     - [`FileAccessMode::WriteTruncate`]
     ///
     /// # Support
     /// All.
@@ -179,14 +293,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
             impl_se!(struct Req<'a> { uri: &'a FileUri, mode: &'a str });
             impl_de!(struct Res { fd: std::os::fd::RawFd });
     
-            let mode = match mode {
-                FileAccessMode::Read => "r",
-                FileAccessMode::Write => "w",
-                FileAccessMode::WriteTruncate => "wt",
-                FileAccessMode::WriteAppend => "wa",
-                FileAccessMode::ReadWriteTruncate => "rwt",
-                FileAccessMode::ReadWrite => "rw",
-            };
+            let mode = mode.to_mode();
 
             self.api
                 .run_mobile_plugin::<Res>("getFileDescriptor", Req { uri, mode })
@@ -197,21 +304,121 @@ impl<R: tauri::Runtime> AndroidFs<R> {
                 .map_err(Into::into)
         })
     }
+ 
+    /// For detailed documentation and notes, see [`AndroidFs::open_file`].  
+    ///
+    /// The modes specified in ***candidate_modes*** are tried in order.  
+    /// If the file can be opened, this returns the file along with the mode used.  
+    /// If all attempts fail, an error is returned.  
+    pub fn open_file_with_fallback(
+        &self, 
+        uri: &FileUri, 
+        candidate_modes: impl IntoIterator<Item = FileAccessMode>
+    ) -> crate::Result<(std::fs::File, FileAccessMode)> {
+
+        on_android!({
+            impl_se!(struct Req<'a> { uri: &'a FileUri, modes: Vec<&'a str> });
+            impl_de!(struct Res { fd: std::os::fd::RawFd, mode: String });
+    
+            let modes = candidate_modes.into_iter().map(|m| m.to_mode()).collect::<Vec<_>>();
+
+            if modes.is_empty() {
+                return Err(Error { msg: "candidate_modes should not be empty".into() });
+            }
+
+            self.api
+                .run_mobile_plugin::<Res>("getFileDescriptorWithFallback", Req { uri, modes })
+                .map_err(Into::into)
+                .and_then(|v| FileAccessMode::from_mode(&v.mode).map(|m| (v.fd, m)))
+                .map(|(fd, mode)| {
+                    let file = {
+                        use std::os::fd::FromRawFd;
+                        unsafe { std::fs::File::from_raw_fd(fd) }
+                    };
+                    (file, mode)
+                })
+        })
+    }
+
+    /// Opens a stream for writing to the specified file.  
+    /// This truncates the existing contents.  
+    /// 
+    /// # Usage
+    /// [`WritableStream`] implements [`std::io::Write`], so it can be used for writing.  
+    /// As with [`std::fs::File`], wrap it with [`std::io::BufWriter`] if buffering is needed.  
+    ///
+    /// After writing, call [`WritableStream::reflect`].  
+    /// 
+    /// # Note
+    /// The behavior depends on [`AndroidFs::need_write_via_kotlin`].  
+    /// If it is `false`, this behaves like [`AndroidFs::open_file_writable`].  
+    /// If it is `true`, this behaves like [`AndroidFs::open_writable_stream_via_kotlin`].  
+    /// 
+    /// # Args
+    /// - ***uri*** :  
+    /// Target file URI.  
+    /// This need to be **writable**.
+    /// 
+    /// # Support
+    /// All.
+    pub fn open_writable_stream(
+        &self,
+        uri: &FileUri
+    ) -> Result<WritableStream<R>> {
+
+        on_android!({
+            let need_write_via_kotlin = self.need_write_via_kotlin(uri)?;
+            WritableStream::new(self.app.clone(), uri.clone(), need_write_via_kotlin)
+        })
+    }
+
+    /// Opens a writable stream to the specified file.  
+    /// This truncates the existing contents.  
+    /// 
+    /// This function always writes content via the Kotlin API, 
+    /// ensuring that writes to files not physically present on the device, such as cloud storage files, are properly applied.
+    /// But this takes several times longer compared to [`AndroidFs::open_writable_stream`].
+    ///
+    /// [`AndroidFs::open_writable_stream`] automatically falls back to this function depending on [`AndroidFs::need_write_via_kotlin`].  
+    /// For performance reasons, it is strongly recommended to use [`AndroidFs::open_writable_stream`] 
+    /// if you can tolerate that [`AndroidFs::need_write_via_kotlin`] may not cover all cases.  
+    /// 
+    /// # Usage
+    /// [`WritableStream`] implements [`std::io::Write`], so it can be used for writing.  
+    /// As with [`std::fs::File`], wrap it with [`std::io::BufWriter`] if buffering is needed.  
+    ///
+    /// After writing, call [`WritableStream::reflect`].
+    /// 
+    /// # Args
+    /// - ***uri*** :  
+    /// Target file URI.  
+    /// This need to be **writable**.
+    /// 
+    /// # Support
+    /// All.
+    pub fn open_writable_stream_via_kotlin(
+        &self,
+        uri: &FileUri
+    ) -> Result<WritableStream<R>> {
+
+        on_android!({
+            let need_write_via_kotlin = true;
+            WritableStream::new(self.app.clone(), uri.clone(), need_write_via_kotlin)
+        })
+    }
 
     /// Reads the entire contents of a file into a bytes vector.  
-    /// 
-    /// If you need to operate the file, use [`AndroidFs::open_file`] instead.  
     /// 
     /// # Args
     /// - ***uri*** :  
     /// Target file URI.    
-    /// This needs to be **readable**.
+    /// Must be **readable**.
     /// 
     /// # Support
     /// All.
     pub fn read(&self, uri: &FileUri) -> crate::Result<Vec<u8>> {
         on_android!({
-            let mut file = self.open_file(uri, FileAccessMode::Read)?;
+            let mut file = self.open_file_readable(uri)?;
             let mut buf = file.metadata().ok()
                 .map(|m| m.len() as usize)
                 .map(Vec::with_capacity)
@@ -224,18 +431,16 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 
     /// Reads the entire contents of a file into a string.  
     /// 
-    /// If you need to operate the file, use [`AndroidFs::open_file`] instead.  
-    /// 
     /// # Args
     /// - ***uri*** :  
     /// Target file URI.  
-    /// This needs to be **readable**.
+    /// Must be **readable**.
     /// 
     /// # Support
     /// All.
     pub fn read_to_string(&self, uri: &FileUri) -> crate::Result<String> {
         on_android!({
-            let mut file = self.open_file(uri, FileAccessMode::Read)?;
+            let mut file = self.open_file_readable(uri)?;
             let mut buf = file.metadata().ok()
                 .map(|m| m.len() as usize)
                 .map(String::with_capacity)
@@ -249,42 +454,44 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Writes a slice as the entire contents of a file.  
     /// This function will entirely replace its contents if it does exist.    
     /// 
-    /// If you want to operate the file, use [`AndroidFs::open_file`] instead.  
+    /// # Note
+    /// The behavior depends on [`AndroidFs::need_write_via_kotlin`].  
+    /// If it is `false`, this uses [`std::fs::File::write_all`].  
+    /// If it is `true`, this uses [`AndroidFs::write_via_kotlin`].  
     /// 
     /// # Args
     /// - ***uri*** :  
     /// Target file URI.  
-    /// This needs to be **writable**.
+    /// Must be **writable**.
     /// 
     /// # Support
     /// All.
     pub fn write(&self, uri: &FileUri, contents: impl AsRef<[u8]>) -> crate::Result<()> {
         on_android!({
-            if self.need_write_via_kotlin(uri)? {
-                self.write_via_kotlin(uri, contents)?;
+            let mut stream = self.open_writable_stream(uri)?;
+
+            match stream.write_all(contents.as_ref()) {
+                Ok(_) => stream.reflect(),
+                Err(e) => {
+                    // これは drop 時にも必要に応じて行われるのでなくてもいい。
+                    // drop 時に任せるよりこれを呼び出した方がコストが低いので呼び出す。
+                    let _ = stream.close_without_reflect();
+                    Err(e.into())
+                },
             }
-            else {
-                let mut file = self.open_file(uri, FileAccessMode::WriteTruncate)?;
-                file.write_all(contents.as_ref())?;
-            }
-            Ok(())
         })
     }
 
     /// Writes a slice as the entire contents of a file.  
     /// This function will entirely replace its contents if it does exist.    
     /// 
-    /// Differences from `std::fs::File::write_all` is the process is done on Kotlin side.  
-    /// See [`AndroidFs::open_file`] for why this function exists.
-    /// 
-    /// If [`AndroidFs::write`] is used, it automatically fall back to this by [`AndroidFs::need_write_via_kotlin`], 
-    /// so there should be few opportunities to use this.
-    /// 
-    /// If you want to write using `std::fs::File`, not entire contents, use [`AndroidFs::write_via_kotlin_in`].
-    /// 
-    /// # Inner process
-    /// The contents is written to a temporary file by Rust side 
-    /// and then copied to the specified file on Kotlin side by [`AndroidFs::copy_via_kotlin`].  
+    /// This function always writes content via the Kotlin API, 
+    /// ensuring that writes to files not physically present on the device, such as cloud storage files, are properly applied.
+    /// But this takes several times longer compared to [`AndroidFs::write`].
+    ///
+    /// [`AndroidFs::write`] automatically falls back to this function depending on [`AndroidFs::need_write_via_kotlin`].  
+    /// For performance reasons, it is strongly recommended to use [`AndroidFs::write`] 
+    /// if you can tolerate that [`AndroidFs::need_write_via_kotlin`] may not cover all cases.  
     /// 
     /// # Support
     /// All.
@@ -295,125 +502,130 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ) -> crate::Result<()> {
 
         on_android!({
-            self.write_via_kotlin_in(uri, |file| file.write_all(contents.as_ref()))
-        })
-    }
-
-    /// See [`AndroidFs::write_via_kotlin`] for information.  
-    /// Use this if you want to write using `std::fs::File`, not entire contents.
-    /// 
-    /// If you want to retain the file outside the closure, 
-    /// you can perform the same operation using [`AndroidFs::copy_via_kotlin`] and [`PrivateStorage`]. 
-    /// For details, please refer to the internal implementation of this function.
-    /// 
-    /// # Args
-    /// - ***uri*** :  
-    /// Target file URI to write.
-    /// 
-    /// - **contetns_writer** :  
-    /// A closure that accepts a mutable reference to a `std::fs::File`
-    /// and performs the actual write operations. Note that this represents a temporary file.
-    pub fn write_via_kotlin_in<T>(
-        &self, 
-        uri: &FileUri,
-        contents_writer: impl FnOnce(&mut std::fs::File) -> std::io::Result<T>
-    ) -> crate::Result<T> {
-
-        on_android!({
-            let tmp_file_path = {
-                use std::sync::atomic::{AtomicUsize, Ordering};
-
-                static COUNTER: AtomicUsize = AtomicUsize::new(0);
-                let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-
-                self.private_storage().resolve_path_with(
-                    PrivateDir::Cache,
-                    format!("{TMP_DIR_RELATIVE_PATH}/write_via_kotlin_in {id}")
-                )?
-            };
-
-            if let Some(parent) = tmp_file_path.parent() {
-                let _ = std::fs::create_dir_all(parent);
+            let mut stream = self.open_writable_stream_via_kotlin(uri)?;
+            
+            match stream.write_all(contents.as_ref()) {
+                Ok(_) => stream.reflect(),
+                Err(e) => {
+                    // これは drop 時にも必要に応じて行われるのでなくてもいい。
+                    // drop 時に任せるよりこれを呼び出した方がコストが低いので呼び出す。
+                    let _ = stream.close_without_reflect();
+                    Err(e.into())
+                },
             }
-
-            let result = {
-                let ref mut file = std::fs::File::create(&tmp_file_path)?;
-                contents_writer(file)
-            };
-
-            let result = result
-                .map_err(crate::Error::from)
-                .and_then(|t| self.copy_via_kotlin(&(&tmp_file_path).into(), uri).map(|_| t));
-
-            let _ = std::fs::remove_file(&tmp_file_path);
-
-            result
         })
     }
 
-    /// Determines if the file needs to be written via Kotlin side instead of Rust side.  
-    /// Currently, this returns true only if the file is on GoogleDrive.  
+    /// Copies the contents of the source file to the destination.  
+    /// If the destination already has contents, they are truncated before writing the source contents.  
     /// 
-    /// # Support
-    /// All.
-    pub fn need_write_via_kotlin(&self, uri: &FileUri) -> crate::Result<bool> {
-        on_android!({
-            Ok(uri.uri.starts_with("content://com.google.android.apps.docs"))
-        })
-    }
-
-    /// Copies the contents of src file to dest.  
-    /// If dest already has contents, it is truncated before write src contents.  
-    /// 
-    /// This copy process is done on Kotlin side, not on Rust.  
-    /// Large files in GB units are also supported.  
-    /// Note that [`AndroidFs::copy`] and [`std::io::copy`] are faster.  
-    ///  
-    /// See [`AndroidFs::write_via_kotlin`] for why this function exists.
+    /// # Note
+    /// The behavior depends on [`AndroidFs::need_write_via_kotlin`].  
+    /// If it is `false`, this uses [`std::io::copy`] with [`std::fs::File`].  
+    /// If it is `true`, this uses [`AndroidFs::copy_via_kotlin`].  
     /// 
     /// # Args
     /// - ***src*** :  
     /// The URI of source file.   
-    /// This needs to be **readable**.
+    /// Must be **readable**.
     /// 
     /// - ***dest*** :  
     /// The URI of destination file.  
-    /// This needs to be **writable**.
-    /// 
-    /// # Support
-    /// All.
-    pub fn copy_via_kotlin(&self, src: &FileUri, dest: &FileUri) -> crate::Result<()> {
-        on_android!({
-            impl_se!(struct Req<'a> { src: &'a FileUri, dest: &'a FileUri });
-            impl_de!(struct Res;);
-
-            self.api
-                .run_mobile_plugin::<Res>("copyFile", Req { src, dest })
-                .map(|_| ())
-                .map_err(Into::into)
-        })
-    }
-
-    /// Copies the contents of src file to dest.  
-    /// If dest already has contents, it is truncated before write src contents.  
-    /// 
-    /// # Args
-    /// - ***src*** :  
-    /// The URI of source file.   
-    /// This needs to be **readable**.
-    /// 
-    /// - ***dest*** :  
-    /// The URI of destination file.  
-    /// This needs to be **writable**.
+    /// Must be **writable**.
     /// 
     /// # Support
     /// All.
     pub fn copy(&self, src: &FileUri, dest: &FileUri) -> crate::Result<()> {
         on_android!({
-            let src = &mut self.open_file(src, FileAccessMode::Read)?;
-            let dest = &mut self.open_file(dest, FileAccessMode::WriteTruncate)?;
-            std::io::copy(src, dest)?;
+            // NOTE:
+            // std::io::copy は std::fs::File 同士のコピーの場合、最適化が働く可能性がある。
+            // そのため self.open_writable_stream は用いない。
+
+            if self.need_write_via_kotlin(dest)? {
+                self.copy_via_kotlin(src, dest, None)?;
+            }
+            else {
+                let src = &mut self.open_file_readable(src)?;
+                let dest = &mut self.open_file_writable(dest)?;
+                std::io::copy(src, dest)?;
+            }
             Ok(())
+        })
+    }
+
+    /// Copies the contents of src file to dest.  
+    /// If dest already has contents, it is truncated before write src contents.  
+    /// 
+    /// This function always writes content via the Kotlin API, 
+    /// ensuring that writes to files not physically present on the device, such as cloud storage files, are properly applied.
+    /// 
+    /// [`AndroidFs::copy`] automatically falls back to this function depending on [`AndroidFs::need_write_via_kotlin`].  
+    /// For performance reasons, it is strongly recommended to use [`AndroidFs::copy`] 
+    /// if you can tolerate that [`AndroidFs::need_write_via_kotlin`] may not cover all cases.  
+    /// 
+    /// # Args
+    /// - ***src*** :  
+    /// The URI of source file.   
+    /// Must be **readable**.
+    /// 
+    /// - ***dest*** :  
+    /// The URI of destination file.  
+    /// Must be **writable**.
+    /// 
+    /// - ***buffer_size***:  
+    /// The size of the buffer, in bytes, to use during the process.  
+    /// If `None`, [`DEFAULT_BUFFER_SIZE`](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.io/-d-e-f-a-u-l-t_-b-u-f-f-e-r_-s-i-z-e.html) is used. 
+    /// At least, when I checked, it was 8 KB.  
+    /// If zero, this causes error.
+    /// 
+    /// # Support
+    /// All.
+    pub fn copy_via_kotlin(
+        &self, 
+        src: &FileUri, 
+        dest: &FileUri,
+        buffer_size: Option<u32>,
+    ) -> crate::Result<()> {
+
+        on_android!({
+            impl_se!(struct Req<'a> { src: &'a FileUri, dest: &'a FileUri, buffer_size: Option<u32> });
+            impl_de!(struct Res;);
+
+            if buffer_size.is_some_and(|s| s <= 0) {
+                return Err(Error { msg: "buffer_size must be non zero".into() })
+            }
+
+            self.api
+                .run_mobile_plugin::<Res>("copyFile", Req { src, dest, buffer_size })
+                .map(|_| ())
+                .map_err(Into::into)
+        })
+    }
+
+    /// Determines whether the file must be written via the Kotlin API rather than through a file descriptor.
+    /// 
+    /// **Even if this returns `false`, it does not guarantee that writing via the Kotlin API is never required.**
+    /// 
+    /// # Note
+    /// Currently, this function returns `true` only for files hosted by the following apps:  
+    ///  - Google Drive
+    /// 
+    /// # Why
+    /// For files that do not physically exist on the device, such as those stored in cloud storage,  
+    /// writing data through [`std::fs::File`] may not be properly reflected.  
+    /// In such cases, the write operation must be performed via the Kotlin API.
+    /// <https://issuetracker.google.com/issues/126362828>   
+    /// <https://stackoverflow.com/questions/51490194/file-written-using-action-create-document-is-empty-on-google-drive-but-not-local>   
+    ///
+    /// # Support
+    /// All.
+    pub fn need_write_via_kotlin(&self, uri: &FileUri) -> crate::Result<bool> {
+        on_android!({
+            const URI_PREFIXES: &'static [&'static str] = &[
+                "content://com.google.android.apps.docs", // Google drive
+            ];
+
+            Ok(URI_PREFIXES.iter().any(|prefix| uri.uri.starts_with(prefix)))
         })
     }
 
@@ -456,7 +668,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Args
     /// - ***uri*** :  
     /// Target file URI.  
-    /// This needs to be **writable**, at least. But even if it is, 
+    /// Must be **writable**, at least. But even if it is, 
     /// removing may not be possible in some cases. 
     /// For details, refer to the documentation of the function that provided the URI.  
     /// If not file, an error will occur.
@@ -480,7 +692,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Args
     /// - ***uri*** :  
     /// Target directory URI.  
-    /// This needs to be **writable**.  
+    /// Must be **writable**.  
     /// If not empty directory, an error will occur.
     /// 
     /// # Support
@@ -502,7 +714,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Args
     /// - ***uri*** :  
     /// Target directory URI.  
-    /// This needs to be **writable**.  
+    /// Must be **writable**.  
     /// If not directory, an error will occur.
     /// 
     /// # Support
@@ -529,9 +741,11 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// All.
     pub fn try_resolve_file_uri(&self, dir: &FileUri, relative_path: impl AsRef<str>) -> crate::Result<FileUri> {
         on_android!({
-            let uri = self.resolve_uri(dir, relative_path)?;            
-            if self.get_mime_type(&uri)?.is_none() {
-                return Err(crate::Error { msg: format!("This is a directory, not a file: {uri:?}").into() })
+            #[allow(deprecated)]
+            let uri = self.resolve_uri(dir, relative_path)?;         
+
+            if !self.get_type(&uri)?.is_file() {
+                return Err(crate::Error { msg: format!("This is not a file: {uri:?}").into() })
             }
             Ok(uri)
         })
@@ -547,9 +761,11 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// All.
     pub fn try_resolve_dir_uri(&self, dir: &FileUri, relative_path: impl AsRef<str>) -> crate::Result<FileUri> {
         on_android!({
+            #[allow(deprecated)]
             let uri = self.resolve_uri(dir, relative_path)?;
-            if self.get_mime_type(&uri)?.is_some() {
-                return Err(crate::Error { msg: format!("This is a file, not a directory: {uri:?}").into() })
+            
+            if !self.get_type(&uri)?.is_dir() {
+                return Err(crate::Error { msg: format!("This is not a directory: {uri:?}").into() })
             }
             Ok(uri)
         })
@@ -573,6 +789,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All.
+    #[deprecated = "Use AndroidFs::try_resolve_file_uri or AndroidFs::try_resolve_dir_uri instead"]
     pub fn resolve_uri(&self, dir: &FileUri, relative_path: impl AsRef<str>) -> crate::Result<FileUri> {
         on_android!({
             let base_dir = &dir.uri;
@@ -662,27 +879,12 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ) -> crate::Result<Option<Vec<u8>>> {
 
         on_android!({
-            let tmp_file_path = {
-                use std::sync::atomic::{AtomicUsize, Ordering};
-
-                static COUNTER: AtomicUsize = AtomicUsize::new(0);
-                let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-
-                self.private_storage().resolve_path_with(
-                    PrivateDir::Cache,
-                    format!("{TMP_DIR_RELATIVE_PATH}/get_thumbnail {id}")
-                )?
-            };
-
-            if let Some(parent) = tmp_file_path.parent() {
-                let _ = std::fs::create_dir_all(parent);
-            }
-
-            std::fs::File::create(&tmp_file_path)?;
+            let (tmp_file, tmp_file_path) = self.private_storage().create_new_tmp_file()?;
+            std::mem::drop(tmp_file);
 
             let result = self.get_thumbnail_to(uri, &(&tmp_file_path).into(), preferred_size, format)
                 .and_then(|ok| {
-                    if (ok) {
+                    if ok {
                         std::fs::read(&tmp_file_path)
                             .map(Some)
                             .map_err(Into::into)
@@ -702,14 +904,11 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// The permissions and validity period of the returned URIs depend on the origin directory 
     /// (e.g., the top directory selected by [`FilePicker::pick_dir`]) 
-    ///  
-    /// Please note that this has a different meaning from `std::fs::create` that open the file in write mod.
-    /// If you need it, use [`AndroidFs::open_file`] with [`FileAccessMode::WriteTruncate`].
     /// 
     /// # Args  
     /// - ***dir*** :  
     /// The URI of the base directory.  
-    /// This needs to be **read-write**.
+    /// Must be **read-write**.
     ///  
     /// - ***relative_path*** :  
     /// The file path relative to the base directory.  
@@ -754,7 +953,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Args  
     /// - ***dir*** :  
     /// The URI of the base directory.  
-    /// This needs to be **read-write**.
+    /// Must be **read-write**.
     ///  
     /// - ***relative_path*** :  
     /// The directory path relative to the base directory.    
@@ -793,14 +992,17 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// The permissions and validity period of the returned URIs depend on the origin directory 
     /// (e.g., the top directory selected by [`FilePicker::pick_dir`])  
     /// 
+    /// # Note
+    /// The returned type is an iterator, but the file system call is not executed lazily.  
+    /// Instead, all data is retrieved at once.  
+    /// For directories containing thousands or even tens of thousands of entries,  
+    /// this function may take several seconds to complete.  
+    /// The returned iterator itself is low-cost, as it only performs lightweight data formatting.
+    /// 
     /// # Args
     /// - ***uri*** :  
     /// Target directory URI.  
-    /// This needs to be **readable**.
-    ///  
-    /// # Note  
-    /// The returned type is an iterator because of the data formatting and the file system call is not executed lazily. 
-    /// Thus, for directories with thousands or tens of thousands of elements, it may take several seconds.  
+    /// Must be **readable**.
     /// 
     /// # Support
     /// All.
@@ -810,6 +1012,9 @@ impl<R: tauri::Runtime> AndroidFs<R> {
             impl_de!(struct Obj { name: String, uri: FileUri, last_modified: i64, byte_size: i64, mime_type: Option<String> });
             impl_de!(struct Res { entries: Vec<Obj> });
     
+            // TODO:
+            // データ転送のためのデータ形式 (ResとObj) を効率的なものにしたい
+
             self.api
                 .run_mobile_plugin::<Res>("readDir", Req { uri })
                 .map(|v| v.entries.into_iter())
@@ -829,69 +1034,6 @@ impl<R: tauri::Runtime> AndroidFs<R> {
                 }))
                 .map_err(Into::into)
         })
-    }
-
-    /// Use [`FilePicker::pick_files`] instead.
-    #[deprecated = "Use FilePicker::pick_files instead"]
-    pub fn show_open_file_dialog(
-        &self,
-        initial_location: Option<&FileUri>,
-        mime_types: &[&str],
-        multiple: bool,
-    ) -> crate::Result<Vec<FileUri>> {
-
-        self.file_picker().pick_files(initial_location, mime_types, multiple)
-    }
-
-    /// Use [`FilePicker::pick_contents`] instead.
-    #[deprecated = "Use FilePicker::pick_contents instead"]
-    pub fn show_open_content_dialog(
-        &self,
-        mime_types: &[&str],
-        multiple: bool
-    ) -> crate::Result<Vec<FileUri>> {
-
-        self.file_picker().pick_contents(mime_types, multiple)
-    }
-
-    /// Use [`FilePicker::pick_visual_medias`] instead.
-    #[deprecated = "Use FilePicker::pick_visual_medias instead"]
-    pub fn show_open_visual_media_dialog(
-        &self,
-        target: VisualMediaTarget,
-        multiple: bool,
-    ) -> crate::Result<Vec<FileUri>> {
-
-        self.file_picker().pick_visual_medias(target, multiple)
-    }
-
-    /// Use [`FilePicker::pick_dir`] instead.
-    #[deprecated = "Use FilePicker::pick_dir instead"]
-    pub fn show_manage_dir_dialog(
-        &self,
-        initial_location: Option<&FileUri>,
-    ) -> crate::Result<Option<FileUri>> {
-
-        self.file_picker().pick_dir(initial_location)
-    }
-
-    /// Use [`FilePicker::pick_dir`] instead.
-    #[deprecated = "Use FilePicker::pick_dir instead."]
-    pub fn show_open_dir_dialog(&self) -> crate::Result<Option<FileUri>> {
-        self.file_picker().pick_dir(None)
-    }
-
-
-    /// Use [`FilePicker::save_file`] instead.
-    #[deprecated = "Use FilePicker::save_file instead."]
-    pub fn show_save_file_dialog(
-        &self,
-        initial_location: Option<&FileUri>,
-        initial_file_name: impl AsRef<str>,
-        mime_type: Option<&str>,
-    ) -> crate::Result<Option<FileUri>> {
-        
-        self.file_picker().save_file(initial_location, initial_file_name, mime_type)
     }
 
     /// Create an **restricted** URI for the specified directory.  
@@ -942,6 +1084,13 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All.
+    ///
+    /// Note :  
+    /// - [`PublicAudioDir::Audiobooks`] is not available on Android 9 (API level 28) and lower.
+    /// Availability on a given device can be verified by calling [`PublicStorage::is_audiobooks_dir_available`].  
+    /// - [`PublicAudioDir::Recordings`] is not available on Android 11 (API level 30) and lower.
+    /// Availability on a given device can be verified by calling [`PublicStorage::is_recordings_dir_available`].  
+    /// - Others dirs are available in all Android versions.
     pub fn resolve_initial_location<'a>(
         &self,
         dir: impl Into<InitialLocation<'a>>,
@@ -984,32 +1133,6 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 
             Ok(FileUri { uri, document_top_tree_uri: None })
         })
-    }
-
-    /// Use [`FileSender::share_file`] instead
-    #[deprecated = "Use FileSender::share_file instead."]
-    pub fn show_share_file_dialog(&self, uri: &FileUri) -> crate::Result<()> {
-        self.file_sender().share_file(uri)
-    }
-    
-    /// Use [`FileSender::open_file`] instead
-    #[deprecated = "Use FileSender::open_file instead."]
-    pub fn show_view_file_dialog(&self, uri: &FileUri) -> crate::Result<()> {
-        self.file_sender().open_file(uri)
-    }
-
-    /// Use [`FileSender::can_share_file`] instead
-    #[deprecated = "Use FileSender::can_share_file instead"]
-    pub fn can_share_file(&self, uri: &FileUri) -> crate::Result<bool> {
-        #[allow(deprecated)]
-        self.file_sender().can_share_file(uri)
-    }
-
-    /// Use [`FileSender::can_open_file`] instead
-    #[deprecated = "Use FileSender::can_open_file instead"]
-    pub fn can_view_file(&self, uri: &FileUri) -> crate::Result<bool> {
-        #[allow(deprecated)]
-        self.file_sender().can_open_file(uri)
     }
 
     /// Take persistent permission to access the file, directory and its descendants.  
@@ -1134,9 +1257,93 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         })
     }
 
-    /// Use [`FilePicker::is_visual_media_picker_available`] instead.
-    #[deprecated = "Use FilePicker::is_visual_media_picker_available instead"]
-    pub fn is_visual_media_dialog_available(&self) -> crate::Result<bool> {
-        self.file_picker().is_visual_media_picker_available()
+    /// Verify whether this plugin is available.  
+    /// 
+    /// On Android, this returns true.  
+    /// On other platforms, this returns false.  
+    pub fn is_available(&self) -> bool {
+        cfg!(target_os = "android")
+    }
+
+    /// Get the api level of this Android device.
+    /// 
+    /// The correspondence table between API levels and Android versions can be found following.  
+    /// <https://developer.android.com/guide/topics/manifest/uses-sdk-element#api-level-table>
+    /// 
+    /// | Android version  | API Level |
+    /// |------------------|-----------|
+    /// | 16.0             | 36        |
+    /// | 15.0             | 35        |
+    /// | 14.0             | 34        |
+    /// | 13.0             | 33        |
+    /// | 12L              | 32        |
+    /// | 12.0             | 31        |
+    /// | 11.0             | 30        |
+    /// | 10.0             | 29        |
+    /// | 9.0              | 28        |
+    /// | 8.1              | 27        |
+    /// | 8.0              | 26        |
+    /// | 7.1 - 7.1.2      | 25        |
+    /// | 7.0              | 24        |
+    /// 
+    /// Tauri does not support Android versions below 7.
+    pub fn api_level(&self) -> Result<usize> {
+        on_android!({
+            impl_de!(struct Res { value: usize });
+        
+            static API_LEVEL: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+
+            if let Some(api_level) = API_LEVEL.get() {
+                return Ok(*api_level)
+            }
+
+            let api_level = self.api
+                .run_mobile_plugin::<Res>("getApiLevel", "")?
+                .value;
+
+            let _ = API_LEVEL.set(api_level);
+
+            Ok(api_level)
+        })
+    }
+
+
+
+    
+    /// See [`AndroidFs::write_via_kotlin`] for information.  
+    /// Use this if you want to write using `std::fs::File`, not entire contents.
+    /// 
+    /// # Args
+    /// - ***uri*** :  
+    /// Target file URI to write.
+    /// 
+    /// - **contetns_writer** :  
+    /// A closure that accepts a mutable reference to a `std::fs::File`
+    /// and performs the actual write operations. Note that this represents a temporary file.
+    #[deprecated = "Use AndroidFs::open_writable_stream_via_kotlin instead."]
+    pub fn write_via_kotlin_in<T>(
+        &self, 
+        uri: &FileUri,
+        contents_writer: impl FnOnce(&mut std::fs::File) -> std::io::Result<T>
+    ) -> crate::Result<T> {
+
+        on_android!({
+            let (mut tmp_file, tmp_file_path) = self.private_storage().create_new_tmp_file()?;
+
+            let result = (|| -> Result<T> {
+                let t = contents_writer(&mut tmp_file)?;
+                // 反映されるまで待機する
+                tmp_file.sync_data()?;
+                // copy を行う前にファイルを閉じる
+                std::mem::drop(tmp_file);
+
+                self.copy_via_kotlin(&(&tmp_file_path).into(), uri, None)?;
+                Ok(t)
+            })();
+
+            let _ = std::fs::remove_file(&tmp_file_path);
+
+            result
+        })
     }
 }

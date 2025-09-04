@@ -12,7 +12,10 @@ use crate::*;
 ///     let public_storage = api.public_storage();
 /// }
 /// ```
-pub struct PublicStorage<'a, R: tauri::Runtime>(pub(crate) &'a AndroidFs<R>);
+pub struct PublicStorage<'a, R: tauri::Runtime>(
+    #[allow(unused)]
+    pub(crate) &'a AndroidFs<R>
+);
 
 impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
 
@@ -23,9 +26,6 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// - Will be registered with the corresponding MediaStore as needed.  
     /// - Always supports remove and rename by this app until the app uninstalled.
     /// - Not removed when the app is uninstalled.
-    ///
-    /// Please note that this has a different meaning from `std::fs::create` that open the file in write mod.
-    /// If you need it, use [`AndroidFs::open_file`] with [`FileAccessMode::WriteTruncate`].
     /// 
     /// This is the same as following: 
     /// ```ignore
@@ -91,9 +91,6 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// - Always supports remove and rename by this app until the app uninstalled.
     /// - Not removed when the app is uninstalled.
     ///
-    /// Please note that this has a different meaning from `std::fs::create` that open the file in write mod.
-    /// If you need it, use [`AndroidFs::open_file`] with [`FileAccessMode::WriteTruncate`].
-    /// 
     /// # Args
     /// - ***dir*** :  
     /// The base directory.  
@@ -176,7 +173,14 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// The directory path relative to the base directory.    
     ///  
     /// # Support
-    /// All.
+    /// Android 10 (API level 29) or higher.  
+    ///
+    /// Note :  
+    /// - [`PublicAudioDir::Audiobooks`] is not available on Android 9 (API level 28) and lower.
+    /// Availability on a given device can be verified by calling [`PublicStorage::is_audiobooks_dir_available`].  
+    /// - [`PublicAudioDir::Recordings`] is not available on Android 11 (API level 30) and lower.
+    /// Availability on a given device can be verified by calling [`PublicStorage::is_recordings_dir_available`].  
+    /// - Others dirs are available in all Android versions.
     pub fn create_dir_all(
         &self,
         dir: impl Into<PublicDir>,
@@ -229,7 +233,14 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// The directory path relative to the base directory.    
     ///  
     /// # Support
-    /// All.
+    /// Android 10 (API level 29) or higher.  
+    ///
+    /// Note :  
+    /// - [`PublicAudioDir::Audiobooks`] is not available on Android 9 (API level 28) and lower.
+    /// Availability on a given device can be verified by calling [`PublicStorage::is_audiobooks_dir_available`].  
+    /// - [`PublicAudioDir::Recordings`] is not available on Android 11 (API level 30) and lower.
+    /// Availability on a given device can be verified by calling [`PublicStorage::is_recordings_dir_available`].  
+    /// - Others dirs are available in all Android versions.
     pub fn create_dir_all_in_app_dir(
         &self,
         dir: impl Into<PublicDir>,
@@ -245,7 +256,8 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         })
     }
 
-    /// Verify whether [`PublicAudioDir::Audiobooks`] is available on a given device.
+    /// Verify whether [`PublicAudioDir::Audiobooks`] is available on a given device.   
+    /// If on Android 9 (API level 28) and lower, this returns false.
     /// 
     /// # Support
     /// All.
@@ -260,7 +272,8 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         })
     }
 
-    /// Verify whether [`PublicAudioDir::Recordings`] is available on a given device.
+    /// Verify whether [`PublicAudioDir::Recordings`] is available on a given device.   
+    /// If on Android 11 (API level 30) and lower, this returns false.
     /// 
     /// # Support
     /// All.

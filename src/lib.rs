@@ -1,54 +1,40 @@
 //! Overview and usage is [here](https://crates.io/crates/tauri-plugin-android-fs)
 
-#![allow(unused)]
+#![allow(unused_variables)]
 
 mod models;
 mod error;
 mod api;
+
+#[cfg(target_os = "android")]
 mod utils;
 
 pub use models::*;
 pub use error::*;
 pub use api::*;
+
+#[cfg(target_os = "android")]
 pub(crate) use utils::*;
 
 /// Initializes the plugin.
 pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
-    let builder = tauri::plugin::Builder::new("android-fs")
+    tauri::plugin::Builder::new("android-fs")
         .setup(|app, api| {
             use tauri::Manager as _;
 
             let afs = AndroidFs::new(app.clone(), api)?;
 
-            // Cleanup temporary directory
-            let _ = afs
-                .private_storage()
-                .remove_dir_all(PrivateDir::Cache, Some(TMP_DIR_RELATIVE_PATH));
+            #[cfg(target_os = "android")] {
+                // Cleanup temporary files;
+                let _ = afs
+                    .private_storage()
+                    .remove_all_tmp_files();
+            }
 
             app.manage(afs);
             Ok(())
-        });
-
-    // https://github.com/aiueo13/tauri-plugin-android-fs/issues/1
-    #[cfg(all(feature = "avoid-issue1", target_os = "android"))]
-    let builder = {
-        const SCRIPT: &str = "
-            ;(async function () {
-                const noop = async () => await window.__TAURI_INTERNALS__.invoke('plugin:android-fs|noop');
-
-                setInterval(noop, 800)
-            })();
-        ";
-
-        #[tauri::command]
-        fn noop() {}
-
-        builder
-            .invoke_handler(tauri::generate_handler![noop])
-            .js_init_script(SCRIPT.into())  
-    };
-
-    builder.build()
+        })
+        .build()
 }
 
 pub trait AndroidFsExt<R: tauri::Runtime> {
@@ -59,6 +45,8 @@ pub trait AndroidFsExt<R: tauri::Runtime> {
 impl<R: tauri::Runtime, T: tauri::Manager<R>> AndroidFsExt<R> for T {
 
     fn android_fs(&self) -> &AndroidFs<R> {
-        self.state::<AndroidFs<R>>().inner()
+        self.try_state::<AndroidFs<R>>()
+            .map(|i| i.inner())
+            .expect("You should call tauri_plugin_android_fs::init() and registier it to your project. See https://crates.io/crates/tauri-plugin-android-fs")
     }
 }

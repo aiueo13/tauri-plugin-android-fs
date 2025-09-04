@@ -12,12 +12,16 @@ use crate::*;
 ///     let file_sender = api.file_sender();
 /// }
 /// ```
-pub struct FileSender<'a, R: tauri::Runtime>(pub(crate) &'a AndroidFs<R>);
+pub struct FileSender<'a, R: tauri::Runtime>(
+    #[allow(unused)]
+    pub(crate) &'a AndroidFs<R>
+);
 
 impl<'a, R: tauri::Runtime> FileSender<'a, R> {
 
     /// Show app chooser for sharing files with other apps.   
-    /// This does not wait for a response from the target app.  
+    /// This function returns immediately after requesting to open the app chooser, 
+    /// without waiting for the app’s response. 
     /// 
     /// This sends the files as a single unit.
     /// The available apps depend on the MIME types associated with the files.  
@@ -41,14 +45,16 @@ impl<'a, R: tauri::Runtime> FileSender<'a, R> {
         uris: impl IntoIterator<Item = &'b FileUri>, 
     ) -> crate::Result<()> {
 
+        // もし use_app_chooser と exclude_self_from_app_chooser を関数の引数として公開するなら、
+        //  Show app chooser for sharing files with other apps.   
+        //. This function returns immediately after requesting to open the app chooser, 
+        // を以下に変更した方が説明文としてわかりやすいかもしれない。
+        //  Share files with other app that user selected. 
+        //  This function returns immediately after requesting to share the files, 
+
         on_android!({
             impl_se!(struct Req<'a> { uris: Vec<&'a FileUri>, common_mime_type: Option<&'a str>, use_app_chooser: bool, exclude_self_from_app_chooser: bool });
             impl_de!(struct Res;);
-
-            // もし use_app_chooser と exclude_self_from_app_chooser を関数の引数として公開するなら、
-            // Show app chooser for sharing files with other apps. を
-            // Share files with other app that user selected. に変更する。
-
 
             // Decides whether the app chooser dialog is always shown.  
             // The recommended value is true, which ensures the dialog is always displayed.  
@@ -69,7 +75,7 @@ impl<'a, R: tauri::Runtime> FileSender<'a, R> {
             // otherwise, this setting will be ignored. 
             let exclude_self_from_app_chooser = true;
 
-            // Noneの場合、共有するファイルの設定されているmime typeから自動判定
+            // Noneの場合、共有するファイルに設定されているMIME typeを用いる
             let common_mime_type = None;
 
             let uris = uris.into_iter().collect::<Vec<_>>();
@@ -82,7 +88,8 @@ impl<'a, R: tauri::Runtime> FileSender<'a, R> {
     }
 
     /// Show app chooser for sharing file with other apps.    
-    /// This does not wait for a response from the target app.  
+    /// This function returns immediately after requesting to open the app chooser, 
+    /// without waiting for the app’s response. 
     /// 
     /// The available apps depend on the MIME type associated with the file.  
     /// This does not result in an error even if no available apps are found. 
@@ -91,7 +98,7 @@ impl<'a, R: tauri::Runtime> FileSender<'a, R> {
     /// # Args
     /// - ***uri*** :  
     /// Target file URI to share.  
-    /// This needs to be **readable**.  
+    /// Must be **readable**.  
     /// Files in [`PrivateStorage`] **cannot** be used.
     /// 
     /// # Support
@@ -108,7 +115,8 @@ impl<'a, R: tauri::Runtime> FileSender<'a, R> {
     }
 
     /// Show app chooser for opening file with other apps.   
-    /// This does not wait for a response from the target app.  
+    /// This function returns immediately after requesting to open the app chooser, 
+    /// without waiting for the app’s response. 
     /// 
     /// The available apps depend on the MIME type associated with the file.  
     /// This does not result in an error even if no available apps are found. 
@@ -117,7 +125,7 @@ impl<'a, R: tauri::Runtime> FileSender<'a, R> {
     /// # Args
     /// - ***uri*** :  
     /// Target file URI to view.  
-    /// This needs to be **readable**.  
+    /// Must be **readable**.  
     /// Files in [`PrivateStorage`] **cannot** be used.
     /// 
     /// # Support
@@ -146,16 +154,22 @@ impl<'a, R: tauri::Runtime> FileSender<'a, R> {
     }
 
     /// Show app chooser for editing file with other apps.   
-    /// This does not wait for a response from the target app.  
+    /// This function returns immediately after requesting to open the app chooser, 
+    /// without waiting for the app’s response. 
     /// 
     /// The available apps depend on the MIME type associated with the file.  
     /// This does not result in an error even if no available apps are found. 
     /// An empty app chooser is displayed.
     /// 
+    /// # Note
+    /// I think that this may be the least commonly used request for sending file to app.  
+    /// Even if you want to open an image or video editing app, 
+    /// [`FileSender::open_file`] allows you to choose from a wider range of apps in many cases.
+    /// 
     /// # Args
     /// - ***uri*** :  
     /// Target file URI to view.  
-    /// This needs to be **read-writeable**.  
+    /// Must be **read-writeable**.  
     /// Files in [`PrivateStorage`] **cannot** be used.
     /// 
     /// # Support
@@ -219,7 +233,7 @@ impl<'a, R: tauri::Runtime> FileSender<'a, R> {
     /// # Args
     /// - ***uri*** :  
     /// Target file URI.  
-    /// This needs to be **readable**.
+    /// Must be **readable**.
     /// 
     /// # Support
     /// All.
@@ -235,7 +249,7 @@ impl<'a, R: tauri::Runtime> FileSender<'a, R> {
     /// # Args
     /// - ***uri*** :  
     /// Target file URI.  
-    /// This needs to be **readable**.
+    /// Must be **readable**.
     /// 
     /// # Support
     /// All.
@@ -260,7 +274,7 @@ impl<'a, R: tauri::Runtime> FileSender<'a, R> {
     /// # Args
     /// - ***uri*** :  
     /// Target file URI.  
-    /// This needs to be **read-writeable**.  
+    /// Must be **read-writeable**.  
     /// 
     /// # Support
     /// All.

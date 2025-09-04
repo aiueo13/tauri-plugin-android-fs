@@ -17,6 +17,7 @@ macro_rules! on_android {
     }};
 }
 
+#[allow(unused)]
 macro_rules! impl_se {
     (struct $struct_ident:ident $(< $lifetime:lifetime >)? { $( $name:ident: $ty:ty ),* $(,)? }) => {
         #[derive(serde::Serialize)]
@@ -27,6 +28,7 @@ macro_rules! impl_se {
     };
 }
 
+#[allow(unused)]
 macro_rules! impl_de {
     (struct $struct_ident:ident $(< $lifetime:lifetime >)? { $( $name:ident: $ty:ty ),* $(,)? }) => {
         #[derive(serde::Deserialize)]
@@ -46,9 +48,11 @@ mod file_picker;
 mod file_sender;
 mod private_storage;
 mod public_storage;
+mod writable_stream;
 
 pub use android_fs::AndroidFs;
 pub use file_picker::FilePicker;
 pub use file_sender::FileSender;
 pub use private_storage::PrivateStorage;
 pub use public_storage::PublicStorage;
+pub use writable_stream::WritableStream;

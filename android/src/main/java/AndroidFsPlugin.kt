@@ -34,11 +34,20 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.min
+import kotlin.io.DEFAULT_BUFFER_SIZE
+import kotlin.io.copyTo
+import java.io.FileOutputStream
 import java.io.OutputStream
 
 @InvokeArg
 class GetFileDescriptorArgs {
     lateinit var mode: String
+    lateinit var uri: FileUri
+}
+
+@InvokeArg
+class GetFileDescriptorWithFallbackArgs {
+    lateinit var modes: Array<String>
     lateinit var uri: FileUri
 }
 
@@ -186,6 +195,7 @@ class ReleasePersistedUriPermissionArgs {
 class CopyFileArgs {
     lateinit var src: FileUri
     lateinit var dest: FileUri
+    var bufferSize: Int? = null
 }
 
 @InvokeArg
@@ -252,7 +262,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             (uri.scheme == "file") -> {
                 rawFileController
             }
-            else -> throw Error("Unsupported uri: $uri")
+            else -> throw Exception("Unsupported uri: $uri")
         }
     }
 
@@ -267,6 +277,39 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             .getSingleton()
             .getMimeTypeFromExtension(ext)
             ?: "application/octet-stream"
+    }
+
+    private fun openFileWt(uri: Uri): OutputStream {
+        // Android 9 以下の場合、w は既存の内容を必ず切り捨てる
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+            return activity.contentResolver.openOutputStream(uri, "w")
+                ?: throw Exception("Failed to open file with w mode")
+        }
+
+        // Android 10 以上の場合、w は既存の内容を切り捨てるとは限らない
+        // しかし wt に対応していない file provider もあるため、
+        // フォールバックを用いてなるべく多くの状況に対応する。
+        // https://issuetracker.google.com/issues/180526528
+
+        for (mode in listOf("wt", "rwt", "w")) {
+            try {
+                val o = activity.contentResolver.openOutputStream(uri, mode)
+                if (o != null) {
+                    if (mode == "w") {
+                        if (o is FileOutputStream) {
+                            o.channel.truncate(0)
+                            return o
+                        }
+                    }
+                    else {
+                        return o
+                    }
+                }
+            }
+            catch (ignore: Exception) {}
+        }
+
+        throw Exception("Failed to open file with truncate and write")
     }
 
     @Suppress("NAME_SHADOWING")
@@ -481,7 +524,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 BaseDir.Audiobooks -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     Environment.DIRECTORY_AUDIOBOOKS
                 } else {
-                    throw Error("Environment.DIRECTORY_AUDIOBOOKS isn't available on Android 9 (API level 28) and lower.")
+                    throw Exception("Environment.DIRECTORY_AUDIOBOOKS isn't available on Android 9 (API level 28) and lower.")
                 }
                 BaseDir.Notifications -> Environment.DIRECTORY_NOTIFICATIONS
                 BaseDir.Podcasts -> Environment.DIRECTORY_PODCASTS
@@ -491,7 +534,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 BaseDir.Recordings -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     Environment.DIRECTORY_RECORDINGS
                 } else {
-                    throw Error("Environment.DIRECTORY_RECORDINGS isn't available on Android 11 (API level 30) and lower.")
+                    throw Exception("Environment.DIRECTORY_RECORDINGS isn't available on Android 11 (API level 30) and lower.")
                 }
             }
 
@@ -697,9 +740,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 img
             }
             
-            out = activity.contentResolver
-                .openOutputStream(dest, "wt")
-                ?: throw Exception("Failed to open output stream: $dest")
+            out = openFileWt(dest)
 
             if (!thumbnail.compress(compressFormat, args.quality.coerceIn(0, 100), out)) {
                 throw Exception("Bitmap.compress() returned false for $dest")
@@ -807,21 +848,21 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val args = invoke.parseArgs(CopyFileArgs::class.java)
-                    val inputStream = activity.contentResolver.openInputStream(Uri.parse(args.src.uri))
-                    val outputStream = activity.contentResolver.openOutputStream(Uri.parse(args.dest.uri), "wt")
 
-                    val buffer = ByteArray(8192)
-                    var bytesRead: Int
-                    inputStream.use { input ->
-                        outputStream.use { output ->
-                            while (input!!.read(buffer).also { bytesRead = it } != -1) {
-                                output!!.write(buffer, 0, bytesRead)
-                            }
-                            output!!.flush()
+                    // グーグルドライブなどの場合、
+                    // OutputStream を介して書き込まないと正しく反映されないことがある。
+                    // ( 正確にはOutputStream.flush()が必要 )
+                    //
+                    // https://stackoverflow.com/questions/51490194/file-written-using-action-create-document-is-empty-on-google-drive-but-not-local
+                    // https://issuetracker.google.com/issues/126362828
+
+                    activity.contentResolver.openInputStream(Uri.parse(args.src.uri))?.use { input ->
+                        openFileWt(Uri.parse(args.dest.uri)).use { output ->
+                            input.copyTo(output, args.bufferSize ?: DEFAULT_BUFFER_SIZE)
+                            output.flush()
                         }
                     }
 
-                    // 必要ないかもしれないが念の為
                     withContext(Dispatchers.Main) {
                         invoke.resolve() 
                     }
@@ -1239,6 +1280,63 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         }
     }
 
+    @SuppressLint("Recycle")
+    @Command
+    fun getFileDescriptorWithFallback(invoke: Invoke) {
+        try {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val args = invoke.parseArgs(GetFileDescriptorWithFallbackArgs::class.java)
+                    val uri = Uri.parse(args.uri.uri)
+
+                    var fd: Int? = null
+                    var mode: String? = null
+                    for (m in args.modes) {
+                        try {
+                            mode = m
+                            val afd = activity.contentResolver.openAssetFileDescriptor(uri, m)
+                            fd = afd?.parcelFileDescriptor?.detachFd()
+                        }
+                        catch (ignore: Exception) {}
+
+                        if (fd != null) break
+                    }
+                    
+                    val res = JSObject()
+                    res.put("fd", fd ?: throw Exception("Failed to get FileDescriptor with ${args.modes}"))
+                    res.put("mode", mode!!)
+
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve(res)
+                    }
+                } catch (ex: Exception) {
+                    val message = ex.message ?: "Failed to invoke getFileDescriptor."
+                    Logger.error(message)
+                    invoke.reject(message)
+                }
+            }
+        }
+        catch (ex: Exception) {
+            val message = ex.message ?: "Failed to invoke getFileDescriptor."
+            Logger.error(message)
+            invoke.reject(message)
+        }
+    }
+
+    @Command
+    fun getApiLevel(invoke: Invoke) {
+        try {
+            val res = JSObject()
+            res.put("value", Build.VERSION.SDK_INT)
+            invoke.resolve(res)
+        } 
+        catch (ex: Exception) {
+            val message = ex.message ?: "Failed to invoke getApiLevel."
+            Logger.error(message)
+            invoke.reject(message)
+        }
+    }
+
     @Command
     fun isAudiobooksDirAvailable(invoke: Invoke) {
         try {
@@ -1475,14 +1573,14 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
 
         // 最初の MIME タイプを基準に分割
         val firstParts = mimeTypes[0].split("/")
-        if (firstParts.size != 2) throw Error("Illegal mimeType format: ${mimeTypes[0]}")
+        if (firstParts.size != 2) throw Exception("Illegal mimeType format: ${mimeTypes[0]}")
 
         val type = firstParts[0]
         var subtype = firstParts[1]
 
         for (mime in mimeTypes.drop(1)) {
             val parts = mime.split("/")
-            if (parts.size != 2) throw Error("Illegal mimeType format: ${mime}")
+            if (parts.size != 2) throw Exception("Illegal mimeType format: ${mime}")
 
             // typeが共通でなければ共通MIMEはなし
             if (parts[0] != type) return "*/*"

@@ -12,7 +12,10 @@ use crate::*;
 ///     let file_picker = api.file_picker();
 /// }
 /// ```
-pub struct FilePicker<'a, R: tauri::Runtime>(pub(crate) &'a AndroidFs<R>);
+pub struct FilePicker<'a, R: tauri::Runtime>(
+    #[allow(unused)]
+    pub(crate) &'a AndroidFs<R>
+);
 
 impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
 
@@ -55,9 +58,6 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// However, there is no guarantee that the returned file will match the specified types.  
     /// If left empty, all file types will be available (equivalent to `["*/*"]`).  
     ///  
-    /// - ***multiple*** :  
-    /// Indicates whether multiple file selection is allowed.  
-    /// 
     /// # Support
     /// All.
     /// 
@@ -67,23 +67,9 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
         &self,
         initial_location: Option<&FileUri>,
         mime_types: &[&str],
-        multiple: bool,
     ) -> crate::Result<Vec<FileUri>> {
 
-        on_android!({
-            impl_se!(struct Req<'a> { 
-                mime_types: &'a [&'a str],
-                multiple: bool,
-                initial_location: Option<&'a FileUri>
-            });
-            impl_de!(struct Res { uris: Vec<FileUri> });
-    
-            let _guard = self.0.intent_lock.lock();
-            self.0.api
-                .run_mobile_plugin::<Res>("showOpenFileDialog", Req { mime_types, multiple, initial_location })
-                .map(|v| v.uris)
-                .map_err(Into::into)
-        })
+        self.inner_pick_files(initial_location, mime_types, true)
     }
 
     /// Opens a system file picker and returns a **read-write** URI.  
@@ -136,7 +122,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
         mime_types: &[&str],
     ) -> crate::Result<Option<FileUri>> {
 
-        self.pick_files(initial_location, mime_types, false).map(|mut f| f.pop())
+        self.inner_pick_files(initial_location, mime_types, false).map(|mut f| f.pop())
     }
 
     /// Opens a media picker and returns a **readonly** URIs.  
@@ -152,9 +138,6 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// - ***target*** :  
     /// The media type of the file to be selected.  
     /// Images or videos, or both.  
-    ///  
-    /// - ***multiple*** :  
-    /// Indicates whether multiple file selection is allowed.  
     ///  
     /// # Note
     /// The file obtained from this function cannot retrieve the correct file name using [`AndroidFs::get_name`].  
@@ -175,19 +158,9 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     pub fn pick_visual_medias(
         &self,
         target: VisualMediaTarget,
-        multiple: bool,
     ) -> crate::Result<Vec<FileUri>> {
 
-        on_android!({
-            impl_se!(struct Req { multiple: bool, target: VisualMediaTarget });
-            impl_de!(struct Res { uris: Vec<FileUri> });
-    
-            let _guard = self.0.intent_lock.lock();
-            self.0.api
-                .run_mobile_plugin::<Res>("showOpenVisualMediaDialog", Req { multiple, target })
-                .map(|v| v.uris)
-                .map_err(Into::into)
-        })
+        self.inner_pick_visual_medias(target, true)
     }
 
     /// Opens a media picker and returns a **readonly** URI.  
@@ -225,7 +198,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
         target: VisualMediaTarget,
     ) -> crate::Result<Option<FileUri>> {
 
-        self.pick_visual_medias(target, false).map(|mut f| f.pop())
+        self.inner_pick_visual_medias(target, false).map(|mut f| f.pop())
     }
 
     /// Opens a file picker and returns a **readonly** URIs.  
@@ -243,9 +216,6 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// However, there is no guarantee that the returned file will match the specified types.  
     /// If left empty, all file types will be available (equivalent to `["*/*"]`).  
     ///  
-    /// - ***multiple*** :  
-    /// Indicates whether multiple file selection is allowed.  
-    /// 
     /// # Support
     /// All.
     /// 
@@ -254,19 +224,9 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     pub fn pick_contents(
         &self,
         mime_types: &[&str],
-        multiple: bool
     ) -> crate::Result<Vec<FileUri>> {
 
-        on_android!({
-            impl_se!(struct Req<'a> { mime_types: &'a [&'a str], multiple: bool });
-            impl_de!(struct Res { uris: Vec<FileUri> });
-
-            let _guard = self.0.intent_lock.lock();
-            self.0.api
-                .run_mobile_plugin::<Res>("showOpenContentDialog", Req { mime_types, multiple })
-                .map(|v| v.uris)
-                .map_err(Into::into)
-        })
+        self.inner_pick_contents(mime_types, true)
     }
 
     /// Opens a file picker and returns a **readonly** URI.  
@@ -294,7 +254,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
         mime_types: &[&str],
     ) -> crate::Result<Option<FileUri>> {
 
-        self.pick_contents(mime_types, false).map(|mut f| f.pop())
+        self.inner_pick_contents(mime_types, false).map(|mut f| f.pop())
     }
 
     /// Opens a system directory picker, allowing the creation of a new directory or the selection of an existing one, 
@@ -441,6 +401,66 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
             self.0.api
                 .run_mobile_plugin::<Res>("isVisualMediaDialogAvailable", "")
                 .map(|v| v.value)
+                .map_err(Into::into)
+        })
+    }
+
+
+    fn inner_pick_files(
+        &self,
+        initial_location: Option<&FileUri>,
+        mime_types: &[&str],
+        multiple: bool,
+    ) -> crate::Result<Vec<FileUri>> {
+
+        on_android!({
+            impl_se!(struct Req<'a> { 
+                mime_types: &'a [&'a str],
+                multiple: bool,
+                initial_location: Option<&'a FileUri>
+            });
+            impl_de!(struct Res { uris: Vec<FileUri> });
+    
+            let _guard = self.0.intent_lock.lock();
+            self.0.api
+                .run_mobile_plugin::<Res>("showOpenFileDialog", Req { mime_types, multiple, initial_location })
+                .map(|v| v.uris)
+                .map_err(Into::into)
+        })
+    }
+
+    fn inner_pick_visual_medias(
+        &self,
+        target: VisualMediaTarget,
+        multiple: bool,
+    ) -> crate::Result<Vec<FileUri>> {
+
+        on_android!({
+            impl_se!(struct Req { multiple: bool, target: VisualMediaTarget });
+            impl_de!(struct Res { uris: Vec<FileUri> });
+    
+            let _guard = self.0.intent_lock.lock();
+            self.0.api
+                .run_mobile_plugin::<Res>("showOpenVisualMediaDialog", Req { multiple, target })
+                .map(|v| v.uris)
+                .map_err(Into::into)
+        })
+    }
+
+    fn inner_pick_contents(
+        &self,
+        mime_types: &[&str],
+        multiple: bool
+    ) -> crate::Result<Vec<FileUri>> {
+
+        on_android!({
+            impl_se!(struct Req<'a> { mime_types: &'a [&'a str], multiple: bool });
+            impl_de!(struct Res { uris: Vec<FileUri> });
+
+            let _guard = self.0.intent_lock.lock();
+            self.0.api
+                .run_mobile_plugin::<Res>("showOpenContentDialog", Req { mime_types, multiple })
+                .map(|v| v.uris)
                 .map_err(Into::into)
         })
     }

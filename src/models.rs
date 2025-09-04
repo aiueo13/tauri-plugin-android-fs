@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use crate::{Error, Result};
 
 /// Path to represent a file or directory.
 /// 
@@ -28,7 +29,7 @@ pub struct FileUri {
     /// `file://` or `content://` URI of file or directory.
     pub uri: String,
 
-    /// Only files/directories under the directory obtained by AndroidFs::show_picker_for_manage_dir will own this.
+    /// Only files/directories under the directory obtained by `FilePicker::pick_dir` will own this.
     pub document_top_tree_uri: Option<String>,
 }
 
@@ -96,6 +97,44 @@ pub enum Entry {
         uri: FileUri,
         name: String,
         last_modified: std::time::SystemTime,
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum EntryType {
+    File {
+        mime_type: String
+    },
+    Dir,
+}
+
+impl EntryType {
+
+    pub fn is_file(&self) -> bool {
+        matches!(self, Self::File { .. })
+    }
+
+    pub fn is_dir(&self) -> bool {
+        matches!(self, Self::Dir)
+    }
+
+    /// If file, this is no None.  
+    /// If directory, this is None.  
+    pub fn mime_type(&self) -> Option<&str> {
+        match self {
+            EntryType::File { mime_type } => Some(&mime_type),
+            EntryType::Dir => None,
+        }
+    }
+
+    /// If file, this is no None.  
+    /// If directory, this is None.  
+    pub fn into_mime_type(self) -> Option<String> {
+        match self {
+            EntryType::File { mime_type } => Some(mime_type),
+            EntryType::Dir => None,
+        }
     }
 }
 
@@ -213,11 +252,16 @@ pub enum FileAccessMode {
     Read,
 
     /// Opens the file in write-only mode.  
-    /// **This may or may not truncate existing contents.**  
-    /// So please use [`FileAccessMode::WriteTruncate`] or [`FileAccessMode::WriteAppend`] instead.  
-    ///
+    /// 
+    /// Since Android 10, this may or may not truncate existing contents. 
+    /// If the new file is smaller than the old one, **this may cause the file to become corrupted**.
+    /// <https://issuetracker.google.com/issues/180526528>
+    /// 
+    /// The reason this is marked as deprecated is because of that behavior, 
+    /// and it is not scheduled to be removed in the future. 
+    /// 
     /// FileDescriptor mode: "w"
-    #[deprecated(note = "This may or may not truncate existing contents. So please use WriteTruncate or WriteAppend instead.")]
+    #[deprecated(note = "This may or may not truncate existing contents. If the new file is smaller than the old one, this may cause the file to become corrupted.")]
     Write,
 
     /// Opens the file in write-only mode.
@@ -242,6 +286,36 @@ pub enum FileAccessMode {
     ///
     /// FileDescriptor mode: "rwt"
     ReadWriteTruncate,
+}
+
+impl FileAccessMode {
+
+    #[allow(unused)]
+    #[allow(deprecated)]
+    pub(crate) fn to_mode(&self) -> &'static str {
+        match self {
+            FileAccessMode::Read => "r",
+            FileAccessMode::Write => "w",
+            FileAccessMode::WriteTruncate => "wt",
+            FileAccessMode::WriteAppend => "wa",
+            FileAccessMode::ReadWriteTruncate => "rwt",
+            FileAccessMode::ReadWrite => "rw",
+        }
+    }
+
+    #[allow(unused)]
+    #[allow(deprecated)]
+    pub(crate) fn from_mode(mode: &str) -> Result<Self> {
+        match mode {
+            "r" => Ok(Self::Read),
+            "w" => Ok(Self::Write),
+            "wt" => Ok(Self::WriteTruncate),
+            "wa" => Ok(Self::WriteAppend),
+            "rwt" => Ok(Self::ReadWriteTruncate),
+            "rw" => Ok(Self::ReadWrite),
+            mode => Err(Error { msg: format!("Illegal mode: {mode}").into() })
+        }
+    }
 }
 
 /// Filters for VisualMediaPicker.

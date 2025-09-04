@@ -32,7 +32,7 @@ There are three main ways to manipulate files:
 Opens the file/folder picker to read and write user-selected entries.
 
 ```rust
-use tauri_plugin_android_fs::{AndroidFsExt, FileAccessMode, ImageFormat, Size};
+use tauri_plugin_android_fs::{AndroidFsExt, ImageFormat, Size};
 
 fn file_picker_example(app: tauri::AppHandle) -> tauri_plugin_android_fs::Result<()> {
     let api = app.android_fs();
@@ -41,7 +41,6 @@ fn file_picker_example(app: tauri::AppHandle) -> tauri_plugin_android_fs::Result
     let selected_files = api.file_picker().pick_files(
         None, // Initial location
         &["*/*"], // Target MIME types
-        true, // Allow multiple files
     )?;
 
     if selected_files.is_empty() {
@@ -53,7 +52,7 @@ fn file_picker_example(app: tauri::AppHandle) -> tauri_plugin_android_fs::Result
             // Not FilePath::Path(..)
             let file_path: tauri_plugin_fs::FilePath = uri.clone().into();
 
-            let file_type = api.get_mime_type(&uri)?.unwrap(); // If file, this returns no None.
+            let file_type = api.get_mime_type(&uri)?;
             let file_name = api.get_name(&uri)?;
             let file_thumbnail = api.get_thumbnail(
                 &uri, 
@@ -63,13 +62,15 @@ fn file_picker_example(app: tauri::AppHandle) -> tauri_plugin_android_fs::Result
 
             {
                 // Handle readonly file.
-                let file: std::fs::File = api.open_file(&uri, FileAccessMode::Read)?;
+                let file: std::fs::File = api.open_file_readable(&uri)?;
             }
 
             {
                 // Handle writeonly file. 
                 // This truncate existing contents.
-                let file: std::fs::File = api.open_file(&uri, FileAccessMode::WriteTruncate)?;
+                let file: std::fs::File = api.open_file_writable(&uri)?;
+
+                // But if you can, please use [api.open_writable_stream] instead
             }
         }
     }
@@ -229,8 +230,6 @@ fn save_file_with_dir_picker(
         let _ = api.remove_file(&new_file_uri);
         return Err(e)
     }
-    // or
-    // let mut file: std::fs::File = api.open_file(&new_file_uri, FileAccessMode::WriteTruncate)?;
     
     Ok(true)
 }

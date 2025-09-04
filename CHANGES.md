@@ -1,3 +1,23 @@
+# Version 11.0.0
+- Remove feature of `avoid-issue1`
+- Remove deperecated items.
+- Deprecate `AndroidFs::write_via_kotlin_in`
+- Deprecate `AndroidFs::resolve_uri`
+- Change returned type and behavior of `AndroidFs::get_mime_type`
+- Remove arg of `multiple` from `FilePicker::pick_files`
+- Remove arg of `multiple` from `FilePicker::pick_visual_medias`
+- Remove arg of `multiple` from `FilePicker::pick_contents`
+- Add arg of `buffer_size` to `AndroidFs::copy_via_kotlin`
+- Add `AndroidFs::get_type`
+- Add `AndroidFs::open_file_writable`
+- Add `AndroidFs::open_file_readable`
+- Add `AndroidFs::open_writable_stream`
+- Add `AndroidFs::open_writable_stream_via_kotlin`
+- Add `AndroidFs::api_level`
+- Add `WritableStream`
+- Add `EntryType`
+- Update documentation.
+
 # Version 10.2.3
 - Update documentation.
 

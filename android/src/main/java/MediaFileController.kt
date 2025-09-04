@@ -32,7 +32,7 @@ class MediaFileController(private val activity: Activity): FileController {
             }
         }
 
-        throw Error("Failed to find entry: ${uri.uri}")
+        throw Exception("Failed to find entry: ${uri.uri}")
     }
 
     override fun getName(uri: FileUri): String {
@@ -49,7 +49,7 @@ class MediaFileController(private val activity: Activity): FileController {
             }
         }
 
-        throw Error("Failed to find entry: ${uri.uri}")
+        throw Exception("Failed to find entry: ${uri.uri}")
     }
 
     @Suppress("NAME_SHADOWING")
@@ -69,7 +69,7 @@ class MediaFileController(private val activity: Activity): FileController {
         }
 
         val uri = activity.contentResolver.insert(Uri.parse(dirUri.uri), content)
-            ?: throw Error("Failed to create file")
+            ?: throw Exception("Failed to create file")
 
         val res = JSObject()
         res.put("uri", uri)
@@ -79,20 +79,20 @@ class MediaFileController(private val activity: Activity): FileController {
 
     override fun deleteFile(uri: FileUri) {
         if (activity.contentResolver.delete(Uri.parse(uri.uri), null, null) <= 0) {
-            throw Error("Failed to delete file: ${uri.uri}")
+            throw Exception("Failed to delete file: ${uri.uri}")
         }
     }
 
     override fun deleteEmptyDir(uri: FileUri) {
-        throw Error("Unsupported operation for ${uri.uri}")
+        throw Exception("Unsupported operation for ${uri.uri}")
     }
 
     override fun deleteDirAll(uri: FileUri) {
-        throw Error("Unsupported operation for ${uri.uri}")
+        throw Exception("Unsupported operation for ${uri.uri}")
     }
 
     override fun readDir(dirUri: FileUri): JSArray {
-        throw Error("Unsupported or not dir: ${dirUri.uri}")
+        throw Exception("Unsupported or not dir: ${dirUri.uri}")
     }
 
     override fun getThumbnail(uri: FileUri, width: Int, height: Int): Bitmap? {
@@ -120,7 +120,7 @@ class MediaFileController(private val activity: Activity): FileController {
             )
 
             if (updated == 0) {
-                throw Error("Failed to rename: ${uri.uri}")
+                throw Exception("Failed to rename: ${uri.uri}")
             }
         }
 

@@ -74,31 +74,31 @@ class RawFileController: FileController {
     override fun deleteFile(uri: FileUri) {
         val file = File(Uri.parse(uri.uri).path!!)
         if (!file.isFile) {
-            throw Error("This is not file: ${uri.uri}")
+            throw Exception("This is not file: ${uri.uri}")
         }
         if (!file.delete()) {
-            throw Error("Failed to delete file: ${uri.uri}")
+            throw Exception("Failed to delete file: ${uri.uri}")
         }
     }
 
     override fun deleteEmptyDir(uri: FileUri) {
         val file = File(Uri.parse(uri.uri).path!!)
         if (!file.isDirectory) {
-            throw Error("This is not dir: ${uri.uri}")
+            throw Exception("This is not dir: ${uri.uri}")
         }
         if (!file.delete()) {
-            throw Error("Failed to delete file: ${uri.uri}")
+            throw Exception("Failed to delete file: ${uri.uri}")
         }
     }
 
     override fun deleteDirAll(uri: FileUri) {
         val file = File(Uri.parse(uri.uri).path!!)
         if (!file.isDirectory) {
-            throw Error("This is not dir: ${uri.uri}")
+            throw Exception("This is not dir: ${uri.uri}")
         }
         
         if (!deleteRecursive(file)) {
-            throw Error("Failed to delete file: ${uri.uri}")
+            throw Exception("Failed to delete file: ${uri.uri}")
         }
     }
 
@@ -124,11 +124,11 @@ class RawFileController: FileController {
         val newFile = File(file.parentFile, newName)
 
         if (newFile.exists()) {
-            throw Error("File already exists: ${newFile.path}")
+            throw Exception("File already exists: ${newFile.path}")
         }
 
         if (!file.renameTo(newFile)) {
-            throw Error("Failed to rename file: ${uri.uri}")
+            throw Exception("Failed to rename file: ${uri.uri}")
         }
 
         val res = JSObject()

@@ -12,7 +12,10 @@ use crate::*;
 ///     let private_storage = api.private_storage();
 /// }
 /// ```
-pub struct PrivateStorage<'a, R: tauri::Runtime>(pub(crate) &'a AndroidFs<R>);
+pub struct PrivateStorage<'a, R: tauri::Runtime>(
+    #[allow(unused)]
+    pub(crate) &'a AndroidFs<R>
+);
 
 impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
 
@@ -367,6 +370,48 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
             };
     
             Ok(std::fs::metadata(path)?)
+        })
+    }
+
+
+    #[allow(unused)]
+    pub(crate) fn create_new_tmp_file(&self) -> crate::Result<(std::fs::File, std::path::PathBuf)> {
+        on_android!({
+            let tmp_file_path = {
+                use std::sync::atomic::{AtomicUsize, Ordering};
+
+                static COUNTER: AtomicUsize = AtomicUsize::new(0);
+                let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+
+                let tmp_dir_path = self.resolve_tmp_dir()?;
+                let _ = std::fs::create_dir_all(&tmp_dir_path);
+            
+                tmp_dir_path.join(format!("tmp file {id}"))
+            };
+            
+            let tmp_file = std::fs::File::create_new(&tmp_file_path)?;
+
+            Ok((tmp_file, tmp_file_path))
+        })
+    }
+
+    #[allow(unused)]
+    pub(crate) fn remove_all_tmp_files(&self) -> crate::Result<()> {
+        on_android!({
+            match std::fs::remove_dir_all(self.resolve_tmp_dir()?) {
+                Ok(_) => Ok(()),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                Err(e) => Err(e.into()),
+            }
+        })
+    }
+
+    #[allow(unused)]
+    pub(crate) fn resolve_tmp_dir(&self) -> crate::Result<std::path::PathBuf> {
+        on_android!({
+            const TMP_DIR_RELATIVE_PATH: &str = "pluginAndroidFs-tmpDir-01K486FKQ2BZSBGFD34RFH9FWJ";
+
+            self.resolve_path_with(PrivateDir::Cache, TMP_DIR_RELATIVE_PATH)
         })
     }
 }

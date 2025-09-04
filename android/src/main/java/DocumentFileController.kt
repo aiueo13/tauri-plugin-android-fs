@@ -32,7 +32,7 @@ class DocumentFileController(private val activity: Activity): FileController {
             }
         }
 
-        throw Error("Failed to find entry: ${uri.uri}")
+        throw Exception("Failed to find entry: ${uri.uri}")
     }
 
     override fun getName(uri: FileUri): String {
@@ -49,7 +49,7 @@ class DocumentFileController(private val activity: Activity): FileController {
             }
         }
 
-        throw Error("Failed to get name from ${uri.uri}")
+        throw Exception("Failed to get name from ${uri.uri}")
     }
 
     override fun readDir(dirUri: FileUri): JSArray {
@@ -113,10 +113,10 @@ class DocumentFileController(private val activity: Activity): FileController {
     @Synchronized
     override fun createFile(dirUri: FileUri, relativePath: String, mimeType: String): JSObject {
         if (relativePath.endsWith('/')) {
-            throw Error("Illegal file path format, ends with '/'. $relativePath")
+            throw Exception("Illegal file path format, ends with '/'. $relativePath")
         }
         if (relativePath.isEmpty()) {
-            throw Error("Relative path is empty.")
+            throw Exception("Relative path is empty.")
         }
 
         val _relativePath = relativePath.trimStart('/')
@@ -130,7 +130,7 @@ class DocumentFileController(private val activity: Activity): FileController {
             parentUri,
             mimeType,
             fileName
-        ) ?: throw Error("Failed to create file: { parent: $parentUri, fileName: $fileName, mimeType: $mimeType }")
+        ) ?: throw Exception("Failed to create file: { parent: $parentUri, fileName: $fileName, mimeType: $mimeType }")
 
         val res = JSObject()
         res.put("uri", uri)
@@ -140,25 +140,25 @@ class DocumentFileController(private val activity: Activity): FileController {
 
     override fun deleteFile(uri: FileUri) {
         if (getMimeType(uri) == null) {
-            throw Error("This is dir, not file: ${uri.uri}")
+            throw Exception("This is dir, not file: ${uri.uri}")
         }
         if (!DocumentsContract.deleteDocument(activity.contentResolver, Uri.parse(uri.uri))) {
-            throw Error("Failed to delete file: ${uri.uri}")
+            throw Exception("Failed to delete file: ${uri.uri}")
         }
     }
 
     override fun deleteDirAll(uri: FileUri) {
         if (getMimeType(uri) != null) {
-            throw Error("This is file, not dir: ${uri.uri}")
+            throw Exception("This is file, not dir: ${uri.uri}")
         }
         if (!DocumentsContract.deleteDocument(activity.contentResolver, Uri.parse(uri.uri))) {
-            throw Error("Failed to delete file: ${uri.uri}")
+            throw Exception("Failed to delete file: ${uri.uri}")
         }
     }
 
     override fun deleteEmptyDir(uri: FileUri) {
         if (getMimeType(uri) != null) {
-            throw Error("This is file, not dir: ${uri.uri}")
+            throw Exception("This is file, not dir: ${uri.uri}")
         }
 
         val topTreeUri = Uri.parse(uri.documentTopTreeUri!!)
@@ -175,12 +175,12 @@ class DocumentFileController(private val activity: Activity): FileController {
         )
         cursor?.use {
             if (it.moveToFirst()) {
-                throw Error("Dir is not empty: ${uri.uri}")
+                throw Exception("Dir is not empty: ${uri.uri}")
             }
         }
 
         if (!DocumentsContract.deleteDocument(activity.contentResolver, Uri.parse(uri.uri))) {
-            throw Error("Failed to delete file: ${uri.uri}")
+            throw Exception("Failed to delete file: ${uri.uri}")
         }
     }
 

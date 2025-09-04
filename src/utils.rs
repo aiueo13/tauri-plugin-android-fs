@@ -1,5 +1,3 @@
-pub const TMP_DIR_RELATIVE_PATH: &str = "pluginAndroidFs-tmpDir-33bd1538-4434-dc4e-7e2f-515405cccbf9";
-
 pub fn encode_document_id(input: &str) -> String {
     // https://developer.android.com/reference/android/net/Uri.html#encode(java.lang.String)
     
