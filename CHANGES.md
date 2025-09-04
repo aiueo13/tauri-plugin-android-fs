@@ -1,3 +1,6 @@
+# Version 11.0.1
+- Update documentation.
+
 # Version 11.0.0
 - Remove feature of `avoid-issue1`
 - Remove deperecated items.

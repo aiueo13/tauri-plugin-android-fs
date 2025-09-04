@@ -853,6 +853,8 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     // OutputStream を介して書き込まないと正しく反映されないことがある。
                     // ( 正確にはOutputStream.flush()が必要 )
                     //
+                    // https://community.latenode.com/t/csv-export-to-google-drive-results-in-empty-file-but-local-storage-works-fine/10822/3
+                    // https://community.latenode.com/t/csv-file-exports-to-local-storage-but-appears-empty-when-saved-to-google-drive-using-action-create-document/29264/4
                     // https://stackoverflow.com/questions/51490194/file-written-using-action-create-document-is-empty-on-google-drive-but-not-local
                     // https://issuetracker.google.com/issues/126362828
 

@@ -196,8 +196,6 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// writing with such files may not correctly reflect the changes.  
     /// In this case, this function may causes an error, or may not.  
     /// If you need write with such files, use [`AndroidFs::open_writable_stream`].
-    /// <https://issuetracker.google.com/issues/126362828>   
-    /// <https://stackoverflow.com/questions/51490194/file-written-using-action-create-document-is-empty-on-google-drive-but-not-local>   
     ///
     /// # Args
     /// - ***uri*** :  
@@ -259,8 +257,6 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 1. **Files that do not exist on the device**:  
     /// Writing to files that are not physically present on the device may not correctly
     /// reflect changes. If you need to write to such files, use [`AndroidFs::open_writable_stream`].
-    /// <https://issuetracker.google.com/issues/126362828>   
-    /// <https://stackoverflow.com/questions/51490194/file-written-using-action-create-document-is-empty-on-google-drive-but-not-local>   
     ///
     /// 2. **File mode restrictions**:  
     /// Files provided by third-party apps may not support writable modes other than
@@ -573,7 +569,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Must be **writable**.
     /// 
     /// - ***buffer_size***:  
-    /// The size of the buffer, in bytes, to use during the process.  
+    /// The size of the buffer, in bytes, to use during the copy process on Kotlin.  
     /// If `None`, [`DEFAULT_BUFFER_SIZE`](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.io/-d-e-f-a-u-l-t_-b-u-f-f-e-r_-s-i-z-e.html) is used. 
     /// At least, when I checked, it was 8 KB.  
     /// If zero, this causes error.
@@ -613,9 +609,8 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Why
     /// For files that do not physically exist on the device, such as those stored in cloud storage,  
     /// writing data through [`std::fs::File`] may not be properly reflected.  
-    /// In such cases, the write operation must be performed via the Kotlin API.
-    /// <https://issuetracker.google.com/issues/126362828>   
-    /// <https://stackoverflow.com/questions/51490194/file-written-using-action-create-document-is-empty-on-google-drive-but-not-local>   
+    /// In such cases, the write operation must be performed via the Kotlin API.   
+    /// <https://community.latenode.com/t/csv-export-to-google-drive-results-in-empty-file-but-local-storage-works-fine>   
     ///
     /// # Support
     /// All.
