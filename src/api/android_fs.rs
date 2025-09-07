@@ -78,7 +78,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Must be **readable**.
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn get_name(&self, uri: &FileUri) -> crate::Result<String> {
         on_android!({
             impl_se!(struct Req<'a> { uri: &'a FileUri });
@@ -106,7 +106,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Must be **readable**.
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn get_mime_type(&self, uri: &FileUri) -> crate::Result<String> {
         on_android!({
             let mime_type = self.get_type(uri)?
@@ -132,7 +132,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Must be **readable**.
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn get_type(&self, uri: &FileUri) -> crate::Result<EntryType> {
         on_android!({
             impl_se!(struct Req<'a> { uri: &'a FileUri });
@@ -159,7 +159,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// This uses [`AndroidFs::open_file`] internally.
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn get_metadata(&self, uri: &FileUri) -> crate::Result<std::fs::Metadata> {
         on_android!({
             let file = self.open_file_readable(uri)?;
@@ -180,7 +180,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// This need to be **readable**.
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn open_file_readable(&self, uri: &FileUri) -> Result<std::fs::File> {
         self.open_file(uri, FileAccessMode::Read)
     }
@@ -203,7 +203,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// This need to be **writable**.
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn open_file_writable(
         &self, 
         uri: &FileUri, 
@@ -283,7 +283,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ///     - [`FileAccessMode::WriteTruncate`]
     ///
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn open_file(&self, uri: &FileUri, mode: FileAccessMode) -> crate::Result<std::fs::File> {
         on_android!({
             impl_se!(struct Req<'a> { uri: &'a FileUri, mode: &'a str });
@@ -356,7 +356,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// This need to be **writable**.
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn open_writable_stream(
         &self,
         uri: &FileUri
@@ -391,7 +391,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// This need to be **writable**.
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn open_writable_stream_via_kotlin(
         &self,
         uri: &FileUri
@@ -411,7 +411,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Must be **readable**.
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn read(&self, uri: &FileUri) -> crate::Result<Vec<u8>> {
         on_android!({
             let mut file = self.open_file_readable(uri)?;
@@ -433,7 +433,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Must be **readable**.
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn read_to_string(&self, uri: &FileUri) -> crate::Result<String> {
         on_android!({
             let mut file = self.open_file_readable(uri)?;
@@ -461,7 +461,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Must be **writable**.
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn write(&self, uri: &FileUri, contents: impl AsRef<[u8]>) -> crate::Result<()> {
         on_android!({
             let mut stream = self.open_writable_stream(uri)?;
@@ -490,7 +490,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// if you can tolerate that [`AndroidFs::need_write_via_kotlin`] may not cover all cases.  
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn write_via_kotlin(
         &self, 
         uri: &FileUri,
@@ -530,7 +530,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Must be **writable**.
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn copy(&self, src: &FileUri, dest: &FileUri) -> crate::Result<()> {
         on_android!({
             // NOTE:
@@ -575,7 +575,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// If zero, this causes error.
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn copy_via_kotlin(
         &self, 
         src: &FileUri, 
@@ -613,7 +613,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// <https://community.latenode.com/t/csv-export-to-google-drive-results-in-empty-file-but-local-storage-works-fine>   
     ///
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn need_write_via_kotlin(&self, uri: &FileUri) -> crate::Result<bool> {
         on_android!({
             const URI_PREFIXES: &'static [&'static str] = &[
@@ -645,7 +645,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// But at least, the existing file will not be overwritten.  
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn rename(&self, uri: &FileUri, new_name: impl AsRef<str>) -> crate::Result<FileUri> {
         on_android!({
             impl_se!(struct Req<'a> { uri: &'a FileUri, new_name: &'a str });
@@ -669,7 +669,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// If not file, an error will occur.
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn remove_file(&self, uri: &FileUri) -> crate::Result<()> {
         on_android!({
             impl_se!(struct Req<'a> { uri: &'a FileUri });
@@ -691,7 +691,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// If not empty directory, an error will occur.
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn remove_dir(&self, uri: &FileUri) -> crate::Result<()> {
         on_android!({
             impl_se!(struct Req<'a> { uri: &'a FileUri });
@@ -713,7 +713,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// If not directory, an error will occur.
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn remove_dir_all(&self, uri: &FileUri) -> crate::Result<()> {
         on_android!({
             impl_se!(struct Req<'a> { uri: &'a FileUri });
@@ -733,7 +733,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// (e.g., the top directory selected by [`FilePicker::pick_dir`]) 
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn try_resolve_file_uri(&self, dir: &FileUri, relative_path: impl AsRef<str>) -> crate::Result<FileUri> {
         on_android!({
             #[allow(deprecated)]
@@ -753,7 +753,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// (e.g., the top directory selected by [`FilePicker::pick_dir`]) 
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn try_resolve_dir_uri(&self, dir: &FileUri, relative_path: impl AsRef<str>) -> crate::Result<FileUri> {
         on_android!({
             #[allow(deprecated)]
@@ -783,7 +783,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// because it does not call Kotlin API and only involves operating strings on Rust side.
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     #[deprecated = "Use AndroidFs::try_resolve_file_uri or AndroidFs::try_resolve_dir_uri instead"]
     pub fn resolve_uri(&self, dir: &FileUri, relative_path: impl AsRef<str>) -> crate::Result<FileUri> {
         on_android!({
@@ -865,7 +865,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// If you need transparency, use others.
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn get_thumbnail(
         &self,
         uri: &FileUri,
@@ -920,7 +920,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// and if that fails, `application/octet-stream` is used.  
     ///  
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn create_file(
         &self,
         dir: &FileUri, 
@@ -954,7 +954,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// The directory path relative to the base directory.    
     ///  
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn create_dir_all(
         &self,
         dir: &FileUri, 
@@ -1000,7 +1000,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Must be **readable**.
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn read_dir(&self, uri: &FileUri) -> crate::Result<impl Iterator<Item = Entry>> {
         on_android!(std::iter::Empty::<_>, {
             impl_se!(struct Req<'a> { uri: &'a FileUri });
@@ -1031,105 +1031,6 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         })
     }
 
-    /// Create an **restricted** URI for the specified directory.  
-    /// This should only be used as `initial_location` in the file picker. 
-    /// It must not be used for any other purpose.  
-    /// 
-    /// This is useful when selecting (creating) new files and folders, 
-    /// but when selecting existing entries, `initial_location` is often better with None.
-    /// 
-    /// Note this is an informal method and is not guaranteed to work reliably.
-    /// But this URI does not cause the dialog to error.  
-    /// So please use this with the mindset that it's better than doing nothing.  
-    /// 
-    /// # Examples
-    /// ```rust
-    ///  use tauri_plugin_android_fs::{AndroidFsExt, InitialLocation, PublicGeneralPurposeDir, PublicImageDir};
-    ///
-    /// fn sample(app: tauri::AppHandle) {
-    ///     let api = app.android_fs();
-    ///
-    ///     // Get URI of the top public directory in primary volume
-    ///     let initial_location = api.resolve_initial_location(
-    ///         InitialLocation::TopPublicDir,
-    ///         false,
-    ///     ).expect("Should be on Android");
-    ///
-    ///     // Get URI of ~/Pictures/
-    ///     let initial_location = api.resolve_initial_location(
-    ///         PublicImageDir::Pictures,
-    ///         false
-    ///     ).expect("Should be on Android");
-    ///
-    ///     // Get URI of ~/Documents/sub_dir1/sub_dir2/
-    ///     let initial_location = api.resolve_initial_location(
-    ///         InitialLocation::DirInPublicDir {
-    ///             base_dir: PublicGeneralPurposeDir::Documents.into(),
-    ///             relative_path: "sub_dir1/sub_dir2"
-    ///         },
-    ///         true // Create dirs of 'sub_dir1' and 'sub_dir2', if not exists
-    ///     ).expect("Should be on Android");
-    ///
-    ///     // Open dialog with initial_location
-    ///     let _ = api.file_picker().save_file(Some(&initial_location), "", None);
-    ///     let _ = api.file_picker().pick_file(Some(&initial_location), &[]);
-    ///     let _ = api.file_picker().pick_dir(Some(&initial_location));
-    /// }
-    /// ```
-    /// 
-    /// # Support
-    /// All.
-    ///
-    /// Note :  
-    /// - [`PublicAudioDir::Audiobooks`] is not available on Android 9 (API level 28) and lower.
-    /// Availability on a given device can be verified by calling [`PublicStorage::is_audiobooks_dir_available`].  
-    /// - [`PublicAudioDir::Recordings`] is not available on Android 11 (API level 30) and lower.
-    /// Availability on a given device can be verified by calling [`PublicStorage::is_recordings_dir_available`].  
-    /// - Others dirs are available in all Android versions.
-    pub fn resolve_initial_location<'a>(
-        &self,
-        dir: impl Into<InitialLocation<'a>>,
-        create_dirs: bool
-    ) -> crate::Result<FileUri> {
-
-        on_android!({
-            const TOP_DIR: &str = "content://com.android.externalstorage.documents/document/primary";
-
-            let uri = match dir.into() {
-                InitialLocation::TopPublicDir => format!("{TOP_DIR}%3A"),
-                InitialLocation::PublicDir(dir) => format!("{TOP_DIR}%3A{dir}"),
-                InitialLocation::DirInPublicDir { base_dir, relative_path } => {
-                    let relative_path = relative_path.trim_matches('/');
-
-                    if relative_path.is_empty() {
-                        format!("{TOP_DIR}%3A{base_dir}")
-                    }
-                    else {
-                        if create_dirs {
-                            let _ = self.public_storage().create_dir_all(base_dir, relative_path);
-                        }
-                        let sub_dirs = encode_document_id(relative_path);
-                        format!("{TOP_DIR}%3A{base_dir}%2F{sub_dirs}")
-                    }
-                },
-                InitialLocation::DirInPublicAppDir { base_dir, relative_path } => {
-                    let relative_path = &format!(
-                        "{}/{}", 
-                        self.public_storage().app_dir_name()?,
-                        relative_path.trim_matches('/'),
-                    );
-                  
-                    return self.resolve_initial_location(
-                        InitialLocation::DirInPublicDir { base_dir, relative_path }, 
-                        create_dirs
-                    )
-                }
-            };
-
-            Ok(FileUri { uri, document_top_tree_uri: None })
-        })
-    }
-
     /// Take persistent permission to access the file, directory and its descendants.  
     /// This is a prolongation of an already acquired permission, not the acquisition of a new one.  
     /// 
@@ -1155,7 +1056,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ///     Because the permissions and validity period of the descendant entry URIs depend on the origin directory.   
     /// 
     /// # Support
-    /// All. 
+    /// All Android version. 
     pub fn take_persistable_uri_permission(&self, uri: &FileUri) -> crate::Result<()> {
         on_android!({
             impl_se!(struct Req<'a> { uri: &'a FileUri });
@@ -1181,7 +1082,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// The mode of permission you want to check.  
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn check_persisted_uri_permission(&self, uri: &FileUri, mode: PersistableAccessMode) -> crate::Result<bool> {
         on_android!({
             impl_se!(struct Req<'a> { uri: &'a FileUri, mode: PersistableAccessMode });
@@ -1197,7 +1098,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Return list of all persisted URIs that have been persisted by [`AndroidFs::take_persistable_uri_permission`] and currently valid.   
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn get_all_persisted_uri_permissions(&self) -> crate::Result<impl Iterator<Item = PersistedUriPermission>> {
         on_android!(std::iter::Empty::<_>, {
             impl_de!(struct Obj { uri: FileUri, r: bool, w: bool, d: bool });
@@ -1224,7 +1125,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// URI of the target file or directory.  
     ///
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn release_persisted_uri_permission(&self, uri: &FileUri) -> crate::Result<()> {
         on_android!({
             impl_se!(struct Req<'a> { uri: &'a FileUri });
@@ -1240,7 +1141,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Relinquish a all persisted uri permission grants by [`AndroidFs::take_persistable_uri_permission`].  
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn release_all_persisted_uri_permissions(&self) -> crate::Result<()> {
         on_android!({
             impl_de!(struct Res);
@@ -1265,6 +1166,9 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// The correspondence table between API levels and Android versions can be found following.  
     /// <https://developer.android.com/guide/topics/manifest/uses-sdk-element#api-level-table>
     /// 
+    /// If you want the constant value of the API level from an Android version, there is the [`api_level`] module.
+    /// 
+    /// # Table
     /// | Android version  | API Level |
     /// |------------------|-----------|
     /// | 16.0             | 36        |
@@ -1282,11 +1186,11 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// | 7.0              | 24        |
     /// 
     /// Tauri does not support Android versions below 7.
-    pub fn api_level(&self) -> Result<usize> {
+    pub fn api_level(&self) -> Result<i32> {
         on_android!({
-            impl_de!(struct Res { value: usize });
+            impl_de!(struct Res { value: i32 });
         
-            static API_LEVEL: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+            static API_LEVEL: std::sync::OnceLock<i32> = std::sync::OnceLock::new();
 
             if let Some(api_level) = API_LEVEL.get() {
                 return Ok(*api_level)
@@ -1303,42 +1207,13 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     }
 
 
+    #[deprecated = "Use PublicStorage::resolve_initial_location instead"]
+    pub fn resolve_initial_location<'a>(
+        &self,
+        dir: InitialLocation<'a>,
+        create_dir_all: bool
+    ) -> crate::Result<FileUri> {
 
-    
-    /// See [`AndroidFs::write_via_kotlin`] for information.  
-    /// Use this if you want to write using `std::fs::File`, not entire contents.
-    /// 
-    /// # Args
-    /// - ***uri*** :  
-    /// Target file URI to write.
-    /// 
-    /// - **contetns_writer** :  
-    /// A closure that accepts a mutable reference to a `std::fs::File`
-    /// and performs the actual write operations. Note that this represents a temporary file.
-    #[deprecated = "Use AndroidFs::open_writable_stream_via_kotlin instead."]
-    pub fn write_via_kotlin_in<T>(
-        &self, 
-        uri: &FileUri,
-        contents_writer: impl FnOnce(&mut std::fs::File) -> std::io::Result<T>
-    ) -> crate::Result<T> {
-
-        on_android!({
-            let (mut tmp_file, tmp_file_path) = self.private_storage().create_new_tmp_file()?;
-
-            let result = (|| -> Result<T> {
-                let t = contents_writer(&mut tmp_file)?;
-                // 反映されるまで待機する
-                tmp_file.sync_data()?;
-                // copy を行う前にファイルを閉じる
-                std::mem::drop(tmp_file);
-
-                self.copy_via_kotlin(&(&tmp_file_path).into(), uri, None)?;
-                Ok(t)
-            })();
-
-            let _ = std::fs::remove_file(&tmp_file_path);
-
-            result
-        })
+        self.public_storage().resolve_initial_location(dir, create_dir_all)
     }
 }

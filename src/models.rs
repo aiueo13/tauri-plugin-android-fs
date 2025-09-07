@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use serde::{Deserialize, Serialize};
 use crate::{Error, Result};
 
@@ -78,6 +79,31 @@ impl From<FileUri> for tauri_plugin_fs::FilePath {
         result.unwrap()
     }
 }
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PublicStorageVolume {
+
+    /// A user-visible description of the volume.  
+    /// This can be determined by the manufacturer and is often localized according to the user’s language.
+    ///
+    /// e.g.
+    /// - `Internal shared storage`
+    /// - `SDCARD`
+    /// - `SD card`
+    /// - `Virtual SD card`
+    pub description: String,
+
+    /// Indicates whether this is primary storage volume. 
+    /// A device always has one (and one only) primary storage volume.  
+    pub is_primary: bool,
+
+    pub id: PublicStorageVolumeId,
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PublicStorageVolumeId(pub String);
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -345,7 +371,7 @@ pub enum PrivateDir {
     ///  
     /// These files will be deleted when the app is uninstalled and may also be deleted at the user’s request.  
     /// 
-    /// ex: `/data/user/0/{app-package-name}/files`
+    /// e.g. `/data/user/0/{app-package-name}/files`
     Data,
 
     /// The application specific cache directory.  
@@ -356,7 +382,7 @@ pub enum PrivateDir {
     /// These files will be deleted when the app is uninstalled and may also be deleted at the user’s request. 
     /// In addition, the system will automatically delete files in this directory as disk space is needed elsewhere on the device.  
     /// 
-    /// ex: `/data/user/0/{app-package-name}/cache`
+    /// e.g. `/data/user/0/{app-package-name}/cache`
     Cache,
 }
 
@@ -536,27 +562,72 @@ impl_into_pubdir!(PublicVideoDir, Video);
 impl_into_pubdir!(PublicAudioDir, Audio);
 impl_into_pubdir!(PublicGeneralPurposeDir, GeneralPurpose);
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum InitialLocation<'a> {
 
-    TopPublicDir,
+    PrimaryTopDir,
 
-    PublicDir(PublicDir),
-    
-    DirInPublicDir {
-        base_dir: PublicDir,
+    PrimaryPublicDir {
+        dir: PublicDir,
         relative_path: &'a str,
     },
 
-    DirInPublicAppDir {
-        base_dir: PublicDir,
+    PrimaryPublicAppDir {
+        dir: PublicDir,
+        relative_path: &'a str,
+    },
+
+    TopDir {
+        volume: &'a PublicStorageVolumeId,
+    },
+
+    PublicDir {
+        volume: &'a PublicStorageVolumeId,
+        dir: PublicDir,
+        relative_path: &'a str,
+    },
+
+    PublicAppDir {
+        volume: &'a PublicStorageVolumeId,
+        dir: PublicDir,
         relative_path: &'a str,
     }
 }
 
-impl<T: Into<PublicDir>> From<T> for InitialLocation<'_> {
-    fn from(value: T) -> Self {
-        InitialLocation::PublicDir(value.into())
+impl<'a> InitialLocation<'a> {
+
+    #[allow(unused)]
+    pub(crate) fn volume(&'a self) -> Option<&'a PublicStorageVolumeId> {
+        match self {
+            InitialLocation::PrimaryTopDir => None,
+            InitialLocation::PrimaryPublicDir { .. } => None,
+            InitialLocation::PrimaryPublicAppDir { .. } => None,
+            InitialLocation::TopDir { volume } => Some(volume),
+            InitialLocation::PublicDir { volume, .. } => Some(volume),
+            InitialLocation::PublicAppDir { volume, .. } => Some(volume),
+        }
+    }
+
+    #[allow(unused)]
+    pub(crate) fn dir_and_relative_path(&'a self, app_dir: &'a str) -> Option<(PublicDir, Cow<'a, str>)> {
+        let (dir, use_app_dir, realtive_path) = match self {
+            InitialLocation::PrimaryTopDir => return None,
+            InitialLocation::TopDir { .. } => return None,
+            InitialLocation::PrimaryPublicDir { dir, relative_path } => (dir, false, relative_path),
+            InitialLocation::PublicDir { dir, relative_path, .. } => (dir, false, relative_path),
+            InitialLocation::PrimaryPublicAppDir { dir, relative_path } => (dir, true, relative_path),
+            InitialLocation::PublicAppDir { dir, relative_path, .. } => (dir, true, relative_path),
+        };
+
+        let relative_path = realtive_path.trim_matches('/');
+        let app_dir = app_dir.trim_matches('/');
+
+        if use_app_dir {
+            Some((*dir, Cow::Owned(format!("{app_dir}/{realtive_path}"))))
+        }
+        else {
+            Some((*dir, Cow::Borrowed(relative_path)))
+        }
     }
 }

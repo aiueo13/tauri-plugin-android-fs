@@ -108,7 +108,7 @@ fn dir_picker_example(app: tauri::AppHandle) -> tauri_plugin_android_fs::Result<
 }
 ```
 ```rust
-use tauri_plugin_android_fs::{AndroidFsExt, FileUri, InitialLocation, PersistableAccessMode, PrivateDir};
+use tauri_plugin_android_fs::{AndroidFsExt, FileUri, PersistableAccessMode, PrivateDir};
 
 /// Opens a dialog to save the file,
 /// then write contents to the selected file.
@@ -186,17 +186,8 @@ fn save_file_with_dir_picker(
     let dest_dir_uri = match dest_dir_uri {
         Some(dest_dir_uri) => dest_dir_uri,
         None => {
-            // Get initial location for folder picker.
-            // But this returned uri might be ignored by it.
-            let initial_location = api.resolve_initial_location(
-                InitialLocation::TopPublicDir,
-                false
-            )?;
-
             // Show folder picker
-            let uri = api.file_picker().pick_dir(
-                Some(&initial_location)
-            )?;
+            let uri = api.file_picker().pick_dir(None)?;
 
             let Some(uri) = uri else {
                 // Canceled by user
@@ -251,12 +242,12 @@ fn example(app: tauri::AppHandle) -> tauri_plugin_android_fs::Result<()> {
     //
     // This path is represented as follows:
     //   ~/Pictures/{app_name}/my-image.png
-    //   $HOME/Pictures/{app_name}/my-image.png
     //   /storage/emulated/0/Pictures/{app_name}/my-image.png
     let uri = storage.create_file_in_app_dir(
-         PublicImageDir::Pictures, // Base directory
-         "my-image.png", // Relative file path
-         Some("image/png") // Mime type
+        None, // Storage volume. If None, use primary storage volume
+        PublicImageDir::Pictures, // Base directory
+        "my-image.png", // Relative file path
+        Some("image/png") // Mime type
     )?;
 
     // Write the contents to the PNG image
@@ -272,9 +263,9 @@ fn example(app: tauri::AppHandle) -> tauri_plugin_android_fs::Result<()> {
     //
     // This path is represented as follows:
     //   ~/Documents/{app_name}/2025-3-2/data.txt
-    //   $HOME/Documents/{app_name}/2025-3-2/data.txt
     //   /storage/emulated/0/Documents/{app_name}/2025-3-2/data.txt
     let uri = storage.create_file_in_app_dir(
+         None, // Storage volume. If None, use primary storage volume
          PublicGeneralPurposeDir::Documents, // Base directory
          "2025-3-2/data.txt", // Relative file path
          Some("text/plain") // Mime type

@@ -35,7 +35,7 @@ impl<'a, R: tauri::Runtime> FileSender<'a, R> {
     /// Files in [`PrivateStorage`] **cannot** be used. 
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     /// 
     /// # References
     /// <https://developer.android.com/reference/android/content/Intent#ACTION_SEND_MULTIPLE>
@@ -102,7 +102,7 @@ impl<'a, R: tauri::Runtime> FileSender<'a, R> {
     /// Files in [`PrivateStorage`] **cannot** be used.
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     /// 
     /// # References
     /// <https://developer.android.com/reference/android/content/Intent#ACTION_SEND>
@@ -129,7 +129,7 @@ impl<'a, R: tauri::Runtime> FileSender<'a, R> {
     /// Files in [`PrivateStorage`] **cannot** be used.
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     /// 
     /// # References
     /// <https://developer.android.com/reference/android/content/Intent#ACTION_VIEW>
@@ -173,7 +173,7 @@ impl<'a, R: tauri::Runtime> FileSender<'a, R> {
     /// Files in [`PrivateStorage`] **cannot** be used.
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     /// 
     /// # References
     /// <https://developer.android.com/reference/android/content/Intent#ACTION_EDIT>
@@ -206,7 +206,7 @@ impl<'a, R: tauri::Runtime> FileSender<'a, R> {
     /// This all needs to be **readable**.  
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     #[deprecated = "Since Android 11, This does not function correctly due to android security."]
     pub fn can_share_files<'b>(
         &self, 
@@ -236,7 +236,7 @@ impl<'a, R: tauri::Runtime> FileSender<'a, R> {
     /// Must be **readable**.
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     #[deprecated = "Since Android 11, This does not function correctly due to android security."]
     pub fn can_share_file(&self, uri: &FileUri) -> crate::Result<bool> {
         #[allow(deprecated)]
@@ -252,7 +252,7 @@ impl<'a, R: tauri::Runtime> FileSender<'a, R> {
     /// Must be **readable**.
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     #[deprecated = "Since Android 11, This does not function correctly due to android security."]
     pub fn can_open_file(&self, uri: &FileUri) -> crate::Result<bool> {
         on_android!({
@@ -277,7 +277,7 @@ impl<'a, R: tauri::Runtime> FileSender<'a, R> {
     /// Must be **read-writeable**.  
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     #[deprecated = "Since Android 11, This does not function correctly due to android security."]
     pub fn can_edit_file(&self, uri: &FileUri) -> crate::Result<bool> {
         on_android!({

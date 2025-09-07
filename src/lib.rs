@@ -9,6 +9,8 @@ mod api;
 #[cfg(target_os = "android")]
 mod utils;
 
+pub mod api_level;
+
 pub use models::*;
 pub use error::*;
 pub use api::*;

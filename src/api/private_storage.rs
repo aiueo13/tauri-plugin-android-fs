@@ -51,7 +51,7 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     /// ```
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn resolve_path(&self, dir: PrivateDir) -> crate::Result<std::path::PathBuf> {
         on_android!({
             impl_de!(struct Paths { data: String, cache: String });
@@ -81,7 +81,7 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     /// See [`PrivateStorage::resolve_path`] for details.  
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn resolve_path_with(
         &self,
         dir: PrivateDir,
@@ -116,7 +116,7 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     /// See [`PrivateStorage::resolve_path`] for details.  
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn write(
         &self, 
         base_dir: PrivateDir, 
@@ -144,7 +144,7 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     /// See [`PrivateStorage::resolve_path`] for details.  
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn open_file(
         &self,
         base_dir: PrivateDir, 
@@ -166,7 +166,7 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     /// See [`PrivateStorage::resolve_path`] for details.  
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn create_file(
         &self,
         base_dir: PrivateDir, 
@@ -185,7 +185,7 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     /// See [`PrivateStorage::resolve_path`] for details.  
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn create_new_file(
         &self,
         base_dir: PrivateDir, 
@@ -206,7 +206,7 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     /// See [`PrivateStorage::resolve_path`] for details.  
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn read(
         &self,
         base_dir: PrivateDir, 
@@ -227,7 +227,7 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     /// See [`PrivateStorage::resolve_path`] for details.  
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn read_to_string(
         &self,
         base_dir: PrivateDir,
@@ -246,7 +246,7 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     /// See [`PrivateStorage::resolve_path`] for details.  
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn read_dir(
         &self,
         base_dir: PrivateDir,
@@ -269,7 +269,7 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     /// See [`PrivateStorage::resolve_path`] for details.  
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn remove_file(
         &self,
         base_dir: PrivateDir,
@@ -289,7 +289,7 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     /// See [`PrivateStorage::resolve_path`] for details.  
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn remove_dir(
         &self,
         base_dir: PrivateDir,
@@ -313,7 +313,7 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     /// See [`PrivateStorage::resolve_path`] for details.  
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn remove_dir_all(
         &self,
         base_dir: PrivateDir,
@@ -337,7 +337,7 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     /// See [`PrivateStorage::resolve_path`] for details.  
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn exists(
         &self,
         base_dir: PrivateDir,
@@ -356,7 +356,7 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     /// See [`PrivateStorage::resolve_path`] for details.  
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn metadata(
         &self,
         base_dir: PrivateDir,

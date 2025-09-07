@@ -40,7 +40,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// if it's a directory, or the directory that contains the specified file if not.  
     /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.  
     /// This must be a URI taken from following :   
-    ///     - [`AndroidFs::resolve_initial_location`]
+    ///     - [`PublicStorage::resolve_initial_location`]
     ///     - [`AndroidFs::try_resolve_file_uri`]
     ///     - [`AndroidFs::try_resolve_dir_uri`]
     ///     - [`AndroidFs::resolve_uri`]
@@ -59,7 +59,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If left empty, all file types will be available (equivalent to `["*/*"]`).  
     ///  
     /// # Support
-    /// All.
+    /// All Android version.
     /// 
     /// # References
     /// <https://developer.android.com/reference/android/content/Intent#ACTION_OPEN_DOCUMENT>
@@ -93,7 +93,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// if it's a directory, or the directory that contains the specified file if not.  
     /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.  
     /// This must be a URI taken from following :   
-    ///     - [`AndroidFs::resolve_initial_location`]
+    ///     - [`PublicStorage::resolve_initial_location`]
     ///     - [`AndroidFs::try_resolve_file_uri`]
     ///     - [`AndroidFs::try_resolve_dir_uri`]
     ///     - [`AndroidFs::resolve_uri`]
@@ -112,7 +112,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If left empty, all file types will be available (equivalent to `["*/*"]`).  
     ///  
     /// # Support
-    /// All.
+    /// All Android version.
     /// 
     /// # References
     /// <https://developer.android.com/reference/android/content/Intent#ACTION_OPEN_DOCUMENT>
@@ -217,7 +217,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If left empty, all file types will be available (equivalent to `["*/*"]`).  
     ///  
     /// # Support
-    /// All.
+    /// All Android version.
     /// 
     /// # References
     /// <https://developer.android.com/reference/android/content/Intent#ACTION_GET_CONTENT>
@@ -245,7 +245,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If left empty, all file types will be available (equivalent to `["*/*"]`).  
     ///  
     /// # Support
-    /// All.
+    /// All Android version.
     /// 
     /// # References
     /// <https://developer.android.com/reference/android/content/Intent#ACTION_GET_CONTENT>
@@ -277,7 +277,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// if it's a directory, or the directory that contains the specified file if not.  
     /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.   
     /// This must be a URI taken from following :   
-    ///     - [`AndroidFs::resolve_initial_location`]
+    ///     - [`PublicStorage::resolve_initial_location`]
     ///     - [`AndroidFs::try_resolve_file_uri`]
     ///     - [`AndroidFs::try_resolve_dir_uri`]
     ///     - [`AndroidFs::resolve_uri`]
@@ -291,7 +291,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     ///     - [`FilePicker::save_file`]
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     /// 
     /// # References
     /// <https://developer.android.com/reference/android/content/Intent#ACTION_OPEN_DOCUMENT_TREE>
@@ -335,7 +335,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// if it's a directory, or the directory that contains the specified file if not.  
     /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.   
     /// This must be a URI taken from following :   
-    ///     - [`AndroidFs::resolve_initial_location`]
+    ///     - [`PublicStorage::resolve_initial_location`]
     ///     - [`AndroidFs::try_resolve_file_uri`]
     ///     - [`AndroidFs::try_resolve_dir_uri`]
     ///     - [`AndroidFs::resolve_uri`]
@@ -361,7 +361,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// and if that fails, `application/octet-stream` is used.  
     ///  
     /// # Support
-    /// All.
+    /// All Android version.
     /// 
     /// # References
     /// <https://developer.android.com/reference/android/content/Intent#ACTION_CREATE_DOCUMENT>
@@ -393,7 +393,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// Verify whether [`FilePicker::pick_visual_medias`] is available on a given device.
     /// 
     /// # Support
-    /// All.
+    /// All Android version.
     pub fn is_visual_media_picker_available(&self) -> crate::Result<bool> {
         on_android!({
             impl_de!(struct Res { value: bool });

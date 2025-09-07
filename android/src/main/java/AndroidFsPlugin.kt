@@ -10,6 +10,9 @@ import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.content.Context
+import android.os.storage.StorageManager
+import android.os.storage.StorageVolume
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import androidx.activity.result.ActivityResult
@@ -115,6 +118,12 @@ enum class VisualMediaPickerType {
 class GetPublicDirInfo {
     lateinit var dir: BaseDir
     lateinit var dirType: ContentType
+    var volumeName: String? = null
+}
+
+@InvokeArg
+class GetStorageVolumeUuidArgs {
+    var volumeName: String? = null
 }
 
 @InvokeArg
@@ -335,6 +344,136 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
+    fun getStorageVolumes(invoke: Invoke) {
+        try {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                throw Exception("MediaStore.getExternalVolumeNames() requires Android 10 (API 29) or higher.")
+            }
+
+            // https://android.suzu-sd.com/2025/08/storage_volume/
+
+
+            // MediaStore 側の Volume 名一覧
+            val mediaStoreVolumes = MediaStore.getExternalVolumeNames(activity)
+
+            // StorageManager 側の Volume 情報
+            val sm = activity.getSystemService(Context.STORAGE_SERVICE) as StorageManager
+            val storageVolumes = sm.storageVolumes
+
+            val buffer = JSArray()
+            var hasPrimary = false
+
+            // mediaStoreVolumesを優先する
+            for (volumeName in mediaStoreVolumes) {
+                var description: String? = null
+                var isPrimary = false
+
+                for (sv in storageVolumes) {
+                    var expectedVolumeName = guessExpectedMediaStoreVolumeName(sv)
+                    
+                    if (volumeName == expectedVolumeName) {
+                        isPrimary = sv.isPrimary()
+                        description = sv.getDescription(activity)
+                        break
+                    }
+                }
+
+                val obj = JSObject()
+                obj.put("isPrimary", isPrimary)
+                obj.put("volumeName", volumeName)
+                obj.put("description", description)
+                buffer.put(obj)
+            }
+
+            val res = JSObject()
+            res.put("volumes", buffer)
+            invoke.resolve(res)
+        } 
+        catch (ex: Exception) {
+            val message = ex.message ?: "Failed to getStorageVolumes"
+            Logger.error(message)
+            invoke.reject(message)
+        }
+    }
+
+    private fun guessExpectedMediaStoreVolumeName(volume: StorageVolume): String? {
+        var volumeName = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            volume.mediaStoreVolumeName
+        } 
+        else {
+            null
+        }
+
+        if (volumeName == null) {
+            val uuid = volume.uuid
+            volumeName = when {
+                volume.isPrimary -> MediaStore.VOLUME_EXTERNAL_PRIMARY
+                uuid != null -> uuid.lowercase()
+                else -> null
+            }
+        }
+
+        return volumeName
+    }
+
+    @Command
+    fun getPrimaryStorageVolume(invoke: Invoke) {
+        try {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                throw Exception("requires Android 10 (API 29) or higher.")
+            }
+
+            val sm = activity.getSystemService(Context.STORAGE_SERVICE) as StorageManager
+            val primaryVolume = sm.primaryStorageVolume
+            val description = primaryVolume.getDescription(activity)
+
+            val res = JSObject()
+            res.put("isPrimary", true)
+            res.put("volumeName", MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            res.put("description", description)
+            invoke.resolve(res)
+        } 
+        catch (ex: Exception) {
+            val message = ex.message ?: "Failed to getPrimaryStorageVolume."
+            Logger.error(message)
+            invoke.reject(message)
+        }
+    }
+
+    @Command
+    fun getStorageVolumeUuid(invoke: Invoke) {
+        try {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                throw Exception("requires Android 10 (API 29) or higher.")
+            }
+
+            val args = invoke.parseArgs(GetStorageVolumeUuidArgs::class.java)
+            val volumeName = args.volumeName ?: MediaStore.VOLUME_EXTERNAL_PRIMARY
+
+            val sm = activity.getSystemService(Context.STORAGE_SERVICE) as StorageManager
+
+            var uuid: String? = null
+            for (sv in sm.storageVolumes) {
+                var expectedVolumeName = guessExpectedMediaStoreVolumeName(sv)
+                    
+                if (volumeName == expectedVolumeName) {
+                    uuid = sv.uuid
+                    break
+                }
+            }
+
+            val res = JSObject()
+            res.put("value", uuid)
+            invoke.resolve(res)
+        } 
+        catch (ex: Exception) {
+            val message = ex.message ?: "Failed to getStorageVolumeUuid."
+            Logger.error(message)
+            invoke.reject(message)
+        }
+    }
+
+    @Command
     fun getAllPersistedUriPermissions(invoke: Invoke) {
         try {
             val items = JSArray()
@@ -541,35 +680,16 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             val res = JSObject()
             res.put("name", dirName)
 
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                throw Exception("requires Android 10 (API 29) or higher.")
+            }
+            val volume = args.volumeName ?: MediaStore.VOLUME_EXTERNAL_PRIMARY
+
             val uri = when (args.dirType) {
-                ContentType.Image -> {
-                    if (Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT) {
-                        MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-                    } else {
-                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-                    }
-                }
-                ContentType.Video -> {
-                    if (Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT) {
-                        MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-                    } else {
-                        MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-                    }
-                }
-                ContentType.Audio -> {
-                    if (Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT) {
-                        MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-                    } else {
-                        MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-                    }
-                }
-                ContentType.GeneralPurpose -> {
-                    if (Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT) {
-                        MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-                    } else {
-                        MediaStore.Files.getContentUri("external")
-                    }
-                }
+                ContentType.Image -> MediaStore.Images.Media.getContentUri(volume)
+                ContentType.Video -> MediaStore.Video.Media.getContentUri(volume)
+                ContentType.Audio -> MediaStore.Audio.Media.getContentUri(volume)
+                ContentType.GeneralPurpose -> MediaStore.Files.getContentUri(volume)
             }
 
             res.put("uri", uri)
@@ -1334,32 +1454,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         } 
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke getApiLevel."
-            Logger.error(message)
-            invoke.reject(message)
-        }
-    }
-
-    @Command
-    fun isAudiobooksDirAvailable(invoke: Invoke) {
-        try {
-            val res = JSObject()
-            res.put("value", Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
-            invoke.resolve(res)
-        } catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke isAudiobooksDirAvailable."
-            Logger.error(message)
-            invoke.reject(message)
-        }
-    }
-
-    @Command
-    fun isRecordingsDirAvailable(invoke: Invoke) {
-        try {
-            val res = JSObject()
-            res.put("value", Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
-            invoke.resolve(res)
-        } catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke isRecordingsDirAvailable."
             Logger.error(message)
             invoke.reject(message)
         }

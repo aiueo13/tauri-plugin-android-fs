@@ -1,3 +1,16 @@
+# Version 12.0.0
+- Remove deperecated items.
+- Deprecate `AndroidFs::resolve_initial_location`
+- Change `InitialLocation`
+- Add `api_level`
+- Add `PublicStorageVolume`
+- Add `PublicStorageVolumeId`
+- Add `PublicStorage::get_volumes`
+- Add `PublicStorage::get_primary_volume`
+- Add `PublicStorage::resolve_initial_location`
+- Add arg of `volume` to `PublicStorage::create_file`, PublicStorage::create_file_in_app_dir`, `PublicStorage::create_dir_all`, PublicStorage::create_dir_all_in_app_dir`
+- Update documentation.
+
 # Version 11.0.1
 - Update documentation.
 

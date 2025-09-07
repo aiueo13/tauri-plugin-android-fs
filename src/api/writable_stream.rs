@@ -66,12 +66,13 @@ impl<R: tauri::Runtime> WritableStream<R> {
     ///
     /// For actual target files, this function does nothing.
     ///
-    /// For temporary files, calling this function applies the changes to the actual target.
+    /// For temporary files, calling this function applies the changes to the actual target, and remove the temporary file.
     /// This may take as long as the write operation or even longer.
     /// Note that if the file is located on cloud storage or similar, the function returns
     /// without waiting for the uploading to complete.
-    ///
-    /// If not called explicitly, the changes are applied on drop, but no error is returned. 
+    /// 
+    /// If not called explicitly, the same process is performed asynchronously on drop, 
+    /// and no error is returned. 
     pub fn reflect(mut self) -> Result<()> {
         let Some(writer) = self.writer.take() else {
             return Ok(())
@@ -94,11 +95,10 @@ impl<R: tauri::Runtime> WritableStream<R> {
                 .android_fs()
                 .copy_via_kotlin(&(writer_path.clone().into()), &actual_target_file_uri, None);
 
-            let result3 = std::fs::remove_file(&writer_path);
+            let _ = std::fs::remove_file(&writer_path);
 
             result1?;
             result2?;
-            result3?;
         }
 
         Ok(())
