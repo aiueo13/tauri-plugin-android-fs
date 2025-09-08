@@ -112,6 +112,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// ```ignore
     /// let app_name = public_storage.app_dir_name()?;
     /// public_storage.create_file(
+    ///     volume,
     ///     dir,
     ///     format!("{app_name}/{relative_path}"),
     ///     mime_type
@@ -325,6 +326,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// ```ignore
     /// let app_name = public_storage.app_dir_name()?;
     /// public_storage.create_dir_all(
+    ///     volume,
     ///     dir,
     ///     format!("{app_name}/{relative_path}"),
     /// )?;

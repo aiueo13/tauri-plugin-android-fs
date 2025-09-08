@@ -7,7 +7,6 @@ import android.provider.DocumentsContract
 import android.graphics.Bitmap
 import android.graphics.Point
 import androidx.core.database.getStringOrNull
-import android.provider.MediaStore
 import app.tauri.plugin.JSArray
 import app.tauri.plugin.JSObject
 
@@ -90,11 +89,10 @@ class DocumentFileController(private val activity: Activity): FileController {
                 uriObj.put("documentTopTreeUri", topTreeUriString)
 
                 var mimeType: String? = cursor.getStringOrNull(mimeTypeColumnIndex)
-                if (mimeType == DocumentsContract.Document.MIME_TYPE_DIR) {
-                    mimeType = null
-                }
-                else {
-                    mimeType = mimeType ?: "application/octet-stream"
+                mimeType = if (mimeType == DocumentsContract.Document.MIME_TYPE_DIR) {
+                    null
+                } else {
+                    mimeType ?: "application/octet-stream"
                 }
 
                 val obj = JSObject()

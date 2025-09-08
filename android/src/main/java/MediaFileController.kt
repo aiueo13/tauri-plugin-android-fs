@@ -1,14 +1,11 @@
 package com.plugin.android_fs
 
-import android.app.Activity;
+import android.app.Activity
 import android.content.ContentValues
 import android.net.Uri
 import android.provider.MediaStore
 import androidx.core.database.getStringOrNull
 import android.graphics.Bitmap
-import android.graphics.ImageDecoder
-import android.media.MediaMetadataRetriever
-import android.media.MediaMetadataRetriever.OPTION_PREVIOUS_SYNC
 import android.os.Build
 import android.util.Size
 import app.tauri.plugin.JSArray
@@ -97,11 +94,13 @@ class MediaFileController(private val activity: Activity): FileController {
 
     override fun getThumbnail(uri: FileUri, width: Int, height: Int): Bitmap? {
         try {
-            return activity.contentResolver.loadThumbnail(
-                Uri.parse(uri.uri), 
-                Size(width, height), 
-                null
-            )
+            if (Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT) {
+                return activity.contentResolver.loadThumbnail(
+                    Uri.parse(uri.uri),
+                    Size(width, height),
+                    null
+                )
+            }
         }
         catch (ignore: Exception) {}
 

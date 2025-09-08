@@ -361,7 +361,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             val storageVolumes = sm.storageVolumes
 
             val buffer = JSArray()
-            var hasPrimary = false
 
             // mediaStoreVolumesを優先する
             for (volumeName in mediaStoreVolumes) {
@@ -369,7 +368,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 var isPrimary = false
 
                 for (sv in storageVolumes) {
-                    var expectedVolumeName = guessExpectedMediaStoreVolumeName(sv)
+                    val expectedVolumeName = guessExpectedMediaStoreVolumeName(sv)
                     
                     if (volumeName == expectedVolumeName) {
                         isPrimary = sv.isPrimary()
@@ -397,6 +396,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     private fun guessExpectedMediaStoreVolumeName(volume: StorageVolume): String? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            throw Exception("requires API level 29 or higher")
+        }
+
         var volumeName = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             volume.mediaStoreVolumeName
         } 
@@ -454,7 +457,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
 
             var uuid: String? = null
             for (sv in sm.storageVolumes) {
-                var expectedVolumeName = guessExpectedMediaStoreVolumeName(sv)
+                val expectedVolumeName = guessExpectedMediaStoreVolumeName(sv)
                     
                 if (volumeName == expectedVolumeName) {
                     uuid = sv.uuid
@@ -476,6 +479,11 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun getAllPersistedUriPermissions(invoke: Invoke) {
         try {
+            // Tauri はAndroid7以上のサポートなので普通はここでエラーとはならない
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                throw Exception("requires API level 24 or higher")
+            }
+
             val items = JSArray()
 
             activity.contentResolver.persistedUriPermissions.forEach {
@@ -805,6 +813,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         }
     }
     
+    @Suppress("DEPRECATION")
     private fun _getThumbnail(invoke: Invoke): Boolean {
         var out: OutputStream? = null
         var thumbnail: Bitmap? = null
@@ -818,7 +827,14 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             val compressFormat = when (args.format.lowercase()) {
                 "jpeg" -> Bitmap.CompressFormat.JPEG
                 "png" -> Bitmap.CompressFormat.PNG
-                "webp" -> Bitmap.CompressFormat.WEBP_LOSSY
+                "webp" -> {
+                    if (Build.VERSION_CODES.R < Build.VERSION.SDK_INT) {
+                        Bitmap.CompressFormat.WEBP_LOSSY
+                    }
+                    else {
+                        Bitmap.CompressFormat.WEBP
+                    }
+                }
                 else -> throw Exception("Illegal format: $args.format")
             }
 
@@ -882,7 +898,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             mediaMetadataRetriever.setDataSource(activity, uri)
             val thumbnailBytes = mediaMetadataRetriever.embeddedPicture
             thumbnailBytes?.let {
-                return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     ImageDecoder.decodeBitmap(ImageDecoder.createSource(it))
                 } else {
                     BitmapFactory.decodeByteArray(it, 0, it.size)
@@ -1178,7 +1194,9 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             
             args.initialLocation?.let { uri ->
                 tryAsDocumentUri(uri)?.let { dUri ->
-                    intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, dUri)
+                    if (Build.VERSION_CODES.O <= Build.VERSION.SDK_INT){
+                        intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, dUri)
+                    }
                 }
             }
 
@@ -1252,11 +1270,13 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun showOpenFileDialog(invoke: Invoke) {
         try {
             val args = invoke.parseArgs(ShowOpenFileDialogArgs::class.java)
-            var intent = createFilePickerIntent(args.mimeTypes, args.multiple)
+            val intent = createFilePickerIntent(args.mimeTypes, args.multiple)
 
             args.initialLocation?.let { uri ->
                 tryAsDocumentUri(uri)?.let { dUri ->
-                    intent = intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, dUri)
+                    if (Build.VERSION_CODES.O <= Build.VERSION.SDK_INT){
+                        intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, dUri)
+                    }
                 }
             }
 
@@ -1309,7 +1329,9 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             
             args.initialLocation?.let { uri ->
                 tryAsDocumentUri(uri)?.let { dUri ->
-                    intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, dUri)
+                    if (Build.VERSION_CODES.O <= Build.VERSION.SDK_INT){
+                        intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, dUri)
+                    }
                 }
             }
 

@@ -1,3 +1,6 @@
+# Version 12.0.1
+- Update documentation.
+
 # Version 12.0.0
 - Remove deperecated items.
 - Deprecate `AndroidFs::resolve_initial_location`

@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.webkit.MimeTypeMap
 import android.util.Size
 import android.media.ThumbnailUtils
+import android.os.Build
 import app.tauri.plugin.JSArray
 import app.tauri.plugin.JSObject
 import java.io.File
@@ -108,10 +109,12 @@ class RawFileController: FileController {
         val size = Size(width, height)
 
         try {
-            when {
-                mimeType.startsWith("image/") -> return ThumbnailUtils.createImageThumbnail(file, size, null)
-                mimeType.startsWith("video/") -> return ThumbnailUtils.createVideoThumbnail(file, size, null)
-                mimeType.startsWith("audio/") -> return ThumbnailUtils.createAudioThumbnail(file, size, null)
+            if (Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT) {
+                when {
+                    mimeType.startsWith("image/") -> return ThumbnailUtils.createImageThumbnail(file, size, null)
+                    mimeType.startsWith("video/") -> return ThumbnailUtils.createVideoThumbnail(file, size, null)
+                    mimeType.startsWith("audio/") -> return ThumbnailUtils.createAudioThumbnail(file, size, null)
+                }
             }
         }
         catch (ignore: Exception) {}
