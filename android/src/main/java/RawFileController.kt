@@ -72,6 +72,18 @@ class RawFileController: FileController {
         return res
     }
 
+    @Synchronized
+    override fun createDirAll(dirUri: FileUri, relativePath: String): JSObject {
+        val parentPath = Uri.parse(dirUri.uri).path!!.trimEnd('/')
+        val dir = File(parentPath + "/" + relativePath.trimStart('/'))
+        dir.mkdirs()
+
+        val res = JSObject()
+        res.put("uri", Uri.fromFile(dir))
+        res.put("documentTopTreeUri", null)
+        return res
+    }
+
     override fun deleteFile(uri: FileUri) {
         val file = File(Uri.parse(uri.uri).path!!)
         if (!file.isFile) {

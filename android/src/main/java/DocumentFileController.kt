@@ -6,6 +6,7 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import android.graphics.Bitmap
 import android.graphics.Point
+import android.os.Build
 import androidx.core.database.getStringOrNull
 import app.tauri.plugin.JSArray
 import app.tauri.plugin.JSObject
@@ -129,6 +130,23 @@ class DocumentFileController(private val activity: Activity): FileController {
             mimeType,
             fileName
         ) ?: throw Exception("Failed to create file: { parent: $parentUri, fileName: $fileName, mimeType: $mimeType }")
+
+        val res = JSObject()
+        res.put("uri", uri)
+        res.put("documentTopTreeUri", dirUri.documentTopTreeUri)
+        return res
+    }
+
+    @Synchronized
+    override fun createDirAll(dirUri: FileUri, relativePath: String): JSObject {
+        if (relativePath.endsWith('/')) {
+            throw Exception("Illegal file path format, ends with '/'. $relativePath")
+        }
+        if (relativePath.isEmpty()) {
+            throw Exception("Relative path is empty.")
+        }
+
+        val uri = createOrGetDir(dirUri, relativePath)
 
         val res = JSObject()
         res.put("uri", uri)

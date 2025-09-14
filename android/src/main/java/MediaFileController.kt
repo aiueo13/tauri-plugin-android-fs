@@ -74,6 +74,10 @@ class MediaFileController(private val activity: Activity): FileController {
         return res
     }
 
+    override fun createDirAll(dirUri: FileUri, relativePath: String): JSObject {
+        throw Exception("Unsupported operation for ${dirUri.uri}")
+    }
+
     override fun deleteFile(uri: FileUri) {
         if (activity.contentResolver.delete(Uri.parse(uri.uri), null, null) <= 0) {
             throw Exception("Failed to delete file: ${uri.uri}")

@@ -14,6 +14,8 @@ interface FileController {
 
     fun createFile(dirUri: FileUri, relativePath: String, mimeType: String): JSObject
 
+    fun createDirAll(dirUri: FileUri, relativePath: String): JSObject
+
     fun deleteFile(uri: FileUri)
 
     fun deleteEmptyDir(uri: FileUri)

@@ -84,7 +84,7 @@ class ShowOpenContentDialogArgs {
 
 @InvokeArg
 class ShowOpenVisualMediaDialogArgs {
-    lateinit var target: VisualMediaPickerType
+    lateinit var target: String
     var multiple: Boolean = false
 }
 
@@ -108,21 +108,18 @@ enum class PersistableUriPermissionMode {
 }
 
 @InvokeArg
-enum class VisualMediaPickerType {
-    ImageOnly,
-    VideoOnly,
-    ImageAndVideo
-}
-
-@InvokeArg
-class GetPublicDirInfo {
-    lateinit var dir: BaseDir
+class GetPublicDirUriArgs {
     lateinit var dirType: ContentType
     var volumeName: String? = null
 }
 
 @InvokeArg
 class GetStorageVolumeUuidArgs {
+    var volumeName: String? = null
+}
+
+@InvokeArg
+class GetStorageVolumePathArgs {
     var volumeName: String? = null
 }
 
@@ -137,22 +134,6 @@ enum class ContentType {
     Video,
     Audio,
     GeneralPurpose
-}
-
-@InvokeArg
-enum class BaseDir {
-    Pictures,
-    Movies,
-    Music,
-    Alarms,
-    Audiobooks,
-    Notifications,
-    Podcasts,
-    Ringtones,
-    Recordings,
-    DCIM,
-    Documents,
-    Download,
 }
 
 @InvokeArg
@@ -176,6 +157,12 @@ class CreateFileInDirArgs {
     lateinit var dir: FileUri
     lateinit var relativePath: String
     var mimeType: String? = null
+}
+
+@InvokeArg
+class CreateDirAllArgs {
+    lateinit var dir: FileUri
+    lateinit var relativePath: String
 }
 
 @InvokeArg
@@ -344,6 +331,101 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
+    fun getEnvironmentDirs(invoke: Invoke) {
+        try {
+            val res = JSObject()
+            res.put("pictures", Environment.DIRECTORY_PICTURES)
+            res.put("dcim", Environment.DIRECTORY_DCIM)
+            res.put("movies", Environment.DIRECTORY_MOVIES)
+            res.put("music", Environment.DIRECTORY_MUSIC)
+            res.put("alarms", Environment.DIRECTORY_ALARMS)
+            res.put("notifications", Environment.DIRECTORY_NOTIFICATIONS)
+            res.put("podcasts", Environment.DIRECTORY_PODCASTS)
+            res.put("ringtones", Environment.DIRECTORY_RINGTONES)
+            res.put("documents", Environment.DIRECTORY_DOCUMENTS)
+            res.put("download", Environment.DIRECTORY_DOWNLOADS)
+            if (Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT) {
+                res.put("audiobooks", Environment.DIRECTORY_AUDIOBOOKS)
+            }
+            if (Build.VERSION_CODES.S <= Build.VERSION.SDK_INT) {
+                res.put("recordings", Environment.DIRECTORY_RECORDINGS)
+            }
+
+            invoke.resolve(res)
+        }
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "Failed to invokeEnvironmentDirs")
+        }
+    }
+
+    @Command
+    fun getPublicDirUri(invoke: Invoke) {
+        try {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                throw Exception("requires Android 10 (API 29) or higher.")
+            }
+
+            val args = invoke.parseArgs(GetPublicDirUriArgs::class.java)
+            val volumeName = args.volumeName ?: MediaStore.VOLUME_EXTERNAL_PRIMARY
+
+            val uri = when (args.dirType) {
+                ContentType.Image -> MediaStore.Images.Media.getContentUri(volumeName)
+                ContentType.Video -> MediaStore.Video.Media.getContentUri(volumeName)
+                ContentType.Audio -> MediaStore.Audio.Media.getContentUri(volumeName)
+                ContentType.GeneralPurpose -> MediaStore.Files.getContentUri(volumeName)
+            }
+
+            val res = JSObject()
+            res.put("uri", uri)
+            invoke.resolve(res)
+        }
+        catch (ex: Exception) {
+            val message = ex.message ?: "Failed to invoke getPublicUri"
+            Logger.error(message)
+            invoke.reject(message)
+        }
+    }
+
+    @SuppressLint("PrivateApi")
+    @Command
+    fun getStorageVolumePath(invoke: Invoke) {
+        try {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                throw Exception("requires Android 10 (API 29) or higher.")
+            }
+
+            val args = invoke.parseArgs(GetStorageVolumePathArgs::class.java)
+            val volumeName = args.volumeName ?: MediaStore.VOLUME_EXTERNAL_PRIMARY
+
+            var path: String? = null
+
+            if (volumeName == MediaStore.VOLUME_EXTERNAL_PRIMARY) {
+                path = Environment.getExternalStorageDirectory().absolutePath
+            }
+            else {
+                val sv = getStorageVolume(volumeName)!!
+                if (Build.VERSION_CODES.R <= Build.VERSION.SDK_INT) {
+                    path = sv.directory?.absolutePath
+                }
+                else if (Build.VERSION_CODES.N <= Build.VERSION.SDK_INT) {
+                    // https://qiita.com/wa2c/items/4b3bacfec9667a5a99d7
+                    val getPath = StorageVolume::class.java.getDeclaredMethod("getPath")
+                    path = getPath.invoke(sv) as String?
+                }
+            }
+
+            invoke.resolve(JSObject().apply {
+                put("path", path!!)
+            })
+        }
+        catch (ex: Exception) {
+            val message = ex.message ?: "Failed to invoke getStorageVolumePathArgs"
+            Logger.error(message)
+            invoke.reject(message)
+        }
+    }
+
+    @Command
     fun getStorageVolumes(invoke: Invoke) {
         try {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
@@ -352,36 +434,16 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
 
             // https://android.suzu-sd.com/2025/08/storage_volume/
 
-
-            // MediaStore 側の Volume 名一覧
-            val mediaStoreVolumes = MediaStore.getExternalVolumeNames(activity)
-
-            // StorageManager 側の Volume 情報
-            val sm = activity.getSystemService(Context.STORAGE_SERVICE) as StorageManager
-            val storageVolumes = sm.storageVolumes
-
             val buffer = JSArray()
+            for (volumeName in MediaStore.getExternalVolumeNames(activity)) {
+                val sv = getStorageVolume((volumeName))
 
-            // mediaStoreVolumesを優先する
-            for (volumeName in mediaStoreVolumes) {
-                var description: String? = null
-                var isPrimary = false
-
-                for (sv in storageVolumes) {
-                    val expectedVolumeName = guessExpectedMediaStoreVolumeName(sv)
-                    
-                    if (volumeName == expectedVolumeName) {
-                        isPrimary = sv.isPrimary()
-                        description = sv.getDescription(activity)
-                        break
-                    }
-                }
-
-                val obj = JSObject()
-                obj.put("isPrimary", isPrimary)
-                obj.put("volumeName", volumeName)
-                obj.put("description", description)
-                buffer.put(obj)
+                buffer.put(JSObject().apply {
+                    // getStorageVolumeはprimaryを必ず検知できるので、svがない場合は確実にprimaryでない
+                    put("isPrimary", sv?.isPrimary ?: false)
+                    put("volumeName", volumeName)
+                    put("description", sv?.getDescription((activity)))
+                })
             }
 
             val res = JSObject()
@@ -419,6 +481,24 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         return volumeName
     }
 
+    private fun getStorageVolume(volumeName: String): StorageVolume? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+            throw Exception("requires Android 7 (API 24) or higher.")
+        }
+
+        val sm = activity.getSystemService(Context.STORAGE_SERVICE) as StorageManager
+
+        if (volumeName == MediaStore.VOLUME_EXTERNAL_PRIMARY) {
+            return sm.primaryStorageVolume
+        }
+        for (sv in sm.storageVolumes) {
+            if (volumeName == guessExpectedMediaStoreVolumeName(sv)) {
+                return sv
+            }
+        }
+        return null
+    }
+
     @Command
     fun getPrimaryStorageVolume(invoke: Invoke) {
         try {
@@ -453,21 +533,11 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             val args = invoke.parseArgs(GetStorageVolumeUuidArgs::class.java)
             val volumeName = args.volumeName ?: MediaStore.VOLUME_EXTERNAL_PRIMARY
 
-            val sm = activity.getSystemService(Context.STORAGE_SERVICE) as StorageManager
+            val uuid: String? = getStorageVolume(volumeName)?.uuid
 
-            var uuid: String? = null
-            for (sv in sm.storageVolumes) {
-                val expectedVolumeName = guessExpectedMediaStoreVolumeName(sv)
-                    
-                if (volumeName == expectedVolumeName) {
-                    uuid = sv.uuid
-                    break
-                }
-            }
-
-            val res = JSObject()
-            res.put("value", uuid)
-            invoke.resolve(res)
+            invoke.resolve(JSObject().apply {
+                put("value", uuid)
+            })
         } 
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to getStorageVolumeUuid."
@@ -658,59 +728,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
-    fun getPublicDirInfo(invoke: Invoke) {
-        try {
-            val args = invoke.parseArgs(GetPublicDirInfo::class.java)
-
-            val dirName = when (args.dir) {
-                BaseDir.Pictures -> Environment.DIRECTORY_PICTURES
-                BaseDir.DCIM -> Environment.DIRECTORY_DCIM
-                BaseDir.Movies -> Environment.DIRECTORY_MOVIES
-                BaseDir.Music -> Environment.DIRECTORY_MUSIC
-                BaseDir.Alarms -> Environment.DIRECTORY_ALARMS
-                BaseDir.Audiobooks -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    Environment.DIRECTORY_AUDIOBOOKS
-                } else {
-                    throw Exception("Environment.DIRECTORY_AUDIOBOOKS isn't available on Android 9 (API level 28) and lower.")
-                }
-                BaseDir.Notifications -> Environment.DIRECTORY_NOTIFICATIONS
-                BaseDir.Podcasts -> Environment.DIRECTORY_PODCASTS
-                BaseDir.Ringtones -> Environment.DIRECTORY_RINGTONES
-                BaseDir.Documents -> Environment.DIRECTORY_DOCUMENTS
-                BaseDir.Download -> Environment.DIRECTORY_DOWNLOADS
-                BaseDir.Recordings -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    Environment.DIRECTORY_RECORDINGS
-                } else {
-                    throw Exception("Environment.DIRECTORY_RECORDINGS isn't available on Android 11 (API level 30) and lower.")
-                }
-            }
-
-            val res = JSObject()
-            res.put("name", dirName)
-
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                throw Exception("requires Android 10 (API 29) or higher.")
-            }
-            val volume = args.volumeName ?: MediaStore.VOLUME_EXTERNAL_PRIMARY
-
-            val uri = when (args.dirType) {
-                ContentType.Image -> MediaStore.Images.Media.getContentUri(volume)
-                ContentType.Video -> MediaStore.Video.Media.getContentUri(volume)
-                ContentType.Audio -> MediaStore.Audio.Media.getContentUri(volume)
-                ContentType.GeneralPurpose -> MediaStore.Files.getContentUri(volume)
-            }
-
-            res.put("uri", uri)
-
-            invoke.resolve(res)
-        } catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke getPublicDirInfo"
-            Logger.error(message)
-            invoke.reject(message)
-        }
-    }
-
-    @Command
     fun createFile(invoke: Invoke) {
         try {
             val args = invoke.parseArgs(CreateFileInDirArgs::class.java)
@@ -735,8 +752,40 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     }
                 }
             }
-        } catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke createFileInDir."
+        }
+        catch (ex: Exception) {
+            val message = ex.message ?: "Failed to invoke createFile."
+            Logger.error(message)
+            invoke.reject(message)
+        }
+    }
+
+    @Command
+    fun createDirAll(invoke: Invoke) {
+        try {
+            val args = invoke.parseArgs(CreateDirAllArgs::class.java)
+
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val res = getFileController(args.dir)
+                        .createDirAll(args.dir, args.relativePath)
+
+                    // 必要ないかもしれないが念の為
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve(res)
+                    }
+                }
+                catch (ex: Exception) {
+                    withContext(Dispatchers.Main) {
+                        val message = ex.message ?: "Failed to invoke createDirAll."
+                        Logger.error(message)
+                        invoke.reject(message)
+                    }
+                }
+            }
+        }
+        catch(ex: Exception) {
+            val message = ex.message ?: "Failed to invoke createDirAll."
             Logger.error(message)
             invoke.reject(message)
         }
@@ -1573,14 +1622,16 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
 
     private fun createVisualMediaPickerIntent(
         multiple: Boolean,
-        target: VisualMediaPickerType
+        targetMimeType: String
     ): Intent {
 
         val req = PickVisualMediaRequest(
-            when (target) {
-                VisualMediaPickerType.ImageOnly -> PickVisualMedia.ImageOnly
-                VisualMediaPickerType.VideoOnly -> PickVisualMedia.VideoOnly
-                VisualMediaPickerType.ImageAndVideo -> PickVisualMedia.ImageAndVideo
+            when {
+                targetMimeType == "image/*" -> PickVisualMedia.ImageOnly
+                targetMimeType == "video/*" -> PickVisualMedia.VideoOnly
+                targetMimeType.startsWith("image/") -> PickVisualMedia.SingleMimeType(targetMimeType)
+                targetMimeType.startsWith("video/") -> PickVisualMedia.SingleMimeType(targetMimeType)
+                else -> PickVisualMedia.ImageAndVideo
             }
         )
 

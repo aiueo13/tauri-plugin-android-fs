@@ -104,23 +104,6 @@ impl<R: tauri::Runtime> WritableStream<R> {
         Ok(())
     }
 
-    #[allow(unused)]
-    pub(crate) fn close_without_reflect(mut self) -> Result<()> {
-        let Some(writer) = self.writer.take() else {
-            return Ok(())
-        };
-        let Some(writer_attr) = self.writer_attr.take() else {
-            return Ok(())
-        };
-
-        if let WriterAttr::TempBuffer { writer_path, .. } = writer_attr {
-            std::mem::drop(writer);
-            std::fs::remove_file(&writer_path)?;
-        }
-
-        Ok(())
-    }
-
     /// [`WritableStream`] is a wrapper around [`std::fs::File`].  
     /// In most cases, it points to the actual target file, but it may also refer to a temporary file.  
     ///

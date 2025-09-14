@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use serde::{Deserialize, Serialize};
 use crate::{Error, Result};
 
@@ -43,19 +42,38 @@ impl FileUri {
     pub fn from_str(s: &str) -> crate::Result<Self> {
         serde_json::from_str(s).map_err(Into::into)
     }
+
+    pub fn from_path(path: impl AsRef<std::path::Path>) -> Self {
+        Self { uri: format!("file://{}", path.as_ref().to_string_lossy()), document_top_tree_uri: None }
+    }
+
+    #[allow(unused)]
+    pub(crate) fn as_path(&self) -> Option<&std::path::Path> {
+        if self.uri.starts_with("file://") {
+            return Some(std::path::Path::new(self.uri.trim_start_matches("file://")))
+        }
+        None
+    }
+}
+
+impl From<&std::path::Path> for FileUri {
+
+    fn from(path: &std::path::Path) -> Self {
+        Self::from_path(path)
+    }
 }
 
 impl From<&std::path::PathBuf> for FileUri {
 
-    fn from(value: &std::path::PathBuf) -> Self {
-        Self { uri: format!("file://{}", value.to_string_lossy()), document_top_tree_uri: None }
+    fn from(path: &std::path::PathBuf) -> Self {
+        Self::from_path(path)
     }
 }
 
 impl From<std::path::PathBuf> for FileUri {
 
-    fn from(ref value: std::path::PathBuf) -> Self {
-        value.into()
+    fn from(path: std::path::PathBuf) -> Self {
+        Self::from_path(path)
     }
 }
 
@@ -72,11 +90,8 @@ impl From<tauri_plugin_fs::FilePath> for FileUri {
 impl From<FileUri> for tauri_plugin_fs::FilePath {
 
     fn from(value: FileUri) -> Self {
-        let result: std::result::Result<_, std::convert::Infallible> = value.uri.parse();
-
-        // This will not cause panic. 
-        // Because result err is infallible.
-        result.unwrap()
+        type NeverErr<T> = std::result::Result::<T, std::convert::Infallible>;
+        NeverErr::unwrap(value.uri.parse())
     }
 }
 
@@ -201,6 +216,13 @@ impl PersistedUriPermission {
         }
     }
 
+    pub fn into_uri(self) -> FileUri {
+        match self {
+            PersistedUriPermission::File { uri, .. } => uri,
+            PersistedUriPermission::Dir { uri, .. } => uri,
+        }
+    }
+
     pub fn can_read(&self) -> bool {
         match self {
             PersistedUriPermission::File { can_read, .. } => *can_read,
@@ -314,10 +336,10 @@ pub enum FileAccessMode {
     ReadWriteTruncate,
 }
 
+#[allow(unused)]
+#[allow(deprecated)]
 impl FileAccessMode {
-
-    #[allow(unused)]
-    #[allow(deprecated)]
+ 
     pub(crate) fn to_mode(&self) -> &'static str {
         match self {
             FileAccessMode::Read => "r",
@@ -329,8 +351,6 @@ impl FileAccessMode {
         }
     }
 
-    #[allow(unused)]
-    #[allow(deprecated)]
     pub(crate) fn from_mode(mode: &str) -> Result<Self> {
         match mode {
             "r" => Ok(Self::Read),
@@ -345,9 +365,9 @@ impl FileAccessMode {
 }
 
 /// Filters for VisualMediaPicker.
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[non_exhaustive]
-pub enum VisualMediaTarget {
+pub enum VisualMediaTarget<'a> {
 
     /// Allow only images to be selected.  
     ImageOnly,
@@ -357,6 +377,11 @@ pub enum VisualMediaTarget {
 
     /// Allow only images and videos to be selected.  
     ImageAndVideo,
+
+    /// Allow only images or videos of specified single Mime type to be selected.  
+    ImageOrVideo {
+        mime_type: &'a str
+    }
 }
 
 /// The application specific directory.  
@@ -410,12 +435,12 @@ pub enum PublicImageDir {
 
     /// Standard directory in which to place pictures that are available to the user.  
     /// 
-    /// ex: `~/Pictures`
+    /// e.g. `~/Pictures`
     Pictures,
 
     /// The traditional location for pictures and videos when mounting the device as a camera.  
     /// 
-    /// ex: `~/DCIM`
+    /// e.g. `~/DCIM`
     DCIM,
 }
 
@@ -426,12 +451,12 @@ pub enum PublicVideoDir {
 
 	/// Standard directory in which to place movies that are available to the user.  
 	/// 
-	/// ex: `~/Movies`
+	/// e.g. `~/Movies`
 	Movies,
 
 	/// The traditional location for pictures and videos when mounting the device as a camera.  
 	/// 
-	/// ex: `~/DCIM`
+	/// e.g. `~/DCIM`
 	DCIM,
 }
 
@@ -442,41 +467,41 @@ pub enum PublicAudioDir {
 
     /// Standard directory in which to place movies that are available to the user.  
     /// 
-    /// ex: `~/Music`
+    /// e.g. `~/Music`
     Music,
 
     /// Standard directory in which to place any audio files that should be in the list of alarms that the user can select (not as regular music).  
     /// 
-    /// ex: `~/Alarms`
+    /// e.g. `~/Alarms`
     Alarms,
 
     /// Standard directory in which to place any audio files that should be in the list of audiobooks that the user can select (not as regular music).  
     /// 
     /// This is not available on Android 9 (API level 28) and lower.  
     /// 
-    /// ex: `~/Audiobooks`  
+    /// e.g. `~/Audiobooks`  
     Audiobooks,
 
     /// Standard directory in which to place any audio files that should be in the list of notifications that the user can select (not as regular music).  
     /// 
-    /// ex: `~/Notifications`
+    /// e.g. `~/Notifications`
     Notifications,
 
     /// Standard directory in which to place any audio files that should be in the list of podcasts that the user can select (not as regular music).  
     /// 
-    /// ex: `~/Podcasts`
+    /// e.g. `~/Podcasts`
     Podcasts,
 
     /// Standard directory in which to place any audio files that should be in the list of ringtones that the user can select (not as regular music).  
     /// 
-    /// ex: `~/Ringtones`
+    /// e.g. `~/Ringtones`
     Ringtones,
 
     /// Standard directory in which to place any audio files that should be in the list of voice recordings recorded by voice recorder apps that the user can select (not as regular music).   
     /// 
     /// This is not available on Android 11 (API level 30) and lower.  
     /// 
-    /// ex: `~/Recordings`
+    /// e.g. `~/Recordings`
     Recordings,
 }
 
@@ -487,12 +512,15 @@ pub enum PublicGeneralPurposeDir {
 
     /// Standard directory in which to place documents that have been created by the user.  
     /// 
-    /// ex: `~/Documents`
+    /// e.g. `~/Documents`
     Documents,
 
     /// Standard directory in which to place files that have been downloaded by the user.  
     /// 
-    /// ex: `~/Download`  
+    /// e.g. `~/Download`  
+    ///
+    /// This is not the plural "Downloads", but the singular "Download".
+    /// <https://developer.android.com/reference/android/os/Environment#DIRECTORY_DOWNLOADS>
     Download,
 }
 
@@ -561,73 +589,3 @@ impl_into_pubdir!(PublicImageDir, Image);
 impl_into_pubdir!(PublicVideoDir, Video);
 impl_into_pubdir!(PublicAudioDir, Audio);
 impl_into_pubdir!(PublicGeneralPurposeDir, GeneralPurpose);
-
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum InitialLocation<'a> {
-
-    PrimaryTopDir,
-
-    PrimaryPublicDir {
-        dir: PublicDir,
-        relative_path: &'a str,
-    },
-
-    PrimaryPublicAppDir {
-        dir: PublicDir,
-        relative_path: &'a str,
-    },
-
-    TopDir {
-        volume: &'a PublicStorageVolumeId,
-    },
-
-    PublicDir {
-        volume: &'a PublicStorageVolumeId,
-        dir: PublicDir,
-        relative_path: &'a str,
-    },
-
-    PublicAppDir {
-        volume: &'a PublicStorageVolumeId,
-        dir: PublicDir,
-        relative_path: &'a str,
-    }
-}
-
-impl<'a> InitialLocation<'a> {
-
-    #[allow(unused)]
-    pub(crate) fn volume(&'a self) -> Option<&'a PublicStorageVolumeId> {
-        match self {
-            InitialLocation::PrimaryTopDir => None,
-            InitialLocation::PrimaryPublicDir { .. } => None,
-            InitialLocation::PrimaryPublicAppDir { .. } => None,
-            InitialLocation::TopDir { volume } => Some(volume),
-            InitialLocation::PublicDir { volume, .. } => Some(volume),
-            InitialLocation::PublicAppDir { volume, .. } => Some(volume),
-        }
-    }
-
-    #[allow(unused)]
-    pub(crate) fn dir_and_relative_path(&'a self, app_dir: &'a str) -> Option<(PublicDir, Cow<'a, str>)> {
-        let (dir, use_app_dir, realtive_path) = match self {
-            InitialLocation::PrimaryTopDir => return None,
-            InitialLocation::TopDir { .. } => return None,
-            InitialLocation::PrimaryPublicDir { dir, relative_path } => (dir, false, relative_path),
-            InitialLocation::PublicDir { dir, relative_path, .. } => (dir, false, relative_path),
-            InitialLocation::PrimaryPublicAppDir { dir, relative_path } => (dir, true, relative_path),
-            InitialLocation::PublicAppDir { dir, relative_path, .. } => (dir, true, relative_path),
-        };
-
-        let relative_path = realtive_path.trim_matches('/');
-        let app_dir = app_dir.trim_matches('/');
-
-        if use_app_dir {
-            Some((*dir, Cow::Owned(format!("{app_dir}/{realtive_path}"))))
-        }
-        else {
-            Some((*dir, Cow::Borrowed(relative_path)))
-        }
-    }
-}

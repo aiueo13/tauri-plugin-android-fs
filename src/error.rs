@@ -10,6 +10,14 @@ pub struct Error {
     pub(crate) msg: Cow<'static, str>
 }
 
+impl Error {
+
+    #[allow(unused)]
+    pub(crate) fn with(msg: impl Into<Cow<'static, str>>) -> Self {
+        Self { msg: msg.into() }
+    }
+}
+
 #[cfg(target_os = "android")]
 impl From<tauri::plugin::mobile::PluginInvokeError> for crate::Error {
 
@@ -21,6 +29,13 @@ impl From<tauri::plugin::mobile::PluginInvokeError> for crate::Error {
 impl From<std::io::Error> for crate::Error {
 
     fn from(value: std::io::Error) -> Self {
+        Self { msg: Cow::Owned(value.to_string())}
+    }
+}
+
+impl<W: std::io::Write> From<std::io::IntoInnerError<W>> for crate::Error {
+
+    fn from(value: std::io::IntoInnerError<W>) -> Self {
         Self { msg: Cow::Owned(value.to_string())}
     }
 }

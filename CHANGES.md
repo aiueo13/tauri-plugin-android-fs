@@ -1,3 +1,22 @@
+# Version 13.0.0
+- Deprecate and change args of `PrivateStorage::resolve_uri`
+- Remove `AndroidFs::create_file`
+- Remove `InitialLocation`
+- Remove `PublicStorage::create_file`
+- Remove `PublicStorage::create_file_in_app_dir`
+- Remove `PublicStorage::create_dia_all_in_app_dir`
+- Remove `PrivateStorage::resolve_path_with`
+- Remove `PrivateStorage::resolve_uri_with`
+- Remove wrapper functions of std::fs in `PrivateStorage`
+- Add `VisualMediaTarget::ImageOrVideo { mime_type }`
+- Add `AndroidFs::create_new_file`
+- Add `PublicStorage::create_new_file`
+- Add `PublicStorage::resolve_path`
+- Add `PublicStorage::resolve_initial_location_top`
+- Change args of `PublicStorage::create_dia_all`
+- Change args of `PublicStorage::resolve_initial_location`
+- Update documentation.
+
 # Version 12.0.1
 - Update documentation.
 

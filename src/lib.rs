@@ -19,6 +19,18 @@ pub use api::*;
 pub(crate) use utils::*;
 
 /// Initializes the plugin.
+/// 
+/// # Usage
+/// `src-tauri/src/lib.rs`
+/// ```
+/// #[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// pub fn run() {
+///     tauri::Builder::default()
+///         .plugin(tauri_plugin_android_fs::init())
+///         .run(tauri::generate_context!())
+///         .expect("error while running tauri application");
+/// }
+/// ```
 pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new("android-fs")
         .setup(|app, api| {
@@ -49,6 +61,6 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> AndroidFsExt<R> for T {
     fn android_fs(&self) -> &AndroidFs<R> {
         self.try_state::<AndroidFs<R>>()
             .map(|i| i.inner())
-            .expect("You should call tauri_plugin_android_fs::init() and registier it to your project. See https://crates.io/crates/tauri-plugin-android-fs")
+            .expect("You should register this plugin by tauri_plugin_android_fs::init(). See https://crates.io/crates/tauri-plugin-android-fs")
     }
 }

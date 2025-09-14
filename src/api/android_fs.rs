@@ -194,7 +194,6 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Note
     /// If the target is a file on cloud storage or otherwise not actually present on the device, 
     /// writing with such files may not correctly reflect the changes.  
-    /// In this case, this function may causes an error, or may not.  
     /// If you need write with such files, use [`AndroidFs::open_writable_stream`].
     ///
     /// # Args
@@ -210,13 +209,8 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ) -> crate::Result<std::fs::File> {
 
         on_android!(#[allow(deprecated)] {
-            // サイレントエラーをなるべく避けるため強制的にエラーにする。
-            if self.need_write_via_kotlin(uri)? {
-                return Err(Error { msg: "This content does not support write via file descriptor. Please use AndroidFs::open_writable_stream instead.".into() })
-            }
-
             // Android 9 以下の場合、w は既存コンテンツを切り捨てる
-            if self.api_level()? <= 28 {
+            if self.api_level()? <= api_level::ANDROID_9 {
                 self.open_file(uri, FileAccessMode::Write)
             }
             // Android 10 以上の場合、w は既存コンテンツの切り捨てを保証しない。
@@ -319,7 +313,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
             let modes = candidate_modes.into_iter().map(|m| m.to_mode()).collect::<Vec<_>>();
 
             if modes.is_empty() {
-                return Err(Error { msg: "candidate_modes should not be empty".into() });
+                return Err(Error::with("candidate_modes must not be empty"));
             }
 
             self.api
@@ -465,16 +459,9 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     pub fn write(&self, uri: &FileUri, contents: impl AsRef<[u8]>) -> crate::Result<()> {
         on_android!({
             let mut stream = self.open_writable_stream(uri)?;
-
-            match stream.write_all(contents.as_ref()) {
-                Ok(_) => stream.reflect(),
-                Err(e) => {
-                    // これは drop 時にも必要に応じて行われるのでなくてもいい。
-                    // drop 時に任せるよりこれを呼び出した方がコストが低いので呼び出す。
-                    let _ = stream.close_without_reflect();
-                    Err(e.into())
-                },
-            }
+            stream.write_all(contents.as_ref())?;
+            stream.reflect()?;
+            Ok(())
         })
     }
 
@@ -499,16 +486,9 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 
         on_android!({
             let mut stream = self.open_writable_stream_via_kotlin(uri)?;
-            
-            match stream.write_all(contents.as_ref()) {
-                Ok(_) => stream.reflect(),
-                Err(e) => {
-                    // これは drop 時にも必要に応じて行われるのでなくてもいい。
-                    // drop 時に任せるよりこれを呼び出した方がコストが低いので呼び出す。
-                    let _ = stream.close_without_reflect();
-                    Err(e.into())
-                },
-            }
+            stream.write_all(contents.as_ref())?;
+            stream.reflect()?;
+            Ok(())
         })
     }
 
@@ -555,9 +535,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// This function always writes content via the Kotlin API, 
     /// ensuring that writes to files not physically present on the device, such as cloud storage files, are properly applied.
     /// 
-    /// [`AndroidFs::copy`] automatically falls back to this function depending on [`AndroidFs::need_write_via_kotlin`].  
-    /// For performance reasons, it is strongly recommended to use [`AndroidFs::copy`] 
-    /// if you can tolerate that [`AndroidFs::need_write_via_kotlin`] may not cover all cases.  
+    /// [`AndroidFs::copy`] automatically falls back to this function depending on [`AndroidFs::need_write_via_kotlin`].   
     /// 
     /// # Args
     /// - ***src*** :  
@@ -600,11 +578,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 
     /// Determines whether the file must be written via the Kotlin API rather than through a file descriptor.
     /// 
-    /// **Even if this returns `false`, it does not guarantee that writing via the Kotlin API is never required.**
-    /// 
-    /// # Note
-    /// Currently, this function returns `true` only for files hosted by the following apps:  
-    ///  - Google Drive
+    /// **This may not cover all cases.**
     /// 
     /// # Why
     /// For files that do not physically exist on the device, such as those stored in cloud storage,  
@@ -616,6 +590,9 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// All Android version.
     pub fn need_write_via_kotlin(&self, uri: &FileUri) -> crate::Result<bool> {
         on_android!({
+            // Note:
+            // Android 15 の Dropbox (ver. 440.2.4) では fd 経由で書き込んで反映された
+
             const URI_PREFIXES: &'static [&'static str] = &[
                 "content://com.google.android.apps.docs", // Google drive
             ];
@@ -643,6 +620,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// In the case of e.g. [`PublicStorage`], the suffix (e.g. `(1)`) is added to this name.  
     /// In the case of files hosted by other applications, errors may occur.  
     /// But at least, the existing file will not be overwritten.  
+    /// The system may sanitize these strings as needed, so those strings may not be used as it is.
     /// 
     /// # Support
     /// All Android version.
@@ -732,15 +710,24 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// The permissions and validity period of the returned URI depend on the origin directory 
     /// (e.g., the top directory selected by [`FilePicker::pick_dir`]) 
     /// 
+    /// # Note
+    /// For [`AndroidFs::create_new_file`] and etc, the system may sanitize path strings as needed, so those strings may not be used as it is.
+    /// However, this function does not perform any sanitization, so the same ***relative_path*** may still fail.
+    /// 
     /// # Support
     /// All Android version.
-    pub fn try_resolve_file_uri(&self, dir: &FileUri, relative_path: impl AsRef<str>) -> crate::Result<FileUri> {
+    pub fn try_resolve_file_uri(
+        &self, 
+        dir: &FileUri, 
+        relative_path: impl AsRef<std::path::Path>
+    ) -> crate::Result<FileUri> {
+
         on_android!({
             #[allow(deprecated)]
             let uri = self.resolve_uri(dir, relative_path)?;         
 
             if !self.get_type(&uri)?.is_file() {
-                return Err(crate::Error { msg: format!("This is not a file: {uri:?}").into() })
+                return Err(crate::Error::with(format!("This is not a file: {uri:?}")))
             }
             Ok(uri)
         })
@@ -752,21 +739,32 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// The permissions and validity period of the returned URI depend on the origin directory 
     /// (e.g., the top directory selected by [`FilePicker::pick_dir`]) 
     /// 
+    /// # Note
+    /// For [`AndroidFs::create_new_file`] and etc, the system may sanitize path strings as needed, so those strings may not be used as it is.
+    /// However, this function does not perform any sanitization, so the same ***relative_path*** may still fail.
+    /// 
     /// # Support
     /// All Android version.
-    pub fn try_resolve_dir_uri(&self, dir: &FileUri, relative_path: impl AsRef<str>) -> crate::Result<FileUri> {
+    pub fn try_resolve_dir_uri(
+        &self,
+        dir: &FileUri, 
+        relative_path: impl AsRef<std::path::Path>
+    ) -> crate::Result<FileUri> {
+
         on_android!({
             #[allow(deprecated)]
             let uri = self.resolve_uri(dir, relative_path)?;
             
             if !self.get_type(&uri)?.is_dir() {
-                return Err(crate::Error { msg: format!("This is not a directory: {uri:?}").into() })
+                return Err(crate::Error::with(format!("This is not a directory: {uri:?}")))
             }
             Ok(uri)
         })
     }
 
     /// Build a URI of an entry located at the relative path from the specified directory.   
+    /// 
+    /// This function does **not** create any entries; it only constructs the URI.
     /// 
     /// This function does not perform checks on the arguments or the returned URI.  
     /// Even if the dir argument refers to a file, no error occurs (and no panic either).
@@ -778,6 +776,10 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// The permissions and validity period of the returned URI depend on the origin directory 
     /// (e.g., the top directory selected by [`FilePicker::pick_dir`]) 
     /// 
+    /// # Note
+    /// For [`PublicStorage::create_new_file`] and etc, the system may sanitize path strings as needed, so those strings may not be used as it is.
+    /// However, this function does not perform any sanitization, so the same ***relative_path*** may still fail.
+    /// 
     /// # Performance
     /// This operation is relatively fast 
     /// because it does not call Kotlin API and only involves operating strings on Rust side.
@@ -785,10 +787,16 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Support
     /// All Android version.
     #[deprecated = "Use AndroidFs::try_resolve_file_uri or AndroidFs::try_resolve_dir_uri instead"]
-    pub fn resolve_uri(&self, dir: &FileUri, relative_path: impl AsRef<str>) -> crate::Result<FileUri> {
+    pub fn resolve_uri(
+        &self, 
+        dir: &FileUri, 
+        relative_path: impl AsRef<std::path::Path>
+    ) -> crate::Result<FileUri> {
+
         on_android!({
             let base_dir = &dir.uri;
-            let relative_path = relative_path.as_ref().trim_matches('/');
+            let relative_path = validate_relative_path(relative_path.as_ref())?;
+            let relative_path = relative_path.to_string_lossy();
 
             if relative_path.is_empty() {
                 return Ok(dir.clone())
@@ -913,6 +921,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// If no extension is present, 
     /// the system may infer one from ***mime_type*** and may append it to the file name. 
     /// But this append-extension operation depends on the model and version.  
+    /// The system may sanitize these strings as needed, so those strings may not be used as it is.
     ///  
     /// - ***mime_type*** :  
     /// The MIME type of the file to be created.  
@@ -921,20 +930,21 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ///  
     /// # Support
     /// All Android version.
-    pub fn create_file(
+    pub fn create_new_file(
         &self,
         dir: &FileUri, 
-        relative_path: impl AsRef<str>, 
+        relative_path: impl AsRef<std::path::Path>, 
         mime_type: Option<&str>
     ) -> crate::Result<FileUri> {
 
         on_android!({
             impl_se!(struct Req<'a> { dir: &'a FileUri, mime_type: Option<&'a str>, relative_path: &'a str });
         
-            let relative_path = relative_path.as_ref();
-
+            let relative_path = validate_relative_path(relative_path.as_ref())?;
+            let relative_path = relative_path.to_string_lossy();
+                
             self.api
-                .run_mobile_plugin::<FileUri>("createFile", Req { dir, mime_type, relative_path })
+                .run_mobile_plugin::<FileUri>("createFile", Req { dir, mime_type, relative_path: relative_path.as_ref() })
                 .map_err(Into::into)
         })
     }
@@ -943,7 +953,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// then return the URI.  
     /// If it already exists, do nothing and just return the direcotry uri.
     /// 
-    /// [`AndroidFs::create_file`] does this automatically, so there is no need to use it together.
+    /// [`AndroidFs::create_new_file`] does this automatically, so there is no need to use it together.
     /// 
     /// # Args  
     /// - ***dir*** :  
@@ -952,32 +962,25 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ///  
     /// - ***relative_path*** :  
     /// The directory path relative to the base directory.    
+    /// The system may sanitize these strings as needed, so those strings may not be used as it is.
     ///  
     /// # Support
     /// All Android version.
     pub fn create_dir_all(
         &self,
         dir: &FileUri, 
-        relative_path: impl AsRef<str>, 
+        relative_path: impl AsRef<std::path::Path>, 
     ) -> Result<FileUri> {
 
         on_android!({
-            let relative_path = relative_path.as_ref().trim_matches('/');
-            if relative_path.is_empty() {
-                return Ok(dir.clone())
-            }
-
-            // TODO:
-            // create_file経由ではなく folder作成専用のkotlin apiを作成し呼び出すようにする
-            let tmp_file_uri = self.create_file(
-                dir, 
-                format!("{relative_path}/TMP-01K3CGCKYSAQ1GHF8JW5FGD4RW"), 
-                Some("application/octet-stream")
-            )?;
-            let _ = self.remove_file(&tmp_file_uri);
-            let uri = self.resolve_uri(dir, relative_path)?;
-
-            Ok(uri)
+            impl_se!(struct Req<'a> { dir: &'a FileUri,relative_path: &'a str });
+        
+            let relative_path = validate_relative_path(relative_path.as_ref())?;
+            let relative_path = relative_path.to_string_lossy();
+                
+            self.api
+                .run_mobile_plugin::<FileUri>("createDirAll", Req { dir, relative_path: relative_path.as_ref() })
+                .map_err(Into::into)
         })
     }
 
@@ -1006,24 +1009,23 @@ impl<R: tauri::Runtime> AndroidFs<R> {
             impl_se!(struct Req<'a> { uri: &'a FileUri });
             impl_de!(struct Obj { name: String, uri: FileUri, last_modified: i64, byte_size: i64, mime_type: Option<String> });
             impl_de!(struct Res { entries: Vec<Obj> });
-    
-            // TODO:
-            // データ転送のためのデータ形式 (ResとObj) を効率的なものにしたい
 
+            use std::time::{UNIX_EPOCH, Duration};
+    
             self.api
                 .run_mobile_plugin::<Res>("readDir", Req { uri })
                 .map(|v| v.entries.into_iter())
                 .map(|v| v.map(|v| match v.mime_type {
                     Some(mime_type) => Entry::File {
                         name: v.name,
-                        last_modified: std::time::UNIX_EPOCH + std::time::Duration::from_millis(v.last_modified as u64),
+                        last_modified: UNIX_EPOCH + Duration::from_millis(v.last_modified as u64),
                         len: v.byte_size as u64,
                         mime_type,
                         uri: v.uri,
                     },
                     None => Entry::Dir {
                         name: v.name,
-                        last_modified: std::time::UNIX_EPOCH + std::time::Duration::from_millis(v.last_modified as u64),
+                        last_modified: UNIX_EPOCH + Duration::from_millis(v.last_modified as u64),
                         uri: v.uri,
                     }
                 }))
@@ -1044,14 +1046,15 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Args
     /// - **uri** :  
-    /// URI of the target file or directory. This must be a URI taken from following :  
+    /// URI of the target file or directory.   
+    /// This must be a URI taken from following :  
     ///     - [`FilePicker::pick_files`]  
     ///     - [`FilePicker::pick_file`]  
     ///     - [`FilePicker::pick_visual_medias`]  
     ///     - [`FilePicker::pick_visual_media`]  
     ///     - [`FilePicker::pick_dir`]  
     ///     - [`FilePicker::save_file`]  
-    ///     - [`AndroidFs::try_resolve_file_uri`], [`AndroidFs::try_resolve_dir_uri`], [`AndroidFs::resolve_uri`], [`AndroidFs::read_dir`], [`AndroidFs::create_file`], [`AndroidFs::create_dir_all`] :  
+    ///     - [`AndroidFs::try_resolve_file_uri`], [`AndroidFs::try_resolve_dir_uri`], [`AndroidFs::resolve_uri`], [`AndroidFs::read_dir`], [`AndroidFs::create_new_file`], [`AndroidFs::create_dir_all`] :  
     ///     If use URI from thoese fucntions, the permissions of the origin directory URI is persisted, not a entry iteself by this function. 
     ///     Because the permissions and validity period of the descendant entry URIs depend on the origin directory.   
     /// 
@@ -1075,9 +1078,17 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Args
     /// - **uri** :  
     /// URI of the target file or directory.  
-    /// If this is via [`AndroidFs::read_dir`], the permissions of the origin directory URI is checked, not a entry iteself. 
-    /// Because the permissions and validity period of the entry URIs depend on the origin directory.
-    ///
+    /// This must be a URI taken from following :  
+    ///     - [`FilePicker::pick_files`]  
+    ///     - [`FilePicker::pick_file`]  
+    ///     - [`FilePicker::pick_visual_medias`]  
+    ///     - [`FilePicker::pick_visual_media`]  
+    ///     - [`FilePicker::pick_dir`]  
+    ///     - [`FilePicker::save_file`]  
+    ///     - [`AndroidFs::try_resolve_file_uri`], [`AndroidFs::try_resolve_dir_uri`], [`AndroidFs::resolve_uri`], [`AndroidFs::read_dir`], [`AndroidFs::create_new_file`], [`AndroidFs::create_dir_all`] :  
+    ///     If use URI from thoese fucntions, the permissions of the origin directory URI is checked, not a entry iteself by this function. 
+    ///     Because the permissions and validity period of the descendant entry URIs depend on the origin directory.   
+    /// 
     /// - **mode** :  
     /// The mode of permission you want to check.  
     /// 
@@ -1204,16 +1215,5 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 
             Ok(api_level)
         })
-    }
-
-
-    #[deprecated = "Use PublicStorage::resolve_initial_location instead"]
-    pub fn resolve_initial_location<'a>(
-        &self,
-        dir: InitialLocation<'a>,
-        create_dir_all: bool
-    ) -> crate::Result<FileUri> {
-
-        self.public_storage().resolve_initial_location(dir, create_dir_all)
     }
 }

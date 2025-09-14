@@ -41,11 +41,12 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.  
     /// This must be a URI taken from following :   
     ///     - [`PublicStorage::resolve_initial_location`]
+    ///     - [`PublicStorage::resolve_initial_location_top`]
     ///     - [`AndroidFs::try_resolve_file_uri`]
     ///     - [`AndroidFs::try_resolve_dir_uri`]
     ///     - [`AndroidFs::resolve_uri`]
     ///     - [`AndroidFs::read_dir`]
-    ///     - [`AndroidFs::create_file`]
+    ///     - [`AndroidFs::create_new_file`]
     ///     - [`AndroidFs::create_dir_all`]
     ///     - [`AndroidFs::rename`]
     ///     - [`FilePicker::pick_files`]
@@ -94,11 +95,12 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.  
     /// This must be a URI taken from following :   
     ///     - [`PublicStorage::resolve_initial_location`]
+    ///     - [`PublicStorage::resolve_initial_location_top`]
     ///     - [`AndroidFs::try_resolve_file_uri`]
     ///     - [`AndroidFs::try_resolve_dir_uri`]
     ///     - [`AndroidFs::resolve_uri`]
     ///     - [`AndroidFs::read_dir`]
-    ///     - [`AndroidFs::create_file`]
+    ///     - [`AndroidFs::create_new_file`]
     ///     - [`AndroidFs::create_dir_all`]
     ///     - [`AndroidFs::rename`]
     ///     - [`FilePicker::pick_files`]
@@ -157,7 +159,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// <https://developer.android.com/training/data-storage/shared/photopicker>
     pub fn pick_visual_medias(
         &self,
-        target: VisualMediaTarget,
+        target: VisualMediaTarget<'_>,
     ) -> crate::Result<Vec<FileUri>> {
 
         self.inner_pick_visual_medias(target, true)
@@ -195,7 +197,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// <https://developer.android.com/training/data-storage/shared/photopicker>
     pub fn pick_visual_media(
         &self,
-        target: VisualMediaTarget,
+        target: VisualMediaTarget<'_>,
     ) -> crate::Result<Option<FileUri>> {
 
         self.inner_pick_visual_medias(target, false).map(|mut f| f.pop())
@@ -278,11 +280,12 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.   
     /// This must be a URI taken from following :   
     ///     - [`PublicStorage::resolve_initial_location`]
+    ///     - [`PublicStorage::resolve_initial_location_top`]
     ///     - [`AndroidFs::try_resolve_file_uri`]
     ///     - [`AndroidFs::try_resolve_dir_uri`]
     ///     - [`AndroidFs::resolve_uri`]
     ///     - [`AndroidFs::read_dir`]
-    ///     - [`AndroidFs::create_file`]
+    ///     - [`AndroidFs::create_new_file`]
     ///     - [`AndroidFs::create_dir_all`]
     ///     - [`AndroidFs::rename`]
     ///     - [`FilePicker::pick_files`]
@@ -336,11 +339,12 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.   
     /// This must be a URI taken from following :   
     ///     - [`PublicStorage::resolve_initial_location`]
+    ///     - [`PublicStorage::resolve_initial_location_top`]
     ///     - [`AndroidFs::try_resolve_file_uri`]
     ///     - [`AndroidFs::try_resolve_dir_uri`]
     ///     - [`AndroidFs::resolve_uri`]
     ///     - [`AndroidFs::read_dir`]
-    ///     - [`AndroidFs::create_file`]
+    ///     - [`AndroidFs::create_new_file`]
     ///     - [`AndroidFs::create_dir_all`]
     ///     - [`AndroidFs::rename`]
     ///     - [`FilePicker::pick_files`]
@@ -431,13 +435,27 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
 
     fn inner_pick_visual_medias(
         &self,
-        target: VisualMediaTarget,
+        target: VisualMediaTarget<'_>,
         multiple: bool,
     ) -> crate::Result<Vec<FileUri>> {
 
         on_android!({
-            impl_se!(struct Req { multiple: bool, target: VisualMediaTarget });
+            impl_se!(struct Req<'a> { multiple: bool, target: &'a str });
             impl_de!(struct Res { uris: Vec<FileUri> });
+
+            let target = match target {
+                VisualMediaTarget::ImageOnly => "image/*",
+                VisualMediaTarget::VideoOnly => "video/*",
+                VisualMediaTarget::ImageAndVideo => "*/*",
+                VisualMediaTarget::ImageOrVideo { mime_type } => {
+                    let is_image_or_video = mime_type.starts_with("image/") || mime_type.starts_with("video/");
+                    if !is_image_or_video {
+                        return Err(Error::with(format!("mime_type must be an image or a video, but {mime_type}")))
+                    }
+                    
+                    mime_type
+                }
+            };
     
             let _guard = self.0.intent_lock.lock();
             self.0.api
