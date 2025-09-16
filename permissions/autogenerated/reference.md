@@ -2,7 +2,6 @@
 
 Default permissions for the plugin
 
-
 ## Permission Table
 
 <table>

@@ -1292,6 +1292,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             val res = JSObject()
             res.put("data", activity.filesDir.absolutePath)
             res.put("cache", activity.cacheDir.absolutePath)
+            res.put("noBackupData", activity.noBackupFilesDir.absolutePath)
             invoke.resolve(res)
         } catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke getPrivateBaseDirAbsolutePaths."

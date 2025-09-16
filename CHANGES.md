@@ -1,3 +1,7 @@
+# Version 13.1.0
+- Add `PrivateDir::NoBackupData`
+- Update documentation.
+
 # Version 13.0.0
 - Deprecate and change args of `PrivateStorage::resolve_uri`
 - Remove `AndroidFs::create_file`

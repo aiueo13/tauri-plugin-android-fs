@@ -32,7 +32,7 @@ impl<'a, R: tauri::Runtime> FileSender<'a, R> {
     /// - ***uris*** :  
     /// Target file URIs to share.  
     /// This all needs to be **readable**.  
-    /// Files in [`PrivateStorage`] **cannot** be used. 
+    /// URIs converted directly from a path, such as via [`FileUri::from_path`], can **not** be used.   
     /// 
     /// # Support
     /// All Android version.
@@ -99,7 +99,7 @@ impl<'a, R: tauri::Runtime> FileSender<'a, R> {
     /// - ***uri*** :  
     /// Target file URI to share.  
     /// Must be **readable**.  
-    /// Files in [`PrivateStorage`] **cannot** be used.
+    /// URIs converted directly from a path, such as via [`FileUri::from_path`], can **not** be used.  
     /// 
     /// # Support
     /// All Android version.
@@ -126,7 +126,7 @@ impl<'a, R: tauri::Runtime> FileSender<'a, R> {
     /// - ***uri*** :  
     /// Target file URI to view.  
     /// Must be **readable**.  
-    /// Files in [`PrivateStorage`] **cannot** be used.
+    /// URIs converted directly from a path, such as via [`FileUri::from_path`], can **not** be used.  
     /// 
     /// # Support
     /// All Android version.
@@ -170,7 +170,7 @@ impl<'a, R: tauri::Runtime> FileSender<'a, R> {
     /// - ***uri*** :  
     /// Target file URI to view.  
     /// Must be **read-writeable**.  
-    /// Files in [`PrivateStorage`] **cannot** be used.
+    /// URIs converted directly from a path, such as via [`FileUri::from_path`], can **not** be used.  
     /// 
     /// # Support
     /// All Android version.

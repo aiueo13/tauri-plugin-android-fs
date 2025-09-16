@@ -23,6 +23,9 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     /// App can fully manage entries within this directory.   
     /// 
     /// This function does **not** create any directories; it only constructs the path.
+    /// 
+    /// Since these locations may contain files created by other Tauri plugins or webview systems, 
+    /// it is recommended to add a subdirectory with a unique name.
     ///
     /// These entries will be deleted when the app is uninstalled and may also be deleted at the user’s initialising request.  
     /// When using [`PrivateDir::Cache`], the system will automatically delete entries as disk space is needed elsewhere on the device.   
@@ -40,7 +43,8 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
         on_android!({
             impl_de!(struct Paths {
                 data: String, 
-                cache: String
+                cache: String,
+                no_backup_data: String,
             });
         
             static PATHS: std::sync::OnceLock<Paths> = std::sync::OnceLock::new();
@@ -52,13 +56,17 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
             }
             let paths = PATHS.get().expect("Should call 'set' before 'get'");
 
-            Ok(match dir {
-                PrivateDir::Data => std::path::PathBuf::from(paths.data.to_owned()),
-                PrivateDir::Cache => std::path::PathBuf::from(paths.cache.to_owned()),
-            })
+            let path = match dir {
+                PrivateDir::Data => &paths.data,
+                PrivateDir::Cache => &paths.cache,
+                PrivateDir::NoBackupData => &paths.no_backup_data,
+            };
+
+            Ok(std::path::PathBuf::from(path.to_owned()))
         })
     }
 
+    /// This is same as [`FileUri::from_path`]
     #[deprecated = "Use FileUri::from_path instead"]
     pub fn resolve_uri(
         &self, 

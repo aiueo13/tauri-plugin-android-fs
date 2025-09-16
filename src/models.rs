@@ -391,15 +391,21 @@ pub enum PrivateDir {
 
     /// The application specific persistent-data directory.  
     /// 
+    /// Files stored in this directory are included in [Android Auto Backup](https://developer.android.com/identity/data/autobackup).  
+    /// 
     /// The system prevents other apps and user from accessing these locations. 
     /// In cases where the device is rooted or the user has special permissions, the user may be able to access this.   
     ///  
     /// These files will be deleted when the app is uninstalled and may also be deleted at the user’s request.  
     /// 
     /// e.g. `/data/user/0/{app-package-name}/files`
+    /// 
+    /// <https://developer.android.com/reference/android/content/Context#getFilesDir()>
     Data,
 
     /// The application specific cache directory.  
+    /// 
+    /// Files stored in this directory are **not** included in [Android Auto Backup](https://developer.android.com/identity/data/autobackup).  
     /// 
     /// The system prevents other apps and user from accessing these locations. 
     /// In cases where the device is rooted or the user has special permissions, the user may be able to access this.   
@@ -408,7 +414,24 @@ pub enum PrivateDir {
     /// In addition, the system will automatically delete files in this directory as disk space is needed elsewhere on the device.  
     /// 
     /// e.g. `/data/user/0/{app-package-name}/cache`
+    /// 
+    /// <https://developer.android.com/reference/android/content/Context#getCacheDir()>
     Cache,
+
+    /// The application specific persistent-data directory.  
+    /// 
+    /// This is similar to [`PrivateDir::Data`].
+    /// But files stored in this directory are **not** included in [Android Auto Backup](https://developer.android.com/identity/data/autobackup).  
+    /// 
+    /// The system prevents other apps and user from accessing these locations. 
+    /// In cases where the device is rooted or the user has special permissions, the user may be able to access this.   
+    ///  
+    /// These files will be deleted when the app is uninstalled and may also be deleted at the user’s request.  
+    /// 
+    /// e.g. `/data/user/0/{app-package-name}/no_backup`
+    /// 
+    /// <https://developer.android.com/reference/android/content/Context#getNoBackupFilesDir()>
+    NoBackupData,
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Deserialize, Serialize)]
