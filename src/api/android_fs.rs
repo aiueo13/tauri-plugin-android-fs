@@ -1198,22 +1198,146 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// Tauri does not support Android versions below 7.
     pub fn api_level(&self) -> Result<i32> {
+        Ok(self.consts()?.build_version_sdk_int)
+    }
+}
+
+
+#[allow(unused)]
+impl<R: tauri::Runtime> AndroidFs<R> {
+
+    pub(crate) fn check_storage_volume_available_by_media_store_volume_name(
+        &self,
+        media_store_volume_name: impl AsRef<str>,
+    ) -> Result<bool> {
+
         on_android!({
-            impl_de!(struct Res { value: i32 });
-        
-            static API_LEVEL: std::sync::OnceLock<i32> = std::sync::OnceLock::new();
+            impl_se!(struct Req<'a> { media_store_volume_name: &'a str });
+            impl_de!(struct Res { value: bool });
+            
+            let media_store_volume_name = media_store_volume_name.as_ref();
+            
+            self.api
+                .run_mobile_plugin::<Res>("checkStorageVolumeAvailableByMediaStoreVolumeName", Req { media_store_volume_name })
+                .map(|v| v.value)
+                .map_err(Into::into)
+        })
+    }
 
-            if let Some(api_level) = API_LEVEL.get() {
-                return Ok(*api_level)
+    pub(crate) fn check_storage_volume_available_by_path(
+        &self,
+        path: impl AsRef<std::path::Path>,
+    ) -> Result<bool> {
+
+        on_android!({
+            impl_se!(struct Req<'a> { path: &'a std::path::Path });
+            impl_de!(struct Res { value: bool });
+
+            let path = path.as_ref();
+
+            self.api
+                .run_mobile_plugin::<Res>("checkStorageVolumeAvailableByPath", Req { path })
+                .map(|v| v.value)
+                .map_err(Into::into)
+        })
+    }
+
+    pub(crate) fn get_available_storage_volumes(&self) -> Result<Vec<StorageVolume>> {
+        on_android!({
+            impl_de!(struct Res { volumes: Vec<StorageVolume> });
+
+            let mut volumes = self.api
+                .run_mobile_plugin::<Res>("getAvailableStorageVolumes", "")
+                .map(|v| v.volumes)?;
+
+            // primary volume を先頭にする。他はそのままの順序
+            volumes.sort_by(|a, b| b.is_primary.cmp(&a.is_primary));
+
+            Ok(volumes)
+        })
+    }
+
+    pub(crate) fn get_primary_storage_volume_if_available(&self) -> Result<Option<StorageVolume>> {
+        on_android!({
+            impl_de!(struct Res { volume: Option<StorageVolume> });
+
+            self.api
+                .run_mobile_plugin::<Res>("getPrimaryStorageVolumeIfAvailable", "")
+                .map(|v| v.volume)
+                .map_err(Into::into)
+        })
+    }
+
+    pub(crate) fn consts(&self) -> Result<&Consts> {
+        on_android!({
+            static CONSTS: std::sync::OnceLock<Consts> = std::sync::OnceLock::new();
+
+            if CONSTS.get().is_none() {
+                let _ = CONSTS.set(
+                    self.api.run_mobile_plugin::<Consts>("getConsts", "")?
+                );
             }
+            let consts = CONSTS.get().expect("Should call 'set' before 'get'");
 
-            let api_level = self.api
-                .run_mobile_plugin::<Res>("getApiLevel", "")?
-                .value;
+            Ok(consts)
+        })
+    }
+}
 
-            let _ = API_LEVEL.set(api_level);
+/// アプリ起動中に変更されることのない値
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(unused)]
+pub(crate) struct Consts {
+    pub build_version_sdk_int: i32,
 
-            Ok(api_level)
+    /// Android 10 (API level 29) 以上で有効
+    pub primary_storage_volume_media_store_context: Option<StorageVolumeMediaStoreContext>,
+
+    pub env_dir_pictures: String,
+    pub env_dir_dcim: String,
+    pub env_dir_movies: String,
+    pub env_dir_music: String,
+    pub env_dir_alarms: String,
+    pub env_dir_notifications: String,
+    pub env_dir_podcasts: String,
+    pub env_dir_ringtones: String,
+    pub env_dir_documents: String,
+    pub env_dir_download: String,
+
+    /// Android 10 (API level 29) 以上で有効
+    pub env_dir_audiobooks: Option<String>,
+
+    /// Android 12 (API level 31) 以上で有効
+    pub env_dir_recordings: Option<String>,
+}
+
+#[allow(unused)]
+impl Consts {
+
+    pub(crate) fn public_dir_name(&self, dir: impl Into<PublicDir>) -> Result<&str> {
+        Ok(match dir.into() {
+            PublicDir::Image(dir) => match dir {
+                PublicImageDir::Pictures => &self.env_dir_pictures,
+                PublicImageDir::DCIM => &self.env_dir_dcim,
+            },
+            PublicDir::Video(dir) => match dir {
+                PublicVideoDir::Movies => &self.env_dir_movies,
+                PublicVideoDir::DCIM => &self.env_dir_dcim,
+            },
+            PublicDir::Audio(dir) => match dir  {
+                PublicAudioDir::Music => &self.env_dir_music,
+                PublicAudioDir::Alarms => &self.env_dir_alarms,
+                PublicAudioDir::Notifications => &self.env_dir_notifications,
+                PublicAudioDir::Podcasts => &self.env_dir_podcasts,
+                PublicAudioDir::Ringtones => &self.env_dir_ringtones,
+                PublicAudioDir::Recordings => self.env_dir_recordings.as_ref().ok_or_else(|| Error { msg: "requires API level 31 or higher".into() })?,
+                PublicAudioDir::Audiobooks => self.env_dir_audiobooks.as_ref().ok_or_else(|| Error { msg: "requires API level 29 or higher".into() })?,
+            },
+            PublicDir::GeneralPurpose(dir) => match dir {
+                PublicGeneralPurposeDir::Documents => &self.env_dir_documents,
+                PublicGeneralPurposeDir::Download => &self.env_dir_download,
+            }
         })
     }
 }

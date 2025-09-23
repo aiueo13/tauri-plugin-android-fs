@@ -33,16 +33,23 @@ impl From<std::io::Error> for crate::Error {
     }
 }
 
-impl<W: std::io::Write> From<std::io::IntoInnerError<W>> for crate::Error {
+impl<W> From<std::io::IntoInnerError<W>> for crate::Error {
 
     fn from(value: std::io::IntoInnerError<W>) -> Self {
-        Self { msg: Cow::Owned(value.to_string())}
+        Self { msg: Cow::Owned(value.error().to_string())}
     }
 }
 
 impl From<serde_json::Error> for crate::Error {
 
     fn from(value: serde_json::Error) -> Self {
+        Self { msg: Cow::Owned(value.to_string())}
+    }
+}
+
+impl From<tauri::Error> for crate::Error {
+
+    fn from(value: tauri::Error) -> Self {
         Self { msg: Cow::Owned(value.to_string())}
     }
 }

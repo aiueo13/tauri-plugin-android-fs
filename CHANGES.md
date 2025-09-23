@@ -1,3 +1,18 @@
+# Version 14.0.0
+- Change args of `WritableStream::sync_data`
+- Change args of `WritableStream::sync_all`
+- Remove `PublicStorage::get_available_volumes`
+- Remove `PublicStorageVolume`
+- Remove `PublicStorageVolumeId`
+- Add `StorageVolume`
+- Add `StorageVolumeId`
+- Add `OutsidePrivateDir`
+- Add `PublicStorage::get_volumes`
+- Add `PrivateStorage::resolve_outside_path`
+- Add `PrivateStorage::get_primary_volume`
+- Add `PrivateStorage::get_volumes`
+- Update documentation.
+
 # Version 13.1.0
 - Add `PrivateDir::NoBackupData`
 - Update documentation.

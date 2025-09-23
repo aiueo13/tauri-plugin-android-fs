@@ -160,19 +160,14 @@ fn example(app: tauri::AppHandle) -> tauri_plugin_android_fs::Result<()> {
     }
 
 
-    let volumes = storage.get_available_volumes()?;
-    let primary_volume = storage.get_primary_volume()?;
-
     // Get any available volume other than the primary one 
     // (e.g., SD card, USB drive)
-    // 
-    // if none, use the primary volume.
-    let volume = volumes.into_iter()
-        .find(|v| !v.is_primary)
-        .unwrap_or(primary_volume);
+    let volume = storage.get_volumes()?
+        .into_iter()
+        .find(|v| !v.is_primary);
 
     let uri = storage.create_new_file(
-         Some(&volume.id), // Storage volume. 
+         volume.as_ref().map(|v| &v.id), // Storage volume. 
          PublicGeneralPurposeDir::Documents, // Base directory
          true, // Insert app name dir between base directory and relative path
          "2025-9-14/data.txt", // Relative file path

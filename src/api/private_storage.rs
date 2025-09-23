@@ -19,7 +19,7 @@ pub struct PrivateStorage<'a, R: tauri::Runtime>(
 
 impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
 
-    /// Get the absolute path of the specified directory.  
+    /// Get an absolute path of the app-specific directory on the internal storage.  
     /// App can fully manage entries within this directory.   
     /// 
     /// This function does **not** create any directories; it only constructs the path.
@@ -30,8 +30,14 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     /// These entries will be deleted when the app is uninstalled and may also be deleted at the user’s initialising request.  
     /// When using [`PrivateDir::Cache`], the system will automatically delete entries as disk space is needed elsewhere on the device.   
     /// 
-    /// Since the returned paths can change when the app is moved to an adopted storage device, 
+    /// The system prevents other apps and user from accessing these locations. 
+    /// In cases where the device is rooted or the user has special permissions, the user may be able to access this.   
+    /// 
+    /// Since the returned paths can change when the app is moved to an [adopted storage](https://source.android.com/docs/core/storage/adoptable), 
     /// only relative paths should be stored.
+    /// 
+    /// # Note
+    /// This provides a separate area for each user in a multi-user environment.
     /// 
     /// # Support
     /// All Android version.
@@ -42,9 +48,9 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
 
         on_android!({
             impl_de!(struct Paths {
-                data: String, 
-                cache: String,
-                no_backup_data: String,
+                data: std::path::PathBuf, 
+                cache: std::path::PathBuf, 
+                no_backup_data: std::path::PathBuf, 
             });
         
             static PATHS: std::sync::OnceLock<Paths> = std::sync::OnceLock::new();
@@ -56,15 +62,129 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
             }
             let paths = PATHS.get().expect("Should call 'set' before 'get'");
 
-            let path = match dir {
-                PrivateDir::Data => &paths.data,
-                PrivateDir::Cache => &paths.cache,
-                PrivateDir::NoBackupData => &paths.no_backup_data,
-            };
-
-            Ok(std::path::PathBuf::from(path.to_owned()))
+            Ok(match dir {
+                PrivateDir::Data => paths.data.clone(),
+                PrivateDir::Cache => paths.cache.clone(),
+                PrivateDir::NoBackupData => paths.no_backup_data.clone(),
+            })
         })
     }
+
+    /// Get an absolute path of the outside app-specific directory on the specified storage volume.  
+    /// App can fully manage entries within this directory.  
+    /// 
+    /// This function does **not** create any directories; it only constructs the path.
+    ///    
+    /// Since these locations may contain files created by other Tauri plugins or webview systems, 
+    /// it is recommended to add a subdirectory with a unique name.
+    ///
+    /// These entries will be deleted when the app is uninstalled and may also be deleted at the user’s initialising request.   
+    /// 
+    /// # Note
+    /// If you are unsure between this function and [`PrivateStorage::resolve_path`], 
+    /// you don’t need to use this one.  
+    /// The difference from [`PrivateStorage::resolve_path`] is that these files may be accessed by other apps that have specific permissions,
+    /// and it cannot always be available since removable storage can be ejected.  
+    /// 
+    /// One advantage of using this is that it allows storing large app-specific data/cache on SD cards or other supplementary storage, 
+    /// which can be useful on older devices with limited built-in storage capacity. 
+    /// However on modern devices, the built-in storage capacity is relatively large,
+    /// and there is little advantage in using this.  
+    /// 
+    /// By using [`StorageVolume { is_emulated, .. }`](StorageVolume), 
+    /// you can determine whether this belongs to the same storage volume as [`PrivateStorage::resolve_path`]. 
+    /// In this case, there is no advantage in using this instead of `PrivateStorage::resolve_path`. 
+    /// It only reduces security.
+    /// 
+    /// # Args
+    /// - ***volume_id*** :  
+    /// ID of the storage volume, such as internal storage, SD card, etc.  
+    /// If `None` is provided, [`the primary storage volume`](PrivateStorage::get_primary_volume) will be used.  
+    /// 
+    /// # Support
+    /// All Android version. 
+    pub fn resolve_outside_path(
+        &self, 
+        volume_id: Option<&StorageVolumeId>,
+        dir: OutsidePrivateDir
+    ) -> Result<std::path::PathBuf> {
+
+        if let Some(volume_id) = volume_id {
+            let Some(dir_path) = volume_id.private_dir_path(dir) else {
+                return Err(Error::with(format!("The storage volume has no app-speific directory: {}", volume_id.top_directory_path.display())))
+            };
+            if !self.0.check_storage_volume_available_by_path(dir_path)? {
+                return Err(Error::with(format!("The storage volume is not currently available: {}", volume_id.top_directory_path.display())))
+            }
+            return Ok(dir_path.clone())
+        }
+
+        let Some(volume) = self.get_primary_volume()? else {
+            return Err(Error::with("Primary storage volume is not currently available"))
+        };
+        let Some(dir_path) = volume.id.private_dir_path(dir) else {
+            return Err(Error::with(format!("Primary storage volume has no app-speific directory: {}", volume.id.top_directory_path.display())))
+        };
+        Ok(dir_path.clone())
+    }
+
+    /// Gets a list of currently available storage volumes (internal storage, SD card, USB drive, etc.).
+    /// Be aware of TOCTOU.
+    /// 
+    /// Since read-only SD cards and similar cases may be included, 
+    /// please use [`StorageVolume { is_readonly, .. }`](StorageVolume) for filtering as needed.
+    /// 
+    /// This function returns only storage volume that is considered stable by system. 
+    /// It includes device’s built-in storage and physical media slots under protective covers,
+    /// but does not include storage volume considered temporary, 
+    /// such as USB flash drives connected to handheld devices.
+    /// 
+    /// This typically includes [`primary storage volume`](PrivateStorage::get_primary_volume),
+    /// but it may occasionally be absent if primary torage volume is inaccessible 
+    /// (e.g., mounted on a computer, removed, or another issue).
+    ///
+    /// Primary storage volume is always listed first, if included. 
+    /// But the order of the others is not guaranteed.  
+    /// 
+    /// # Note
+    /// The volume represents the logical view of a storage volume for an individual user:
+    /// each user may have a different view for the same physical volume.
+    /// In other words, it provides a separate area for each user in a multi-user environment.
+    /// 
+    /// # Support
+    /// All Android version.
+    pub fn get_volumes(&self) -> Result<Vec<StorageVolume>> {
+        let volumes = self.0.get_available_storage_volumes()?
+            .into_iter()
+            .filter(|v| v.id.private_data_dir_path.is_some() || v.id.private_cache_dir_path.is_some())
+            .collect::<Vec<_>>();
+
+        Ok(volumes)
+    }
+
+    /// Gets a primary storage volume.  
+    /// In many cases, it is device's built-in storage. 
+    /// 
+    /// A device always has one (and one only) primary storage volume.  
+    /// 
+    /// Primary volume may not currently be accessible 
+    /// if it has been mounted by the user on their computer, 
+    /// has been removed from the device, or some other problem has happened. 
+    /// If so, this returns `None`.
+    /// 
+    /// # Note
+    /// The volume represents the logical view of a storage volume for an individual user:
+    /// each user may have a different view for the same physical volume.
+    /// In other words, it provides a separate area for each user in a multi-user environment.
+    /// 
+    /// # Support
+    /// All Android version.
+    pub fn get_primary_volume(&self) -> Result<Option<StorageVolume>> {
+        self.0.get_primary_storage_volume_if_available()
+            .map(|v| v.filter(|v| v.id.private_data_dir_path.is_some() || v.id.private_cache_dir_path.is_some()))
+            .map_err(Into::into)
+    }
+
 
     /// This is same as [`FileUri::from_path`]
     #[deprecated = "Use FileUri::from_path instead"]
@@ -81,6 +201,7 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
         })
     }
 }
+
 
 #[allow(unused)]
 impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {

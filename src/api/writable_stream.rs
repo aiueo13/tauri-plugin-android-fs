@@ -109,8 +109,8 @@ impl<R: tauri::Runtime> WritableStream<R> {
     ///
     /// For actual target files, calls [`std::fs::File::sync_all`].  
     /// For temporary files, this function does nothing.  
-    pub fn sync_all(&mut self) -> std::io::Result<()> {
-        let Some(writer) = self.writer.as_mut() else {
+    pub fn sync_all(&self) -> std::io::Result<()> {
+        let Some(writer) = self.writer.as_ref() else {
             return Ok(())
         };
         let Some(writer_attr) = self.writer_attr.as_ref() else {
@@ -128,8 +128,8 @@ impl<R: tauri::Runtime> WritableStream<R> {
     ///
     /// For actual target files, calls [`std::fs::File::sync_data`].  
     /// For temporary files, this function does nothing.  
-    pub fn sync_data(&mut self) -> std::io::Result<()> {
-        let Some(writer) = self.writer.as_mut() else {
+    pub fn sync_data(&self) -> std::io::Result<()> {
+        let Some(writer) = self.writer.as_ref() else {
             return Ok(())
         };
         let Some(writer_attr) = self.writer_attr.as_ref() else {

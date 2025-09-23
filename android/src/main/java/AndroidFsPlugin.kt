@@ -4,15 +4,13 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
-import android.content.Context
-import android.os.storage.StorageManager
-import android.os.storage.StorageVolume
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import androidx.activity.result.ActivityResult
@@ -23,6 +21,8 @@ import androidx.core.app.ShareCompat
 import android.webkit.MimeTypeMap
 import android.media.MediaMetadataRetriever
 import android.media.MediaMetadataRetriever.OPTION_PREVIOUS_SYNC
+import android.os.storage.StorageManager
+import androidx.annotation.RequiresApi
 import app.tauri.Logger
 import app.tauri.annotation.ActivityCallback
 import app.tauri.annotation.Command
@@ -36,6 +36,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import kotlin.math.min
 import kotlin.io.DEFAULT_BUFFER_SIZE
 import kotlin.io.copyTo
@@ -108,32 +109,23 @@ enum class PersistableUriPermissionMode {
 }
 
 @InvokeArg
-class GetPublicDirUriArgs {
-    lateinit var dirType: ContentType
-    var volumeName: String? = null
+class GetStorageVolumeByPathArgs {
+    var path: String? = null
 }
 
 @InvokeArg
-class GetStorageVolumeUuidArgs {
-    var volumeName: String? = null
+class CheckStorageVolumeAvailableByPathArgs {
+    var path: String? = null
 }
 
 @InvokeArg
-class GetStorageVolumePathArgs {
-    var volumeName: String? = null
+class CheckStorageVolumeAvailableByMediaStoreVolumeNameArgs {
+    var mediaStoreVolumeName: String? = null
 }
 
 @InvokeArg
 class GetMimeTypeArgs {
     lateinit var uri: FileUri
-}
-
-@InvokeArg
-enum class ContentType {
-    Image,
-    Video,
-    Audio,
-    GeneralPurpose
 }
 
 @InvokeArg
@@ -331,216 +323,176 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
-    fun getEnvironmentDirs(invoke: Invoke) {
+    fun getConsts(invoke: Invoke) {
         try {
             val res = JSObject()
-            res.put("pictures", Environment.DIRECTORY_PICTURES)
-            res.put("dcim", Environment.DIRECTORY_DCIM)
-            res.put("movies", Environment.DIRECTORY_MOVIES)
-            res.put("music", Environment.DIRECTORY_MUSIC)
-            res.put("alarms", Environment.DIRECTORY_ALARMS)
-            res.put("notifications", Environment.DIRECTORY_NOTIFICATIONS)
-            res.put("podcasts", Environment.DIRECTORY_PODCASTS)
-            res.put("ringtones", Environment.DIRECTORY_RINGTONES)
-            res.put("documents", Environment.DIRECTORY_DOCUMENTS)
-            res.put("download", Environment.DIRECTORY_DOWNLOADS)
+            res.put("buildVersionSdkInt", Build.VERSION.SDK_INT)
+            res.put("envDirPictures", Environment.DIRECTORY_PICTURES)
+            res.put("envDirDcim", Environment.DIRECTORY_DCIM)
+            res.put("envDirMovies", Environment.DIRECTORY_MOVIES)
+            res.put("envDirMusic", Environment.DIRECTORY_MUSIC)
+            res.put("envDirAlarms", Environment.DIRECTORY_ALARMS)
+            res.put("envDirNotifications", Environment.DIRECTORY_NOTIFICATIONS)
+            res.put("envDirPodcasts", Environment.DIRECTORY_PODCASTS)
+            res.put("envDirRingtones", Environment.DIRECTORY_RINGTONES)
+            res.put("envDirDocuments", Environment.DIRECTORY_DOCUMENTS)
+            res.put("envDirDownload", Environment.DIRECTORY_DOWNLOADS)
             if (Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT) {
-                res.put("audiobooks", Environment.DIRECTORY_AUDIOBOOKS)
+                res.put("envDirAudiobooks", Environment.DIRECTORY_AUDIOBOOKS)
             }
             if (Build.VERSION_CODES.S <= Build.VERSION.SDK_INT) {
-                res.put("recordings", Environment.DIRECTORY_RECORDINGS)
+                res.put("envDirRecordings", Environment.DIRECTORY_RECORDINGS)
+            }
+
+            // Q は Android 10
+            if (Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT) {
+                res.put("primaryStorageVolumeMediaStoreContext", JSObject().apply {
+                    val vn = MediaStore.VOLUME_EXTERNAL_PRIMARY
+                    put("volumeName", vn)
+                    put("imagesContentUri", MediaStore.Images.Media.getContentUri(vn))
+                    put("videosContentUri", MediaStore.Video.Media.getContentUri(vn))
+                    put("audiosContentUri", MediaStore.Audio.Media.getContentUri(vn))
+                    put("filesContentUri", MediaStore.Files.getContentUri(vn))
+                })
             }
 
             invoke.resolve(res)
         }
         catch (e: Exception) {
-            invoke.reject(e.message ?: "Failed to invokeEnvironmentDirs")
+            invoke.reject(e.message ?: "Failed to invoke getConsts")
         }
     }
 
     @Command
-    fun getPublicDirUri(invoke: Invoke) {
+    fun getStorageVolumeByPath(invoke: Invoke) {
         try {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                throw Exception("requires Android 10 (API 29) or higher.")
+            // Tauri は Android7 未満をサポートしていないので本来これはいらないが、警告を消すために書く
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+                throw Exception("requires API level 24 or higher")
             }
 
-            val args = invoke.parseArgs(GetPublicDirUriArgs::class.java)
-            val volumeName = args.volumeName ?: MediaStore.VOLUME_EXTERNAL_PRIMARY
-
-            val uri = when (args.dirType) {
-                ContentType.Image -> MediaStore.Images.Media.getContentUri(volumeName)
-                ContentType.Video -> MediaStore.Video.Media.getContentUri(volumeName)
-                ContentType.Audio -> MediaStore.Audio.Media.getContentUri(volumeName)
-                ContentType.GeneralPurpose -> MediaStore.Files.getContentUri(volumeName)
-            }
-
-            val res = JSObject()
-            res.put("uri", uri)
-            invoke.resolve(res)
-        }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke getPublicUri"
-            Logger.error(message)
-            invoke.reject(message)
-        }
-    }
-
-    @SuppressLint("PrivateApi")
-    @Command
-    fun getStorageVolumePath(invoke: Invoke) {
-        try {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                throw Exception("requires Android 10 (API 29) or higher.")
-            }
-
-            val args = invoke.parseArgs(GetStorageVolumePathArgs::class.java)
-            val volumeName = args.volumeName ?: MediaStore.VOLUME_EXTERNAL_PRIMARY
-
-            var path: String? = null
-
-            if (volumeName == MediaStore.VOLUME_EXTERNAL_PRIMARY) {
-                path = Environment.getExternalStorageDirectory().absolutePath
-            }
-            else {
-                val sv = getStorageVolume(volumeName)!!
-                if (Build.VERSION_CODES.R <= Build.VERSION.SDK_INT) {
-                    path = sv.directory?.absolutePath
-                }
-                else if (Build.VERSION_CODES.N <= Build.VERSION.SDK_INT) {
-                    // https://qiita.com/wa2c/items/4b3bacfec9667a5a99d7
-                    val getPath = StorageVolume::class.java.getDeclaredMethod("getPath")
-                    path = getPath.invoke(sv) as String?
-                }
-            }
+            val args = invoke.parseArgs(GetStorageVolumeByPathArgs::class.java)
 
             invoke.resolve(JSObject().apply {
-                put("path", path!!)
+                put("volume", AFStorageVolume.getStorageVolumeByFileIfAvailable(File(args.path!!), activity))
             })
         }
         catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke getStorageVolumePathArgs"
+            val message = ex.message ?: "Failed to invoke getStorageVolumeByPath."
             Logger.error(message)
             invoke.reject(message)
         }
     }
 
     @Command
-    fun getStorageVolumes(invoke: Invoke) {
+    fun getPrimaryStorageVolumeIfAvailable(invoke: Invoke) {
         try {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                throw Exception("MediaStore.getExternalVolumeNames() requires Android 10 (API 29) or higher.")
+            // Tauri は Android7 未満をサポートしていないので本来これはいらないが、警告を消すために書く
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+                throw Exception("requires API level 24 or higher")
             }
 
-            // https://android.suzu-sd.com/2025/08/storage_volume/
-
-            val buffer = JSArray()
-            for (volumeName in MediaStore.getExternalVolumeNames(activity)) {
-                val sv = getStorageVolume((volumeName))
-
-                buffer.put(JSObject().apply {
-                    // getStorageVolumeはprimaryを必ず検知できるので、svがない場合は確実にprimaryでない
-                    put("isPrimary", sv?.isPrimary ?: false)
-                    put("volumeName", volumeName)
-                    put("description", sv?.getDescription((activity)))
-                })
+            CoroutineScope(Dispatchers.Default).launch {
+                try {
+                    invoke.resolve(JSObject().apply {
+                        put("volume", AFStorageVolume.getPrimaryStorageVolumeIfAvailable(activity))
+                    })
+                }
+                catch (ex: Exception) {
+                    val message = ex.message ?: "Failed to invoke getPrimaryStorageVolumeIfAvailable"
+                    Logger.error(message)
+                    invoke.reject(message)
+                }
             }
-
-            val res = JSObject()
-            res.put("volumes", buffer)
-            invoke.resolve(res)
-        } 
+        }
         catch (ex: Exception) {
-            val message = ex.message ?: "Failed to getStorageVolumes"
-            Logger.error(message)
-            invoke.reject(message)
-        }
-    }
-
-    private fun guessExpectedMediaStoreVolumeName(volume: StorageVolume): String? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            throw Exception("requires API level 29 or higher")
-        }
-
-        var volumeName = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            volume.mediaStoreVolumeName
-        } 
-        else {
-            null
-        }
-
-        if (volumeName == null) {
-            val uuid = volume.uuid
-            volumeName = when {
-                volume.isPrimary -> MediaStore.VOLUME_EXTERNAL_PRIMARY
-                uuid != null -> uuid.lowercase()
-                else -> null
-            }
-        }
-
-        return volumeName
-    }
-
-    private fun getStorageVolume(volumeName: String): StorageVolume? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-            throw Exception("requires Android 7 (API 24) or higher.")
-        }
-
-        val sm = activity.getSystemService(Context.STORAGE_SERVICE) as StorageManager
-
-        if (volumeName == MediaStore.VOLUME_EXTERNAL_PRIMARY) {
-            return sm.primaryStorageVolume
-        }
-        for (sv in sm.storageVolumes) {
-            if (volumeName == guessExpectedMediaStoreVolumeName(sv)) {
-                return sv
-            }
-        }
-        return null
-    }
-
-    @Command
-    fun getPrimaryStorageVolume(invoke: Invoke) {
-        try {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                throw Exception("requires Android 10 (API 29) or higher.")
-            }
-
-            val sm = activity.getSystemService(Context.STORAGE_SERVICE) as StorageManager
-            val primaryVolume = sm.primaryStorageVolume
-            val description = primaryVolume.getDescription(activity)
-
-            val res = JSObject()
-            res.put("isPrimary", true)
-            res.put("volumeName", MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            res.put("description", description)
-            invoke.resolve(res)
-        } 
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to getPrimaryStorageVolume."
+            val message = ex.message ?: "Failed to invoke getPrimaryStorageVolumeIfAvailable"
             Logger.error(message)
             invoke.reject(message)
         }
     }
 
     @Command
-    fun getStorageVolumeUuid(invoke: Invoke) {
+    fun getAvailableStorageVolumes(invoke: Invoke) {
         try {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                throw Exception("requires Android 10 (API 29) or higher.")
+            // Tauri は Android7 未満をサポートしていないので本来これはいらないが、警告を消すために書く
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+                throw Exception("requires API level 24 or higher")
             }
 
-            val args = invoke.parseArgs(GetStorageVolumeUuidArgs::class.java)
-            val volumeName = args.volumeName ?: MediaStore.VOLUME_EXTERNAL_PRIMARY
-
-            val uuid: String? = getStorageVolume(volumeName)?.uuid
-
-            invoke.resolve(JSObject().apply {
-                put("value", uuid)
-            })
-        } 
+            CoroutineScope(Dispatchers.Default).launch {
+                try {
+                    invoke.resolve(JSObject().apply {
+                        put("volumes", AFStorageVolume.getAvailableStorageVolumes(activity))
+                    })
+                }
+                catch (ex: Exception) {
+                    val message = ex.message ?: "Failed to invoke getAvailableStorageVolumes"
+                    Logger.error(message)
+                    invoke.reject(message)
+                }
+            }
+        }
         catch (ex: Exception) {
-            val message = ex.message ?: "Failed to getStorageVolumeUuid."
+            val message = ex.message ?: "Failed to invoke getAvailableStorageVolumes"
+            Logger.error(message)
+            invoke.reject(message)
+        }
+    }
+
+    @Command
+    fun checkStorageVolumeAvailableByPath(invoke: Invoke) {
+        try {
+            // Tauri は Android7 未満をサポートしていないので本来これはいらないが、警告を消すために書く
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+                throw Exception("requires API level 24 or higher")
+            }
+
+            CoroutineScope(Dispatchers.Default).launch {
+                try {
+                    val args = invoke.parseArgs(CheckStorageVolumeAvailableByPathArgs::class.java)
+                    invoke.resolve(JSObject().apply {
+                        put("value", AFStorageVolume.checkVolumeAvailableByFile(File(args.path!!) ,activity))
+                    })
+                }
+                catch (ex: Exception) {
+                    val message = ex.message ?: "Failed to invoke checkStorageVolumeAvailableByPath"
+                    Logger.error(message)
+                    invoke.reject(message)
+                }
+            }
+        }
+        catch (ex: Exception) {
+            val message = ex.message ?: "Failed to invoke checkStorageVolumeAvailableByPath"
+            Logger.error(message)
+            invoke.reject(message)
+        }
+    }
+
+    @Command
+    fun checkStorageVolumeAvailableByMediaStoreVolumeName(invoke: Invoke) {
+        try {
+            // Tauri は Android7 未満をサポートしていないので本来これはいらないが、警告を消すために書く
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+                throw Exception("requires API level 24 or higher")
+            }
+
+            CoroutineScope(Dispatchers.Default).launch {
+                try {
+                    val args = invoke.parseArgs(CheckStorageVolumeAvailableByMediaStoreVolumeNameArgs::class.java)
+                    invoke.resolve(JSObject().apply {
+                        put("value", AFStorageVolume.checkVolumeAvailableByMediaStoreVolumeName(args.mediaStoreVolumeName!! ,activity))
+                    })
+                }
+                catch (ex: Exception) {
+                    val message = ex.message ?: "Failed to invoke checkStorageVolumeAvailableByMediaStoreVolumeName"
+                    Logger.error(message)
+                    invoke.reject(message)
+                }
+            }
+        }
+        catch (ex: Exception) {
+            val message = ex.message ?: "Failed to invoke checkStorageVolumeAvailableByMediaStoreVolumeName"
             Logger.error(message)
             invoke.reject(message)
         }
@@ -549,8 +501,8 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun getAllPersistedUriPermissions(invoke: Invoke) {
         try {
-            // Tauri はAndroid7以上のサポートなので普通はここでエラーとはならない
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            // Tauri は Android7 未満をサポートしていないので本来これはいらないが、警告を消すために書く
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
                 throw Exception("requires API level 24 or higher")
             }
 
@@ -1497,7 +1449,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     }
                     
                     val res = JSObject()
-                    res.put("fd", fd ?: throw Exception("Failed to get FileDescriptor with ${args.modes}"))
+                    res.put("fd", fd ?: throw Exception("Failed to get FileDescriptor with ${args.modes.toString()}"))
                     res.put("mode", mode!!)
 
                     withContext(Dispatchers.Main) {
