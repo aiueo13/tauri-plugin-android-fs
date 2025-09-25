@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.content.ActivityNotFoundException
-import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
@@ -21,9 +20,6 @@ import androidx.core.app.ShareCompat
 import android.webkit.MimeTypeMap
 import android.media.MediaMetadataRetriever
 import android.media.MediaMetadataRetriever.OPTION_PREVIOUS_SYNC
-import android.os.storage.StorageManager
-import androidx.annotation.RequiresApi
-import app.tauri.Logger
 import app.tauri.annotation.ActivityCallback
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
@@ -119,7 +115,7 @@ class CheckStorageVolumeAvailableByPathArgs {
 }
 
 @InvokeArg
-class CheckStorageVolumeAvailableByMediaStoreVolumeNameArgs {
+class CheckMediaStoreVolumeNameAvailableArgs {
     var mediaStoreVolumeName: String? = null
 }
 
@@ -228,6 +224,14 @@ class CanEditFileArgs {
     var mimeType: String? = null
 }
 
+@InvokeArg
+class CreateNewMediaStoreFileArgs {
+    lateinit var mediaStoreVolumeName: String
+    lateinit var relativePath: String
+    var mimeType: String? = null
+}
+
+
 @TauriPlugin
 class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     private val isVisualMediaPickerAvailable = PickVisualMedia.isPhotoPickerAvailable()
@@ -305,18 +309,8 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         val documentTopTreeUri = uri.documentTopTreeUri
         val uri = Uri.parse(uri.uri)
 
-        when {
-            (documentTopTreeUri != null || DocumentsContract.isDocumentUri(activity, uri)) -> {
-                return uri
-            }
-            (uri.authority == MediaStore.AUTHORITY) -> {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    try {
-                        return MediaStore.getDocumentUri(activity, uri)
-                    }
-                    catch (ignore: Exception) {}
-                }
-            }
+        if (documentTopTreeUri != null || DocumentsContract.isDocumentUri(activity, uri)) {
+            return uri
         }
 
         return null
@@ -337,29 +331,51 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             res.put("envDirRingtones", Environment.DIRECTORY_RINGTONES)
             res.put("envDirDocuments", Environment.DIRECTORY_DOCUMENTS)
             res.put("envDirDownload", Environment.DIRECTORY_DOWNLOADS)
-            if (Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT) {
-                res.put("envDirAudiobooks", Environment.DIRECTORY_AUDIOBOOKS)
-            }
+            // S は Android 12
             if (Build.VERSION_CODES.S <= Build.VERSION.SDK_INT) {
                 res.put("envDirRecordings", Environment.DIRECTORY_RECORDINGS)
             }
-
             // Q は Android 10
             if (Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT) {
-                res.put("primaryStorageVolumeMediaStoreContext", JSObject().apply {
-                    val vn = MediaStore.VOLUME_EXTERNAL_PRIMARY
-                    put("volumeName", vn)
-                    put("imagesContentUri", MediaStore.Images.Media.getContentUri(vn))
-                    put("videosContentUri", MediaStore.Video.Media.getContentUri(vn))
-                    put("audiosContentUri", MediaStore.Audio.Media.getContentUri(vn))
-                    put("filesContentUri", MediaStore.Files.getContentUri(vn))
-                })
+                res.put("envDirAudiobooks", Environment.DIRECTORY_AUDIOBOOKS)
+                res.put("mediaStorePrimaryVolumeName", MediaStore.VOLUME_EXTERNAL_PRIMARY)
             }
 
             invoke.resolve(res)
         }
         catch (e: Exception) {
-            invoke.reject(e.message ?: "Failed to invoke getConsts")
+            invoke.reject(e.message ?: "unknown")
+        }
+    }
+
+    @Command
+    fun createNewMediaStoreFile(invoke: Invoke) {
+        try {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                throw Exception("requires Android 10 (API level 29) or higher")
+            }
+
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val args = invoke.parseArgs(CreateNewMediaStoreFileArgs::class.java)
+                    val res = JSObject().apply {
+                        put("uri", AFMediaStore.createNewFile(
+                            args.mediaStoreVolumeName,
+                            args.relativePath,
+                            args.mimeType,
+                            activity
+                        ))
+                    }
+
+                    invoke.resolve(res)
+                }
+                catch (ex: Exception) {
+                    invoke.reject(ex.message ?: "unknown")
+                }
+            }
+        }
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "unknown")
         }
     }
 
@@ -371,15 +387,22 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 throw Exception("requires API level 24 or higher")
             }
 
-            val args = invoke.parseArgs(GetStorageVolumeByPathArgs::class.java)
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val args = invoke.parseArgs(GetStorageVolumeByPathArgs::class.java)
 
-            invoke.resolve(JSObject().apply {
-                put("volume", AFStorageVolume.getStorageVolumeByFileIfAvailable(File(args.path!!), activity))
-            })
+                    invoke.resolve(JSObject().apply {
+                        put("volume", AFStorageVolume.getStorageVolumeByFileIfAvailable(File(args.path!!), activity))
+                    })
+                }
+                catch (ex: Exception) {
+                    val message = ex.message ?: "unknown"
+                    invoke.reject(message)
+                }
+            }
         }
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke getStorageVolumeByPath."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -392,7 +415,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 throw Exception("requires API level 24 or higher")
             }
 
-            CoroutineScope(Dispatchers.Default).launch {
+            CoroutineScope(Dispatchers.IO).launch {
                 try {
                     invoke.resolve(JSObject().apply {
                         put("volume", AFStorageVolume.getPrimaryStorageVolumeIfAvailable(activity))
@@ -400,14 +423,12 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 }
                 catch (ex: Exception) {
                     val message = ex.message ?: "Failed to invoke getPrimaryStorageVolumeIfAvailable"
-                    Logger.error(message)
                     invoke.reject(message)
                 }
             }
         }
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke getPrimaryStorageVolumeIfAvailable"
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -420,7 +441,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 throw Exception("requires API level 24 or higher")
             }
 
-            CoroutineScope(Dispatchers.Default).launch {
+            CoroutineScope(Dispatchers.IO).launch {
                 try {
                     invoke.resolve(JSObject().apply {
                         put("volumes", AFStorageVolume.getAvailableStorageVolumes(activity))
@@ -428,14 +449,12 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 }
                 catch (ex: Exception) {
                     val message = ex.message ?: "Failed to invoke getAvailableStorageVolumes"
-                    Logger.error(message)
                     invoke.reject(message)
                 }
             }
         }
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke getAvailableStorageVolumes"
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -448,52 +467,48 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 throw Exception("requires API level 24 or higher")
             }
 
-            CoroutineScope(Dispatchers.Default).launch {
+            CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val args = invoke.parseArgs(CheckStorageVolumeAvailableByPathArgs::class.java)
                     invoke.resolve(JSObject().apply {
-                        put("value", AFStorageVolume.checkVolumeAvailableByFile(File(args.path!!) ,activity))
+                        put("value", AFStorageVolume.checkStorageVolumeAvailableByFile(File(args.path!!) ,activity))
                     })
                 }
                 catch (ex: Exception) {
                     val message = ex.message ?: "Failed to invoke checkStorageVolumeAvailableByPath"
-                    Logger.error(message)
                     invoke.reject(message)
                 }
             }
         }
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke checkStorageVolumeAvailableByPath"
-            Logger.error(message)
             invoke.reject(message)
         }
     }
 
     @Command
-    fun checkStorageVolumeAvailableByMediaStoreVolumeName(invoke: Invoke) {
+    fun checkMediaStoreVolumeNameAvailable(invoke: Invoke) {
         try {
             // Tauri は Android7 未満をサポートしていないので本来これはいらないが、警告を消すために書く
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
                 throw Exception("requires API level 24 or higher")
             }
 
-            CoroutineScope(Dispatchers.Default).launch {
+            CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    val args = invoke.parseArgs(CheckStorageVolumeAvailableByMediaStoreVolumeNameArgs::class.java)
+                    val args = invoke.parseArgs(CheckMediaStoreVolumeNameAvailableArgs::class.java)
                     invoke.resolve(JSObject().apply {
-                        put("value", AFStorageVolume.checkVolumeAvailableByMediaStoreVolumeName(args.mediaStoreVolumeName!! ,activity))
+                        put("value", AFStorageVolume.checkMediaStoreVolumeNameAvailable(args.mediaStoreVolumeName!! ,activity))
                     })
                 }
                 catch (ex: Exception) {
-                    val message = ex.message ?: "Failed to invoke checkStorageVolumeAvailableByMediaStoreVolumeName"
-                    Logger.error(message)
+                    val message = ex.message ?: "Failed to invoke checkMediaStoreVolumeNameAvailable"
                     invoke.reject(message)
                 }
             }
         }
         catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke checkStorageVolumeAvailableByMediaStoreVolumeName"
-            Logger.error(message)
+            val message = ex.message ?: "Failed to invoke checkMediaStoreVolumeNameAvailable"
             invoke.reject(message)
         }
     }
@@ -550,7 +565,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         }
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke getAllPersistedUriPermissions."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -574,7 +588,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         }
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke releaseAllPersistedUriPermissions."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -607,7 +620,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         }
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke releasePersistedUriPermission."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -637,7 +649,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         }
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke takePersistableUriPermission."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -674,7 +685,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         }
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke checkPersistedUriPermission."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -699,7 +709,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 catch (ex: Exception) {
                     withContext(Dispatchers.Main) {
                         val message = ex.message ?: "Failed to invoke createFile."
-                        Logger.error(message)
                         invoke.reject(message)
                     }
                 }
@@ -707,7 +716,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         }
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke createFile."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -730,7 +738,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 catch (ex: Exception) {
                     withContext(Dispatchers.Main) {
                         val message = ex.message ?: "Failed to invoke createDirAll."
-                        Logger.error(message)
                         invoke.reject(message)
                     }
                 }
@@ -738,7 +745,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         }
         catch(ex: Exception) {
             val message = ex.message ?: "Failed to invoke createDirAll."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -761,14 +767,12 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 catch (ex: Exception) {
                     withContext(Dispatchers.Main) {
                         val message = ex.message ?: "Failed to invoke readDir."
-                        Logger.error(message)
                         invoke.reject(message)
                     }
                 }
             }
         } catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke readDir."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -783,7 +787,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             invoke.resolve(res)
         } catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke getFileName."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -802,14 +805,12 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 }
                 catch (ex: Exception) {
                     val message = ex.message ?: "Failed to invoke getThumbnail."
-                    Logger.error(message)
                     invoke.reject(message)
                 }
             }
         }
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke getThumbnail."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -935,7 +936,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             invoke.resolve()
         } catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke deleteFile."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -948,7 +948,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             invoke.resolve()
         } catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke deleteEmptyDir."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -961,7 +960,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             invoke.resolve()
         } catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke deleteDirAll."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -974,7 +972,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             invoke.resolve(uri)
         } catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke rename."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -1009,7 +1006,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 catch (ex: Exception) {
                     withContext(Dispatchers.Main) {
                         val message = ex.message ?: "Failed to invoke copyFile."
-                        Logger.error(message)
                         invoke.reject(message)
                     }
                 }
@@ -1017,7 +1013,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         } 
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke copyFile."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -1046,7 +1041,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         }
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke shareFiles."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -1076,7 +1070,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         }
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke canShareFiles."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -1105,7 +1098,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         }
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke viewFile."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -1129,7 +1121,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         }
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke cabViewFile."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -1158,7 +1149,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         }
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke editFile."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -1182,7 +1172,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         }
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke canEditFile."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -1204,7 +1193,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             startActivityForResult(invoke, intent, "handleShowManageDirDialog")
         } catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke showManageDirDialog."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -1233,7 +1221,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             invoke.resolve(res)
         } catch (ex: java.lang.Exception) {
             val message = ex.message ?: "Failed to invoke dirDialogResult."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -1248,7 +1235,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             invoke.resolve(res)
         } catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke getPrivateBaseDirAbsolutePaths."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -1263,7 +1249,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             invoke.resolve(res)
         } catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke getMimeType."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -1285,7 +1270,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             startActivityForResult(invoke, intent, "handleShowOpenFileAndVisualMediaDialog")
         } catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke showOpenFileDialog."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -1299,7 +1283,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             startActivityForResult(invoke, intent, "handleShowOpenFileAndVisualMediaDialog")
         } catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke showOpenContentDialog."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -1313,7 +1296,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             startActivityForResult(invoke, intent, "handleShowOpenFileAndVisualMediaDialog")
         } catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke showOpenVisualMediaDialog."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -1340,7 +1322,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             startActivityForResult(invoke, intent, "handleShowSaveFileDialog")
         } catch (ex: Exception) {
             val message = ex.message ?: "Failed to pick save file"
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -1376,7 +1357,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             }
         } catch (ex: java.lang.Exception) {
             val message = ex.message ?: "Failed to read file pick result"
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -1389,7 +1369,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             invoke.resolve(res)
         } catch (ex: java.lang.Exception) {
             val message = ex.message ?: "Failed to invoke isVisualMediaDialogAvailable."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -1414,14 +1393,12 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     }
                 } catch (ex: Exception) {
                     val message = ex.message ?: "Failed to invoke getFileDescriptor."
-                    Logger.error(message)
                     invoke.reject(message)
                 }
             }
         }
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke getFileDescriptor."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -1457,14 +1434,12 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     }
                 } catch (ex: Exception) {
                     val message = ex.message ?: "Failed to invoke getFileDescriptor."
-                    Logger.error(message)
                     invoke.reject(message)
                 }
             }
         }
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke getFileDescriptor."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -1478,7 +1453,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         } 
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke getApiLevel."
-            Logger.error(message)
             invoke.reject(message)
         }
     }
@@ -1498,7 +1472,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             }
         } catch (ex: java.lang.Exception) {
             val message = ex.message ?: "Failed to read file pick result"
-            Logger.error(message)
             invoke.reject(message)
         }
     }

@@ -1,3 +1,12 @@
+# Version 15.0.0
+- Remove `PublicStorage::app_dir_name`
+- Remove arg `use_app_dir` from
+    `PublicStorage::create_new_file`,
+    `PublicStorage::create_dir_all`,
+    `PublicStorage::resolve_path`,
+
+- Update documentation.
+
 # Version 14.0.0
 - Change args of `WritableStream::sync_data`
 - Change args of `WritableStream::sync_all`

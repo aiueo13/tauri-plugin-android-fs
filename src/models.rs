@@ -144,27 +144,17 @@ pub struct StorageVolume {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StorageVolumeId {
-    pub(crate) top_directory_path: std::path::PathBuf,
-    pub(crate) media_store_context: Option<StorageVolumeMediaStoreContext>,
+    pub(crate) top_directory_path: Option<std::path::PathBuf>,
+    pub(crate) media_store_volume_name: Option<String>,
     pub(crate) private_data_dir_path: Option<std::path::PathBuf>,
     pub(crate) private_cache_dir_path: Option<std::path::PathBuf>,
     pub(crate) uuid: Option<String>,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct StorageVolumeMediaStoreContext {
-    pub(crate) volume_name: String,
-    pub(crate) images_content_uri: String,
-    pub(crate) videos_content_uri: String,
-    pub(crate) audios_content_uri: String,
-    pub(crate) files_content_uri: String,
-}
-
 #[allow(unused)]
 impl StorageVolumeId {
 
-    pub(crate) fn private_dir_path(&self, dir: OutsidePrivateDir) -> Option<&std::path::PathBuf> {
+    pub(crate) fn outside_private_dir_path(&self, dir: OutsidePrivateDir) -> Option<&std::path::PathBuf> {
         match dir {
             OutsidePrivateDir::Data => self.private_data_dir_path.as_ref(),
             OutsidePrivateDir::Cache => self.private_cache_dir_path.as_ref(),

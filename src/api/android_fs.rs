@@ -14,7 +14,7 @@ use crate::*;
 /// }
 /// ```
 pub struct AndroidFs<R: tauri::Runtime> {
-    #[cfg(target_os = "android")]
+    #[allow(unused)]
     pub(crate) app: tauri::AppHandle<R>, 
 
     #[cfg(target_os = "android")]
@@ -22,9 +22,6 @@ pub struct AndroidFs<R: tauri::Runtime> {
 
     #[cfg(target_os = "android")]
     pub(crate) intent_lock: std::sync::Mutex<()>,
-
-    #[cfg(not(target_os = "android"))]
-    _marker: std::marker::PhantomData<fn() -> R>
 }
 
 impl<R: tauri::Runtime> AndroidFs<R> {
@@ -43,7 +40,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         }
         
         #[cfg(not(target_os = "android"))] {
-            Ok(Self { _marker: Default::default() })
+            Ok(Self { app })
         }
     }
 }
@@ -227,9 +224,9 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 
                 if mode == FileAccessMode::Write {
                     // file provider が既存コンテンツを切り捨てず、
-                    // かつ書き込むデータ量が元のそれより少ない場合、ファイルが壊れる可能性がある。
+                    // かつ書き込むデータ量が元のそれより少ない場合にファイルが壊れる可能性がある。
                     // これを避けるため強制的にデータを切り捨てる。
-                    // file provider の実装によっては set_len は失敗することがある。
+                    // file provider の実装によっては set_len は失敗することがあるので最終手段。
                     file.set_len(0)?;
                 }
 
@@ -513,14 +510,12 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// All Android version.
     pub fn copy(&self, src: &FileUri, dest: &FileUri) -> crate::Result<()> {
         on_android!({
-            // NOTE:
-            // std::io::copy は std::fs::File 同士のコピーの場合、最適化が働く可能性がある。
-            // そのため self.open_writable_stream は用いない。
-
             if self.need_write_via_kotlin(dest)? {
                 self.copy_via_kotlin(src, dest, None)?;
             }
             else {
+                // std::io::copy は std::fs::File 同士のコピーの場合、最適化が働く可能性がある。
+                // そのため self.open_writable_stream は用いない。
                 let src = &mut self.open_file_readable(src)?;
                 let dest = &mut self.open_file_writable(dest)?;
                 std::io::copy(src, dest)?;
@@ -779,10 +774,6 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Note
     /// For [`PublicStorage::create_new_file`] and etc, the system may sanitize path strings as needed, so those strings may not be used as it is.
     /// However, this function does not perform any sanitization, so the same ***relative_path*** may still fail.
-    /// 
-    /// # Performance
-    /// This operation is relatively fast 
-    /// because it does not call Kotlin API and only involves operating strings on Rust side.
     /// 
     /// # Support
     /// All Android version.
@@ -1206,7 +1197,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 #[allow(unused)]
 impl<R: tauri::Runtime> AndroidFs<R> {
 
-    pub(crate) fn check_storage_volume_available_by_media_store_volume_name(
+    pub(crate) fn check_media_store_volume_name_available(
         &self,
         media_store_volume_name: impl AsRef<str>,
     ) -> Result<bool> {
@@ -1218,7 +1209,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
             let media_store_volume_name = media_store_volume_name.as_ref();
             
             self.api
-                .run_mobile_plugin::<Res>("checkStorageVolumeAvailableByMediaStoreVolumeName", Req { media_store_volume_name })
+                .run_mobile_plugin::<Res>("checkMediaStoreVolumeNameAvailable", Req { media_store_volume_name })
                 .map(|v| v.value)
                 .map_err(Into::into)
         })
@@ -1292,7 +1283,7 @@ pub(crate) struct Consts {
     pub build_version_sdk_int: i32,
 
     /// Android 10 (API level 29) 以上で有効
-    pub primary_storage_volume_media_store_context: Option<StorageVolumeMediaStoreContext>,
+    pub media_store_primary_volume_name: Option<String>,
 
     pub env_dir_pictures: String,
     pub env_dir_dcim: String,

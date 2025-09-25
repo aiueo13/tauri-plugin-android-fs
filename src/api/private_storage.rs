@@ -70,7 +70,7 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
         })
     }
 
-    /// Get an absolute path of the outside app-specific directory on the specified storage volume.  
+    /// Get an absolute path of the app-specific directory on the specified storage volume.  
     /// App can fully manage entries within this directory.  
     /// 
     /// This function does **not** create any directories; it only constructs the path.
@@ -110,22 +110,20 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     ) -> Result<std::path::PathBuf> {
 
         if let Some(volume_id) = volume_id {
-            let Some(dir_path) = volume_id.private_dir_path(dir) else {
-                return Err(Error::with(format!("The storage volume has no app-speific directory: {}", volume_id.top_directory_path.display())))
-            };
+            let dir_path = volume_id
+                .outside_private_dir_path(dir)
+                .ok_or_else(|| Error::with("The storage volume has no app-speific directory"))?;
+            
             if !self.0.check_storage_volume_available_by_path(dir_path)? {
-                return Err(Error::with(format!("The storage volume is not currently available: {}", volume_id.top_directory_path.display())))
+                return Err(Error::with("The storage volume is not currently available"))
             }
+
             return Ok(dir_path.clone())
         }
 
-        let Some(volume) = self.get_primary_volume()? else {
-            return Err(Error::with("Primary storage volume is not currently available"))
-        };
-        let Some(dir_path) = volume.id.private_dir_path(dir) else {
-            return Err(Error::with(format!("Primary storage volume has no app-speific directory: {}", volume.id.top_directory_path.display())))
-        };
-        Ok(dir_path.clone())
+        self.get_primary_volume()?
+            .and_then(|v| v.id.outside_private_dir_path(dir).map(Clone::clone))
+            .ok_or_else(|| Error::with("Primary storage volume is not currently available"))
     }
 
     /// Gets a list of currently available storage volumes (internal storage, SD card, USB drive, etc.).

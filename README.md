@@ -147,8 +147,7 @@ fn example(app: tauri::AppHandle) -> tauri_plugin_android_fs::Result<()> {
     let uri = storage.create_new_file(
         None, // Storage volume. If None, use primary storage volume
         PublicImageDir::Pictures, // Base directory
-        true, // Insert app name directory between base directory and relative path
-        "my-image.png", // Relative file path
+        "MyApp/my-image.png", // Relative file path
         Some("image/png") // Mime type
     )?;
 
@@ -169,8 +168,7 @@ fn example(app: tauri::AppHandle) -> tauri_plugin_android_fs::Result<()> {
     let uri = storage.create_new_file(
          volume.as_ref().map(|v| &v.id), // Storage volume. 
          PublicGeneralPurposeDir::Documents, // Base directory
-         true, // Insert app name dir between base directory and relative path
-         "2025-9-14/data.txt", // Relative file path
+         "MyApp/2025-9-14/data.txt", // Relative file path
          Some("text/plain") // Mime type
     )?;
 
@@ -193,6 +191,11 @@ fn example(app: tauri::AppHandle) -> tauri_plugin_android_fs::Result<()> {
     // Apps can fully manage entries within those directories with 'std::fs'.
     let cache_dir_path: std::path::PathBuf = storage.resolve_path(PrivateDir::Cache)?;
     let data_dir_path: std::path::PathBuf = storage.resolve_path(PrivateDir::Data)?;
+
+    // Since these locations may contain files created by other Tauri plugins or webview systems, 
+    // it is recommended to add a subdirectory with a unique name.
+    let cache_dir_path = cache_dir_path.join("01K6049FVCD4SAGMAB6X20SA5S");
+    let data_dir_path = data_dir_path.join("01K6049FVCD4SAGMAB6X20SA5S");
 
     Ok(())
 }

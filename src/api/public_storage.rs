@@ -46,7 +46,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
 
         let volumes = self.0.get_available_storage_volumes()?
             .into_iter()
-            .filter(|v| v.id.media_store_context.is_some())
+            .filter(|v| v.id.media_store_volume_name.is_some())
             .collect::<Vec<_>>();
 
         Ok(volumes)
@@ -76,7 +76,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         }
 
         self.0.get_primary_storage_volume_if_available()
-            .map(|v| v.filter(|v| v.id.media_store_context.is_some()))
+            .map(|v| v.filter(|v| v.id.media_store_volume_name.is_some()))
             .map_err(Into::into)
     }
 
@@ -100,14 +100,9 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// Similarly, use only the corresponding media types for [`PublicVideoDir`] and [`PublicAudioDir`].
     /// Only [`PublicGeneralPurposeDir`] supports all MIME types. 
     /// 
-    /// - ***use_app_dir*** :   
-    /// Determines whether to insert a directory named after the application name 
-    /// specified in Tauri's configuration between ***base_dir*** and ***relative_path***.
-    /// It is recommended to enable this unless there is a special reason not to.   
-    /// See [`PublicStorage::app_dir_name`]
-    /// 
     /// - ***relative_path*** :  
     /// The file path relative to the base directory.  
+    /// To avoid cluttering files, it is helpful to place the app name directory at the top level.   
     /// Any missing subdirectories in the specified path will be created automatically.  
     /// If a file with the same name already exists, 
     /// the system append a sequential number to ensure uniqueness.  
@@ -134,48 +129,38 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         &self,
         volume_id: Option<&StorageVolumeId>,
         base_dir: impl Into<PublicDir>,
-        use_app_dir: bool,
         relative_path: impl AsRef<std::path::Path>, 
         mime_type: Option<&str>
     ) -> crate::Result<FileUri> {
 
         on_android!({
+            impl_se!(struct Req<'a> { media_store_volume_name: &'a str, relative_path: std::path::PathBuf, mime_type: Option<&'a str> });
+            impl_de!(struct Res { uri: FileUri });
+
             if self.0.api_level()? < api_level::ANDROID_10 {
                 return Err(Error { msg: "requires Android 10 (API level 29) or higher".into() })
             }
 
-            let c = self.0.consts()?;
-
-            let base_dir = base_dir.into();
-            let relative_path = validate_relative_path(relative_path.as_ref())?;
+            let consts = self.0.consts()?;
             let relative_path = {
                 let mut p = std::path::PathBuf::new();
-                p.push(c.public_dir_name(base_dir)?);
-                if use_app_dir {
-                    p.push(self.app_dir_name()?);
-                }
-                p.push(relative_path);
+                p.push(consts.public_dir_name(base_dir)?);
+                p.push(validate_relative_path(relative_path.as_ref())?);
                 p
             };
+            let media_store_volume_name = volume_id
+                .map(|v| v.media_store_volume_name.as_ref())
+                .unwrap_or(consts.media_store_primary_volume_name.as_ref())
+                .ok_or_else(|| Error::with("The storage volume is not available for PublicStorage"))?;
 
-            let media_store_ctx = volume_id
-                .map(|v| v.media_store_context.as_ref())
-                .unwrap_or(c.primary_storage_volume_media_store_context.as_ref())
-                .ok_or_else(|| Error::with("The storage volume is not available for PublivStorage"))?;
-            
-            let media_store_content_uri = match base_dir.into() {
-                PublicDir::Image(_) => &media_store_ctx.images_content_uri,
-                PublicDir::Video(_) => &media_store_ctx.videos_content_uri,
-                PublicDir::Audio(_) => &media_store_ctx.audios_content_uri,
-                PublicDir::GeneralPurpose(_) => &media_store_ctx.files_content_uri
-            };
-
-            let base_uri = FileUri {
-                uri: media_store_content_uri.clone(),
-                document_top_tree_uri: None
-            };
-
-            self.0.create_new_file(&base_uri, relative_path, mime_type)
+            self.0.api
+                .run_mobile_plugin::<Res>("createNewMediaStoreFile", Req {
+                    media_store_volume_name, 
+                    relative_path,
+                    mime_type,
+                })
+                .map(|v| v.uri)
+                .map_err(Into::into)
         })
     }
 
@@ -192,10 +177,6 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// - ***base_dir*** :  
     /// The base directory.  
     ///  
-    /// - ***use_app_dir*** :   
-    /// Determines whether to insert a directory named after the application name 
-    /// specified in Tauri's configuration between ***base_dir*** and ***relative_path***.
-    /// 
     /// - ***relative_path*** :  
     /// The directory path relative to the base directory.    
     /// The system may sanitize these strings as needed, so those strings may not be used as it is.
@@ -213,7 +194,6 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         &self,
         volume_id: Option<&StorageVolumeId>,
         base_dir: impl Into<PublicDir>,
-        use_app_dir: bool,
         relative_path: impl AsRef<std::path::Path>, 
     ) -> Result<()> {
 
@@ -228,7 +208,6 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
             let tmp_file_uri = self.create_new_file(
                 volume_id,
                 base_dir, 
-                use_app_dir,
                 relative_path.join("TMP-01K3CGCKYSAQ1GHF8JW5FGD4RW"), 
                 Some(match base_dir {
                     PublicDir::Image(_) => "image/png",
@@ -250,10 +229,13 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// Use it only in cases that cannot be handled by [`PublicStorage::create_new_file`] or [`PrivateStorage::resolve_path`], 
     /// such as when you need to pass the absolute path of a user-accessible file as an argument to any database library, debug logger, and etc.  
     ///
-    /// You can create files and folders under this directory and read or write **only** them.  
+    /// Since **Android 11** (not Android 10),
+    /// you can create files and folders under this directory and read or write **only** them.  
+    /// If not, you can do nothing with this path.
+    /// 
     /// When using [`PublicImageDir`], use only image type for file name extension, 
     /// using other type extension or none may cause errors.
-    /// Similarly, use only the corresponding media types for [`PublicVideoDir`] and [`PublicAudioDir`].
+    /// Similarly, use only the corresponding extesions for [`PublicVideoDir`] and [`PublicAudioDir`].
     /// Only [`PublicGeneralPurposeDir`] supports all extensions and no extension. 
     /// 
     /// # Note
@@ -276,10 +258,6 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// - ***base_dir*** :  
     /// The base directory.  
     ///  
-    /// - ***use_app_dir*** :   
-    /// Determines whether to insert a directory named after the application name 
-    /// specified in Tauri's configuration under ***base_dir***.  
-    /// 
     /// # Support
     /// Android 10 (API level 29) or higher.  
     /// 
@@ -293,7 +271,6 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         &self,
         volume_id: Option<&StorageVolumeId>,
         base_dir: impl Into<PublicDir>,
-        use_app_dir: bool,
     ) -> Result<std::path::PathBuf> {
 
         if self.0.api_level()? < api_level::ANDROID_10 {
@@ -302,26 +279,24 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
 
         let mut path = match volume_id {
             Some(volume_id) => {
-                let Some(c) = &volume_id.media_store_context else {
-                    return Err(Error::with(format!("The storage volume is not available for PublivStorage: {}", volume_id.top_directory_path.display())))
-                };
-                if !self.0.check_storage_volume_available_by_media_store_volume_name(&c.volume_name)? {
-                    return Err(Error::with(format!("The storage volume is not currently available: {}", volume_id.top_directory_path.display())))
+                let (vn, tp) = volume_id.media_store_volume_name.as_ref()
+                    .zip(volume_id.top_directory_path.as_ref())
+                    .ok_or_else(|| Error::with("The storage volume is not available for PublicStorage"))?;
+                
+                if !self.0.check_media_store_volume_name_available(vn)? {
+                    return Err(Error::with("The storage volume is not currently available"))
                 }
-                volume_id.top_directory_path.clone()
+
+                tp.clone()
             },
             None => {
-                let Some(volume) = self.get_primary_volume()? else {
-                    return Err(Error::with("Primary storage volume is not currently available"))
-                };
-                volume.id.top_directory_path
+                self.get_primary_volume()?
+                    .and_then(|v| v.id.top_directory_path)
+                    .ok_or_else(|| Error::with("Primary storage volume is not currently available"))?
             }
         };
 
         path.push(self.0.consts()?.public_dir_name(base_dir)?);
-        if use_app_dir {
-            path.push(self.app_dir_name()?);
-        }
         Ok(path)
     }
 
@@ -341,10 +316,6 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// - ***base_dir*** :  
     /// The base directory.  
     ///  
-    /// - ***use_app_dir*** :   
-    /// Determines whether to insert a directory named after the application name 
-    /// specified in Tauri's configuration between ***base_dir*** and ***relative_path***.
-    /// 
     /// - ***relative_path*** :  
     /// The directory path relative to the base directory.    
     ///  
@@ -362,7 +333,6 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         &self,
         volume_id: Option<&StorageVolumeId>,
         base_dir: impl Into<PublicDir>,
-        use_app_dir: bool,
         relative_path: impl AsRef<std::path::Path>,
         create_dir_all: bool
     ) -> Result<FileUri> {
@@ -377,19 +347,11 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
             let relative_path = relative_path.to_string_lossy();
             if !relative_path.is_empty() {
                 uri.uri.push_str("%2F");
-                uri.uri.push_str(&match use_app_dir {
-                    false => encode_document_id(relative_path.as_ref()),
-                    true => {
-                        let mut r = std::path::PathBuf::new();
-                        r.push(self.app_dir_name()?);
-                        r.push(relative_path.as_ref());
-                        encode_document_id(r.to_string_lossy().as_ref())
-                    },
-                });
+                uri.uri.push_str(&encode_document_id(relative_path.as_ref()));
             }
 
             if create_dir_all {
-                let _ = self.create_dir_all(volume_id, base_dir, use_app_dir, relative_path.as_ref());
+                let _ = self.create_dir_all(volume_id, base_dir, relative_path.as_ref());
             }
 
             Ok(uri)
@@ -467,32 +429,5 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// All Android version.
     pub fn is_recordings_dir_available(&self) -> crate::Result<bool> {
         Ok(self.0.consts()?.env_dir_recordings.is_some())
-    }
-
-    /// Resolve the app dir name from Tauri's config.  
-    /// 
-    /// This uses "productName" in `src-tauri/tauri.conf.json`
-    /// 
-    /// # Support
-    /// All Android version.
-    pub fn app_dir_name(&self) -> crate::Result<&str> {
-        on_android!({
-            use std::sync::OnceLock;
-            
-            static APP_DIR_NAME: OnceLock<String> = OnceLock::new();
-
-            if APP_DIR_NAME.get().is_none() {
-                let config = self.0.app.config();
-                let app_name = config.product_name
-                    .as_deref()
-                    .filter(|s| !s.is_empty())
-                    .unwrap_or(&config.identifier)
-                    .replace('/', " ");
-
-                let _ = APP_DIR_NAME.set(app_name);
-            }
-
-            Ok(&APP_DIR_NAME.get().expect("Should call 'set' before 'get'"))
-        })
     }
 }
