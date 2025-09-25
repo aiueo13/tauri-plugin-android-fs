@@ -1,3 +1,6 @@
+# Version 15.0.1
+- Update documentation.
+
 # Version 15.0.0
 - Remove `PublicStorage::app_dir_name`
 - Remove arg `use_app_dir` from
