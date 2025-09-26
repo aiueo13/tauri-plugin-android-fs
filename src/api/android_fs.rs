@@ -106,11 +106,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// All Android version.
     pub fn get_mime_type(&self, uri: &FileUri) -> crate::Result<String> {
         on_android!({
-            let mime_type = self.get_type(uri)?
-                .into_mime_type()
-                .ok_or_else(|| Error { msg: "This is not file".into() })?;
-
-            Ok(mime_type)
+            self.get_type(uri)?.into_file_mime_type_or_err()
         })
     }
 

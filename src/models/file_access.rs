@@ -1,5 +1,3 @@
-#![allow(deprecated)]
-
 use serde::{Deserialize, Serialize};
 use crate::*;
 
