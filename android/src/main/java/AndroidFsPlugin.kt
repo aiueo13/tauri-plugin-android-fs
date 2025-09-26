@@ -138,7 +138,16 @@ class RenameArgs {
 @InvokeArg
 class ReadDirArgs {
     lateinit var uri: FileUri
+    lateinit var options: ReadDirEntryOptions
 }
+
+@InvokeArg
+class ReadDirEntryOptions(
+    val uri: Boolean = false,
+    val name: Boolean = false,
+    val lastModified: Boolean= false,
+    val len: Boolean = false,
+)
 
 @InvokeArg
 class CreateFileInDirArgs {
@@ -756,24 +765,19 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    val res = JSObject()
-                    res.put("entries", getFileController(args.uri).readDir(args.uri))
-                   
-                    // 必要ないかもしれないが念の為
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve(res) 
+                    val res = JSObject().apply {
+                        put("entries", getFileController(args.uri).readDir(args.uri, args.options))
                     }
+
+                    invoke.resolve(res)
                 }
                 catch (ex: Exception) {
-                    withContext(Dispatchers.Main) {
-                        val message = ex.message ?: "Failed to invoke readDir."
-                        invoke.reject(message)
-                    }
+                    invoke.reject(ex.message ?: "unknown")
                 }
             }
-        } catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke readDir."
-            invoke.reject(message)
+        }
+        catch (ex: Exception) {
+            invoke.reject(ex.message ?: "unknown")
         }
     }
 

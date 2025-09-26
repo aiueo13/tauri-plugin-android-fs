@@ -28,7 +28,9 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     /// it is recommended to add a subdirectory with a unique name.
     ///
     /// These entries will be deleted when the app is uninstalled and may also be deleted at the user’s initialising request.  
-    /// When using [`PrivateDir::Cache`], the system will automatically delete entries as disk space is needed elsewhere on the device.   
+    /// 
+    /// When using [`PrivateDir::Cache`], the system will automatically delete entries as disk space is needed elsewhere on the device. 
+    /// But you should not rely on this. The cache should be explicitly cleared by yourself.
     /// 
     /// The system prevents other apps and user from accessing these locations. 
     /// In cases where the device is rooted or the user has special permissions, the user may be able to access this.   

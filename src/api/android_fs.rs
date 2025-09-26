@@ -709,6 +709,14 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// For [`AndroidFs::create_new_file`] and etc, the system may sanitize path strings as needed, so those strings may not be used as it is.
     /// However, this function does not perform any sanitization, so the same ***relative_path*** may still fail.
     /// 
+    /// # Args
+    /// - ***uri*** :  
+    /// Base directory URI.  
+    /// Must be **readable**.  
+    /// 
+    /// - ***relative_path*** :
+    /// Relative path from base directory.
+    /// 
     /// # Support
     /// All Android version.
     pub fn try_resolve_file_uri(
@@ -737,6 +745,14 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Note
     /// For [`AndroidFs::create_new_file`] and etc, the system may sanitize path strings as needed, so those strings may not be used as it is.
     /// However, this function does not perform any sanitization, so the same ***relative_path*** may still fail.
+    /// 
+    /// # Args
+    /// - ***uri*** :  
+    /// Base directory URI.  
+    /// Must be **readable**.  
+    /// 
+    /// - ***relative_path*** :
+    /// Relative path from base directory.
     /// 
     /// # Support
     /// All Android version.
@@ -774,6 +790,14 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Note
     /// For [`PublicStorage::create_new_file`] and etc, the system may sanitize path strings as needed, so those strings may not be used as it is.
     /// However, this function does not perform any sanitization, so the same ***relative_path*** may still fail.
+    /// 
+    /// # Args
+    /// - ***uri*** :  
+    /// Base directory URI.  
+    /// Must be **readable**.  
+    /// 
+    /// - ***relative_path*** :
+    /// Relative path from base directory.
     /// 
     /// # Support
     /// All Android version.
@@ -981,6 +1005,10 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// The permissions and validity period of the returned URIs depend on the origin directory 
     /// (e.g., the top directory selected by [`FilePicker::pick_dir`])  
     /// 
+    /// This retrieves all metadata including `uri`, `name`, `last_modified`, `len`, and `mime_type`. 
+    /// If only specific information is needed, 
+    /// using [`AndroidFs::read_dir_with_options`] will improve performance.
+    /// 
     /// # Note
     /// The returned type is an iterator, but the file system call is not executed lazily.  
     /// Instead, all data is retrieved at once.  
@@ -996,28 +1024,86 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Support
     /// All Android version.
     pub fn read_dir(&self, uri: &FileUri) -> crate::Result<impl Iterator<Item = Entry>> {
+        let entries = self.read_dir_with_options(uri, EntryOptions::ALL)?
+            .map(Entry::try_from)
+            .filter_map(Result::ok);
+        
+        Ok(entries)
+    }
+
+    /// Returns the child files and directories of the specified directory.  
+    /// The order of the entries is not guaranteed.  
+    /// 
+    /// The permissions and validity period of the returned URIs depend on the origin directory 
+    /// (e.g., the top directory selected by [`FilePicker::pick_dir`])  
+    /// 
+    /// # Note
+    /// The returned type is an iterator, but the file system call is not executed lazily.  
+    /// Instead, all data is retrieved at once.  
+    /// For directories containing thousands or even tens of thousands of entries,  
+    /// this function may take several seconds to complete.  
+    /// The returned iterator itself is low-cost, as it only performs lightweight data formatting.
+    /// 
+    /// # Args
+    /// - ***uri*** :  
+    /// Target directory URI.  
+    /// Must be **readable**.
+    /// 
+    /// # Support
+    /// All Android version.
+    pub fn read_dir_with_options(
+        &self, 
+        uri: &FileUri, 
+        options: EntryOptions
+    ) -> Result<impl Iterator<Item = OptionalEntry>> {
+        
         on_android!(std::iter::Empty::<_>, {
-            impl_se!(struct Req<'a> { uri: &'a FileUri });
-            impl_de!(struct Obj { name: String, uri: FileUri, last_modified: i64, byte_size: i64, mime_type: Option<String> });
+            impl_se!(struct Req<'a> { uri: &'a FileUri, options: Ops });
+            impl_de!(struct Obj {
+                uri: Option<FileUri>,
+                mime_type: Option<String>,
+                name: Option<String>,
+                last_modified: Option<i64>,
+                len: Option<i64>, 
+            });
             impl_de!(struct Res { entries: Vec<Obj> });
+
+            // OptionalEntry { mime_type } の値に関わらず
+            // ファイルかフォルダかを知るために mime_type は常に使用する。
+            impl_se!(struct Ops {
+                uri: bool,
+                name: bool,
+                last_modified: bool,
+                len: bool,
+            });
+
+            let need_mt = options.mime_type;
+            let options = Ops {
+                uri: options.uri,
+                name: options.name,
+                last_modified: options.last_modified,
+                len: options.len,
+            };
 
             use std::time::{UNIX_EPOCH, Duration};
     
             self.api
-                .run_mobile_plugin::<Res>("readDir", Req { uri })
+                .run_mobile_plugin::<Res>("readDir", Req { uri, options })
                 .map(|v| v.entries.into_iter())
-                .map(|v| v.map(|v| match v.mime_type {
-                    Some(mime_type) => Entry::File {
-                        name: v.name,
-                        last_modified: UNIX_EPOCH + Duration::from_millis(v.last_modified as u64),
-                        len: v.byte_size as u64,
-                        mime_type,
+                .map(move |v| v.map(move |v| match v.mime_type {
+                    // ファイルの時は必ず Some(mime_type) になり、
+                    // フォルダの時にのみ None になる。
+                    Some(mime_type) => OptionalEntry::File {
                         uri: v.uri,
+                        name: v.name,
+                        last_modified: v.last_modified.map(|i| UNIX_EPOCH + Duration::from_millis(i as u64)),
+                        len: v.len.map(|i| i as u64),
+                        mime_type: if need_mt { Some(mime_type) } else { None },
                     },
-                    None => Entry::Dir {
-                        name: v.name,
-                        last_modified: UNIX_EPOCH + Duration::from_millis(v.last_modified as u64),
+                    None => OptionalEntry::Dir {
                         uri: v.uri,
+                        name: v.name,
+                        last_modified: v.last_modified.map(|i| UNIX_EPOCH + Duration::from_millis(i as u64)),
                     }
                 }))
                 .map_err(Into::into)

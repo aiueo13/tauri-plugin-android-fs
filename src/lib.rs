@@ -3,18 +3,15 @@
 #![allow(unused_variables)]
 
 mod models;
-mod error;
 mod api;
 mod consts;
 
-#[cfg(target_os = "android")]
-mod utils;
-
 pub use models::*;
-pub use error::*;
 pub use api::*;
 pub use consts::*;
 
+#[cfg(target_os = "android")]
+mod utils;
 #[cfg(target_os = "android")]
 pub(crate) use utils::*;
 

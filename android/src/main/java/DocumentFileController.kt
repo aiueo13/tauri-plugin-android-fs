@@ -7,6 +7,7 @@ import android.provider.DocumentsContract
 import android.graphics.Bitmap
 import android.graphics.Point
 import android.os.Build
+import androidx.core.database.getLongOrNull
 import androidx.core.database.getStringOrNull
 import app.tauri.plugin.JSArray
 import app.tauri.plugin.JSObject
@@ -52,20 +53,29 @@ class DocumentFileController(private val activity: Activity): FileController {
         throw Exception("Failed to get name from ${uri.uri}")
     }
 
-    override fun readDir(dirUri: FileUri): JSArray {
+    override fun readDir(dirUri: FileUri, options: ReadDirEntryOptions): JSArray {
+        val queryTarget = mutableListOf(DocumentsContract.Document.COLUMN_MIME_TYPE)
+        if (options.uri) {
+            queryTarget.add(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+        }
+        if (options.lastModified) {
+            queryTarget.add(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+        }
+        if (options.name) {
+            queryTarget.add(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+        }
+        if (options.len) {
+            queryTarget.add(DocumentsContract.Document.COLUMN_SIZE)
+        }
+
+        val topTreeUriString = dirUri.documentTopTreeUri!!
         val topTreeUri = Uri.parse(dirUri.documentTopTreeUri!!)
         val cursor = activity.contentResolver.query(
             DocumentsContract.buildChildDocumentsUriUsingTree(
                 topTreeUri,
                 DocumentsContract.getDocumentId(Uri.parse(dirUri.uri))
             ),
-            arrayOf(
-                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                DocumentsContract.Document.COLUMN_MIME_TYPE,
-                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                DocumentsContract.Document.COLUMN_LAST_MODIFIED,
-                DocumentsContract.Document.COLUMN_SIZE,
-            ),
+            queryTarget.toTypedArray(),
             null,
             null,
             null
@@ -74,34 +84,38 @@ class DocumentFileController(private val activity: Activity): FileController {
         val buffer = JSArray()
 
         cursor?.use {
-            val idColumnIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
-            val mimeTypeColumnIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
-            val nameColumnIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
-            val lastModifiedColumnIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
-            val sizeColumnIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
-            val topTreeUriString = topTreeUri.toString()
+            val idColumnIndex = it.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+            val mimeTypeColumnIndex = it.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
+            val nameColumnIndex = it.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+            val lastModifiedColumnIndex = it.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+            val sizeColumnIndex = it.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
 
-            while (cursor.moveToNext()) {
-                val id = cursor.getString(idColumnIndex)
-                val uri = DocumentsContract.buildDocumentUriUsingTree(topTreeUri, id)
+            while (it.moveToNext()) {
+                val obj = JSObject()
 
-                val uriObj = JSObject()
-                uriObj.put("uri", uri)
-                uriObj.put("documentTopTreeUri", topTreeUriString)
-
-                var mimeType: String? = cursor.getStringOrNull(mimeTypeColumnIndex)
-                mimeType = if (mimeType == DocumentsContract.Document.MIME_TYPE_DIR) {
-                    null
-                } else {
-                    mimeType ?: "application/octet-stream"
+                if (options.uri) {
+                    obj.put("uri", JSObject().apply {
+                        val id = it.getString(idColumnIndex)
+                        val uri = DocumentsContract.buildDocumentUriUsingTree(topTreeUri, id)
+                        put("uri", uri.toString())
+                        put("documentTopTreeUri", topTreeUriString)
+                    })
+                }
+                if (options.name) {
+                    obj.put("name", it.getString(nameColumnIndex))
+                }
+                if (options.lastModified) {
+                    obj.put("lastModified", it.getLongOrNull(lastModifiedColumnIndex) ?: 0)
                 }
 
-                val obj = JSObject()
-                obj.put("uri", uriObj)
-                obj.put("mimeType", mimeType)
-                obj.put("name", cursor.getString(nameColumnIndex))
-                obj.put("lastModified", cursor.getLong(lastModifiedColumnIndex))
-                obj.put("byteSize", cursor.getLong(sizeColumnIndex))
+                val mimeType = it.getString(mimeTypeColumnIndex)
+                if (mimeType != DocumentsContract.Document.MIME_TYPE_DIR) {
+                    obj.put("mimeType", mimeType)
+                    if (options.len) {
+                        obj.put("len", it.getLong(sizeColumnIndex))
+                    }
+                }
+
                 buffer.put(obj)
             }
         }

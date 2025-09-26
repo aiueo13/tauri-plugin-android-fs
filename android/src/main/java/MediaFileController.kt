@@ -49,51 +49,10 @@ class MediaFileController(private val activity: Activity): FileController {
         throw Exception("Failed to find entry: ${uri.uri}")
     }
 
-    @Suppress("NAME_SHADOWING")
-    override fun createFile(dirUri: FileUri, relativePath: String, mimeType: String): JSObject {
-        val relativePath = relativePath.trimStart('/')
-        val relativeDirPath = relativePath.substringBeforeLast("/", "")
-        val fileName = relativePath.substringAfterLast("/", relativePath)
-
-        val content = ContentValues().apply {
-            val columns = getColumns(mimeType)
-
-            put(columns.displayName, fileName)
-            put(columns.mimeType, mimeType)
-            if (relativeDirPath.isNotEmpty()) {
-                put(columns.relativePath, "$relativeDirPath/")
-            }
-        }
-
-        val uri = activity.contentResolver.insert(Uri.parse(dirUri.uri), content)
-            ?: throw Exception("Failed to create file")
-
-        val res = JSObject()
-        res.put("uri", uri)
-        res.put("documentTopTreeUri", null)
-        return res
-    }
-
-    override fun createDirAll(dirUri: FileUri, relativePath: String): JSObject {
-        throw Exception("Unsupported operation for ${dirUri.uri}")
-    }
-
     override fun deleteFile(uri: FileUri) {
         if (activity.contentResolver.delete(Uri.parse(uri.uri), null, null) <= 0) {
             throw Exception("Failed to delete file: ${uri.uri}")
         }
-    }
-
-    override fun deleteEmptyDir(uri: FileUri) {
-        throw Exception("Unsupported operation for ${uri.uri}")
-    }
-
-    override fun deleteDirAll(uri: FileUri) {
-        throw Exception("Unsupported operation for ${uri.uri}")
-    }
-
-    override fun readDir(dirUri: FileUri): JSArray {
-        throw Exception("Unsupported or not dir: ${dirUri.uri}")
     }
 
     override fun getThumbnail(uri: FileUri, width: Int, height: Int): Bitmap? {
@@ -132,36 +91,26 @@ class MediaFileController(private val activity: Activity): FileController {
         res.put("documentTopTreeUri", uri.documentTopTreeUri)
         return res
     }
-    
 
-    private data class Columns(
-        val displayName: String,
-        val mimeType: String,
-        val relativePath: String
-    )
 
-    private fun getColumns(mimeType: String): Columns {
-        return when {
-            mimeType.startsWith("image/") -> Columns(
-                displayName = MediaStore.Images.Media.DISPLAY_NAME,
-                mimeType = MediaStore.Images.Media.MIME_TYPE,
-                relativePath = MediaStore.Images.Media.RELATIVE_PATH
-            )
-            mimeType.startsWith("video/") -> Columns(
-                displayName = MediaStore.Video.Media.DISPLAY_NAME,
-                mimeType = MediaStore.Video.Media.MIME_TYPE,
-                relativePath = MediaStore.Video.Media.RELATIVE_PATH
-            )
-            mimeType.startsWith("audio/") -> Columns(
-                displayName = MediaStore.Audio.Media.DISPLAY_NAME,
-                mimeType = MediaStore.Audio.Media.MIME_TYPE,
-                relativePath = MediaStore.Audio.Media.RELATIVE_PATH
-            )
-            else -> Columns(
-                displayName = MediaStore.Files.FileColumns.DISPLAY_NAME,
-                mimeType = MediaStore.Files.FileColumns.MIME_TYPE,
-                relativePath = MediaStore.Files.FileColumns.RELATIVE_PATH
-            )
-        }
+
+    override fun createFile(dirUri: FileUri, relativePath: String, mimeType: String): JSObject {
+        throw Exception("Unsupported operation for ${dirUri.uri}")
+    }
+
+    override fun createDirAll(dirUri: FileUri, relativePath: String): JSObject {
+        throw Exception("Unsupported operation for ${dirUri.uri}")
+    }
+
+    override fun deleteEmptyDir(uri: FileUri) {
+        throw Exception("Unsupported operation for ${uri.uri}")
+    }
+
+    override fun deleteDirAll(uri: FileUri) {
+        throw Exception("Unsupported operation for ${uri.uri}")
+    }
+
+    override fun readDir(dirUri: FileUri, options: ReadDirEntryOptions): JSArray {
+        throw Exception("Unsupported operation for ${dirUri.uri}")
     }
 }

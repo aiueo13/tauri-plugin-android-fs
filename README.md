@@ -4,7 +4,7 @@ Note: **I’m using a translation tool, so there may be some inappropriate expre
 
 The Android file system is strict and complex. This plugin was created to provide practical file operations. You don’t need to set special permissions or configurations. 
 
-And this does not use any options that require additional permissions or review, so you can submit your app for Google Play review with peace of mind
+And this does not use any options that require additional permissions or review, so you can submit your app for Google Play review with peace of mind.
 
 # Setup
 Register this plugin in your Tauri project:

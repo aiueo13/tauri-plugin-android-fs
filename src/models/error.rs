@@ -1,9 +1,6 @@
 use std::borrow::Cow;
 use serde::{ser::Serializer, Serialize};
 
-
-pub type Result<T> = std::result::Result<T, crate::Error>;
-
 #[derive(Debug, Clone, thiserror::Error)]
 #[error("{msg}")]
 pub struct Error {

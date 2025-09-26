@@ -10,7 +10,7 @@ interface FileController {
 
     fun getName(uri: FileUri): String
 
-    fun readDir(dirUri: FileUri): JSArray
+    fun readDir(dirUri: FileUri, options: ReadDirEntryOptions): JSArray
 
     fun createFile(dirUri: FileUri, relativePath: String, mimeType: String): JSObject
 

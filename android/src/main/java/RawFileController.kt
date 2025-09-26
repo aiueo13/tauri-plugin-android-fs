@@ -20,21 +20,32 @@ class RawFileController: FileController {
         return File(Uri.parse(uri.uri).path!!).name
     }
 
-    override fun readDir(dirUri: FileUri): JSArray {
+    override fun readDir(dirUri: FileUri, options: ReadDirEntryOptions): JSArray {
         val dir = File(Uri.parse(dirUri.uri).path!!)
         val buffer = JSArray()
 
         for (file in dir.listFiles()!!) {
-            val uriObj = JSObject()
-            uriObj.put("uri", file.toURI())
-            uriObj.put("documentTopTreeUri", null)
-
             val obj = JSObject()
-            obj.put("uri", uriObj)
-            obj.put("mimeType", _getMimeType(file))
-            obj.put("name", file.name)
-            obj.put("lastModified", file.lastModified())
-            obj.put("byteSize", file.length())
+
+            if (options.uri) {
+                obj.put("uri", JSObject().apply {
+                    put("uri", file.toURI())
+                    put("documentTopTreeUri", null)
+                })
+            }
+            if (options.name) {
+                obj.put("name", file.name)
+            }
+            if (options.lastModified) {
+                obj.put("lastModified", file.lastModified())
+            }
+            val mimeType = _getMimeType(file)
+            if (mimeType != null) {
+                obj.put("mimeType", mimeType)
+                if (options.len) {
+                    obj.put("len", file.length())
+                }
+            }
             buffer.put(obj)
         }
 

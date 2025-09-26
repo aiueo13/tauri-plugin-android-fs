@@ -1,3 +1,9 @@
+# Version 15.1.0
+- Add `OptionalEntry`
+- Add `EntryOptions`
+- Add `AndroidFs::read_dir_with_options`
+- Update documentation.
+
 # Version 15.0.1
 - Update documentation.
 
