@@ -1,6 +1,6 @@
 [package]
 name = "tauri-plugin-android-fs"
-version = "15.1.0"
+version = "15.1.1"
 edition = "2021"
 rust-version = "1.77.2"
 links = "tauri-plugin-android-fs"
@@ -26,7 +26,7 @@ rustc-args = ["--cfg", "docsrs"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
-tauri = "2"
+tauri = { version = "2", default-features = false }
 serde = "1"
 serde_json = { version = "1", default-features = false, features = ["std"] }
 thiserror = "2"
