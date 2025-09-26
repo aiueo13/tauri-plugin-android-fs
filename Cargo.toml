@@ -27,7 +27,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 tauri = { version = "2", default-features = false }
-serde = "1"
+serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", default-features = false, features = ["std"] }
 thiserror = "2"
 tauri-plugin-fs = "2"
