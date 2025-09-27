@@ -1,3 +1,9 @@
+# Version 16.0.0
+- Remove deprecated items
+- Update requried version of tauri crate to "^2.8.2" from "2"
+- Update requried version of tauri-plugin crate to "^2.4" from "2"
+- Update requried version of tauri-plugin-fs crate to "^2.4.2" from "2"
+
 # Version 15.2.0
 - Add `FileOpener`
 - Add `AndroidFs::file_opener`

@@ -1,6 +1,6 @@
 [package]
 name = "tauri-plugin-android-fs"
-version = "15.2.0"
+version = "16.0.0"
 edition = "2021"
 rust-version = "1.77.2"
 links = "tauri-plugin-android-fs"
@@ -31,17 +31,16 @@ ios = { level = "none", notes = "" }
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]
 rustdoc-args = ["--cfg", "docsrs"]
-targets = ["aarch64-apple-darwin"]
 
 [dependencies]
-tauri = { version = "2", default-features = false }
+tauri = { version = "^2.8.2", default-features = false }
 serde = { version = "1", features = ["derive"] }
-serde_json = { version = "1", default-features = false, features = ["std"] }
+serde_json = { version = "1" }
 thiserror = "2"
-tauri-plugin-fs = "2"
+tauri-plugin-fs = "^2.4.2"
 
 [target.'cfg(target_os = "android")'.dependencies]
 percent-encoding = "2"
 
 [build-dependencies]
-tauri-plugin = { version = "2", features = ["build"] }
+tauri-plugin = { version = "^2.4", features = ["build"] }

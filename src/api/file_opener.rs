@@ -1,10 +1,6 @@
 use crate::*;
 
 
-#[deprecated = "Use FileOpener instead"]
-pub type FileSender<'a, R> = FileOpener<'a, R>;
-
-
 /// API of opening file/dir with other apps.
 /// 
 /// # Examples

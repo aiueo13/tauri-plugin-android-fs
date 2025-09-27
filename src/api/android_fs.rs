@@ -67,11 +67,6 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         FileOpener(self)
     }
 
-    #[deprecated = "Use AndroidFs::file_opener"]
-    pub fn file_sender(&self) -> FileSender<'_, R> {
-        self.file_opener()
-    }
-
     /// Get the file or directory name.  
     /// 
     /// # Args

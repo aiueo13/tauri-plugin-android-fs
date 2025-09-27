@@ -52,7 +52,7 @@ mod writable_stream;
 
 pub use android_fs::AndroidFs;
 pub use file_picker::FilePicker;
-pub use file_opener::{FileOpener, FileSender};
+pub use file_opener::FileOpener;
 pub use private_storage::PrivateStorage;
 pub use public_storage::PublicStorage;
 pub use writable_stream::WritableStream;
