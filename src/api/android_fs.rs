@@ -160,12 +160,13 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         })
     }
 
-    /// Open the file in **readable** mode.  
+    /// Open the file in **readable** mode. 
     /// 
     /// # Note
     /// If the target is a file on cloud storage or otherwise not physically present on the device,
-    /// the system creates a temporary file, downloads the data into it,
-    /// and then opens it. As a result, this processing may take longer than with regular local files.
+    /// the file provider may downloads the entire contents, and then opens it. 
+    /// As a result, this processing may take longer than with regular local files.
+    /// And files might be a pair of pipe or socket for streaming data.
     /// 
     /// # Args
     /// - ***uri*** :  
@@ -181,14 +182,13 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Open the file in **writable** mode.  
     /// This truncates the existing contents.  
     /// 
-    /// If you only need a [`std::io::Write`] instead of a [`std::fs::File`], or if applicable, 
-    /// please use [`AndroidFs::open_writable_stream`] instead.
-    /// 
     /// # Note
-    /// If the target is a file on cloud storage or otherwise not actually present on the device, 
-    /// writing with such files may not correctly reflect the changes.  
-    /// If you need write with such files, use [`AndroidFs::open_writable_stream`].
-    ///
+    /// For file provider of some cloud storage, 
+    /// writing by file descriptor like std::fs may not correctoly notify and reflect changes. 
+    /// If you need to write to such files, use [`AndroidFs::open_writable_stream`].
+    /// It will fall back to Kotlin API as needed.
+    /// And you can check by [`AndroidFs::need_write_via_kotlin`].
+    /// 
     /// # Args
     /// - ***uri*** :  
     /// Target file URI.  
@@ -235,16 +235,20 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Note
     /// If the target is a file on cloud storage or otherwise not physically present on the device,
-    /// the system creates a temporary file, downloads the data into it,
-    /// and then opens it. As a result, this processing may take longer than with regular local files.
+    /// the file provider may downloads the entire contents, and then opens it. 
+    /// As a result, this processing may take longer than with regular local files.
+    /// And files might be a pair of pipe or socket for streaming data.
     /// 
     /// When writing to a file with this function,
     /// pay attention to the following points:
     /// 
-    /// 1. **Files that do not exist on the device**:  
-    /// Writing to files that are not physically present on the device may not correctly
-    /// reflect changes. If you need to write to such files, use [`AndroidFs::open_writable_stream`].
-    ///
+    /// 1. **File reflection**:  
+    /// For file provider of some cloud storage, 
+    /// writing by file descriptor like std::fs may not correctoly notify and reflect changes. 
+    /// If you need to write to such files, use [`AndroidFs::open_writable_stream`].
+    /// It will fall back to Kotlin API as needed.
+    /// And you can check by [`AndroidFs::need_write_via_kotlin`].
+    /// 
     /// 2. **File mode restrictions**:  
     /// Files provided by third-party apps may not support writable modes other than
     /// [`FileAccessMode::Write`]. However, [`FileAccessMode::Write`] does not guarantee
@@ -262,13 +266,10 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// This must have corresponding permissions (read, write, or both) for the specified ***mode***.
     /// 
     /// - ***mode*** :  
-    /// Indicates how the file is opened and the permissions granted.  
-    /// Note that files hosted by third-party apps may not support following:
-    ///     - [`FileAccessMode::ReadWrite`]
-    ///     - [`FileAccessMode::ReadWriteTruncate`]  
-    ///     - [`FileAccessMode::WriteAppend`]  
-    ///     - [`FileAccessMode::WriteTruncate`]
-    ///
+    /// Indicates how the file is opened and the permissions granted. 
+    /// The only ones that can be expected to work in all cases are [`FileAccessMode::Write`] and [`FileAccessMode::Read`].
+    /// Because files hosted by third-party apps may not support others.
+    /// 
     /// # Support
     /// All Android version.
     pub fn open_file(&self, uri: &FileUri, mode: FileAccessMode) -> crate::Result<std::fs::File> {
@@ -358,13 +359,9 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Opens a writable stream to the specified file.  
     /// This truncates the existing contents.  
     /// 
-    /// This function always writes content via the Kotlin API, 
-    /// ensuring that writes to files not physically present on the device, such as cloud storage files, are properly applied.
-    /// But this takes several times longer compared to [`AndroidFs::open_writable_stream`].
-    ///
+    /// This function always writes content via the Kotlin API.
+    /// But this takes several times longer compared.  
     /// [`AndroidFs::open_writable_stream`] automatically falls back to this function depending on [`AndroidFs::need_write_via_kotlin`].  
-    /// For performance reasons, it is strongly recommended to use [`AndroidFs::open_writable_stream`] 
-    /// if you can tolerate that [`AndroidFs::need_write_via_kotlin`] may not cover all cases.  
     /// 
     /// # Usage
     /// [`WritableStream`] implements [`std::io::Write`], so it can be used for writing.  
@@ -461,13 +458,9 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Writes a slice as the entire contents of a file.  
     /// This function will entirely replace its contents if it does exist.    
     /// 
-    /// This function always writes content via the Kotlin API, 
-    /// ensuring that writes to files not physically present on the device, such as cloud storage files, are properly applied.
-    /// But this takes several times longer compared to [`AndroidFs::write`].
-    ///
+    /// This function always writes content via the Kotlin API.
+    /// But this takes several times longer compared.   
     /// [`AndroidFs::write`] automatically falls back to this function depending on [`AndroidFs::need_write_via_kotlin`].  
-    /// For performance reasons, it is strongly recommended to use [`AndroidFs::write`] 
-    /// if you can tolerate that [`AndroidFs::need_write_via_kotlin`] may not cover all cases.  
     /// 
     /// # Support
     /// All Android version.
@@ -523,9 +516,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Copies the contents of src file to dest.  
     /// If dest already has contents, it is truncated before write src contents.  
     /// 
-    /// This function always writes content via the Kotlin API, 
-    /// ensuring that writes to files not physically present on the device, such as cloud storage files, are properly applied.
-    /// 
+    /// This function always writes content via the Kotlin API.  
     /// [`AndroidFs::copy`] automatically falls back to this function depending on [`AndroidFs::need_write_via_kotlin`].   
     /// 
     /// # Args
@@ -569,26 +560,52 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 
     /// Determines whether the file must be written via the Kotlin API rather than through a file descriptor.
     /// 
-    /// **This may not cover all cases.**
+    /// In the case of a file that physically exists on the device, this will always return false.
+    /// This is intended for special cases, such as some cloud storage.
     /// 
-    /// # Why
-    /// For files that do not physically exist on the device, such as those stored in cloud storage,  
-    /// writing data through [`std::fs::File`] may not be properly reflected.  
-    /// In such cases, the write operation must be performed via the Kotlin API.   
-    /// <https://community.latenode.com/t/csv-export-to-google-drive-results-in-empty-file-but-local-storage-works-fine>   
-    ///
     /// # Support
     /// All Android version.
     pub fn need_write_via_kotlin(&self, uri: &FileUri) -> crate::Result<bool> {
         on_android!({
-            // Note:
-            // Android 15 の Dropbox (ver. 440.2.4) では fd 経由で書き込んで反映された
+            // - https://issuetracker.google.com/issues/200201777
+            // - https://stackoverflow.com/questions/51015513/fileoutputstream-writes-0-bytes-to-google-drive
+            // - https://stackoverflow.com/questions/51490194/file-written-using-action-create-document-is-empty-on-google-drive-but-not-local
+            // - https://community.latenode.com/t/csv-export-to-google-drive-results-in-empty-file-but-local-storage-works-fine 
+            // 
+            // Intent.ACTION_OPEN_DOCUMENT や Intent.ACTION_CREATE_DOCUMENT などの SAF で
+            // 取得した Google Drive のファイルに対して生の FD を用いて書き込んだ場合、
+            // それが反映されず空のファイルのみが残ることがある。
+            // これの対処法として Context.openOutputStream から得た OutputStream で書き込んだ後
+            // flush 関数を使うことで反映させることができる。
+            // このプラグインでは Context.openAssetFileDescriptor から FD を取得して操作しているが
+            // これはハック的な手法ではなく公式の doc でも SAF の例として用いられている手法であるため
+            // この動作は仕様ではなく GoogleDrive 側のバグだと考えていいと思う。
+            // 
+            // また Web を調べたが GoogleDrive 以外でこのような問題が起こるのは見つけれなかった。
+            // 実際、試した限りでは DropBox で書き込んだものが普通に反映された。
+            // もしかしたら他のクラウドストレージアプリでは起こるかもしれないが、
+            // それは仕様ではなく FileProvider 側のバグ？だと思うのでこちら側ではコストを考え対処療法のみを行う。
+            // つまりホワイトリスト方式ではなくブラックリスト方式を用いて判定する。
+            //
+            // 
+            // 未来の自分用: 
+            // Context.openOutputStream は内部で Context.openAssetFileDescriptor を使っている。
+            // その関数が返す ParcelFileDescriptor の releaseResources 関数が怪しい。
+            // 787行目: https://android.googlesource.com/platform/frameworks/base/+/refs/heads/android10-mainline-media-release/core/java/android/os/ParcelFileDescriptor.java?utm_source=chatgpt.com%2F%2F%2F
+            // releaseResources に関して、doc では FD が閉じられる際に呼ばれるフック関数であり 
+            // FileProvider がリソースを解放するためのフック関数だと書いているが、
+            // これに Google Drive はファイル更新のトリガーを実装しているのかもしれない。
+            // Rust 側に渡す生の FD を取得する際に detachFd 関数を呼び出しているが、
+            // これは内部で releaseResources を呼び出しているため
+            // まだ書き込んでない空のファイルが完了済みのものとしてマークされたのかも？
+            // ただこれはソースコードを見て思いついた妄想なので要検証。
+            // TODO: 時間がある時にリフレクションで呼び出して検証し、もしそうだったら issue を建てたい。
 
-            const URI_PREFIXES: &'static [&'static str] = &[
+            const TARGET_URI_PREFIXES: &'static [&'static str] = &[
                 "content://com.google.android.apps.docs", // Google drive
             ];
 
-            Ok(URI_PREFIXES.iter().any(|prefix| uri.uri.starts_with(prefix)))
+            Ok(TARGET_URI_PREFIXES.iter().any(|prefix| uri.uri.starts_with(prefix)))
         })
     }
 

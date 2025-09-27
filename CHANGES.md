@@ -1,3 +1,6 @@
+# Version 16.0.1
+- Update documentation.
+
 # Version 16.0.0
 - Remove deprecated items
 - Update requried version of tauri crate to "^2.8.2" from "2"

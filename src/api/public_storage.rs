@@ -320,8 +320,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// The directory path relative to the base directory.    
     ///  
     /// # Support
-    /// If use `None` to ***volume***, all Android version: 
-    /// otherwise: Android 10 (API level 29) or higher
+    /// All Android version.
     ///
     /// Note :  
     /// - [`PublicAudioDir::Audiobooks`] is not available on Android 9 (API level 28) and lower.
@@ -372,7 +371,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// If `None` is provided, [`the primary storage volume`](PublicStorage::get_primary_volume) will be used.  
     /// 
     /// # Support
-    /// All Android version: 
+    /// All Android version.
     ///
     /// Note :  
     /// - [`PublicAudioDir::Audiobooks`] is not available on Android 9 (API level 28) and lower.

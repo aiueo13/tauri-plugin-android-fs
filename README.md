@@ -71,8 +71,8 @@ fn file_picker_example(app: tauri::AppHandle) -> tauri_plugin_android_fs::Result
                 let file: std::fs::File = api.open_file_writable(&uri)?;
 
 
-                // But if you can, use 'open_writable_stream',
-                // considering the possibility that files may be on cloud storage.
+                // But if you can, use 'open_writable_stream' instead,
+                // considering the possibility that files may be on some cloud storage.
 
                 use std::io::{BufWriter, Write as _};
 
@@ -107,10 +107,10 @@ fn dir_picker_example(app: tauri::AppHandle) -> tauri_plugin_android_fs::Result<
         // Read the directory
         for entry in api.read_dir(&dir_uri)? {
             match entry {
-                Entry::File { name, uri, last_modified, len, mime_type, .. } => {
+                Entry::File { uri, name, .. } => {
                     // Handle file
                 },
-                Entry::Dir { name, uri, last_modified, .. } => {
+                Entry::Dir { uri, name, .. } => {
                     // Handle directory
                 },
             }

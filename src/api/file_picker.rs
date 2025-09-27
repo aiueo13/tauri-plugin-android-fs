@@ -22,7 +22,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// Opens a system file picker and returns a **read-write** URIs.  
     /// If no file is selected or the user cancels, an empty vec is returned.  
     /// 
-    /// By default, returned URI is valid until the app is terminated. 
+    /// By default, returned URI is valid until the app or device is terminated. 
     /// If you want to persist it across app restarts, use [`AndroidFs::take_persistable_uri_permission`].
     /// 
     /// This provides a standardized file explorer-style interface, 
@@ -76,7 +76,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// Opens a system file picker and returns a **read-write** URI.  
     /// If no file is selected or the user cancels, None is returned.  
     /// 
-    /// By default, returned URI is valid until the app is terminated. 
+    /// By default, returned URI is valid until the app or device is terminated. 
     /// If you want to persist it across app restarts, use [`AndroidFs::take_persistable_uri_permission`].
     /// 
     /// This provides a standardized file explorer-style interface, 
@@ -130,7 +130,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// Opens a media picker and returns a **readonly** URIs.  
     /// If no file is selected or the user cancels, an empty vec is returned.  
     ///  
-    /// By default, returned URI is valid until the app is terminated. 
+    /// By default, returned URI is valid until the app or device is terminated. 
     /// If you want to persist it across app restarts, use [`AndroidFs::take_persistable_uri_permission`].
     ///  
     /// This media picker provides a gallery, 
@@ -168,7 +168,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// Opens a media picker and returns a **readonly** URI.  
     /// If no file is selected or the user cancels, None is returned.  
     ///  
-    /// By default, returned URI is valid until the app is terminated. 
+    /// By default, returned URI is valid until the app or device is terminated. 
     /// If you want to persist it across app restarts, use [`AndroidFs::take_persistable_uri_permission`].
     ///  
     /// This media picker provides a gallery, 
@@ -206,7 +206,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// Opens a file picker and returns a **readonly** URIs.  
     /// If no file is selected or the user cancels, an empty vec is returned.  
     ///  
-    /// Returned URI is valid until the app is terminated. Can not persist it.
+    /// Returned URI is valid until the app or device is terminated. Can not persist it.
     /// 
     /// This works differently depending on the model and version.  
     /// Recent devices often have the similar behaviour as [`FilePicker::pick_visual_medias`] or [`FilePicker::pick_files`].  
@@ -234,7 +234,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// Opens a file picker and returns a **readonly** URI.  
     /// If no file is selected or the user cancels, None is returned.  
     ///  
-    /// Returned URI is valid until the app is terminated. Can not persist it.
+    /// Returned URI is valid until the app or device is terminated. Can not persist it.
     /// 
     /// This works differently depending on the model and version.  
     /// Recent devices often have the similar behaviour as [`FilePicker::pick_visual_media`] or [`FilePicker::pick_file`].  
@@ -264,7 +264,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// App can fully manage entries within the returned directory.  
     /// If no directory is selected or the user cancels, `None` is returned. 
     /// 
-    /// By default, returned URI is valid until the app is terminated. 
+    /// By default, returned URI is valid until the app or device is terminated. 
     /// If you want to persist it across app restarts, use [`AndroidFs::take_persistable_uri_permission`].
     /// 
     /// This provides a standardized file explorer-style interface,
@@ -320,7 +320,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// or it may be an existing file with the requested MIME type.  
     /// If the user cancels, `None` is returned. 
     /// 
-    /// By default, returned URI is valid until the app is terminated. 
+    /// By default, returned URI is valid until the app or device is terminated. 
     /// If you want to persist it across app restarts, use [`AndroidFs::take_persistable_uri_permission`].
     /// 
     /// This provides a standardized file explorer-style interface, 
