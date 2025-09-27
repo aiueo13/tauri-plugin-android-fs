@@ -45,14 +45,14 @@ macro_rules! impl_de {
 
 mod android_fs;
 mod file_picker;
-mod file_sender;
+mod file_opener;
 mod private_storage;
 mod public_storage;
 mod writable_stream;
 
 pub use android_fs::AndroidFs;
 pub use file_picker::FilePicker;
-pub use file_sender::FileSender;
+pub use file_opener::{FileOpener, FileSender};
 pub use private_storage::PrivateStorage;
 pub use public_storage::PublicStorage;
 pub use writable_stream::WritableStream;

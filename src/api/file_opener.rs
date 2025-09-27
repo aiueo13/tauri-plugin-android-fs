@@ -1,7 +1,11 @@
 use crate::*;
 
 
-/// API of sharing files with other apps.
+#[deprecated = "Use FileOpener instead"]
+pub type FileSender<'a, R> = FileOpener<'a, R>;
+
+
+/// API of opening file/dir with other apps.
 /// 
 /// # Examples
 /// ```
@@ -12,12 +16,12 @@ use crate::*;
 ///     let file_sender = api.file_sender();
 /// }
 /// ```
-pub struct FileSender<'a, R: tauri::Runtime>(
+pub struct FileOpener<'a, R: tauri::Runtime>(
     #[allow(unused)]
     pub(crate) &'a AndroidFs<R>
 );
 
-impl<'a, R: tauri::Runtime> FileSender<'a, R> {
+impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
 
     /// Show app chooser for sharing files with other apps.   
     /// This function returns immediately after requesting to open the app chooser, 
@@ -148,6 +152,43 @@ impl<'a, R: tauri::Runtime> FileSender<'a, R> {
     
             self.0.api
                 .run_mobile_plugin::<Res>("viewFile", Req { uri, mime_type, use_app_chooser, exclude_self_from_app_chooser })
+                .map(|_| ())
+                .map_err(Into::into)
+        })
+    }
+
+    /// Show app chooser for opening dir with other apps.   
+    /// This function returns immediately after requesting to open the app chooser, 
+    /// without waiting for the app’s response. 
+    ///   
+    /// This does not result in an error even if no available apps are found. 
+    /// An empty app chooser is displayed.
+    /// 
+    /// # Args
+    /// - ***uri*** :  
+    /// Target dir URI to view.  
+    /// Must be **readable**.  
+    /// URIs converted directly from a path, such as via [`FileUri::from_path`], can **not** be used.  
+    /// 
+    /// # Support
+    /// All Android version.
+    /// 
+    /// # References
+    /// <https://developer.android.com/reference/android/content/Intent#ACTION_VIEW>
+    pub fn open_dir(
+        &self, 
+        uri: &FileUri,
+    ) -> crate::Result<()> {
+
+        on_android!({
+            impl_se!(struct Req<'a> { uri: &'a FileUri, use_app_chooser: bool, exclude_self_from_app_chooser: bool });
+            impl_de!(struct Res;);
+
+            let use_app_chooser = true;
+            let exclude_self_from_app_chooser = true;
+    
+            self.0.api
+                .run_mobile_plugin::<Res>("viewDir", Req { uri, use_app_chooser, exclude_self_from_app_chooser })
                 .map(|_| ())
                 .map_err(Into::into)
         })

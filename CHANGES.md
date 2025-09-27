@@ -1,3 +1,11 @@
+# Version 15.2.0
+- Add `FileOpener`
+- Add `AndroidFs::file_opener`
+- Add `FileSender::open_dir`
+- Deprecate `FileSender`
+- Deprecate `AndroidFs::file_sender`
+- Update documentation.
+
 # Version 15.1.0
 - Add `OptionalEntry`
 - Add `EntryOptions`

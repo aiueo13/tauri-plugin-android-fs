@@ -220,6 +220,13 @@ class CanViewFileArgs {
 }
 
 @InvokeArg
+class ViewDirArgs {
+    lateinit var uri: FileUri
+    var useAppChooser: Boolean = true
+    var excludeSelfFromAppChooser: Boolean = true
+}
+
+@InvokeArg
 class EditFileArgs {
     lateinit var uri: FileUri
     var mimeType: String? = null
@@ -1079,6 +1086,33 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
+    fun viewDir(invoke: Invoke) {
+        try {
+            val args = invoke.parseArgs(ViewDirArgs::class.java)
+            var intent = createViewDirIntent(
+                Uri.parse(args.uri.uri)
+            )
+
+            if (args.useAppChooser) {
+                intent = createViewDirIntentChooser(intent, args.excludeSelfFromAppChooser)
+            }
+
+            // 対応できるアプリがないときExceptionになる。
+            // resolveActivityやqueryIntentActivitiesなどによる判定はAndroid11以降特別な権限が必要。
+            try {
+                activity.applicationContext.startActivity(intent)
+            }
+            catch (_: ActivityNotFoundException) {}
+
+            invoke.resolve()
+        }
+        catch (ex: Exception) {
+            val message = ex.message ?: "Failed to invoke viewDir."
+            invoke.reject(message)
+        }
+    }
+
+    @Command
     fun viewFile(invoke: Invoke) {
         try {
             val args = invoke.parseArgs(ViewFileArgs::class.java)
@@ -1569,6 +1603,42 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             true -> PickMultipleVisualMedia().createIntent(activity, req)
             false -> PickVisualMedia().createIntent(activity, req)
         }
+    }
+
+    private fun createViewDirIntent(
+        uri: Uri,
+    ): Intent {
+
+        val mimeType = DocumentsContract.Document.MIME_TYPE_DIR
+        var isAvailable = DocumentsContract.isDocumentUri(activity, uri)
+        if (!isAvailable && Build.VERSION_CODES.N <= Build.VERSION.SDK_INT) {
+            isAvailable = DocumentsContract.isTreeUri(uri)
+        }
+
+        if (!isAvailable) {
+            throw Exception("This is not a available type: $uri")
+        }
+
+        return Intent(Intent.ACTION_VIEW)
+            .setDataAndType(uri, mimeType)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+
+    private fun createViewDirIntentChooser(
+        viewDirIntent: Intent,
+        excludeSelfFromAppChooser: Boolean
+    ): Intent {
+
+        val chooser = Intent.createChooser(viewDirIntent, "")
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+        if (excludeSelfFromAppChooser && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            chooser.putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(activity.componentName))
+        }
+
+        return chooser
     }
 
     private fun createViewFileIntent(

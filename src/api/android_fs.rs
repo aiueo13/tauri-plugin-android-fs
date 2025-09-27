@@ -62,9 +62,14 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         FilePicker(self)
     }
 
-    /// API of sharing files with other apps.
+    /// API of opening file/dir with other apps.
+    pub fn file_opener(&self) -> FileOpener<'_, R> {
+        FileOpener(self)
+    }
+
+    #[deprecated = "Use AndroidFs::file_opener"]
     pub fn file_sender(&self) -> FileSender<'_, R> {
-        FileSender(self)
+        self.file_opener()
     }
 
     /// Get the file or directory name.  
