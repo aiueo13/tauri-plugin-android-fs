@@ -23,6 +23,14 @@ impl From<tauri::plugin::mobile::PluginInvokeError> for crate::Error {
     }
 }
 
+#[cfg(target_os = "android")]
+impl From<base64::DecodeError> for crate::Error {
+
+    fn from(value: base64::DecodeError) -> Self {
+        Self { msg: Cow::Owned(value.to_string())}
+    }
+}
+
 impl From<std::io::Error> for crate::Error {
 
     fn from(value: std::io::Error) -> Self {

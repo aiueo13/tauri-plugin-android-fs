@@ -848,32 +848,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         format: ImageFormat,
     ) -> crate::Result<bool> {
 
-        on_android!({
-            impl_se!(struct Req<'a> {
-                src: &'a FileUri, 
-                dest: &'a FileUri,
-                format: &'a str,
-                quality: u8,
-                width: u32,
-                height: u32,
-            });
-            impl_de!(struct Res { value: bool });
-
-            let (quality, format) = match format {
-                ImageFormat::Png => (1.0, "Png"),
-                ImageFormat::Jpeg => (0.75, "Jpeg"),
-                ImageFormat::Webp => (0.7, "Webp"),
-                ImageFormat::JpegWith { quality } => (quality, "Jpeg"),
-                ImageFormat::WebpWith { quality } => (quality, "Webp"),
-            };
-            let quality = (quality * 100.0).clamp(0.0, 100.0) as u8;
-            let Size { width, height } = preferred_size;
-        
-            self.api
-                .run_mobile_plugin::<Res>("getThumbnail", Req { src, dest, format, quality, width, height })
-                .map(|v| v.value)
-                .map_err(Into::into)
-        })
+        self.get_thumbnail_to_file(src, dest, preferred_size, format)
     }
 
     /// Get a file thumbnail.  
@@ -912,6 +887,10 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ) -> crate::Result<Option<Vec<u8>>> {
 
         on_android!({
+            if preferred_size.width < 1000 && preferred_size.height < 1000 {
+                return self.get_thumbnail_with_ipc(uri, preferred_size, format);
+            }
+
             let (tmp_file, tmp_file_path) = self.private_storage().create_new_tmp_file()?;
             std::mem::drop(tmp_file);
 
@@ -1297,6 +1276,85 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 
 #[allow(unused)]
 impl<R: tauri::Runtime> AndroidFs<R> {
+
+    pub(crate) fn get_thumbnail_to_file(
+        &self, 
+        src: &FileUri,
+        dest: &FileUri,
+        preferred_size: Size,
+        format: ImageFormat,
+    ) -> crate::Result<bool> {
+
+        on_android!({
+            impl_se!(struct Req<'a> {
+                src: &'a FileUri, 
+                dest: &'a FileUri,
+                format: &'a str,
+                quality: u8,
+                width: u32,
+                height: u32,
+            });
+            impl_de!(struct Res { value: bool });
+
+            let (quality, format) = match format {
+                ImageFormat::Png => (1.0, "Png"),
+                ImageFormat::Jpeg => (0.75, "Jpeg"),
+                ImageFormat::Webp => (0.7, "Webp"),
+                ImageFormat::JpegWith { quality } => (quality, "Jpeg"),
+                ImageFormat::WebpWith { quality } => (quality, "Webp"),
+            };
+            let quality = (quality * 100.0).clamp(0.0, 100.0) as u8;
+            let Size { width, height } = preferred_size;
+        
+            self.api
+                .run_mobile_plugin::<Res>("getThumbnailToFile", Req { src, dest, format, quality, width, height })
+                .map(|v| v.value)
+                .map_err(Into::into)
+        })
+    }
+
+    pub(crate) fn get_thumbnail_with_ipc(
+        &self, 
+        uri: &FileUri,
+        preferred_size: Size,
+        format: ImageFormat,
+    ) -> crate::Result<Option<Vec<u8>>> {
+
+        on_android!({
+            impl_se!(struct Req<'a> {
+                uri: &'a FileUri, 
+                format: &'a str,
+                quality: u8,
+                width: u32,
+                height: u32,
+            });
+            impl_de!(struct Res { bytes: Option<String> });
+
+            let (quality, format) = match format {
+                ImageFormat::Png => (1.0, "Png"),
+                ImageFormat::Jpeg => (0.75, "Jpeg"),
+                ImageFormat::Webp => (0.7, "Webp"),
+                ImageFormat::JpegWith { quality } => (quality, "Jpeg"),
+                ImageFormat::WebpWith { quality } => (quality, "Webp"),
+            };
+            let quality = (quality * 100.0).clamp(0.0, 100.0) as u8;
+            let Size { width, height } = preferred_size;
+        
+            let Some(bytes) = self.api
+                .run_mobile_plugin::<Res>("getThumbnail", Req { uri, format, quality, width, height })
+                .map(|v| v.bytes)? else {
+                    
+                return Ok(None)
+            };
+            if bytes.is_empty() {
+                return Ok(None)
+            }
+
+            use base64::engine::Engine;
+            let bytes = base64::engine::general_purpose::STANDARD.decode(bytes)?;
+            Ok(Some(bytes))
+        })
+    }
 
     pub(crate) fn check_media_store_volume_name_available(
         &self,

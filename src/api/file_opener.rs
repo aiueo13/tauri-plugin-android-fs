@@ -201,7 +201,7 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
     /// # Note
     /// I think that this may be the least commonly used request for sending file to app.  
     /// Even if you want to open an image or video editing app, 
-    /// [`FileSender::open_file`] allows you to choose from a wider range of apps in many cases.
+    /// [`FileOpener::open_file`] allows you to choose from a wider range of apps in many cases.
     /// 
     /// # Args
     /// - ***uri*** :  
@@ -234,7 +234,7 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
         })
     }
 
-    /// Determines whether the specified files can be used with [`FileSender::share_files`].  
+    /// Determines whether the specified files can be used with [`FileOpener::share_files`].  
     /// If no app is available to handle the files, this returns false. 
     /// 
     /// # Args
@@ -264,7 +264,7 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
         })
     }
 
-    /// Determines whether the specified file can be used with [`FileSender::share_file`].  
+    /// Determines whether the specified file can be used with [`FileOpener::share_file`].  
     /// If no app is available to handle the file, this returns false. 
     /// 
     /// # Args
@@ -280,7 +280,7 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
         self.can_share_files([uri])
     }
 
-    /// Determines whether the specified file can be used with [`FileSender::open_file`].  
+    /// Determines whether the specified file can be used with [`FileOpener::open_file`].  
     /// If no app is available to handle the file, this returns false. 
     /// 
     /// # Args
@@ -305,7 +305,7 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
         })
     }
 
-    /// Determines whether the specified file can be used with [`FileSender::edit_file`].  
+    /// Determines whether the specified file can be used with [`FileOpener::edit_file`].  
     /// If no app is available to handle the file, this returns false. 
     /// 
     /// # Args

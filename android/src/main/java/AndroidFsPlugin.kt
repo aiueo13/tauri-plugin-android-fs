@@ -20,6 +20,7 @@ import androidx.core.app.ShareCompat
 import android.webkit.MimeTypeMap
 import android.media.MediaMetadataRetriever
 import android.media.MediaMetadataRetriever.OPTION_PREVIOUS_SYNC
+import android.util.Base64
 import app.tauri.annotation.ActivityCallback
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
@@ -32,6 +33,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.io.File
 import kotlin.math.min
 import kotlin.io.DEFAULT_BUFFER_SIZE
@@ -57,9 +59,18 @@ class GetNameArgs {
 }
 
 @InvokeArg
-class GetThumbnailArgs {
+class GetThumbnailToFileArgs {
     lateinit var src: FileUri
     lateinit var dest: FileUri
+    var width: Int = -1
+    var height: Int = -1
+    var quality: Int = -1
+    lateinit var format: String
+}
+
+@InvokeArg
+class GetThumbnailArgs {
+    lateinit var uri: FileUri
     var width: Int = -1
     var height: Int = -1
     var quality: Int = -1
@@ -803,16 +814,65 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
+    fun getThumbnailToFile(invoke: Invoke) {
+        try {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val args = invoke.parseArgs(GetThumbnailToFileArgs::class.java)
+
+                    val ok = openFileWt(Uri.parse(args.dest.uri)).use {
+                        _getThumbnail(
+                            src = args.src,
+                            out = it,
+                            width = args.width,
+                            height = args.height,
+                            quality = args.quality,
+                            format = args.format
+                        )
+                    }
+
+                    invoke.resolve(JSObject().apply {
+                        put("value", ok)
+                    })
+                }
+                catch (ex: Exception) {
+                    val message = ex.message ?: "Failed to invoke getThumbnail."
+                    invoke.reject(message)
+                }
+            }
+        }
+        catch (ex: Exception) {
+            val message = ex.message ?: "Failed to invoke getThumbnail."
+            invoke.reject(message)
+        }
+    }
+
+    @Command
     fun getThumbnail(invoke: Invoke) {
         try {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    val res = JSObject()
-                    res.put("value", _getThumbnail(invoke))
-                    
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve(res) 
+                    val args = invoke.parseArgs(GetThumbnailArgs::class.java)
+
+                    val base64 = ByteArrayOutputStream().use {
+                        if (_getThumbnail(
+                            src = args.uri,
+                            out = it,
+                            width = args.width,
+                            height = args.height,
+                            quality = args.quality,
+                            format = args.format
+                        )) {
+                            Base64.encodeToString(it.toByteArray(), Base64.NO_WRAP)
+                        }
+                        else {
+                            null
+                        }
                     }
+
+                    invoke.resolve(JSObject().apply {
+                        put("bytes", base64)
+                    })
                 }
                 catch (ex: Exception) {
                     val message = ex.message ?: "Failed to invoke getThumbnail."
@@ -827,17 +887,20 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     }
     
     @Suppress("DEPRECATION")
-    private fun _getThumbnail(invoke: Invoke): Boolean {
-        var out: OutputStream? = null
+    private fun _getThumbnail(
+        src: FileUri,
+        out: OutputStream,
+        width: Int,
+        height: Int,
+        format: String,
+        quality: Int,
+    ): Boolean {
+
         var thumbnail: Bitmap? = null
         var img: Bitmap? = null
 
         try {
-            val args = invoke.parseArgs(GetThumbnailArgs::class.java)
-            val dest = Uri.parse(args.dest.uri)
-            val width = args.width
-            val height = args.height
-            val compressFormat = when (args.format.lowercase()) {
+            val compressFormat = when (format.lowercase()) {
                 "jpeg" -> Bitmap.CompressFormat.JPEG
                 "png" -> Bitmap.CompressFormat.PNG
                 "webp" -> {
@@ -848,19 +911,19 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                         Bitmap.CompressFormat.WEBP
                     }
                 }
-                else -> throw Exception("Illegal format: $args.format")
+                else -> throw Exception("Illegal format: $format")
             }
 
-            img = getFileController(args.src).getThumbnail(
-                args.src,
+            img = getFileController(src).getThumbnail(
+                src,
                 width,
                 height
             )
 
-            val srcUri = Uri.parse(args.src.uri)
+            val srcUri = Uri.parse(src.uri)
             if (img == null && srcUri.scheme == "content") {
                 try {
-                    val mimeType = getFileController(args.src).getMimeType(args.src)
+                    val mimeType = getFileController(src).getMimeType(src)
                     if (mimeType != null && mimeType.startsWith("video/")) {
                         img = getVideoThumbnail(
                             srcUri, 
@@ -871,7 +934,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 }
                 catch (ignore: Exception) {}
             }
-
             if (img == null) {
                 return false
             }
@@ -888,19 +950,15 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             else {
                 img
             }
-            
-            out = openFileWt(dest)
 
-            if (!thumbnail.compress(compressFormat, args.quality.coerceIn(0, 100), out)) {
-                throw Exception("Bitmap.compress() returned false for $dest")
+            if (!thumbnail.compress(compressFormat, quality.coerceIn(0, 100), out)) {
+                throw Exception("Failed to compress bitmap")
             }
-            
             out.flush()
             
             return true
         }
         finally {
-            out?.close()
             thumbnail?.recycle()
             img?.recycle()
         }
