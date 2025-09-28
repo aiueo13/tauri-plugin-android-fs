@@ -6,7 +6,7 @@ use crate::*;
 /// ***Root API***  
 /// 
 /// # Examples
-/// ```
+/// ```no_run
 /// fn example(app: &tauri::AppHandle) {
 ///     use tauri_plugin_android_fs::AndroidFsExt as _;
 /// 
@@ -90,7 +90,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 
     /// Queries the provider to get the MIME type.
     ///
-    /// For files in [`PrivateStorage`], the MIME type is determined from the file extension.  
+    /// For file URIs via [`FileUri::from_path`], the MIME type is determined from the file extension.  
     /// In most other cases, it uses the MIME type that was associated with the file when it was created.  
     /// If the MIME type is unknown or unset, it falls back to `"application/octet-stream"`.  
     /// 
@@ -115,7 +115,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// If the target is a directory, returns [`EntryType::Dir`].
     ///
     /// If the target is a file, returns [`EntryType::File { mime_type }`](EntryType::File).  
-    /// For files in [`PrivateStorage`], the MIME type is determined from the file extension.  
+    /// For file URIs via [`FileUri::from_path`], the MIME type is determined from the file extension.  
     /// In most other cases, it uses the MIME type that was associated with the file when it was created.  
     /// If the MIME type is unknown or unset, it falls back to `"application/octet-stream"`.  
     /// 
@@ -876,7 +876,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         })
     }
 
-    /// Query the provider to get a file thumbnail.  
+    /// Get a file thumbnail.  
     /// If thumbnail does not exist it, return None.
     /// 
     /// Note this does not cache. Please do it in your part if need.  
@@ -886,8 +886,10 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Targe file uri.  
     /// Thumbnail availablty depends on the file provider.  
     /// In general, images and videos are available.  
-    /// For files in [`PrivateStorage`], 
-    /// the file type must match the filename extension.  
+    /// For file URIs via [`FileUri::from_path`], 
+    /// the file type must match the filename extension. 
+    /// In this case, the type is determined by the extension and generate thumbnails.  
+    /// Otherwise, thumbnails are provided through MediaStore, file provider, and etc.
     /// 
     /// - ***preferred_size*** :  
     /// Optimal thumbnail size desired.  

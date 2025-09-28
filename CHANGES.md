@@ -1,3 +1,7 @@
+# Version 16.1.0
+- Add feature `tauri-plugin-fs` and set to default.
+- Update documentation.
+
 # Version 16.0.1
 - Update documentation.
 

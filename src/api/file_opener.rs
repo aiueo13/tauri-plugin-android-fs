@@ -4,7 +4,7 @@ use crate::*;
 /// API of opening file/dir with other apps.
 /// 
 /// # Examples
-/// ```
+/// ```no_run
 /// fn example(app: &tauri::AppHandle) {
 ///     use tauri_plugin_android_fs::AndroidFsExt as _;
 /// 

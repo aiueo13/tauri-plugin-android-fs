@@ -4,7 +4,7 @@ use crate::*;
 /// API of file storage that is available to other applications and users.  
 /// 
 /// # Examples
-/// ```
+/// ```no_run
 /// fn example(app: &tauri::AppHandle) {
 ///     use tauri_plugin_android_fs::AndroidFsExt as _;
 /// 
