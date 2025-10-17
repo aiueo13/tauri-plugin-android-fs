@@ -168,6 +168,8 @@ private fun createStorageVolumeJSObject(
         put("isStable", isStable)
         put("isEmulated", storageVolume.isEmulated)
         put("isReadonly", storageVolume.state == Environment.MEDIA_MOUNTED_READ_ONLY)
+        put("isAvailableForPublicStorage", mediaStoreVolumeName != null)
+        put("isAvailableForPrivateStorage", isStable)
     }
 }
 

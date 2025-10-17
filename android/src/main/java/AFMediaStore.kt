@@ -73,7 +73,5 @@ fun getContentUri(volumeName: String, relativePath: String, mimeType: String): U
         return MediaStore.Audio.Media.getContentUri(volumeName)
     }
 
-    throw IllegalArgumentException(
-        "The top-level directory '$topDir' is not a valid for ${mimeType}."
-    )
+    return MediaStore.Files.getContentUri(volumeName)
 }

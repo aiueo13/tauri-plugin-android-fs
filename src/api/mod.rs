@@ -1,58 +1,27 @@
-macro_rules! on_android {
-    ($action: expr) => {{
-        #[cfg(not(target_os = "android"))] {
-            Err(crate::Error { msg: std::borrow::Cow::Borrowed("This plugin is only for Android") })
-        }
-        #[cfg(target_os = "android")] {
-            $action
-        }
-    }};
-    ($phantom: ty, $action: expr) => {{
-        #[cfg(not(target_os = "android"))] {
-            Err::<$phantom, _>(crate::Error { msg: std::borrow::Cow::Borrowed("This plugin is only for Android") })
-        }
-        #[cfg(target_os = "android")] {
-            $action
-        }
-    }};
-}
-
-#[allow(unused)]
-macro_rules! impl_se {
-    (struct $struct_ident:ident $(< $lifetime:lifetime >)? { $( $name:ident: $ty:ty ),* $(,)? }) => {
-        #[derive(serde::Serialize)]
-        #[serde(rename_all = "camelCase")]
-        struct $struct_ident $(< $lifetime >)? {
-            $($name: $ty,)*
-        }
-    };
-}
-
-#[allow(unused)]
-macro_rules! impl_de {
-    (struct $struct_ident:ident $(< $lifetime:lifetime >)? { $( $name:ident: $ty:ty ),* $(,)? }) => {
-        #[derive(serde::Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        struct $struct_ident $(< $lifetime >)? {
-            $($name: $ty,)*
-        }
-    };
-    (struct $struct_ident:ident $(;)?) => {
-        #[derive(serde::Deserialize)]
-        struct $struct_ident;
-    };
-}
+#[cfg(target_os = "android")]
+mod impls;
 
 mod android_fs;
-mod file_picker;
 mod file_opener;
+mod file_picker;
 mod private_storage;
 mod public_storage;
 mod writable_stream;
 
-pub use android_fs::AndroidFs;
-pub use file_picker::FilePicker;
-pub use file_opener::FileOpener;
-pub use private_storage::PrivateStorage;
-pub use public_storage::PublicStorage;
-pub use writable_stream::WritableStream;
+pub mod api_async {
+    pub use crate::api::android_fs::AsyncAndroidFs as AndroidFs;
+    pub use crate::api::file_opener::AsyncFileOpener as FileOpener;
+    pub use crate::api::file_picker::AsyncFilePicker as FilePicker;
+    pub use crate::api::private_storage::AsyncPrivateStorage as PrivateStorage;
+    pub use crate::api::public_storage::AsyncPublicStorage as PublicStorage;
+    pub use crate::api::writable_stream::AsyncWritableStream as WritableStream;
+}
+
+pub mod api_sync {
+    pub use crate::api::android_fs::SyncAndroidFs as AndroidFs;
+    pub use crate::api::file_opener::SyncFileOpener as FileOpener;
+    pub use crate::api::file_picker::SyncFilePicker as FilePicker;
+    pub use crate::api::private_storage::SyncPrivateStorage as PrivateStorage;
+    pub use crate::api::public_storage::SyncPublicStorage as PublicStorage;
+    pub use crate::api::writable_stream::SyncWritableStream as WritableStream;
+}

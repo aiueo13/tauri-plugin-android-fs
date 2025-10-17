@@ -47,6 +47,10 @@ pub struct StorageVolume {
     /// but it might not be the case due to any issues or rare cases.
     pub is_readonly: bool,
 
+    pub is_available_for_private_storage: bool,
+
+    pub is_available_for_public_storage: bool,
+
     pub id: StorageVolumeId
 }
 

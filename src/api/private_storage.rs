@@ -1,3 +1,4 @@
+use sync_async::sync_async;
 use crate::*;
 
 
@@ -12,11 +13,33 @@ use crate::*;
 ///     let private_storage = api.private_storage();
 /// }
 /// ```
-pub struct PrivateStorage<'a, R: tauri::Runtime>(
-    #[allow(unused)]
-    pub(crate) &'a AndroidFs<R>
-);
+#[sync_async]
+pub struct PrivateStorage<'a, R: tauri::Runtime> {
+    #[cfg(target_os = "android")]
+    pub(crate) handle: &'a tauri::plugin::PluginHandle<R>,
 
+    #[cfg(not(target_os = "android"))]
+    #[allow(unused)]
+    pub(crate) handle: &'a std::marker::PhantomData<fn() -> R>,
+}
+
+#[cfg(target_os = "android")]
+#[sync_async(
+    use(if_sync) super::impls::SyncImpls as Impls;
+    use(if_async) super::impls::AsyncImpls as Impls;
+)]
+impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
+    
+    #[always_sync]
+    fn impls(&self) -> Impls<'_, R> {
+        Impls { handle: &self.handle }
+    }
+}
+
+#[sync_async(
+    use(if_async) super::api_async::{AndroidFs, FileOpener, FilePicker, PublicStorage, WritableStream};
+    use(if_sync) super::api_sync::{AndroidFs, FileOpener, FilePicker, PublicStorage, WritableStream};
+)]
 impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
 
     /// Get an absolute path of the app-specific directory on the internal storage.  
@@ -43,33 +66,18 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     /// 
     /// # Support
     /// All Android version.
+    #[maybe_async]
     pub fn resolve_path(
         &self, 
         dir: PrivateDir
-    ) -> crate::Result<std::path::PathBuf> {
+    ) -> Result<std::path::PathBuf> {
 
-        on_android!({
-            impl_de!(struct Paths {
-                data: std::path::PathBuf, 
-                cache: std::path::PathBuf, 
-                no_backup_data: std::path::PathBuf, 
-            });
-        
-            static PATHS: std::sync::OnceLock<Paths> = std::sync::OnceLock::new();
-
-            if PATHS.get().is_none() {
-                let _ = PATHS.set(
-                    self.0.api.run_mobile_plugin::<Paths>("getPrivateBaseDirAbsolutePaths", "")?
-                );
-            }
-            let paths = PATHS.get().expect("Should call 'set' before 'get'");
-
-            Ok(match dir {
-                PrivateDir::Data => paths.data.clone(),
-                PrivateDir::Cache => paths.cache.clone(),
-                PrivateDir::NoBackupData => paths.no_backup_data.clone(),
-            })
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().internal_private_dir_path(dir).map(Clone::clone)
+        }
     }
 
     /// Get an absolute path of the app-specific directory on the specified storage volume.  
@@ -105,27 +113,19 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     /// 
     /// # Support
     /// All Android version. 
+    #[maybe_async]
     pub fn resolve_outside_path(
         &self, 
         volume_id: Option<&StorageVolumeId>,
         dir: OutsidePrivateDir
     ) -> Result<std::path::PathBuf> {
 
-        if let Some(volume_id) = volume_id {
-            let dir_path = volume_id
-                .outside_private_dir_path(dir)
-                .ok_or_else(|| Error::with("The storage volume has no app-speific directory"))?;
-            
-            if !self.0.check_storage_volume_available_by_path(dir_path)? {
-                return Err(Error::with("The storage volume is not currently available"))
-            }
-
-            return Ok(dir_path.clone())
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
         }
-
-        self.get_primary_volume()?
-            .and_then(|v| v.id.outside_private_dir_path(dir).map(Clone::clone))
-            .ok_or_else(|| Error::with("Primary storage volume is not currently available"))
+        #[cfg(target_os = "android")] {
+            self.impls().resolve_outside_private_dir_path(volume_id, dir).await
+        }
     }
 
     /// Gets a list of currently available storage volumes (internal storage, SD card, USB drive, etc.).
@@ -153,13 +153,14 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     /// 
     /// # Support
     /// All Android version.
+    #[maybe_async]
     pub fn get_volumes(&self) -> Result<Vec<StorageVolume>> {
-        let volumes = self.0.get_available_storage_volumes()?
-            .into_iter()
-            .filter(|v| v.id.private_data_dir_path.is_some() || v.id.private_cache_dir_path.is_some())
-            .collect::<Vec<_>>();
-
-        Ok(volumes)
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().get_available_storage_volumes_for_private_storage().await
+        }
     }
 
     /// Gets a primary storage volume.  
@@ -179,30 +180,38 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     /// 
     /// # Support
     /// All Android version.
+    #[maybe_async]
     pub fn get_primary_volume(&self) -> Result<Option<StorageVolume>> {
-        self.0.get_primary_storage_volume_if_available()
-            .map(|v| v.filter(|v| v.id.private_data_dir_path.is_some() || v.id.private_cache_dir_path.is_some()))
-            .map_err(Into::into)
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().get_primary_storage_volume_if_available_for_private_storage().await
+        }
     }
 
 
     /// This is same as [`FileUri::from_path`]
-    #[deprecated = "Use FileUri::from_path instead"]
+    #[deprecated = "use `FileUri::from_path` instead"]
+    #[maybe_async]
     pub fn resolve_uri(
         &self, 
         dir: PrivateDir,
         relative_path: impl AsRef<std::path::Path>
-    ) -> crate::Result<FileUri> {
+    ) -> Result<FileUri> {
 
-        on_android!({
-            let mut path = self.resolve_path(dir)?;
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            let mut path = self.resolve_path(dir).await?;
             path.push(validate_relative_path(relative_path.as_ref())?);
             Ok(path.into())
-        })
+        }
     }
 }
 
-
+/*
 #[allow(unused)]
 impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
 
@@ -245,4 +254,4 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
             Ok(path)
         })
     }
-}
+} */

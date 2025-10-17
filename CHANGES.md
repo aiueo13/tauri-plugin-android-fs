@@ -1,3 +1,9 @@
+# Version 17.0.0
+- Remove deprecated items
+- Add `is_available_for_publicstorage` and `is_available_for_private_storage` to `StorageVolume`
+- Add async APIs
+- Change module hierarchy
+
 # Version 16.1.0
 - Add feature `tauri-plugin-fs` and set to default.
 - Update documentation.

@@ -14,7 +14,8 @@ pub enum FileAccessMode {
 
     /// Opens the file in write-only mode.  
     /// 
-    /// Since Android 10, this may or may not truncate existing contents. 
+    /// Until Android 10, this will always truncate existing contents.   
+    /// Since Android 10, this may or may not truncate existing contents.   
     /// If the new file is smaller than the old one, **this may cause the file to become corrupted**.
     /// <https://issuetracker.google.com/issues/180526528>
     /// 

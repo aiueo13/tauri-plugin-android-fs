@@ -1,3 +1,4 @@
+use sync_async::sync_async;
 use crate::*;
 
 
@@ -12,11 +13,33 @@ use crate::*;
 ///     let file_picker = api.file_picker();
 /// }
 /// ```
-pub struct FilePicker<'a, R: tauri::Runtime>(
-    #[allow(unused)]
-    pub(crate) &'a AndroidFs<R>
-);
+#[sync_async]
+pub struct FilePicker<'a, R: tauri::Runtime> {
+    #[cfg(target_os = "android")]
+    pub(crate) handle: &'a tauri::plugin::PluginHandle<R>,
 
+    #[cfg(not(target_os = "android"))]
+    #[allow(unused)]
+    pub(crate) handle: &'a std::marker::PhantomData<fn() -> R>,
+}
+
+#[cfg(target_os = "android")]
+#[sync_async(
+    use(if_sync) super::impls::SyncImpls as Impls;
+    use(if_async) super::impls::AsyncImpls as Impls;
+)]
+impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
+    
+    #[always_sync]
+    fn impls(&self) -> Impls<'_, R> {
+        Impls { handle: &self.handle }
+    }
+}
+
+#[sync_async(
+    use(if_async) super::api_async::{AndroidFs, FileOpener, PrivateStorage, PublicStorage, WritableStream};
+    use(if_sync) super::api_sync::{AndroidFs, FileOpener, PrivateStorage, PublicStorage, WritableStream};
+)]
 impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
 
     /// Opens a system file picker and returns a **read-write** URIs.  
@@ -64,13 +87,19 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// 
     /// # References
     /// <https://developer.android.com/reference/android/content/Intent#ACTION_OPEN_DOCUMENT>
+    #[maybe_async]
     pub fn pick_files(
         &self,
         initial_location: Option<&FileUri>,
         mime_types: &[&str],
-    ) -> crate::Result<Vec<FileUri>> {
+    ) -> Result<Vec<FileUri>> {
 
-        self.inner_pick_files(initial_location, mime_types, true)
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().show_pick_file_dialog(initial_location, mime_types, true).await
+        }
     }
 
     /// Opens a system file picker and returns a **read-write** URI.  
@@ -118,13 +147,21 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// 
     /// # References
     /// <https://developer.android.com/reference/android/content/Intent#ACTION_OPEN_DOCUMENT>
+    #[maybe_async]
     pub fn pick_file(
         &self,
         initial_location: Option<&FileUri>,
         mime_types: &[&str],
-    ) -> crate::Result<Option<FileUri>> {
+    ) -> Result<Option<FileUri>> {
 
-        self.inner_pick_files(initial_location, mime_types, false).map(|mut f| f.pop())
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().show_pick_file_dialog(initial_location, mime_types, false)
+                .await
+                .map(|mut i| i.pop())
+        }
     }
 
     /// Opens a media picker and returns a **readonly** URIs.  
@@ -157,12 +194,18 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// 
     /// # References
     /// <https://developer.android.com/training/data-storage/shared/photopicker>
+    #[maybe_async]
     pub fn pick_visual_medias(
         &self,
         target: VisualMediaTarget<'_>,
-    ) -> crate::Result<Vec<FileUri>> {
+    ) -> Result<Vec<FileUri>> {
 
-        self.inner_pick_visual_medias(target, true)
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().show_pick_visual_media_dialog(target, true).await
+        }
     }
 
     /// Opens a media picker and returns a **readonly** URI.  
@@ -195,12 +238,20 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// 
     /// # References
     /// <https://developer.android.com/training/data-storage/shared/photopicker>
+    #[maybe_async]
     pub fn pick_visual_media(
         &self,
         target: VisualMediaTarget<'_>,
-    ) -> crate::Result<Option<FileUri>> {
+    ) -> Result<Option<FileUri>> {
 
-        self.inner_pick_visual_medias(target, false).map(|mut f| f.pop())
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().show_pick_visual_media_dialog(target, false)
+                .await
+                .map(|mut i| i.pop())
+        }
     }
 
     /// Opens a file picker and returns a **readonly** URIs.  
@@ -223,12 +274,18 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// 
     /// # References
     /// <https://developer.android.com/reference/android/content/Intent#ACTION_GET_CONTENT>
+    #[maybe_async]
     pub fn pick_contents(
         &self,
         mime_types: &[&str],
-    ) -> crate::Result<Vec<FileUri>> {
+    ) -> Result<Vec<FileUri>> {
 
-        self.inner_pick_contents(mime_types, true)
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().show_pick_content_dialog(mime_types, true).await
+        }
     }
 
     /// Opens a file picker and returns a **readonly** URI.  
@@ -251,12 +308,20 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// 
     /// # References
     /// <https://developer.android.com/reference/android/content/Intent#ACTION_GET_CONTENT>
+    #[maybe_async]
     pub fn pick_content(
         &self,
         mime_types: &[&str],
-    ) -> crate::Result<Option<FileUri>> {
+    ) -> Result<Option<FileUri>> {
 
-        self.inner_pick_contents(mime_types, false).map(|mut f| f.pop())
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().show_pick_content_dialog(mime_types, false)
+                .await
+                .map(|mut i| i.pop())
+        }
     }
 
     /// Opens a system directory picker, allowing the creation of a new directory or the selection of an existing one, 
@@ -298,21 +363,18 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// 
     /// # References
     /// <https://developer.android.com/reference/android/content/Intent#ACTION_OPEN_DOCUMENT_TREE>
+    #[maybe_async]
     pub fn pick_dir(
         &self,
         initial_location: Option<&FileUri>,
-    ) -> crate::Result<Option<FileUri>> {
+    ) -> Result<Option<FileUri>> {
 
-        on_android!({
-            impl_se!(struct Req<'a> { initial_location: Option<&'a FileUri> });
-            impl_de!(struct Res { uri: Option<FileUri> });
-
-            let _guard = self.0.intent_lock.lock();
-            self.0.api
-                .run_mobile_plugin::<Res>("showManageDirDialog", Req { initial_location })
-                .map(|v| v.uri)
-                .map_err(Into::into)
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().show_pick_dir_dialog(initial_location).await
+        }
     }
 
     /// Opens a system file saver and returns a **writeonly** URI.  
@@ -369,117 +431,33 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// 
     /// # References
     /// <https://developer.android.com/reference/android/content/Intent#ACTION_CREATE_DOCUMENT>
+    #[maybe_async]
     pub fn save_file(
         &self,
         initial_location: Option<&FileUri>,
         initial_file_name: impl AsRef<str>,
         mime_type: Option<&str>,
-    ) -> crate::Result<Option<FileUri>> {
+    ) -> Result<Option<FileUri>> {
         
-        on_android!({
-            impl_se!(struct Req<'a> {
-                initial_file_name: &'a str, 
-                mime_type: Option<&'a str>, 
-                initial_location: Option<&'a FileUri> 
-            });
-            impl_de!(struct Res { uri: Option<FileUri> });
-    
-            let initial_file_name = initial_file_name.as_ref();
-        
-            let _guard = self.0.intent_lock.lock();
-            self.0.api
-                .run_mobile_plugin::<Res>("showSaveFileDialog", Req { initial_file_name, mime_type, initial_location })
-                .map(|v| v.uri)
-                .map_err(Into::into)
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+           self.impls().show_save_file_dialog(initial_location, initial_file_name, mime_type).await 
+        }
     }
 
     /// Verify whether [`FilePicker::pick_visual_medias`] is available on a given device.
     /// 
     /// # Support
     /// All Android version.
+    #[maybe_async]
     pub fn is_visual_media_picker_available(&self) -> crate::Result<bool> {
-        on_android!({
-            impl_de!(struct Res { value: bool });
-
-            self.0.api
-                .run_mobile_plugin::<Res>("isVisualMediaDialogAvailable", "")
-                .map(|v| v.value)
-                .map_err(Into::into)
-        })
-    }
-
-
-    fn inner_pick_files(
-        &self,
-        initial_location: Option<&FileUri>,
-        mime_types: &[&str],
-        multiple: bool,
-    ) -> crate::Result<Vec<FileUri>> {
-
-        on_android!({
-            impl_se!(struct Req<'a> { 
-                mime_types: &'a [&'a str],
-                multiple: bool,
-                initial_location: Option<&'a FileUri>
-            });
-            impl_de!(struct Res { uris: Vec<FileUri> });
-    
-            let _guard = self.0.intent_lock.lock();
-            self.0.api
-                .run_mobile_plugin::<Res>("showOpenFileDialog", Req { mime_types, multiple, initial_location })
-                .map(|v| v.uris)
-                .map_err(Into::into)
-        })
-    }
-
-    fn inner_pick_visual_medias(
-        &self,
-        target: VisualMediaTarget<'_>,
-        multiple: bool,
-    ) -> crate::Result<Vec<FileUri>> {
-
-        on_android!({
-            impl_se!(struct Req<'a> { multiple: bool, target: &'a str });
-            impl_de!(struct Res { uris: Vec<FileUri> });
-
-            let target = match target {
-                VisualMediaTarget::ImageOnly => "image/*",
-                VisualMediaTarget::VideoOnly => "video/*",
-                VisualMediaTarget::ImageAndVideo => "*/*",
-                VisualMediaTarget::ImageOrVideo { mime_type } => {
-                    let is_image_or_video = mime_type.starts_with("image/") || mime_type.starts_with("video/");
-                    if !is_image_or_video {
-                        return Err(Error::with(format!("mime_type must be an image or a video, but {mime_type}")))
-                    }
-                    
-                    mime_type
-                }
-            };
-    
-            let _guard = self.0.intent_lock.lock();
-            self.0.api
-                .run_mobile_plugin::<Res>("showOpenVisualMediaDialog", Req { multiple, target })
-                .map(|v| v.uris)
-                .map_err(Into::into)
-        })
-    }
-
-    fn inner_pick_contents(
-        &self,
-        mime_types: &[&str],
-        multiple: bool
-    ) -> crate::Result<Vec<FileUri>> {
-
-        on_android!({
-            impl_se!(struct Req<'a> { mime_types: &'a [&'a str], multiple: bool });
-            impl_de!(struct Res { uris: Vec<FileUri> });
-
-            let _guard = self.0.intent_lock.lock();
-            self.0.api
-                .run_mobile_plugin::<Res>("showOpenContentDialog", Req { mime_types, multiple })
-                .map(|v| v.uris)
-                .map_err(Into::into)
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().is_visual_media_picker_available().await
+        }
     }
 }

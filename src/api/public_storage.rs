@@ -1,3 +1,4 @@
+use sync_async::sync_async;
 use crate::*;
 
 
@@ -12,11 +13,33 @@ use crate::*;
 ///     let public_storage = api.public_storage();
 /// }
 /// ```
-pub struct PublicStorage<'a, R: tauri::Runtime>(
-    #[allow(unused)]
-    pub(crate) &'a AndroidFs<R>
-);
+#[sync_async]
+pub struct PublicStorage<'a, R: tauri::Runtime> {
+    #[cfg(target_os = "android")]
+    pub(crate) handle: &'a tauri::plugin::PluginHandle<R>,
 
+    #[cfg(not(target_os = "android"))]
+    #[allow(unused)]
+    pub(crate) handle: &'a std::marker::PhantomData<fn() -> R>,
+}
+
+#[cfg(target_os = "android")]
+#[sync_async(
+    use(if_sync) super::impls::SyncImpls as Impls;
+    use(if_async) super::impls::AsyncImpls as Impls;
+)]
+impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
+    
+    #[always_sync]
+    fn impls(&self) -> Impls<'_, R> {
+        Impls { handle: &self.handle }
+    }
+}
+
+#[sync_async(
+    use(if_async) super::api_async::{AndroidFs, FileOpener, FilePicker, PrivateStorage, WritableStream};
+    use(if_sync) super::api_sync::{AndroidFs, FileOpener, FilePicker, PrivateStorage, WritableStream};
+)]
 impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
 
     /// Gets a list of currently available storage volumes (internal storage, SD card, USB drive, etc.).
@@ -39,17 +62,14 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// 
     /// # Support
     /// Android 10 (API level 29) or higher.  
+    #[maybe_async]
     pub fn get_volumes(&self) -> Result<Vec<StorageVolume>> {
-        if self.0.api_level()? < api_level::ANDROID_10 {
-            return Err(Error { msg: "requires Android 10 (API level 29) or higher".into() })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
         }
-
-        let volumes = self.0.get_available_storage_volumes()?
-            .into_iter()
-            .filter(|v| v.id.media_store_volume_name.is_some())
-            .collect::<Vec<_>>();
-
-        Ok(volumes)
+        #[cfg(target_os = "android")] {
+            self.impls().get_available_storage_volumes_for_public_storage().await
+        }
     }
 
     /// Gets a primary storage volume.  
@@ -70,14 +90,14 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// 
     /// # Support
     /// Android 10 (API level 29) or higher.   
+    #[maybe_async]
     pub fn get_primary_volume(&self) -> Result<Option<StorageVolume>> {
-        if self.0.api_level()? < api_level::ANDROID_10 {
-            return Err(Error { msg: "requires Android 10 (API level 29) or higher".into() })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
         }
-
-        self.0.get_primary_storage_volume_if_available()
-            .map(|v| v.filter(|v| v.id.media_store_volume_name.is_some()))
-            .map_err(Into::into)
+        #[cfg(target_os = "android")] {
+            self.impls().get_primary_storage_volume_if_available_for_public_storage().await
+        }
     }
 
     /// Creates a new empty file in the specified public directory of the storage volume.  
@@ -125,43 +145,21 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// - [`PublicAudioDir::Recordings`] is not available on Android 11 (API level 30) and lower.
     /// Availability on a given device can be verified by calling [`PublicStorage::is_recordings_dir_available`].  
     /// - Others dirs are available in all Android versions.
+    #[maybe_async]
     pub fn create_new_file(
         &self,
         volume_id: Option<&StorageVolumeId>,
         base_dir: impl Into<PublicDir>,
         relative_path: impl AsRef<std::path::Path>, 
         mime_type: Option<&str>
-    ) -> crate::Result<FileUri> {
+    ) -> Result<FileUri> {
 
-        on_android!({
-            impl_se!(struct Req<'a> { media_store_volume_name: &'a str, relative_path: std::path::PathBuf, mime_type: Option<&'a str> });
-            impl_de!(struct Res { uri: FileUri });
-
-            if self.0.api_level()? < api_level::ANDROID_10 {
-                return Err(Error { msg: "requires Android 10 (API level 29) or higher".into() })
-            }
-
-            let consts = self.0.consts()?;
-            let relative_path = {
-                let mut p = std::path::PathBuf::new();
-                p.push(consts.public_dir_name(base_dir)?);
-                p.push(validate_relative_path(relative_path.as_ref())?);
-                p
-            };
-            let media_store_volume_name = volume_id
-                .map(|v| v.media_store_volume_name.as_ref())
-                .unwrap_or(consts.media_store_primary_volume_name.as_ref())
-                .ok_or_else(|| Error::with("The storage volume is not available for PublicStorage"))?;
-
-            self.0.api
-                .run_mobile_plugin::<Res>("createNewMediaStoreFile", Req {
-                    media_store_volume_name, 
-                    relative_path,
-                    mime_type,
-                })
-                .map(|v| v.uri)
-                .map_err(Into::into)
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().create_new_file_in_public_storage(volume_id, base_dir, relative_path, mime_type).await
+        }
     }
 
     /// Recursively create a directory and all of its parent components if they are missing.  
@@ -190,6 +188,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// - [`PublicAudioDir::Recordings`] is not available on Android 11 (API level 30) and lower.
     /// Availability on a given device can be verified by calling [`PublicStorage::is_recordings_dir_available`].  
     /// - Others dirs are available in all Android versions.
+    #[maybe_async]
     pub fn create_dir_all(
         &self,
         volume_id: Option<&StorageVolumeId>,
@@ -197,29 +196,12 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         relative_path: impl AsRef<std::path::Path>, 
     ) -> Result<()> {
 
-        on_android!({
-            if self.0.api_level()? < api_level::ANDROID_10 {
-                return Err(Error { msg: "requires Android 10 (API level 29) or higher".into() })
-            }
-
-            let relative_path = validate_relative_path(relative_path.as_ref())?;
-            let base_dir = base_dir.into();
-
-            let tmp_file_uri = self.create_new_file(
-                volume_id,
-                base_dir, 
-                relative_path.join("TMP-01K3CGCKYSAQ1GHF8JW5FGD4RW"), 
-                Some(match base_dir {
-                    PublicDir::Image(_) => "image/png",
-                    PublicDir::Audio(_) => "audio/mp3",
-                    PublicDir::Video(_) => "video/mp4",
-                    PublicDir::GeneralPurpose(_) => "application/octet-stream"
-                })
-            )?;
-            let _ = self.0.remove_file(&tmp_file_uri);
-
-            Ok(())
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().create_dir_all_in_public_storage(volume_id, base_dir, relative_path).await
+        }
     }
 
     /// Retrieves the absolute path for a specified public directory within the given storage volume.   
@@ -267,37 +249,19 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// - [`PublicAudioDir::Recordings`] is not available on Android 11 (API level 30) and lower.
     /// Availability on a given device can be verified by calling [`PublicStorage::is_recordings_dir_available`].  
     /// - Others dirs are available in all Android versions.
+    #[maybe_async]
     pub fn resolve_path(
         &self,
         volume_id: Option<&StorageVolumeId>,
         base_dir: impl Into<PublicDir>,
     ) -> Result<std::path::PathBuf> {
 
-        if self.0.api_level()? < api_level::ANDROID_10 {
-            return Err(Error { msg: "requires Android 10 (API level 29) or higher".into() })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
         }
-
-        let mut path = match volume_id {
-            Some(volume_id) => {
-                let (vn, tp) = volume_id.media_store_volume_name.as_ref()
-                    .zip(volume_id.top_directory_path.as_ref())
-                    .ok_or_else(|| Error::with("The storage volume is not available for PublicStorage"))?;
-                
-                if !self.0.check_media_store_volume_name_available(vn)? {
-                    return Err(Error::with("The storage volume is not currently available"))
-                }
-
-                tp.clone()
-            },
-            None => {
-                self.get_primary_volume()?
-                    .and_then(|v| v.id.top_directory_path)
-                    .ok_or_else(|| Error::with("Primary storage volume is not currently available"))?
-            }
-        };
-
-        path.push(self.0.consts()?.public_dir_name(base_dir)?);
-        Ok(path)
+        #[cfg(target_os = "android")] {
+            self.impls().resolve_path(volume_id, base_dir).await
+        }
     }
 
     /// Create the specified directory URI that has **no permissions**.  
@@ -328,6 +292,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// - [`PublicAudioDir::Recordings`] is not available on Android 11 (API level 30) and lower.
     /// Availability on a given device can be verified by calling [`PublicStorage::is_recordings_dir_available`].  
     /// - Others dirs are available in all Android versions.
+    #[maybe_async]
     pub fn resolve_initial_location(
         &self,
         volume_id: Option<&StorageVolumeId>,
@@ -336,25 +301,12 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         create_dir_all: bool
     ) -> Result<FileUri> {
 
-        on_android!({
-            let base_dir = base_dir.into();
-            
-            let mut uri = self.resolve_initial_location_top(volume_id)?;
-            uri.uri.push_str(self.0.consts()?.public_dir_name(base_dir)?);
-
-            let relative_path = validate_relative_path(relative_path.as_ref())?;
-            let relative_path = relative_path.to_string_lossy();
-            if !relative_path.is_empty() {
-                uri.uri.push_str("%2F");
-                uri.uri.push_str(&encode_document_id(relative_path.as_ref()));
-            }
-
-            if create_dir_all {
-                let _ = self.create_dir_all(volume_id, base_dir, relative_path.as_ref());
-            }
-
-            Ok(uri)
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().resolve_public_storage_initial_location(volume_id, base_dir, relative_path, create_dir_all).await
+        }
     }
 
     /// Create the specified directory URI that has **no permissions**.  
@@ -379,21 +331,18 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// - [`PublicAudioDir::Recordings`] is not available on Android 11 (API level 30) and lower.
     /// Availability on a given device can be verified by calling [`PublicStorage::is_recordings_dir_available`].  
     /// - Others dirs are available in all Android versions.
+    #[maybe_async]
     pub fn resolve_initial_location_top(
         &self,
         volume_id: Option<&StorageVolumeId>
     ) -> Result<FileUri> {
 
-        on_android!({
-            let volume_id = volume_id
-                .and_then(|v| v.uuid.as_deref())
-                .unwrap_or("primary");
-
-            Ok(FileUri {
-                uri: format!("content://com.android.externalstorage.documents/document/{volume_id}%3A"),
-                document_top_tree_uri: None 
-            })
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().resolve_public_storage_initial_location_top(volume_id).await
+        }
     }
 
     /// Verify whether the basic functions of PublicStorage 
@@ -404,8 +353,14 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// 
     /// # Support
     /// All Android version.
-    pub fn is_available(&self) -> crate::Result<bool> {
-        Ok(api_level::ANDROID_10 <= self.0.api_level()?)
+    #[always_sync]
+    pub fn is_available(&self) -> Result<bool> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            Ok(api_level::ANDROID_10 <= self.impls().api_level()?)
+        }
     }
 
     /// Verify whether [`PublicAudioDir::Audiobooks`] is available on a given device.   
@@ -415,8 +370,14 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// 
     /// # Support
     /// All Android version.
-    pub fn is_audiobooks_dir_available(&self) -> crate::Result<bool> {
-        Ok(self.0.consts()?.env_dir_audiobooks.is_some())
+    #[always_sync]
+    pub fn is_audiobooks_dir_available(&self) -> Result<bool> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            Ok(self.impls().consts()?.env_dir_audiobooks.is_some())
+        }
     }
 
     /// Verify whether [`PublicAudioDir::Recordings`] is available on a given device.   
@@ -426,7 +387,13 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// 
     /// # Support
     /// All Android version.
-    pub fn is_recordings_dir_available(&self) -> crate::Result<bool> {
-        Ok(self.0.consts()?.env_dir_recordings.is_some())
+    #[always_sync]
+    pub fn is_recordings_dir_available(&self) -> Result<bool> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            Ok(self.impls().consts()?.env_dir_recordings.is_some())
+        }
     }
 }

@@ -1,5 +1,4 @@
-#[allow(unused)]
-use std::io::{Read as _, Write as _};
+use sync_async::sync_async;
 use crate::*;
 
 
@@ -13,58 +12,58 @@ use crate::*;
 ///     let api = app.android_fs();
 /// }
 /// ```
+
+#[sync_async]
 pub struct AndroidFs<R: tauri::Runtime> {
+    #[cfg(target_os = "android")]
+    pub(crate) handle: tauri::plugin::PluginHandle<R>,
+
+    #[cfg(not(target_os = "android"))]
     #[allow(unused)]
-    pub(crate) app: tauri::AppHandle<R>, 
-
-    #[cfg(target_os = "android")]
-    pub(crate) api: tauri::plugin::PluginHandle<R>, 
-
-    #[cfg(target_os = "android")]
-    pub(crate) intent_lock: std::sync::Mutex<()>,
+    pub(crate) handle: std::marker::PhantomData<fn() -> R>
 }
 
+#[cfg(target_os = "android")]
+#[sync_async(
+    use(if_sync) super::impls::SyncImpls as Impls;
+    use(if_async) super::impls::AsyncImpls as Impls;
+)]
 impl<R: tauri::Runtime> AndroidFs<R> {
-
-    pub(crate) fn new<C: serde::de::DeserializeOwned>(
-        app: tauri::AppHandle<R>,
-        api: tauri::plugin::PluginApi<R, C>,
-    ) -> crate::Result<Self> {
-
-        #[cfg(target_os = "android")] {
-            Ok(Self {
-                api: api.register_android_plugin("com.plugin.android_fs", "AndroidFsPlugin")?, 
-                app,
-                intent_lock: std::sync::Mutex::new(())
-            })
-        }
-        
-        #[cfg(not(target_os = "android"))] {
-            Ok(Self { app })
-        }
+    
+    #[always_sync]
+    pub(crate) fn impls(&self) -> Impls<'_, R> {
+        Impls { handle: &self.handle }
     }
 }
 
+#[sync_async(
+    use(if_async) super::api_async::{FileOpener, FilePicker, PrivateStorage, PublicStorage, WritableStream};
+    use(if_sync) super::api_sync::{FileOpener, FilePicker, PrivateStorage, PublicStorage, WritableStream};
+)]
 impl<R: tauri::Runtime> AndroidFs<R> {
 
     /// API of file storage intended for the app's use only.
+    #[always_sync]
     pub fn private_storage(&self) -> PrivateStorage<'_, R> {
-        PrivateStorage(self)
+        PrivateStorage { handle: &self.handle }
     }
 
     /// API of file storage that is available to other applications and users.
+    #[always_sync]
     pub fn public_storage(&self) -> PublicStorage<'_, R> {
-        PublicStorage(self)
+        PublicStorage { handle: &self.handle }
     }
 
     /// API of file/dir picker.
+    #[always_sync]
     pub fn file_picker(&self) -> FilePicker<'_, R> {
-        FilePicker(self)
+        FilePicker { handle: &self.handle }
     }
 
     /// API of opening file/dir with other apps.
+    #[always_sync]
     pub fn file_opener(&self) -> FileOpener<'_, R> {
-        FileOpener(self)
+        FileOpener { handle: &self.handle }
     }
 
     /// Get the file or directory name.  
@@ -76,16 +75,14 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
-    pub fn get_name(&self, uri: &FileUri) -> crate::Result<String> {
-        on_android!({
-            impl_se!(struct Req<'a> { uri: &'a FileUri });
-            impl_de!(struct Res { name: String });
-
-            self.api
-                .run_mobile_plugin::<Res>("getName", Req { uri })
-                .map(|v| v.name)
-                .map_err(Into::into)
-        })
+    #[maybe_async]
+    pub fn get_name(&self, uri: &FileUri) -> Result<String> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().get_entry_name(uri).await
+        }
     }
 
     /// Queries the provider to get the MIME type.
@@ -104,10 +101,14 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
-    pub fn get_mime_type(&self, uri: &FileUri) -> crate::Result<String> {
-        on_android!({
-            self.get_type(uri)?.into_file_mime_type_or_err()
-        })
+    #[maybe_async]
+    pub fn get_mime_type(&self, uri: &FileUri) -> Result<String> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().get_file_mime_type(uri).await
+        }
     }
 
     /// Gets the entry type.
@@ -126,19 +127,14 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
-    pub fn get_type(&self, uri: &FileUri) -> crate::Result<EntryType> {
-        on_android!({
-            impl_se!(struct Req<'a> { uri: &'a FileUri });
-            impl_de!(struct Res { value: Option<String> });
-
-            self.api
-                .run_mobile_plugin::<Res>("getMimeType", Req { uri })
-                .map(|v| match v.value {
-                    Some(mime_type) => EntryType::File { mime_type },
-                    None => EntryType::Dir,
-                })
-                .map_err(Into::into)
-        })
+    #[maybe_async]
+    pub fn get_type(&self, uri: &FileUri) -> Result<EntryType> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().get_entry_type(uri).await
+        }
     }
 
     /// Queries the file system to get information about a file, directory.
@@ -153,11 +149,14 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
-    pub fn get_metadata(&self, uri: &FileUri) -> crate::Result<std::fs::Metadata> {
-        on_android!({
-            let file = self.open_file_readable(uri)?;
-            Ok(file.metadata()?)
-        })
+    #[maybe_async]
+    pub fn get_metadata(&self, uri: &FileUri) -> Result<std::fs::Metadata> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().get_entry_metadata(uri).await
+        }
     }
 
     /// Open the file in **readable** mode. 
@@ -175,8 +174,14 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
+    #[maybe_async]
     pub fn open_file_readable(&self, uri: &FileUri) -> Result<std::fs::File> {
-        self.open_file(uri, FileAccessMode::Read)
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().open_file_readable(uri).await
+        }
     }
 
     /// Open the file in **writable** mode.  
@@ -196,39 +201,18 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
+    #[maybe_async]
     pub fn open_file_writable(
         &self, 
         uri: &FileUri, 
-    ) -> crate::Result<std::fs::File> {
+    ) -> Result<std::fs::File> {
 
-        on_android!(#[allow(deprecated)] {
-            // Android 9 以下の場合、w は既存コンテンツを切り捨てる
-            if self.api_level()? <= api_level::ANDROID_9 {
-                self.open_file(uri, FileAccessMode::Write)
-            }
-            // Android 10 以上の場合、w は既存コンテンツの切り捨てを保証しない。
-            // そのため切り捨ててファイルを開くには wt を用いる必要があるが、
-            // wt は全ての file provider が対応しているとは限らないため、
-            // フォールバックを用いてなるべく多くの状況に対応する。
-            // https://issuetracker.google.com/issues/180526528?pli=1
-            else {
-                let (file, mode) = self.open_file_with_fallback(uri, [
-                    FileAccessMode::WriteTruncate, 
-                    FileAccessMode::ReadWriteTruncate,
-                    FileAccessMode::Write
-                ])?;
-
-                if mode == FileAccessMode::Write {
-                    // file provider が既存コンテンツを切り捨てず、
-                    // かつ書き込むデータ量が元のそれより少ない場合にファイルが壊れる可能性がある。
-                    // これを避けるため強制的にデータを切り捨てる。
-                    // file provider の実装によっては set_len は失敗することがあるので最終手段。
-                    file.set_len(0)?;
-                }
-
-                Ok(file)
-            }
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().open_file_writable(uri).await
+        }
     }
 
     /// Open the file in the specified mode.  
@@ -272,21 +256,14 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
+    #[maybe_async]
     pub fn open_file(&self, uri: &FileUri, mode: FileAccessMode) -> crate::Result<std::fs::File> {
-        on_android!({
-            impl_se!(struct Req<'a> { uri: &'a FileUri, mode: &'a str });
-            impl_de!(struct Res { fd: std::os::fd::RawFd });
-    
-            let mode = mode.to_mode();
-
-            self.api
-                .run_mobile_plugin::<Res>("getFileDescriptor", Req { uri, mode })
-                .map(|v| {
-                    use std::os::fd::FromRawFd;
-                    unsafe { std::fs::File::from_raw_fd(v.fd) }
-                })
-                .map_err(Into::into)
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().open_file(uri, mode).await
+        }
     }
  
     /// For detailed documentation and notes, see [`AndroidFs::open_file`].  
@@ -294,34 +271,19 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// The modes specified in ***candidate_modes*** are tried in order.  
     /// If the file can be opened, this returns the file along with the mode used.  
     /// If all attempts fail, an error is returned.  
+    #[maybe_async]
     pub fn open_file_with_fallback(
         &self, 
         uri: &FileUri, 
         candidate_modes: impl IntoIterator<Item = FileAccessMode>
-    ) -> crate::Result<(std::fs::File, FileAccessMode)> {
+    ) -> Result<(std::fs::File, FileAccessMode)> {
 
-        on_android!({
-            impl_se!(struct Req<'a> { uri: &'a FileUri, modes: Vec<&'a str> });
-            impl_de!(struct Res { fd: std::os::fd::RawFd, mode: String });
-    
-            let modes = candidate_modes.into_iter().map(|m| m.to_mode()).collect::<Vec<_>>();
-
-            if modes.is_empty() {
-                return Err(Error::with("candidate_modes must not be empty"));
-            }
-
-            self.api
-                .run_mobile_plugin::<Res>("getFileDescriptorWithFallback", Req { uri, modes })
-                .map_err(Into::into)
-                .and_then(|v| FileAccessMode::from_mode(&v.mode).map(|m| (v.fd, m)))
-                .map(|(fd, mode)| {
-                    let file = {
-                        use std::os::fd::FromRawFd;
-                        unsafe { std::fs::File::from_raw_fd(fd) }
-                    };
-                    (file, mode)
-                })
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().open_file_with_fallback(uri, candidate_modes).await
+        }
     }
 
     /// Opens a stream for writing to the specified file.  
@@ -345,15 +307,19 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
+    #[maybe_async]
     pub fn open_writable_stream(
         &self,
         uri: &FileUri
     ) -> Result<WritableStream<R>> {
 
-        on_android!({
-            let need_write_via_kotlin = self.need_write_via_kotlin(uri)?;
-            WritableStream::new(self.app.clone(), uri.clone(), need_write_via_kotlin)
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            let impls = self.impls().create_writable_stream_auto(uri).await?;
+            Ok(WritableStream { impls })
+        }
     }
 
     /// Opens a writable stream to the specified file.  
@@ -376,15 +342,19 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
+    #[maybe_async]
     pub fn open_writable_stream_via_kotlin(
         &self,
         uri: &FileUri
     ) -> Result<WritableStream<R>> {
 
-        on_android!({
-            let need_write_via_kotlin = true;
-            WritableStream::new(self.app.clone(), uri.clone(), need_write_via_kotlin)
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            let impls = self.impls().create_writable_stream_via_kotlin(uri).await?;
+            Ok(WritableStream { impls })
+        }
     }
 
     /// Reads the entire contents of a file into a bytes vector.  
@@ -396,17 +366,14 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
-    pub fn read(&self, uri: &FileUri) -> crate::Result<Vec<u8>> {
-        on_android!({
-            let mut file = self.open_file_readable(uri)?;
-            let mut buf = file.metadata().ok()
-                .map(|m| m.len() as usize)
-                .map(Vec::with_capacity)
-                .unwrap_or_else(Vec::new);
-
-            file.read_to_end(&mut buf)?;
-            Ok(buf)
-        })
+    #[maybe_async]
+    pub fn read(&self, uri: &FileUri) -> Result<Vec<u8>> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().read_file(uri).await
+        }
     }
 
     /// Reads the entire contents of a file into a string.  
@@ -418,17 +385,14 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
-    pub fn read_to_string(&self, uri: &FileUri) -> crate::Result<String> {
-        on_android!({
-            let mut file = self.open_file_readable(uri)?;
-            let mut buf = file.metadata().ok()
-                .map(|m| m.len() as usize)
-                .map(String::with_capacity)
-                .unwrap_or_else(String::new);
-    
-            file.read_to_string(&mut buf)?;
-            Ok(buf)
-        })
+    #[maybe_async]
+    pub fn read_to_string(&self, uri: &FileUri) -> Result<String> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().read_file_to_string(uri).await
+        }
     }
 
     /// Writes a slice as the entire contents of a file.  
@@ -436,7 +400,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Note
     /// The behavior depends on [`AndroidFs::need_write_via_kotlin`].  
-    /// If it is `false`, this uses [`std::fs::File::write_all`].  
+    /// If it is `false`, this uses [`std::fs::File`].  
     /// If it is `true`, this uses [`AndroidFs::write_via_kotlin`].  
     /// 
     /// # Args
@@ -446,13 +410,14 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
-    pub fn write(&self, uri: &FileUri, contents: impl AsRef<[u8]>) -> crate::Result<()> {
-        on_android!({
-            let mut stream = self.open_writable_stream(uri)?;
-            stream.write_all(contents.as_ref())?;
-            stream.reflect()?;
-            Ok(())
-        })
+    #[maybe_async]
+    pub fn write(&self, uri: &FileUri, contents: impl AsRef<[u8]>) -> Result<()> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().write_file_auto(uri, contents).await
+        }
     }
 
     /// Writes a slice as the entire contents of a file.  
@@ -464,18 +429,19 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
+    #[maybe_async]
     pub fn write_via_kotlin(
         &self, 
         uri: &FileUri,
         contents: impl AsRef<[u8]>
-    ) -> crate::Result<()> {
+    ) -> Result<()> {
 
-        on_android!({
-            let mut stream = self.open_writable_stream_via_kotlin(uri)?;
-            stream.write_all(contents.as_ref())?;
-            stream.reflect()?;
-            Ok(())
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().write_file_via_kotlin(uri, contents).await
+        }
     }
 
     /// Copies the contents of the source file to the destination.  
@@ -497,20 +463,14 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
-    pub fn copy(&self, src: &FileUri, dest: &FileUri) -> crate::Result<()> {
-        on_android!({
-            if self.need_write_via_kotlin(dest)? {
-                self.copy_via_kotlin(src, dest, None)?;
-            }
-            else {
-                // std::io::copy は std::fs::File 同士のコピーの場合、最適化が働く可能性がある。
-                // そのため self.open_writable_stream は用いない。
-                let src = &mut self.open_file_readable(src)?;
-                let dest = &mut self.open_file_writable(dest)?;
-                std::io::copy(src, dest)?;
-            }
-            Ok(())
-        })
+    #[maybe_async]
+    pub fn copy(&self, src: &FileUri, dest: &FileUri) -> Result<()> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().copy_file(src, dest).await
+        }
     }
 
     /// Copies the contents of src file to dest.  
@@ -536,26 +496,20 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
+    #[maybe_async]
     pub fn copy_via_kotlin(
         &self, 
         src: &FileUri, 
         dest: &FileUri,
         buffer_size: Option<u32>,
-    ) -> crate::Result<()> {
+    ) -> Result<()> {
 
-        on_android!({
-            impl_se!(struct Req<'a> { src: &'a FileUri, dest: &'a FileUri, buffer_size: Option<u32> });
-            impl_de!(struct Res;);
-
-            if buffer_size.is_some_and(|s| s <= 0) {
-                return Err(Error { msg: "buffer_size must be non zero".into() })
-            }
-
-            self.api
-                .run_mobile_plugin::<Res>("copyFile", Req { src, dest, buffer_size })
-                .map(|_| ())
-                .map_err(Into::into)
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().copy_file_via_kotlin(src, dest, buffer_size).await
+        }
     }
 
     /// Determines whether the file must be written via the Kotlin API rather than through a file descriptor.
@@ -565,48 +519,14 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
-    pub fn need_write_via_kotlin(&self, uri: &FileUri) -> crate::Result<bool> {
-        on_android!({
-            // - https://issuetracker.google.com/issues/200201777
-            // - https://stackoverflow.com/questions/51015513/fileoutputstream-writes-0-bytes-to-google-drive
-            // - https://stackoverflow.com/questions/51490194/file-written-using-action-create-document-is-empty-on-google-drive-but-not-local
-            // - https://community.latenode.com/t/csv-export-to-google-drive-results-in-empty-file-but-local-storage-works-fine 
-            // 
-            // Intent.ACTION_OPEN_DOCUMENT や Intent.ACTION_CREATE_DOCUMENT などの SAF で
-            // 取得した Google Drive のファイルに対して生の FD を用いて書き込んだ場合、
-            // それが反映されず空のファイルのみが残ることがある。
-            // これの対処法として Context.openOutputStream から得た OutputStream で書き込んだ後
-            // flush 関数を使うことで反映させることができる。
-            // このプラグインでは Context.openAssetFileDescriptor から FD を取得して操作しているが
-            // これはハック的な手法ではなく公式の doc でも SAF の例として用いられている手法であるため
-            // この動作は仕様ではなく GoogleDrive 側のバグだと考えていいと思う。
-            // 
-            // また Web を調べたが GoogleDrive 以外でこのような問題が起こるのは見つけれなかった。
-            // 実際、試した限りでは DropBox で書き込んだものが普通に反映された。
-            // もしかしたら他のクラウドストレージアプリでは起こるかもしれないが、
-            // それは仕様ではなく FileProvider 側のバグ？だと思うのでこちら側ではコストを考え対処療法のみを行う。
-            // つまりホワイトリスト方式ではなくブラックリスト方式を用いて判定する。
-            //
-            // 
-            // 未来の自分用: 
-            // Context.openOutputStream は内部で Context.openAssetFileDescriptor を使っている。
-            // その関数が返す ParcelFileDescriptor の releaseResources 関数が怪しい。
-            // 787行目: https://android.googlesource.com/platform/frameworks/base/+/refs/heads/android10-mainline-media-release/core/java/android/os/ParcelFileDescriptor.java?utm_source=chatgpt.com%2F%2F%2F
-            // releaseResources に関して、doc では FD が閉じられる際に呼ばれるフック関数であり 
-            // FileProvider がリソースを解放するためのフック関数だと書いているが、
-            // これに Google Drive はファイル更新のトリガーを実装しているのかもしれない。
-            // Rust 側に渡す生の FD を取得する際に detachFd 関数を呼び出しているが、
-            // これは内部で releaseResources を呼び出しているため
-            // まだ書き込んでない空のファイルが完了済みのものとしてマークされたのかも？
-            // ただこれはソースコードを見て思いついた妄想なので要検証。
-            // TODO: 時間がある時にリフレクションで呼び出して検証し、もしそうだったら issue を建てたい。
-
-            const TARGET_URI_PREFIXES: &'static [&'static str] = &[
-                "content://com.google.android.apps.docs", // Google drive
-            ];
-
-            Ok(TARGET_URI_PREFIXES.iter().any(|prefix| uri.uri.starts_with(prefix)))
-        })
+    #[maybe_async]
+    pub fn need_write_via_kotlin(&self, uri: &FileUri) -> Result<bool> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().need_write_file_via_kotlin(uri).await
+        }
     }
 
     /// Renames a file or directory to a new name, and return new URI.  
@@ -632,16 +552,14 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
-    pub fn rename(&self, uri: &FileUri, new_name: impl AsRef<str>) -> crate::Result<FileUri> {
-        on_android!({
-            impl_se!(struct Req<'a> { uri: &'a FileUri, new_name: &'a str });
-
-            let new_name = new_name.as_ref();
-
-            self.api
-                .run_mobile_plugin::<FileUri>("rename", Req { uri, new_name })
-                .map_err(Into::into)
-        })
+    #[maybe_async]
+    pub fn rename(&self, uri: &FileUri, new_name: impl AsRef<str>) -> Result<FileUri> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().rename_entry(uri, new_name).await
+        }
     }
 
     /// Remove the file.
@@ -656,16 +574,14 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
+    #[maybe_async]
     pub fn remove_file(&self, uri: &FileUri) -> crate::Result<()> {
-        on_android!({
-            impl_se!(struct Req<'a> { uri: &'a FileUri });
-            impl_de!(struct Res;);
-    
-            self.api
-                .run_mobile_plugin::<Res>("deleteFile", Req { uri })
-                .map(|_| ())
-                .map_err(Into::into)
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().remove_file(uri).await
+        }
     }
 
     /// Remove the **empty** directory.
@@ -678,16 +594,14 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
+    #[maybe_async]
     pub fn remove_dir(&self, uri: &FileUri) -> crate::Result<()> {
-        on_android!({
-            impl_se!(struct Req<'a> { uri: &'a FileUri });
-            impl_de!(struct Res;);
-        
-            self.api
-                .run_mobile_plugin::<Res>("deleteEmptyDir", Req { uri })
-                .map(|_| ())
-                .map_err(Into::into)
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().remove_dir_if_empty(uri).await
+        }
     }
 
     /// Removes a directory and all its contents. Use carefully!
@@ -700,16 +614,14 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
+    #[maybe_async]
     pub fn remove_dir_all(&self, uri: &FileUri) -> crate::Result<()> {
-        on_android!({
-            impl_se!(struct Req<'a> { uri: &'a FileUri });
-            impl_de!(struct Res;);
-        
-            self.api
-                .run_mobile_plugin::<Res>("deleteDirAll", Req { uri })
-                .map(|_| ())
-                .map_err(Into::into)
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().remove_dir_all(uri).await
+        }
     }
 
     /// Build a URI of an **existing** file located at the relative path from the specified directory.   
@@ -732,21 +644,19 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
+    #[maybe_async]
     pub fn try_resolve_file_uri(
         &self, 
         dir: &FileUri, 
         relative_path: impl AsRef<std::path::Path>
-    ) -> crate::Result<FileUri> {
+    ) -> Result<FileUri> {
 
-        on_android!({
-            #[allow(deprecated)]
-            let uri = self.resolve_uri(dir, relative_path)?;         
-
-            if !self.get_type(&uri)?.is_file() {
-                return Err(crate::Error::with(format!("This is not a file: {uri:?}")))
-            }
-            Ok(uri)
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().try_resolve_file_uri(dir, relative_path).await
+        }
     }
 
     /// Build a URI of an **existing** directory located at the relative path from the specified directory.   
@@ -769,21 +679,19 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
+    #[maybe_async]
     pub fn try_resolve_dir_uri(
         &self,
         dir: &FileUri, 
         relative_path: impl AsRef<std::path::Path>
-    ) -> crate::Result<FileUri> {
+    ) -> Result<FileUri> {
 
-        on_android!({
-            #[allow(deprecated)]
-            let uri = self.resolve_uri(dir, relative_path)?;
-            
-            if !self.get_type(&uri)?.is_dir() {
-                return Err(crate::Error::with(format!("This is not a directory: {uri:?}")))
-            }
-            Ok(uri)
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().try_resolve_dir_uri(dir, relative_path).await
+        }
     }
 
     /// Build a URI of an entry located at the relative path from the specified directory.   
@@ -814,41 +722,39 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
-    #[deprecated = "Use AndroidFs::try_resolve_file_uri or AndroidFs::try_resolve_dir_uri instead"]
-    pub fn resolve_uri(
+    #[maybe_async]
+    pub fn resolve_uri_unvalidated(
         &self, 
         dir: &FileUri, 
         relative_path: impl AsRef<std::path::Path>
-    ) -> crate::Result<FileUri> {
+    ) -> Result<FileUri> {
 
-        on_android!({
-            let base_dir = &dir.uri;
-            let relative_path = validate_relative_path(relative_path.as_ref())?;
-            let relative_path = relative_path.to_string_lossy();
-
-            if relative_path.is_empty() {
-                return Ok(dir.clone())
-            }
-
-            Ok(FileUri {
-                document_top_tree_uri: dir.document_top_tree_uri.clone(),
-                uri: format!("{base_dir}%2F{}", encode_document_id(relative_path))
-            })
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().resolve_entry_uri_unvalidated(dir, relative_path).await
+        }
     }
 
     /// See [`AndroidFs::get_thumbnail_to`] for descriptions.  
     /// 
     /// If thumbnail does not wrote to dest, return false.
+    #[maybe_async]
     pub fn get_thumbnail_to(
         &self, 
         src: &FileUri,
         dest: &FileUri,
         preferred_size: Size,
         format: ImageFormat,
-    ) -> crate::Result<bool> {
+    ) -> Result<bool> {
 
-        self.get_thumbnail_to_file(src, dest, preferred_size, format)
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().get_file_thumbnail_to_file(src, dest, preferred_size, format).await
+        }
     }
 
     /// Get a file thumbnail.  
@@ -879,37 +785,20 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
+    #[maybe_async]
     pub fn get_thumbnail(
         &self,
         uri: &FileUri,
         preferred_size: Size,
         format: ImageFormat,
-    ) -> crate::Result<Option<Vec<u8>>> {
+    ) -> Result<Option<Vec<u8>>> {
 
-        on_android!({
-            if preferred_size.width < 1000 && preferred_size.height < 1000 {
-                return self.get_thumbnail_with_ipc(uri, preferred_size, format);
-            }
-
-            let (tmp_file, tmp_file_path) = self.private_storage().create_new_tmp_file()?;
-            std::mem::drop(tmp_file);
-
-            let result = self.get_thumbnail_to(uri, &(&tmp_file_path).into(), preferred_size, format)
-                .and_then(|ok| {
-                    if ok {
-                        std::fs::read(&tmp_file_path)
-                            .map(Some)
-                            .map_err(Into::into)
-                    }
-                    else {
-                        Ok(None)
-                    }
-                });
-
-            let _ = std::fs::remove_file(&tmp_file_path);
-
-            result
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().get_file_thumbnail_in_memory(uri, preferred_size, format).await
+        }
     }
 
     /// Creates a new empty file in the specified location and returns a URI.   
@@ -939,23 +828,20 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ///  
     /// # Support
     /// All Android version.
+    #[maybe_async]
     pub fn create_new_file(
         &self,
         dir: &FileUri, 
         relative_path: impl AsRef<std::path::Path>, 
         mime_type: Option<&str>
-    ) -> crate::Result<FileUri> {
+    ) -> Result<FileUri> {
 
-        on_android!({
-            impl_se!(struct Req<'a> { dir: &'a FileUri, mime_type: Option<&'a str>, relative_path: &'a str });
-        
-            let relative_path = validate_relative_path(relative_path.as_ref())?;
-            let relative_path = relative_path.to_string_lossy();
-                
-            self.api
-                .run_mobile_plugin::<FileUri>("createFile", Req { dir, mime_type, relative_path: relative_path.as_ref() })
-                .map_err(Into::into)
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().create_new_file(dir, relative_path, mime_type).await
+        }
     }
 
     /// Recursively create a directory and all of its parent components if they are missing,
@@ -975,22 +861,19 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ///  
     /// # Support
     /// All Android version.
+    #[maybe_async]
     pub fn create_dir_all(
         &self,
         dir: &FileUri, 
         relative_path: impl AsRef<std::path::Path>, 
     ) -> Result<FileUri> {
 
-        on_android!({
-            impl_se!(struct Req<'a> { dir: &'a FileUri,relative_path: &'a str });
-        
-            let relative_path = validate_relative_path(relative_path.as_ref())?;
-            let relative_path = relative_path.to_string_lossy();
-                
-            self.api
-                .run_mobile_plugin::<FileUri>("createDirAll", Req { dir, relative_path: relative_path.as_ref() })
-                .map_err(Into::into)
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().create_dir_all(dir, relative_path).await
+        }
     }
 
     /// Returns the child files and directories of the specified directory.  
@@ -1017,8 +900,9 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
-    pub fn read_dir(&self, uri: &FileUri) -> crate::Result<impl Iterator<Item = Entry>> {
-        let entries = self.read_dir_with_options(uri, EntryOptions::ALL)?
+    #[maybe_async]
+    pub fn read_dir(&self, uri: &FileUri) -> Result<impl Iterator<Item = Entry>> {
+        let entries = self.read_dir_with_options(uri, EntryOptions::ALL).await?
             .map(Entry::try_from)
             .filter_map(Result::ok);
         
@@ -1045,63 +929,19 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
+    #[maybe_async]
     pub fn read_dir_with_options(
         &self, 
         uri: &FileUri, 
         options: EntryOptions
     ) -> Result<impl Iterator<Item = OptionalEntry>> {
         
-        on_android!(std::iter::Empty::<_>, {
-            impl_se!(struct Req<'a> { uri: &'a FileUri, options: Ops });
-            impl_de!(struct Obj {
-                uri: Option<FileUri>,
-                mime_type: Option<String>,
-                name: Option<String>,
-                last_modified: Option<i64>,
-                len: Option<i64>, 
-            });
-            impl_de!(struct Res { entries: Vec<Obj> });
-
-            // OptionalEntry { mime_type } の値に関わらず
-            // ファイルかフォルダかを知るために mime_type は常に使用する。
-            impl_se!(struct Ops {
-                uri: bool,
-                name: bool,
-                last_modified: bool,
-                len: bool,
-            });
-
-            let need_mt = options.mime_type;
-            let options = Ops {
-                uri: options.uri,
-                name: options.name,
-                last_modified: options.last_modified,
-                len: options.len,
-            };
-
-            use std::time::{UNIX_EPOCH, Duration};
-    
-            self.api
-                .run_mobile_plugin::<Res>("readDir", Req { uri, options })
-                .map(|v| v.entries.into_iter())
-                .map(move |v| v.map(move |v| match v.mime_type {
-                    // ファイルの時は必ず Some(mime_type) になり、
-                    // フォルダの時にのみ None になる。
-                    Some(mime_type) => OptionalEntry::File {
-                        uri: v.uri,
-                        name: v.name,
-                        last_modified: v.last_modified.map(|i| UNIX_EPOCH + Duration::from_millis(i as u64)),
-                        len: v.len.map(|i| i as u64),
-                        mime_type: if need_mt { Some(mime_type) } else { None },
-                    },
-                    None => OptionalEntry::Dir {
-                        uri: v.uri,
-                        name: v.name,
-                        last_modified: v.last_modified.map(|i| UNIX_EPOCH + Duration::from_millis(i as u64)),
-                    }
-                }))
-                .map_err(Into::into)
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err::<std::iter::Empty<_>, _>(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().read_dir_with_options(uri, options).await
+        }
     }
 
     /// Take persistent permission to access the file, directory and its descendants.  
@@ -1131,16 +971,14 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version. 
-    pub fn take_persistable_uri_permission(&self, uri: &FileUri) -> crate::Result<()> {
-        on_android!({
-            impl_se!(struct Req<'a> { uri: &'a FileUri });
-            impl_de!(struct Res;);
-
-            self.api
-                .run_mobile_plugin::<Res>("takePersistableUriPermission", Req { uri })
-                .map(|_| ())
-                .map_err(Into::into)
-        })
+    #[maybe_async]
+    pub fn take_persistable_uri_permission(&self, uri: &FileUri) -> Result<()> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().take_persistable_uri_permission(uri).await
+        }
     }
 
     /// Check a persisted URI permission grant by [`AndroidFs::take_persistable_uri_permission`].  
@@ -1165,39 +1003,33 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Support
     /// All Android version.
-    pub fn check_persisted_uri_permission(&self, uri: &FileUri, mode: PersistableAccessMode) -> crate::Result<bool> {
-        on_android!({
-            impl_se!(struct Req<'a> { uri: &'a FileUri, mode: PersistableAccessMode });
-            impl_de!(struct Res { value: bool });
+    #[maybe_async]
+    pub fn check_persisted_uri_permission(
+        &self, 
+        uri: &FileUri, 
+        mode: PersistableAccessMode
+    ) -> Result<bool> {
 
-            self.api
-                .run_mobile_plugin::<Res>("checkPersistedUriPermission", Req { uri, mode })
-                .map(|v| v.value)
-                .map_err(Into::into)
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().check_persisted_uri_permission(uri, mode).await
+        }
     }
 
     /// Return list of all persisted URIs that have been persisted by [`AndroidFs::take_persistable_uri_permission`] and currently valid.   
     /// 
     /// # Support
     /// All Android version.
-    pub fn get_all_persisted_uri_permissions(&self) -> crate::Result<impl Iterator<Item = PersistedUriPermission>> {
-        on_android!(std::iter::Empty::<_>, {
-            impl_de!(struct Obj { uri: FileUri, r: bool, w: bool, d: bool });
-            impl_de!(struct Res { items: Vec<Obj> });
-    
-            self.api
-                .run_mobile_plugin::<Res>("getAllPersistedUriPermissions", "")
-                .map(|v| v.items.into_iter())
-                .map(|v| v.map(|v| {
-                    let (uri, can_read, can_write) = (v.uri, v.r, v.w);
-                    match v.d {
-                        true => PersistedUriPermission::Dir { uri, can_read, can_write },
-                        false => PersistedUriPermission::File { uri, can_read, can_write }
-                    }
-                }))
-                .map_err(Into::into)
-        })
+    #[maybe_async]
+    pub fn get_all_persisted_uri_permissions(&self) -> Result<impl Iterator<Item = PersistedUriPermission>> {
+        #[cfg(not(target_os = "android"))] {
+            Err::<std::iter::Empty<_>, _>(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().get_all_persisted_uri_permissions().await
+        }
     }
 
     /// Relinquish a persisted URI permission grant by [`AndroidFs::take_persistable_uri_permission`].   
@@ -1208,37 +1040,63 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ///
     /// # Support
     /// All Android version.
-    pub fn release_persisted_uri_permission(&self, uri: &FileUri) -> crate::Result<()> {
-        on_android!({
-            impl_se!(struct Req<'a> { uri: &'a FileUri });
-            impl_de!(struct Res;);
-
-            self.api
-                .run_mobile_plugin::<Res>("releasePersistedUriPermission", Req { uri })
-                .map(|_| ())
-                .map_err(Into::into)
-        })
+    #[maybe_async]
+    pub fn release_persisted_uri_permission(&self, uri: &FileUri) -> Result<()> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().release_persisted_uri_permission(uri).await
+        }
     }
 
     /// Relinquish a all persisted uri permission grants by [`AndroidFs::take_persistable_uri_permission`].  
     /// 
     /// # Support
     /// All Android version.
+    #[maybe_async]
     pub fn release_all_persisted_uri_permissions(&self) -> crate::Result<()> {
-        on_android!({
-            impl_de!(struct Res);
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().release_all_persisted_uri_permissions().await
+        }
+    }
 
-            self.api
-                .run_mobile_plugin::<Res>("releaseAllPersistedUriPermissions", "")
-                .map(|_| ())
-                .map_err(Into::into)
-        })
+    /// See [`PublicStorage::get_volumes`] or [`PrivateStorage::get_volumes`] for details.
+    /// 
+    /// The difference is that this does not perform any filtering.
+    /// You can it by [`StorageVolume { is_available_for_public_storage, is_available_for_private_storage, .. } `](StorageVolume).
+    #[maybe_async]
+    pub fn get_volumes(&self) -> Result<Vec<StorageVolume>> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().get_available_storage_volumes().await
+        }
+    }
+
+    /// See [`PublicStorage::get_primary_volume`] or [`PrivateStorage::get_primary_volume`] for details.
+    /// 
+    /// The difference is that this does not perform any filtering.
+    /// You can it by [`StorageVolume { is_available_for_public_storage, is_available_for_private_storage, .. } `](StorageVolume).
+    #[maybe_async]
+    pub fn get_primary_volume(&self) -> Result<Option<StorageVolume>> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().get_primary_storage_volume_if_available().await
+        }
     }
 
     /// Verify whether this plugin is available.  
     /// 
     /// On Android, this returns true.  
     /// On other platforms, this returns false.  
+    #[always_sync]
     pub fn is_available(&self) -> bool {
         cfg!(target_os = "android")
     }
@@ -1268,226 +1126,25 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// | 7.0              | 24        |
     /// 
     /// Tauri does not support Android versions below 7.
+    #[always_sync]
     pub fn api_level(&self) -> Result<i32> {
-        Ok(self.consts()?.build_version_sdk_int)
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().api_level()
+        }
     }
-}
 
 
-#[allow(unused)]
-impl<R: tauri::Runtime> AndroidFs<R> {
-
-    pub(crate) fn get_thumbnail_to_file(
+    #[deprecated = "use `AndroidFs::resolve_uri_unvalidated`"]
+    #[maybe_async]
+    pub fn resolve_uri(
         &self, 
-        src: &FileUri,
-        dest: &FileUri,
-        preferred_size: Size,
-        format: ImageFormat,
-    ) -> crate::Result<bool> {
+        dir: &FileUri, 
+        relative_path: impl AsRef<std::path::Path>
+    ) -> Result<FileUri> {
 
-        on_android!({
-            impl_se!(struct Req<'a> {
-                src: &'a FileUri, 
-                dest: &'a FileUri,
-                format: &'a str,
-                quality: u8,
-                width: u32,
-                height: u32,
-            });
-            impl_de!(struct Res { value: bool });
-
-            let (quality, format) = match format {
-                ImageFormat::Png => (1.0, "Png"),
-                ImageFormat::Jpeg => (0.75, "Jpeg"),
-                ImageFormat::Webp => (0.7, "Webp"),
-                ImageFormat::JpegWith { quality } => (quality, "Jpeg"),
-                ImageFormat::WebpWith { quality } => (quality, "Webp"),
-            };
-            let quality = (quality * 100.0).clamp(0.0, 100.0) as u8;
-            let Size { width, height } = preferred_size;
-        
-            self.api
-                .run_mobile_plugin::<Res>("getThumbnailToFile", Req { src, dest, format, quality, width, height })
-                .map(|v| v.value)
-                .map_err(Into::into)
-        })
-    }
-
-    pub(crate) fn get_thumbnail_with_ipc(
-        &self, 
-        uri: &FileUri,
-        preferred_size: Size,
-        format: ImageFormat,
-    ) -> crate::Result<Option<Vec<u8>>> {
-
-        on_android!({
-            impl_se!(struct Req<'a> {
-                uri: &'a FileUri, 
-                format: &'a str,
-                quality: u8,
-                width: u32,
-                height: u32,
-            });
-            impl_de!(struct Res { bytes: Option<String> });
-
-            let (quality, format) = match format {
-                ImageFormat::Png => (1.0, "Png"),
-                ImageFormat::Jpeg => (0.75, "Jpeg"),
-                ImageFormat::Webp => (0.7, "Webp"),
-                ImageFormat::JpegWith { quality } => (quality, "Jpeg"),
-                ImageFormat::WebpWith { quality } => (quality, "Webp"),
-            };
-            let quality = (quality * 100.0).clamp(0.0, 100.0) as u8;
-            let Size { width, height } = preferred_size;
-        
-            let Some(bytes) = self.api
-                .run_mobile_plugin::<Res>("getThumbnail", Req { uri, format, quality, width, height })
-                .map(|v| v.bytes)? else {
-                    
-                return Ok(None)
-            };
-            if bytes.is_empty() {
-                return Ok(None)
-            }
-
-            use base64::engine::Engine;
-            let bytes = base64::engine::general_purpose::STANDARD.decode(bytes)?;
-            Ok(Some(bytes))
-        })
-    }
-
-    pub(crate) fn check_media_store_volume_name_available(
-        &self,
-        media_store_volume_name: impl AsRef<str>,
-    ) -> Result<bool> {
-
-        on_android!({
-            impl_se!(struct Req<'a> { media_store_volume_name: &'a str });
-            impl_de!(struct Res { value: bool });
-            
-            let media_store_volume_name = media_store_volume_name.as_ref();
-            
-            self.api
-                .run_mobile_plugin::<Res>("checkMediaStoreVolumeNameAvailable", Req { media_store_volume_name })
-                .map(|v| v.value)
-                .map_err(Into::into)
-        })
-    }
-
-    pub(crate) fn check_storage_volume_available_by_path(
-        &self,
-        path: impl AsRef<std::path::Path>,
-    ) -> Result<bool> {
-
-        on_android!({
-            impl_se!(struct Req<'a> { path: &'a std::path::Path });
-            impl_de!(struct Res { value: bool });
-
-            let path = path.as_ref();
-
-            self.api
-                .run_mobile_plugin::<Res>("checkStorageVolumeAvailableByPath", Req { path })
-                .map(|v| v.value)
-                .map_err(Into::into)
-        })
-    }
-
-    pub(crate) fn get_available_storage_volumes(&self) -> Result<Vec<StorageVolume>> {
-        on_android!({
-            impl_de!(struct Res { volumes: Vec<StorageVolume> });
-
-            let mut volumes = self.api
-                .run_mobile_plugin::<Res>("getAvailableStorageVolumes", "")
-                .map(|v| v.volumes)?;
-
-            // primary volume を先頭にする。他はそのままの順序
-            volumes.sort_by(|a, b| b.is_primary.cmp(&a.is_primary));
-
-            Ok(volumes)
-        })
-    }
-
-    pub(crate) fn get_primary_storage_volume_if_available(&self) -> Result<Option<StorageVolume>> {
-        on_android!({
-            impl_de!(struct Res { volume: Option<StorageVolume> });
-
-            self.api
-                .run_mobile_plugin::<Res>("getPrimaryStorageVolumeIfAvailable", "")
-                .map(|v| v.volume)
-                .map_err(Into::into)
-        })
-    }
-
-    pub(crate) fn consts(&self) -> Result<&Consts> {
-        on_android!({
-            static CONSTS: std::sync::OnceLock<Consts> = std::sync::OnceLock::new();
-
-            if CONSTS.get().is_none() {
-                let _ = CONSTS.set(
-                    self.api.run_mobile_plugin::<Consts>("getConsts", "")?
-                );
-            }
-            let consts = CONSTS.get().expect("Should call 'set' before 'get'");
-
-            Ok(consts)
-        })
-    }
-}
-
-/// アプリ起動中に変更されることのない値
-#[derive(serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[allow(unused)]
-pub(crate) struct Consts {
-    pub build_version_sdk_int: i32,
-
-    /// Android 10 (API level 29) 以上で有効
-    pub media_store_primary_volume_name: Option<String>,
-
-    pub env_dir_pictures: String,
-    pub env_dir_dcim: String,
-    pub env_dir_movies: String,
-    pub env_dir_music: String,
-    pub env_dir_alarms: String,
-    pub env_dir_notifications: String,
-    pub env_dir_podcasts: String,
-    pub env_dir_ringtones: String,
-    pub env_dir_documents: String,
-    pub env_dir_download: String,
-
-    /// Android 10 (API level 29) 以上で有効
-    pub env_dir_audiobooks: Option<String>,
-
-    /// Android 12 (API level 31) 以上で有効
-    pub env_dir_recordings: Option<String>,
-}
-
-#[allow(unused)]
-impl Consts {
-
-    pub(crate) fn public_dir_name(&self, dir: impl Into<PublicDir>) -> Result<&str> {
-        Ok(match dir.into() {
-            PublicDir::Image(dir) => match dir {
-                PublicImageDir::Pictures => &self.env_dir_pictures,
-                PublicImageDir::DCIM => &self.env_dir_dcim,
-            },
-            PublicDir::Video(dir) => match dir {
-                PublicVideoDir::Movies => &self.env_dir_movies,
-                PublicVideoDir::DCIM => &self.env_dir_dcim,
-            },
-            PublicDir::Audio(dir) => match dir  {
-                PublicAudioDir::Music => &self.env_dir_music,
-                PublicAudioDir::Alarms => &self.env_dir_alarms,
-                PublicAudioDir::Notifications => &self.env_dir_notifications,
-                PublicAudioDir::Podcasts => &self.env_dir_podcasts,
-                PublicAudioDir::Ringtones => &self.env_dir_ringtones,
-                PublicAudioDir::Recordings => self.env_dir_recordings.as_ref().ok_or_else(|| Error { msg: "requires API level 31 or higher".into() })?,
-                PublicAudioDir::Audiobooks => self.env_dir_audiobooks.as_ref().ok_or_else(|| Error { msg: "requires API level 29 or higher".into() })?,
-            },
-            PublicDir::GeneralPurpose(dir) => match dir {
-                PublicGeneralPurposeDir::Documents => &self.env_dir_documents,
-                PublicGeneralPurposeDir::Download => &self.env_dir_download,
-            }
-        })
+        self.resolve_uri_unvalidated(dir, relative_path).await
     }
 }

@@ -316,16 +316,22 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 if (o != null) {
                     if (mode == "w") {
                         if (o is FileOutputStream) {
-                            o.channel.truncate(0)
-                            return o
+                            try {
+                                o.channel.truncate(0)
+                                return o
+                            }
+                            catch (ignore: Exception) {
+                                o.close()
+                            }
                         }
+                        o.close()
                     }
                     else {
                         return o
                     }
                 }
             }
-            catch (ignore: Exception) {}
+            catch (ignore: Exception) { }
         }
 
         throw Exception("Failed to open file with truncate and write")

@@ -3,16 +3,15 @@
 #![allow(unused_variables)]
 
 mod models;
-mod api;
 mod consts;
+mod utils;
+
+pub mod api;
 
 pub use models::*;
-pub use api::*;
 pub use consts::*;
 
-#[cfg(target_os = "android")]
-mod utils;
-#[cfg(target_os = "android")]
+#[allow(unused_imports)]
 pub(crate) use utils::*;
 
 /// Initializes the plugin.
@@ -33,16 +32,24 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .setup(|app, api| {
             use tauri::Manager as _;
 
-            let afs = AndroidFs::new(app.clone(), api)?;
-
             #[cfg(target_os = "android")] {
-                // Cleanup temporary files;
-                let _ = afs
-                    .private_storage()
-                    .remove_all_tmp_files();
+                let handle = api.register_android_plugin("com.plugin.android_fs", "AndroidFsPlugin")?;
+                let afs_sync = crate::api::api_sync::AndroidFs { handle: handle.clone() };
+                let afs_async = crate::api::api_async::AndroidFs { handle: handle.clone() };
+
+                // クリーンアップされなかった一時ファイルを全て削除
+                afs_sync.impls().remove_all_tmp_files().ok();
+
+                app.manage(afs_sync);
+                app.manage(afs_async);
+            }
+            #[cfg(not(target_os = "android"))] {
+                let afs_sync = crate::api::api_sync::AndroidFs::<R> { handle: Default::default() };
+                let afs_async = crate::api::api_async::AndroidFs::<R> { handle: Default::default() };
+                app.manage(afs_sync);
+                app.manage(afs_async);
             }
 
-            app.manage(afs);
             Ok(())
         })
         .build()
@@ -50,14 +57,22 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
 
 pub trait AndroidFsExt<R: tauri::Runtime> {
 
-    fn android_fs(&self) -> &AndroidFs<R>;
+    fn android_fs(&self) -> &api::api_sync::AndroidFs<R>;
+
+    fn android_fs_async(&self) -> &api::api_async::AndroidFs<R>;
 }
 
 impl<R: tauri::Runtime, T: tauri::Manager<R>> AndroidFsExt<R> for T {
 
-    fn android_fs(&self) -> &AndroidFs<R> {
-        self.try_state::<AndroidFs<R>>()
+    fn android_fs(&self) -> &api::api_sync::AndroidFs<R> {
+        self.try_state::<api::api_sync::AndroidFs<R>>()
             .map(|i| i.inner())
-            .expect("You should register this plugin by tauri_plugin_android_fs::init(). See https://crates.io/crates/tauri-plugin-android-fs")
+            .expect("should register this plugin by tauri_plugin_android_fs::init(). see https://crates.io/crates/tauri-plugin-android-fs")
+    }
+
+    fn android_fs_async(&self) -> &api::api_async::AndroidFs<R> {
+        self.try_state::<api::api_async::AndroidFs<R>>()
+            .map(|i| i.inner())
+            .expect("should register this plugin by tauri_plugin_android_fs::init(). see https://crates.io/crates/tauri-plugin-android-fs")
     }
 }

@@ -1,3 +1,4 @@
+use sync_async::sync_async;
 use crate::*;
 
 
@@ -12,11 +13,33 @@ use crate::*;
 ///     let file_sender = api.file_sender();
 /// }
 /// ```
-pub struct FileOpener<'a, R: tauri::Runtime>(
-    #[allow(unused)]
-    pub(crate) &'a AndroidFs<R>
-);
+#[sync_async]
+pub struct FileOpener<'a, R: tauri::Runtime> {
+    #[cfg(target_os = "android")]
+    pub(crate) handle: &'a tauri::plugin::PluginHandle<R>,
 
+    #[cfg(not(target_os = "android"))]
+    #[allow(unused)]
+    pub(crate) handle: &'a std::marker::PhantomData<fn() -> R>,
+}
+
+#[cfg(target_os = "android")]
+#[sync_async(
+    use(if_sync) super::impls::SyncImpls as Impls;
+    use(if_async) super::impls::AsyncImpls as Impls;
+)]
+impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
+    
+    #[always_sync]
+    fn impls(&self) -> Impls<'_, R> {
+        Impls { handle: &self.handle }
+    }
+}
+
+#[sync_async(
+    use(if_async) super::api_async::{AndroidFs, FilePicker, PrivateStorage, PublicStorage, WritableStream};
+    use(if_sync) super::api_sync::{AndroidFs, FilePicker, PrivateStorage, PublicStorage, WritableStream};
+)]
 impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
 
     /// Show app chooser for sharing files with other apps.   
@@ -40,51 +63,18 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
     /// # References
     /// <https://developer.android.com/reference/android/content/Intent#ACTION_SEND_MULTIPLE>
     /// <https://developer.android.com/reference/android/content/Intent#ACTION_SEND>
+    #[maybe_async]
     pub fn share_files<'b>(
         &self, 
         uris: impl IntoIterator<Item = &'b FileUri>, 
-    ) -> crate::Result<()> {
+    ) -> Result<()> {
 
-        // もし use_app_chooser と exclude_self_from_app_chooser を関数の引数として公開するなら、
-        //  Show app chooser for sharing files with other apps.   
-        //. This function returns immediately after requesting to open the app chooser, 
-        // を以下に変更した方が説明文としてわかりやすいかもしれない。
-        //  Share files with other app that user selected. 
-        //  This function returns immediately after requesting to share the files, 
-
-        on_android!({
-            impl_se!(struct Req<'a> { uris: Vec<&'a FileUri>, common_mime_type: Option<&'a str>, use_app_chooser: bool, exclude_self_from_app_chooser: bool });
-            impl_de!(struct Res;);
-
-            // Decides whether the app chooser dialog is always shown.  
-            // The recommended value is true, which ensures the dialog is always displayed.  
-            // If set to false, the behavior depends on the user’s previous choice: 
-            // if the user has previously selected an app as "ALWAYS" in Android, 
-            // that app will be opened directly. 
-            // Otherwise, the app list will appear, offering both the "JUST ONCE" and "ALWAYS" options.
-            //
-            // NOTE:
-            // これがfalseの場合も、対応できるアプリがない場合にエラーが発生することはない。
-            // ただ何も起こらないのでユーザー的にはあまり良くない。
-            // trueの場合は空のapp chooserと「対応できるアプリがありません」のようなテキストが表示される。
-            let use_app_chooser = true;
-
-            // Decides whether to exclude this app from the app chooser.  
-            // This is effective only if this app is configured to receive [`INTENT.ACTION_SEND_MULTIPLE`](https://developer.android.com/reference/android/content/Intent#ACTION_SEND_MULTIPLE) or [`INTENT.ACTION_SEND`](https://developer.android.com/reference/android/content/Intent#ACTION_SEND).    
-            // If set to true, ***use_app_chooser*** must also be true and on Android 7 or later; 
-            // otherwise, this setting will be ignored. 
-            let exclude_self_from_app_chooser = true;
-
-            // Noneの場合、共有するファイルに設定されているMIME typeを用いる
-            let common_mime_type = None;
-
-            let uris = uris.into_iter().collect::<Vec<_>>();
-
-            self.0.api
-                .run_mobile_plugin::<Res>("shareFiles", Req { uris, common_mime_type, use_app_chooser, exclude_self_from_app_chooser })
-                .map(|_| ())
-                .map_err(Into::into)
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().show_share_file_app_chooser(uris).await
+        }
     }
 
     /// Show app chooser for sharing file with other apps.    
@@ -106,12 +96,18 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
     /// 
     /// # References
     /// <https://developer.android.com/reference/android/content/Intent#ACTION_SEND>
+    #[maybe_async]
     pub fn share_file(
         &self, 
         uri: &FileUri,
-    ) -> crate::Result<()> {
+    ) -> Result<()> {
         
-        self.share_files([uri])
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().show_share_file_app_chooser([uri]).await
+        }
     }
 
     /// Show app chooser for opening file with other apps.   
@@ -133,24 +129,18 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
     /// 
     /// # References
     /// <https://developer.android.com/reference/android/content/Intent#ACTION_VIEW>
+    #[maybe_async]
     pub fn open_file(
         &self, 
         uri: &FileUri,
-    ) -> crate::Result<()> {
+    ) -> Result<()> {
 
-        on_android!({
-            impl_se!(struct Req<'a> { uri: &'a FileUri, mime_type: Option<&'a str>, use_app_chooser: bool, exclude_self_from_app_chooser: bool });
-            impl_de!(struct Res;);
-
-            let use_app_chooser = true;
-            let exclude_self_from_app_chooser = true;
-            let mime_type = None;
-    
-            self.0.api
-                .run_mobile_plugin::<Res>("viewFile", Req { uri, mime_type, use_app_chooser, exclude_self_from_app_chooser })
-                .map(|_| ())
-                .map_err(Into::into)
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().show_open_file_app_chooser(uri).await
+        }
     }
 
     /// Show app chooser for opening dir with other apps.   
@@ -171,23 +161,18 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
     /// 
     /// # References
     /// <https://developer.android.com/reference/android/content/Intent#ACTION_VIEW>
+    #[maybe_async]
     pub fn open_dir(
         &self, 
         uri: &FileUri,
-    ) -> crate::Result<()> {
+    ) -> Result<()> {
 
-        on_android!({
-            impl_se!(struct Req<'a> { uri: &'a FileUri, use_app_chooser: bool, exclude_self_from_app_chooser: bool });
-            impl_de!(struct Res;);
-
-            let use_app_chooser = true;
-            let exclude_self_from_app_chooser = true;
-    
-            self.0.api
-                .run_mobile_plugin::<Res>("viewDir", Req { uri, use_app_chooser, exclude_self_from_app_chooser })
-                .map(|_| ())
-                .map_err(Into::into)
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().show_open_dir_app_chooser(uri).await
+        }
     }
 
     /// Show app chooser for editing file with other apps.   
@@ -214,119 +199,17 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
     /// 
     /// # References
     /// <https://developer.android.com/reference/android/content/Intent#ACTION_EDIT>
+    #[maybe_async]
     pub fn edit_file(
         &self, 
         uri: &FileUri,
-    ) -> crate::Result<()> {
+    ) -> Result<()> {
 
-        on_android!({
-            impl_se!(struct Req<'a> { uri: &'a FileUri, mime_type: Option<&'a str>, use_app_chooser: bool, exclude_self_from_app_chooser: bool });
-            impl_de!(struct Res;);
-
-            let use_app_chooser = true;
-            let exclude_self_from_app_chooser = true;
-            let mime_type = None;
-    
-            self.0.api
-                .run_mobile_plugin::<Res>("editFile", Req { uri, mime_type, use_app_chooser, exclude_self_from_app_chooser })
-                .map(|_| ())
-                .map_err(Into::into)
-        })
-    }
-
-    /// Determines whether the specified files can be used with [`FileOpener::share_files`].  
-    /// If no app is available to handle the files, this returns false. 
-    /// 
-    /// # Args
-    /// - ***uris*** :  
-    /// Target file URIs to share.  
-    /// This all needs to be **readable**.  
-    /// 
-    /// # Support
-    /// All Android version.
-    #[deprecated = "Since Android 11, This does not function correctly due to android security."]
-    pub fn can_share_files<'b>(
-        &self, 
-        uris: impl IntoIterator<Item = &'b FileUri>, 
-    ) -> crate::Result<bool> {
-
-        on_android!({
-            impl_se!(struct Req<'a> { uris: Vec<&'a FileUri>, common_mime_type: Option<&'a str> });
-            impl_de!(struct Res { value: bool });
-
-            let common_mime_type = None;
-            let uris = uris.into_iter().collect::<Vec<_>>();
-
-            self.0.api
-                .run_mobile_plugin::<Res>("canShareFiles", Req { uris, common_mime_type })
-                .map(|v| v.value)
-                .map_err(Into::into)
-        })
-    }
-
-    /// Determines whether the specified file can be used with [`FileOpener::share_file`].  
-    /// If no app is available to handle the file, this returns false. 
-    /// 
-    /// # Args
-    /// - ***uri*** :  
-    /// Target file URI.  
-    /// Must be **readable**.
-    /// 
-    /// # Support
-    /// All Android version.
-    #[deprecated = "Since Android 11, This does not function correctly due to android security."]
-    pub fn can_share_file(&self, uri: &FileUri) -> crate::Result<bool> {
-        #[allow(deprecated)]
-        self.can_share_files([uri])
-    }
-
-    /// Determines whether the specified file can be used with [`FileOpener::open_file`].  
-    /// If no app is available to handle the file, this returns false. 
-    /// 
-    /// # Args
-    /// - ***uri*** :  
-    /// Target file URI.  
-    /// Must be **readable**.
-    /// 
-    /// # Support
-    /// All Android version.
-    #[deprecated = "Since Android 11, This does not function correctly due to android security."]
-    pub fn can_open_file(&self, uri: &FileUri) -> crate::Result<bool> {
-        on_android!({
-            impl_se!(struct Req<'a> { uri: &'a FileUri, mime_type: Option<&'a str> });
-            impl_de!(struct Res { value: bool });
-
-            let mime_type = None;
-
-            self.0.api
-                .run_mobile_plugin::<Res>("canViewFile", Req { uri, mime_type })
-                .map(|v| v.value)
-                .map_err(Into::into)
-        })
-    }
-
-    /// Determines whether the specified file can be used with [`FileOpener::edit_file`].  
-    /// If no app is available to handle the file, this returns false. 
-    /// 
-    /// # Args
-    /// - ***uri*** :  
-    /// Target file URI.  
-    /// Must be **read-writeable**.  
-    /// 
-    /// # Support
-    /// All Android version.
-    #[deprecated = "Since Android 11, This does not function correctly due to android security."]
-    pub fn can_edit_file(&self, uri: &FileUri) -> crate::Result<bool> {
-        on_android!({
-            impl_se!(struct Req<'a> { uri: &'a FileUri, mime_type: Option<&'a str> });
-            impl_de!(struct Res { value: bool });
-
-            let mime_type = None;
-
-            self.0.api
-                .run_mobile_plugin::<Res>("canEditFile", Req { uri, mime_type })
-                .map(|v| v.value)
-                .map_err(Into::into)
-        })
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+           self.impls().show_edit_file_app_chooser(uri).await
+        }
     }
 }

@@ -1,3 +1,4 @@
+use sync_async::sync_async;
 use crate::*;
 
 
@@ -12,54 +13,52 @@ use crate::*;
 /// This is a wrapper around [`std::fs::File`].  
 /// In most cases, it points to the actual target file, but it may also refer to a temporary file.  
 /// For temporary files, calling [`WritableStream::reflect`] applies the changes to the actual target. 
+#[sync_async(
+    use(if_sync) super::impls::SyncWritableStreamImpls as WritableStreamImpls;
+    use(if_async) super::impls::AsyncWritableStreamImpls as WritableStreamImpls;
+    use(if_sync) super::api_sync::WritableStream;
+    use(if_async) super::api_async::WritableStream;
+)]
 pub struct WritableStream<R: tauri::Runtime> {
-    app: tauri::AppHandle<R>,
-    writer: Option<std::fs::File>,
-    writer_attr: Option<WriterAttr>,
-}
+    #[cfg(target_os = "android")]
+    pub(crate) impls: WritableStreamImpls<R>,
 
-enum WriterAttr {
-    ActualTarget,
-    TempBuffer {
-        writer_path: std::path::PathBuf,
-        actual_target_file_uri: FileUri,
-    },
-}
-
-impl<R: tauri::Runtime> WritableStream<R> {
-
+    #[cfg(not(target_os = "android"))]
     #[allow(unused)]
-    pub(crate) fn new(
-        app: tauri::AppHandle<R>,
-        file_uri: FileUri,
-        need_write_via_kotlin: bool
-    ) -> Result<Self> {
-
-        let api = app.android_fs();
-        let (writer, writer_attr) = match need_write_via_kotlin {
-            true => {
-                let (tmp_file, tmp_file_path) = api.private_storage().create_new_tmp_file()?;
-                let attr = WriterAttr::TempBuffer { 
-                    writer_path: tmp_file_path, 
-                    actual_target_file_uri: file_uri
-                };
-                (tmp_file, attr)
-            },
-            false => {
-                 let file = api.open_file_writable(&file_uri)?;
-                 (file, WriterAttr::ActualTarget)
-            }
-        };
-      
-        Ok(Self {
-            app,
-            writer: Some(writer),
-            writer_attr: Some(writer_attr),
-        })
-    }
+    pub(crate) impls: std::marker::PhantomData<fn() -> R>
 }
 
+#[sync_async(
+    use(if_async) super::api_async::{AndroidFs, FileOpener, FilePicker, PrivateStorage, PublicStorage};
+    use(if_sync) super::api_sync::{AndroidFs, FileOpener, FilePicker, PrivateStorage, PublicStorage};
+)]
 impl<R: tauri::Runtime> WritableStream<R> {
+
+    /// Converts to a WritableStream for synchronous processing.
+    #[always_sync]
+    pub fn into_sync(self) -> SyncWritableStream<R> {
+        #[cfg(not(target_os = "android"))] {
+            // WritableStream を取得する関数は Android 以外だとエラーになる。
+            // そのためこれが呼び出されることはない
+            panic!("expected on Android")
+        }
+        #[cfg(target_os = "android")] {
+            SyncWritableStream { impls: self.impls.into_sync() }
+        }
+    }
+
+    /// Converts to a WritableStream for asynchronous processing.
+    #[always_sync]
+    pub fn into_async(self) -> AsyncWritableStream<R> {
+        #[cfg(not(target_os = "android"))] {
+            // WritableStream を取得する関数は Android 以外だとエラーになる。
+            // そのためこれが呼び出されることはない
+            panic!("expected on Android")
+        }
+        #[cfg(target_os = "android")] {
+            AsyncWritableStream { impls: self.impls.into_async() }
+        }
+    }
 
     /// [`WritableStream`] is a wrapper around [`std::fs::File`].
     /// In most cases, it points to the actual target file, but it may also refer to a temporary file.
@@ -73,35 +72,14 @@ impl<R: tauri::Runtime> WritableStream<R> {
     /// 
     /// If not called explicitly, the same process is performed asynchronously on drop, 
     /// and no error is returned. 
-    pub fn reflect(mut self) -> Result<()> {
-        let Some(writer) = self.writer.take() else {
-            return Ok(())
-        };
-        let Some(writer_attr) = self.writer_attr.take() else {
-            return Ok(())
-        };
-
-        if let WriterAttr::TempBuffer { 
-            writer_path, 
-            actual_target_file_uri, 
-        } = writer_attr {
-
-            // 反映されるまで待機する
-            let result1 = writer.sync_data();
-            // copy を行う前にファイルを閉じる
-            std::mem::drop(writer);
-
-            let result2 = self.app
-                .android_fs()
-                .copy_via_kotlin(&(writer_path.clone().into()), &actual_target_file_uri, None);
-
-            let _ = std::fs::remove_file(&writer_path);
-
-            result1?;
-            result2?;
+    #[maybe_async]
+    pub fn reflect(self) -> Result<()> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
         }
-
-        Ok(())
+        #[cfg(target_os = "android")] {
+            self.impls.reflect().await
+        }
     }
 
     /// [`WritableStream`] is a wrapper around [`std::fs::File`].  
@@ -109,18 +87,14 @@ impl<R: tauri::Runtime> WritableStream<R> {
     ///
     /// For actual target files, calls [`std::fs::File::sync_all`].  
     /// For temporary files, this function does nothing.  
+    #[maybe_async]
     pub fn sync_all(&self) -> std::io::Result<()> {
-        let Some(writer) = self.writer.as_ref() else {
-            return Ok(())
-        };
-        let Some(writer_attr) = self.writer_attr.as_ref() else {
-            return Ok(())
-        };
-        
-        if let WriterAttr::ActualTarget = writer_attr {
-            writer.sync_all()?;
+        #[cfg(not(target_os = "android"))] {
+            Err(std::io::Error::new(std::io::ErrorKind::Other, Error::NOT_ANDROID))
         }
-        Ok(())
+        #[cfg(target_os = "android")] {
+            self.impls.sync_all().await
+        }
     }
 
     /// [`WritableStream`] is a wrapper around [`std::fs::File`].  
@@ -128,94 +102,69 @@ impl<R: tauri::Runtime> WritableStream<R> {
     ///
     /// For actual target files, calls [`std::fs::File::sync_data`].  
     /// For temporary files, this function does nothing.  
+    #[maybe_async]
     pub fn sync_data(&self) -> std::io::Result<()> {
-        let Some(writer) = self.writer.as_ref() else {
-            return Ok(())
-        };
-        let Some(writer_attr) = self.writer_attr.as_ref() else {
-            return Ok(())
-        };
-        
-        if let WriterAttr::ActualTarget = writer_attr {
-            writer.sync_data()?;
+        #[cfg(not(target_os = "android"))] {
+            Err(std::io::Error::new(std::io::ErrorKind::Other, Error::NOT_ANDROID))
         }
-        Ok(())
-    }
-}
-
-impl<R: tauri::Runtime> std::io::Write for WritableStream<R> {
-
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        match self.writer.as_mut() {
-            Some(w) => w.write(buf),
-            None => Err(std::io::Error::new(std::io::ErrorKind::Other, "writer missing")),
-        }
-    }
-
-    fn write_all(&mut self, buf: &[u8]) -> std::io::Result<()> {
-        match self.writer.as_mut() {
-            Some(w) => w.write_all(buf),
-            None => Err(std::io::Error::new(std::io::ErrorKind::Other, "writer missing")),
-        }
-    }
-
-    fn write_vectored(&mut self, bufs: &[std::io::IoSlice<'_>]) -> std::io::Result<usize> {
-        match self.writer.as_mut() {
-            Some(w) => w.write_vectored(bufs),
-            None => Err(std::io::Error::new(std::io::ErrorKind::Other, "writer missing")),
-        }
-    }
-
-    fn write_fmt(&mut self, fmt: std::fmt::Arguments<'_>) -> std::io::Result<()> {
-        match self.writer.as_mut() {
-            Some(w) => w.write_fmt(fmt),
-            None => Err(std::io::Error::new(std::io::ErrorKind::Other, "writer missing")),
-        }
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        match self.writer.as_mut() {
-            Some(w) => w.flush(),
-            None => Err(std::io::Error::new(std::io::ErrorKind::Other, "writer missing")),
+        #[cfg(target_os = "android")] {
+            self.impls.sync_data().await
         }
     }
 }
 
-impl<R: tauri::Runtime> std::ops::Drop for WritableStream<R> {
+macro_rules! impl_write {
+    ($target:ident) => {
 
-    fn drop(&mut self) {
-        // reflect が行われた場合、以下で return される
-        let Some(writer) = self.writer.take() else {
-            return
-        };
-        let Some(writer_attr) = self.writer_attr.take() else {
-            return
-        };
+        impl<R: tauri::Runtime> std::io::Write for $target<R> {
 
-        // reflect が行われなかった場合、保険として reflect と同じ処理を行う。
-        // ただし drop 内ではエラーの伝搬も panic も行えない。
-        // よって std::io::BufWriter の drop 実装と同じようにエラーは握りつぶす。
+            fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+                #[cfg(not(target_os = "android"))] {
+                    Err(std::io::Error::new(std::io::ErrorKind::Other, Error::NOT_ANDROID))
+                }
+                #[cfg(target_os = "android")] {
+                    self.impls.write(buf)
+                }
+            }
 
-        if let WriterAttr::TempBuffer { 
-            writer_path, 
-            actual_target_file_uri, 
-        } = writer_attr {
+            fn flush(&mut self) -> std::io::Result<()> {
+                #[cfg(not(target_os = "android"))] {
+                    Err(std::io::Error::new(std::io::ErrorKind::Other, Error::NOT_ANDROID))
+                }
+                #[cfg(target_os = "android")] {
+                    self.impls.flush()
+                }
+            }
 
-            let app = self.app.clone();
-            let src = writer;
-            let (src_uri, src_path) = (writer_path.clone().into(), writer_path);
-            let dest_uri = actual_target_file_uri.clone();
+            fn write_all(&mut self, buf: &[u8]) -> std::io::Result<()> {
+                #[cfg(not(target_os = "android"))] {
+                    Err(std::io::Error::new(std::io::ErrorKind::Other, Error::NOT_ANDROID))
+                }
+                #[cfg(target_os = "android")] {
+                    self.impls.write_all(buf)
+                }
+            }
 
-            // 時間がかかるので別スレッドに委託する
-            tauri::async_runtime::spawn_blocking(move || {
-                // 反映されるまで待機する
-                let _ = src.sync_data();
-                // copy を行う前にファイルを閉じる
-                std::mem::drop(src);
+            fn write_vectored(&mut self, bufs: &[std::io::IoSlice<'_>]) -> std::io::Result<usize> {
+                #[cfg(not(target_os = "android"))] {
+                    Err(std::io::Error::new(std::io::ErrorKind::Other, Error::NOT_ANDROID))
+                }
+                #[cfg(target_os = "android")] {
+                    self.impls.write_vectored(bufs)
+                }
+            }
 
-                let _ = app.android_fs().copy_via_kotlin(&src_uri, &dest_uri, None);
-                let _ = std::fs::remove_file(src_path);
-            });
+            fn write_fmt(&mut self, fmt: std::fmt::Arguments<'_>) -> std::io::Result<()> {
+                #[cfg(not(target_os = "android"))] {
+                    Err(std::io::Error::new(std::io::ErrorKind::Other, Error::NOT_ANDROID))
+                }
+                #[cfg(target_os = "android")] {
+                    self.impls.write_fmt(fmt)
+                }
+            }
         }
-    }
+    };
 }
+
+impl_write!(AsyncWritableStream);
+impl_write!(SyncWritableStream);

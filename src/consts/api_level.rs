@@ -1,6 +1,6 @@
 //! Constants representing Android API levels.  
 //! 
-//! See [`AndroidFs::api_level`](crate::AndroidFs::api_level) for the API level of the current target.
+//! See [`AndroidFs::api_level`](crate::api::api_sync::AndroidFs::api_level) for the API level of the current target.
 //!
 //! # Note
 //! Tauri does not support Android versions lower than 7 (API level 24).

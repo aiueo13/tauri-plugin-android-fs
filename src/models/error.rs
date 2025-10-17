@@ -7,9 +7,13 @@ pub struct Error {
     pub(crate) msg: Cow<'static, str>
 }
 
+#[allow(unused)]
 impl Error {
 
-    #[allow(unused)]
+    pub(crate) const NOT_ANDROID: Self = Self {
+        msg: Cow::Borrowed("This plugin is only for Android")
+    };
+
     pub(crate) fn with(msg: impl Into<Cow<'static, str>>) -> Self {
         Self { msg: msg.into() }
     }
