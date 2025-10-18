@@ -675,8 +675,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
 /// アプリ起動中に変更されることのない値
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[allow(unused)]
-pub(crate) struct Consts {
+pub struct Consts {
     pub build_version_sdk_int: i32,
 
     /// Android 10 (API level 29) 以上で有効
@@ -700,10 +699,9 @@ pub(crate) struct Consts {
     pub env_dir_recordings: Option<String>,
 }
 
-#[allow(unused)]
 impl Consts {
 
-    pub(crate) fn public_dir_name(&self, dir: impl Into<PublicDir>) -> Result<&str> {
+    pub fn public_dir_name(&self, dir: impl Into<PublicDir>) -> Result<&str> {
         Ok(match dir.into() {
             PublicDir::Image(dir) => match dir {
                 PublicImageDir::Pictures => &self.env_dir_pictures,

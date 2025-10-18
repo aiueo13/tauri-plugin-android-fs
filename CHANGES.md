@@ -1,3 +1,6 @@
+# Version 17.0.1
+- Update documentation.
+
 # Version 17.0.0
 - Remove deprecated items
 - Add `is_available_for_publicstorage` and `is_available_for_private_storage` to `StorageVolume`

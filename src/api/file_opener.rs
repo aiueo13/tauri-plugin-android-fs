@@ -1,5 +1,6 @@
 use sync_async::sync_async;
 use crate::*;
+use super::*;
 
 
 /// API of opening file/dir with other apps.
@@ -25,8 +26,8 @@ pub struct FileOpener<'a, R: tauri::Runtime> {
 
 #[cfg(target_os = "android")]
 #[sync_async(
-    use(if_sync) super::impls::SyncImpls as Impls;
-    use(if_async) super::impls::AsyncImpls as Impls;
+    use(if_sync) impls::SyncImpls as Impls;
+    use(if_async) impls::AsyncImpls as Impls;
 )]
 impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
     
@@ -37,8 +38,8 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
 }
 
 #[sync_async(
-    use(if_async) super::api_async::{AndroidFs, FilePicker, PrivateStorage, PublicStorage, WritableStream};
-    use(if_sync) super::api_sync::{AndroidFs, FilePicker, PrivateStorage, PublicStorage, WritableStream};
+    use(if_async) api_async::{AndroidFs, FilePicker, PrivateStorage, PublicStorage, WritableStream};
+    use(if_sync) api_sync::{AndroidFs, FilePicker, PrivateStorage, PublicStorage, WritableStream};
 )]
 impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
 

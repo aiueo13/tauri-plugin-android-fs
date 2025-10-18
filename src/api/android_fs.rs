@@ -1,5 +1,6 @@
 use sync_async::sync_async;
 use crate::*;
+use super::*;
 
 
 /// ***Root API***  
@@ -25,8 +26,8 @@ pub struct AndroidFs<R: tauri::Runtime> {
 
 #[cfg(target_os = "android")]
 #[sync_async(
-    use(if_sync) super::impls::SyncImpls as Impls;
-    use(if_async) super::impls::AsyncImpls as Impls;
+    use(if_sync) impls::SyncImpls as Impls;
+    use(if_async) impls::AsyncImpls as Impls;
 )]
 impl<R: tauri::Runtime> AndroidFs<R> {
     
@@ -37,8 +38,8 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 }
 
 #[sync_async(
-    use(if_async) super::api_async::{FileOpener, FilePicker, PrivateStorage, PublicStorage, WritableStream};
-    use(if_sync) super::api_sync::{FileOpener, FilePicker, PrivateStorage, PublicStorage, WritableStream};
+    use(if_async) api_async::{FileOpener, FilePicker, PrivateStorage, PublicStorage, WritableStream};
+    use(if_sync) api_sync::{FileOpener, FilePicker, PrivateStorage, PublicStorage, WritableStream};
 )]
 impl<R: tauri::Runtime> AndroidFs<R> {
 
@@ -703,7 +704,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Instead, it simply returns an invalid URI that will cause errors if used with other functions.  
     /// 
     /// If you need check, consider using [`AndroidFs::try_resolve_file_uri`] or [`AndroidFs::try_resolve_dir_uri`] instead. 
-    /// Or use this with [`AndroidFs::get_mime_type`].
+    /// Or use this with [`AndroidFs::get_type`].
     /// 
     /// The permissions and validity period of the returned URI depend on the origin directory 
     /// (e.g., the top directory selected by [`FilePicker::pick_dir`]) 

@@ -1,5 +1,6 @@
 use sync_async::sync_async;
 use crate::*;
+use super::*;
 
 
 /// A stream for writing to a file on Android.
@@ -14,10 +15,10 @@ use crate::*;
 /// In most cases, it points to the actual target file, but it may also refer to a temporary file.  
 /// For temporary files, calling [`WritableStream::reflect`] applies the changes to the actual target. 
 #[sync_async(
-    use(if_sync) super::impls::SyncWritableStreamImpls as WritableStreamImpls;
-    use(if_async) super::impls::AsyncWritableStreamImpls as WritableStreamImpls;
-    use(if_sync) super::api_sync::WritableStream;
-    use(if_async) super::api_async::WritableStream;
+    use(if_sync) impls::SyncWritableStreamImpls as WritableStreamImpls;
+    use(if_async) impls::AsyncWritableStreamImpls as WritableStreamImpls;
+    use(if_sync) api_sync::WritableStream;
+    use(if_async) api_async::WritableStream;
 )]
 pub struct WritableStream<R: tauri::Runtime> {
     #[cfg(target_os = "android")]
@@ -29,8 +30,8 @@ pub struct WritableStream<R: tauri::Runtime> {
 }
 
 #[sync_async(
-    use(if_async) super::api_async::{AndroidFs, FileOpener, FilePicker, PrivateStorage, PublicStorage};
-    use(if_sync) super::api_sync::{AndroidFs, FileOpener, FilePicker, PrivateStorage, PublicStorage};
+    use(if_async) api_async::{AndroidFs, FileOpener, FilePicker, PrivateStorage, PublicStorage};
+    use(if_sync) api_sync::{AndroidFs, FileOpener, FilePicker, PrivateStorage, PublicStorage};
 )]
 impl<R: tauri::Runtime> WritableStream<R> {
 
@@ -71,7 +72,7 @@ impl<R: tauri::Runtime> WritableStream<R> {
     /// without waiting for the uploading to complete.
     /// 
     /// If not called explicitly, the same process is performed asynchronously on drop, 
-    /// and no error is returned. 
+    /// and all errors is are ignored. 
     #[maybe_async]
     pub fn reflect(self) -> Result<()> {
         #[cfg(not(target_os = "android"))] {

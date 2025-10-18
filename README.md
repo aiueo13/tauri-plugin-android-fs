@@ -165,7 +165,7 @@ fn example(app: tauri::AppHandle) -> tauri_plugin_android_fs::Result<()> {
     // (e.g., SD card, USB drive)
     let volume = storage.get_volumes()?
         .into_iter()
-        .find(|v| !v.is_primary);
+        .find(|v| !v.is_primary && !v.is_readonly);
 
     let uri = storage.create_new_file(
          volume.as_ref().map(|v| &v.id), // Storage volume. 
