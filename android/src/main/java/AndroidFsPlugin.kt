@@ -400,10 +400,14 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                         ))
                     }
 
-                    invoke.resolve(res)
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve(res)
+                    }
                 }
                 catch (ex: Exception) {
-                    invoke.reject(ex.message ?: "unknown")
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(ex.message ?: "unknown")
+                    }
                 }
             }
         }
@@ -423,14 +427,19 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val args = invoke.parseArgs(GetStorageVolumeByPathArgs::class.java)
-
-                    invoke.resolve(JSObject().apply {
+                    val res = JSObject().apply {
                         put("volume", AFStorageVolume.getStorageVolumeByFileIfAvailable(File(args.path!!), activity))
-                    })
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve(res)
+                    }
                 }
                 catch (ex: Exception) {
                     val message = ex.message ?: "unknown"
-                    invoke.reject(message)
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(message)
+                    }
                 }
             }
         }
@@ -450,13 +459,19 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
 
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    invoke.resolve(JSObject().apply {
+                    val res = JSObject().apply {
                         put("volume", AFStorageVolume.getPrimaryStorageVolumeIfAvailable(activity))
-                    })
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve(res)
+                    }
                 }
                 catch (ex: Exception) {
                     val message = ex.message ?: "Failed to invoke getPrimaryStorageVolumeIfAvailable"
-                    invoke.reject(message)
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(message)
+                    }
                 }
             }
         }
@@ -476,13 +491,20 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
 
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    invoke.resolve(JSObject().apply {
+                    val res = JSObject().apply {
                         put("volumes", AFStorageVolume.getAvailableStorageVolumes(activity))
-                    })
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve(res)
+                    }
                 }
                 catch (ex: Exception) {
                     val message = ex.message ?: "Failed to invoke getAvailableStorageVolumes"
-                    invoke.reject(message)
+
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(message)
+                    }
                 }
             }
         }
@@ -503,13 +525,20 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val args = invoke.parseArgs(CheckStorageVolumeAvailableByPathArgs::class.java)
-                    invoke.resolve(JSObject().apply {
+                    val res = JSObject().apply {
                         put("value", AFStorageVolume.checkStorageVolumeAvailableByFile(File(args.path!!) ,activity))
-                    })
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve(res)
+                    }
                 }
                 catch (ex: Exception) {
                     val message = ex.message ?: "Failed to invoke checkStorageVolumeAvailableByPath"
-                    invoke.reject(message)
+
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(message)
+                    }
                 }
             }
         }
@@ -530,13 +559,20 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val args = invoke.parseArgs(CheckMediaStoreVolumeNameAvailableArgs::class.java)
-                    invoke.resolve(JSObject().apply {
+                    val res = JSObject().apply {
                         put("value", AFStorageVolume.checkMediaStoreVolumeNameAvailable(args.mediaStoreVolumeName!! ,activity))
-                    })
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve(res)
+                    }
                 }
                 catch (ex: Exception) {
                     val message = ex.message ?: "Failed to invoke checkMediaStoreVolumeNameAvailable"
-                    invoke.reject(message)
+
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(message)
+                    }
                 }
             }
         }
@@ -734,7 +770,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     val res = getFileController(args.dir)
                         .createFile(args.dir, args.relativePath, mimeType)
 
-                    // 必要ないかもしれないが念の為
                     withContext(Dispatchers.Main) {
                         invoke.resolve(res) 
                     }
@@ -763,7 +798,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     val res = getFileController(args.dir)
                         .createDirAll(args.dir, args.relativePath)
 
-                    // 必要ないかもしれないが念の為
                     withContext(Dispatchers.Main) {
                         invoke.resolve(res)
                     }
@@ -793,10 +827,14 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                         put("entries", getFileController(args.uri).readDir(args.uri, args.options))
                     }
 
-                    invoke.resolve(res)
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve(res)
+                    }
                 }
                 catch (ex: Exception) {
-                    invoke.reject(ex.message ?: "unknown")
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(ex.message ?: "unknown")
+                    }
                 }
             }
         }
@@ -837,13 +875,17 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                         )
                     }
 
-                    invoke.resolve(JSObject().apply {
-                        put("value", ok)
-                    })
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve(JSObject().apply {
+                            put("value", ok)
+                        })
+                    }
                 }
                 catch (ex: Exception) {
                     val message = ex.message ?: "Failed to invoke getThumbnail."
-                    invoke.reject(message)
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(message)
+                    }
                 }
             }
         }
@@ -876,13 +918,20 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                         }
                     }
 
-                    invoke.resolve(JSObject().apply {
+                    val res = JSObject().apply {
                         put("bytes", base64)
-                    })
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve(res)
+                    }
                 }
                 catch (ex: Exception) {
                     val message = ex.message ?: "Failed to invoke getThumbnail."
-                    invoke.reject(message)
+
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(message)
+                    }
                 }
             }
         }
@@ -1380,7 +1429,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun showOpenContentDialog(invoke: Invoke) {
         try {
             val args = invoke.parseArgs(ShowOpenContentDialogArgs::class.java)
-            var intent = createContentPickerIntent(args.mimeTypes, args.multiple)
+            val intent = createContentPickerIntent(args.mimeTypes, args.multiple)
 
             startActivityForResult(invoke, intent, "handleShowOpenFileAndVisualMediaDialog")
         } catch (ex: Exception) {
@@ -1495,7 +1544,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     }
                 } catch (ex: Exception) {
                     val message = ex.message ?: "Failed to invoke getFileDescriptor."
-                    invoke.reject(message)
+
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(message)
+                    }
                 }
             }
         }
@@ -1536,7 +1588,9 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     }
                 } catch (ex: Exception) {
                     val message = ex.message ?: "Failed to invoke getFileDescriptor."
-                    invoke.reject(message)
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(message)
+                    }
                 }
             }
         }
