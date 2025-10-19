@@ -417,15 +417,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
 
     #[always_sync]
     pub fn consts(&self) -> Result<&'static Consts> {
-        static CONSTS: std::sync::OnceLock<Consts> = std::sync::OnceLock::new();
-
-        Ok(match CONSTS.get() {
-            Some(c) => c,
-            None => {
-                CONSTS.set(self.invoke_sync::<Consts>("getConsts", "")?).ok();
-                CONSTS.get().expect("Should call 'set' before 'get'")
-            }
-        })
+        get_or_init_const(|| self.invoke_sync::<Consts>("getConsts", ""))
     }
 
     #[always_sync]
@@ -434,18 +426,9 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         dir: PrivateDir
     ) -> Result<&'static std::path::PathBuf> {
 
-        impl_de!(struct Paths {
-            data: std::path::PathBuf, 
-            cache: std::path::PathBuf, 
-            no_backup_data: std::path::PathBuf, 
-        });
-        
-        static PATHS: std::sync::OnceLock<Paths> = std::sync::OnceLock::new();
-
-        if PATHS.get().is_none() {
-            PATHS.set(self.invoke_sync::<Paths>("getPrivateBaseDirAbsolutePaths", "")?).ok();
-        }
-        let paths = PATHS.get().expect("Should call 'set' before 'get'");
+        let paths = get_or_init_internal_private_dir_paths(
+            || self.invoke_sync::<InternalPrivateDirPaths>("getPrivateBaseDirAbsolutePaths", "")
+        )?;
 
         Ok(match dir {
             PrivateDir::Data => &paths.data,
@@ -671,6 +654,16 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 }
 
+get_or_init!(get_or_init_const, Consts);
+get_or_init!(get_or_init_internal_private_dir_paths, InternalPrivateDirPaths);
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct InternalPrivateDirPaths {
+    data: std::path::PathBuf, 
+    cache: std::path::PathBuf, 
+    no_backup_data: std::path::PathBuf, 
+}
 
 /// アプリ起動中に変更されることのない値
 #[derive(serde::Deserialize)]

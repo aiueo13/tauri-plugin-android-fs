@@ -126,25 +126,6 @@ class RawFileController: FileController {
         }
     }
 
-    override fun getThumbnail(uri: FileUri, width: Int, height: Int): Bitmap? {
-        val file = File(Uri.parse(uri.uri).path!!)
-        val mimeType = _getMimeType(file)!!
-        val size = Size(width, height)
-
-        try {
-            if (Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT) {
-                when {
-                    mimeType.startsWith("image/") -> return ThumbnailUtils.createImageThumbnail(file, size, null)
-                    mimeType.startsWith("video/") -> return ThumbnailUtils.createVideoThumbnail(file, size, null)
-                    mimeType.startsWith("audio/") -> return ThumbnailUtils.createAudioThumbnail(file, size, null)
-                }
-            }
-        }
-        catch (ignore: Exception) {}
-
-        return null
-    }
-
     override fun rename(uri: FileUri, newName: String): JSObject {
         val file = File(Uri.parse(uri.uri).path!!)
         val newFile = File(file.parentFile, newName)

@@ -4,15 +4,11 @@
 
 mod models;
 mod consts;
-mod utils;
 
 pub mod api;
 
 pub use models::*;
 pub use consts::*;
-
-#[allow(unused_imports)]
-pub(crate) use utils::*;
 
 /// Initializes the plugin.
 /// 

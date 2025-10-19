@@ -1,6 +1,6 @@
 [package]
 name = "tauri-plugin-android-fs"
-version = "17.0.2"
+version = "17.0.3"
 edition = "2021"
 rust-version = "1.77.2"
 links = "tauri-plugin-android-fs"
@@ -27,6 +27,9 @@ windows = { level = "none", notes = "" }
 linux = { level = "none", notes = "" }
 macos = { level = "none", notes = "" }
 ios = { level = "none", notes = "" }
+
+[package.metadata.docs.rs]
+targets = ["x86_64-linux-android"]
 
 [features]
 default = ["tauri-plugin-fs"]

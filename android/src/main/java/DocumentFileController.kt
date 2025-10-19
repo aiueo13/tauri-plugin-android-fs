@@ -214,20 +214,6 @@ class DocumentFileController(private val activity: Activity): FileController {
         }
     }
 
-     override fun getThumbnail(uri: FileUri, width: Int, height: Int): Bitmap? {
-        try {
-            return DocumentsContract.getDocumentThumbnail(
-                activity.contentResolver, 
-                Uri.parse(uri.uri), 
-                Point(width, height), 
-                null
-            )
-        }
-        catch (ignore: Exception) {}
-
-        return null
-    }
-
     override fun rename(uri: FileUri, newName: String): JSObject {
         val documentUri = Uri.parse(uri.uri)
         val updatedUri = DocumentsContract.renameDocument(

@@ -55,21 +55,6 @@ class MediaFileController(private val activity: Activity): FileController {
         }
     }
 
-    override fun getThumbnail(uri: FileUri, width: Int, height: Int): Bitmap? {
-        try {
-            if (Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT) {
-                return activity.contentResolver.loadThumbnail(
-                    Uri.parse(uri.uri),
-                    Size(width, height),
-                    null
-                )
-            }
-        }
-        catch (ignore: Exception) {}
-
-        return null
-    }
-
     override fun rename(uri: FileUri, newName: String): JSObject {
         if (getName(uri) != newName) {
             val updated = activity.contentResolver.update(

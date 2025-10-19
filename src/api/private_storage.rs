@@ -206,7 +206,7 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
         }
         #[cfg(target_os = "android")] {
             let mut path = self.resolve_path(dir).await?;
-            path.push(validate_relative_path(relative_path.as_ref())?);
+            path.push(relative_path.as_ref());
             Ok(path.into())
         }
     }

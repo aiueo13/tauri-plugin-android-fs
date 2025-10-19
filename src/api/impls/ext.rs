@@ -5,8 +5,8 @@ use super::*;
 
 
 #[sync_async(
-    use(if_async) async_util::run_blocking;
-    use(if_sync) sync_util::run_blocking;
+    use(if_async) async_task as task;
+    use(if_sync) sync_task as task;
 )]
 impl<'a, R: tauri::Runtime> Impls<'a, R> {
 
@@ -27,17 +27,11 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
 
     #[always_sync]
     pub fn tmp_dir_path(&self) -> Result<&'static std::path::PathBuf> {
-        static PATH: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
-        
-        Ok(match PATH.get() {
-            Some(path) => path,
-            None => {
-                let path = self.internal_private_dir_path(PrivateDir::Cache)?
-                    .join("pluginAndroidFs-tmpDir-01K486FKQ2BZSBGFD34RFH9FWJ");
+        get_or_init_tmp_dir_path(|| {
+            let path = self.internal_private_dir_path(PrivateDir::Cache)?
+                .join("pluginAndroidFs-tmpDir-01K486FKQ2BZSBGFD34RFH9FWJ");
 
-                PATH.set(path).ok();
-                PATH.get().expect("Should call 'set' before 'get'")
-            }
+            Ok(path)
         })
     }
 
@@ -46,7 +40,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     pub fn remove_all_tmp_files(&self) -> Result<()> {
         let path = self.tmp_dir_path()?;
 
-        run_blocking(move || {
+        task::run_blocking(move || {
             match std::fs::remove_dir_all(path) {
                 Ok(_) => Ok(()),
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
@@ -59,15 +53,10 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     pub fn create_new_tmp_file(&self) -> Result<(std::fs::File, std::path::PathBuf)> {
         let tmp_dir_path = self.tmp_dir_path()?;
 
-        run_blocking(move || {
-            let uid = {
-                use std::sync::atomic::{AtomicUsize, Ordering};
-
-                static COUNTER: AtomicUsize = AtomicUsize::new(0);
-                COUNTER.fetch_add(1, Ordering::Relaxed)
-            };
-
+        task::run_blocking(move || {
             std::fs::create_dir_all(&tmp_dir_path).ok();
+
+            let uid = next_id_for_tmp_file();
             let tmp_file_path = tmp_dir_path.join(format!("{uid}"));
             let tmp_file = std::fs::File::create_new(&tmp_file_path)?;
 
@@ -83,7 +72,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn get_entry_metadata(&self, uri: &FileUri) -> Result<std::fs::Metadata> {
         let file = self.open_file_readable(uri).await?;
-        run_blocking(move || Ok(file.metadata()?)).await
+        task::run_blocking(move || Ok(file.metadata()?)).await
     }
 
     #[maybe_async]
@@ -121,7 +110,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
                 // かつ書き込むデータ量が元のそれより少ない場合にファイルが壊れる可能性がある。
                 // これを避けるため強制的にデータを切り捨てる。
                 // ただし file provider の実装によっては set_len は失敗することがあるので最終手段。
-                run_blocking(move || {
+                task::run_blocking(move || {
                     file.set_len(0)?;
                     Ok(file)
                 }).await
@@ -135,7 +124,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn read_file(&self, uri: &FileUri) -> Result<Vec<u8>> {
         let mut file = self.open_file_readable(uri).await?;
-        run_blocking(move || {
+        task::run_blocking(move || {
             let mut buf = file.metadata().ok()
                 .map(|m| m.len() as usize)
                 .map(Vec::with_capacity)
@@ -149,7 +138,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn read_file_to_string(&self, uri: &FileUri) -> Result<String> {
         let mut file = self.open_file_readable(uri).await?;
-        run_blocking(move || {
+        task::run_blocking(move || {
             let mut buf = file.metadata().ok()
                 .map(|m| m.len() as usize)
                 .map(String::with_capacity)
@@ -198,7 +187,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         #[if_async]
         let (result, stream) = {
             let contents = upgrade_bytes_ref(contents);
-            run_blocking(move ||{
+            task::run_blocking(move ||{
                 let result = stream.write_all(&contents);
                 Ok((result, stream))
             }).await.expect("should not return err in run_blocking")
@@ -223,7 +212,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             // そのため WritableStream は用いない。
             let mut src = self.open_file_readable(src).await?;
             let mut dest = self.open_file_writable(dest).await?;
-            run_blocking(move || std::io::copy(&mut src, &mut dest).map_err(Into::into)).await?;
+            task::run_blocking(move || std::io::copy(&mut src, &mut dest).map_err(Into::into)).await?;
         }
         Ok(())
     }
@@ -477,4 +466,14 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             .and_then(|v| v.id.outside_private_dir_path(dir).map(Clone::clone))
             .ok_or_else(|| Error::with("Primary storage volume is not currently available"))
     }
+}
+
+
+get_or_init!(get_or_init_tmp_dir_path, std::path::PathBuf);
+
+fn next_id_for_tmp_file() -> usize {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    static COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+    COUNTER.fetch_add(1, Ordering::Relaxed) 
 }

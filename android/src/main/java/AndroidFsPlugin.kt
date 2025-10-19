@@ -21,6 +21,7 @@ import android.webkit.MimeTypeMap
 import android.media.MediaMetadataRetriever
 import android.media.MediaMetadataRetriever.OPTION_PREVIOUS_SYNC
 import android.util.Base64
+import android.util.Size
 import app.tauri.annotation.ActivityCallback
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
@@ -860,20 +861,19 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun getThumbnailToFile(invoke: Invoke) {
         try {
-            CoroutineScope(Dispatchers.IO).launch {
+            CoroutineScope(Dispatchers.Default).launch {
                 try {
                     val args = invoke.parseArgs(GetThumbnailToFileArgs::class.java)
 
-                    val ok = openFileWt(Uri.parse(args.dest.uri)).use {
-                        _getThumbnail(
-                            src = args.src,
-                            out = it,
-                            width = args.width,
-                            height = args.height,
-                            quality = args.quality,
-                            format = args.format
-                        )
-                    }
+                    val ok = AFThumbnails.loadThumbnail(
+                        fileUri = args.src,
+                        preferredSize = Size(args.width, args.height),
+                        format = args.format,
+                        quality = args.quality,
+                        output = { openFileWt(Uri.parse(args.dest.uri)) },
+                        useThumbnail = { true },
+                        ctx = activity
+                    ) ?: false
 
                     withContext(Dispatchers.Main) {
                         invoke.resolve(JSObject().apply {
@@ -898,25 +898,19 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun getThumbnail(invoke: Invoke) {
         try {
-            CoroutineScope(Dispatchers.IO).launch {
+            CoroutineScope(Dispatchers.Default).launch {
                 try {
                     val args = invoke.parseArgs(GetThumbnailArgs::class.java)
 
-                    val base64 = ByteArrayOutputStream().use {
-                        if (_getThumbnail(
-                            src = args.uri,
-                            out = it,
-                            width = args.width,
-                            height = args.height,
-                            quality = args.quality,
-                            format = args.format
-                        )) {
-                            Base64.encodeToString(it.toByteArray(), Base64.NO_WRAP)
-                        }
-                        else {
-                            null
-                        }
-                    }
+                    val base64 = AFThumbnails.loadThumbnail(
+                        fileUri = args.uri,
+                        preferredSize = Size(args.width, args.height),
+                        format = args.format,
+                        quality = args.quality,
+                        output = { ByteArrayOutputStream() },
+                        useThumbnail = { Base64.encodeToString(it.toByteArray(), Base64.NO_WRAP) },
+                        ctx = activity
+                    )
 
                     val res = JSObject().apply {
                         put("bytes", base64)
@@ -938,117 +932,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke getThumbnail."
             invoke.reject(message)
-        }
-    }
-    
-    @Suppress("DEPRECATION")
-    private fun _getThumbnail(
-        src: FileUri,
-        out: OutputStream,
-        width: Int,
-        height: Int,
-        format: String,
-        quality: Int,
-    ): Boolean {
-
-        var thumbnail: Bitmap? = null
-        var img: Bitmap? = null
-
-        try {
-            val compressFormat = when (format.lowercase()) {
-                "jpeg" -> Bitmap.CompressFormat.JPEG
-                "png" -> Bitmap.CompressFormat.PNG
-                "webp" -> {
-                    if (Build.VERSION_CODES.R < Build.VERSION.SDK_INT) {
-                        Bitmap.CompressFormat.WEBP_LOSSY
-                    }
-                    else {
-                        Bitmap.CompressFormat.WEBP
-                    }
-                }
-                else -> throw Exception("Illegal format: $format")
-            }
-
-            img = getFileController(src).getThumbnail(
-                src,
-                width,
-                height
-            )
-
-            val srcUri = Uri.parse(src.uri)
-            if (img == null && srcUri.scheme == "content") {
-                try {
-                    val mimeType = getFileController(src).getMimeType(src)
-                    if (mimeType != null && mimeType.startsWith("video/")) {
-                        img = getVideoThumbnail(
-                            srcUri, 
-                            width, 
-                            height
-                        )
-                    }
-                }
-                catch (ignore: Exception) {}
-            }
-            if (img == null) {
-                return false
-            }
-
-            thumbnail = if (img.width > (width * 2) + 3 || img.height > (height * 2) + 3) {
-                val ratio = minOf(width.toFloat() / img.width, height.toFloat() / img.height)
-                Bitmap.createScaledBitmap(
-                    img,
-                    (img.width * ratio).toInt(),
-                    (img.height * ratio).toInt(),
-                    false
-                )
-            }
-            else {
-                img
-            }
-
-            if (!thumbnail.compress(compressFormat, quality.coerceIn(0, 100), out)) {
-                throw Exception("Failed to compress bitmap")
-            }
-            out.flush()
-            
-            return true
-        }
-        finally {
-            thumbnail?.recycle()
-            img?.recycle()
-        }
-    }
-
-    private fun getVideoThumbnail(uri: Uri, width: Int, height: Int): Bitmap? {
-        MediaMetadataRetriever().use { mediaMetadataRetriever ->
-            mediaMetadataRetriever.setDataSource(activity, uri)
-            val thumbnailBytes = mediaMetadataRetriever.embeddedPicture
-            thumbnailBytes?.let {
-                return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    ImageDecoder.decodeBitmap(ImageDecoder.createSource(it))
-                } else {
-                    BitmapFactory.decodeByteArray(it, 0, it.size)
-                }
-            }
-
-            val vw = mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toFloat()
-            val vh = mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toFloat()
-            if (vw != null && vh != null && (width < vw || height < vh)) {
-                val wr = width.toFloat() / vw
-                val hr = height.toFloat() / vh
-                val ratio = min(wr, hr)
-                
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    return mediaMetadataRetriever.getScaledFrameAtTime(
-                        -1,
-                        OPTION_PREVIOUS_SYNC,
-                        (vw * ratio).toInt(),
-                        (vh * ratio).toInt()
-                    )
-                }
-            }
-
-            return mediaMetadataRetriever.frameAtTime
         }
     }
 

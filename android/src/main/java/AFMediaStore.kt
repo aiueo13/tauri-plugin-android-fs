@@ -33,7 +33,7 @@ class AFMediaStore private constructor() { companion object {
             throw IllegalArgumentException("need parent directory")
         }
 
-        val mimeType = mimeType ?: AFUtils.guessMimeTypeFromExtension(entry)
+        val mimeType = mimeType ?: AFUtils.guessFileMimeTypeFromExtension(entry)
 
         val uri = ctx.contentResolver.insert(
             getContentUri(volumeName, relativePath, mimeType),

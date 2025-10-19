@@ -22,7 +22,5 @@ interface FileController {
 
     fun deleteDirAll(uri: FileUri)
 
-    fun getThumbnail(uri: FileUri, width: Int, height: Int): Bitmap?
-
     fun rename(uri: FileUri, newName: String): JSObject
 }
