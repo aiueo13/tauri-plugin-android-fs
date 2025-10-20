@@ -80,7 +80,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
 
 
 #[sync_async]
-mod task {
+mod utils {
     use super::*;
 
     #[maybe_async]
@@ -110,6 +110,22 @@ mod task {
         }
         #[if_sync] {
             task()
+        }
+    }
+
+    #[maybe_async]
+    pub fn sleep(duration: std::time::Duration) -> Result<()> {
+        #[if_async] {
+            // NOTE:
+            // tokio の sleep は使わない。
+            // Tauri はデベロッパーが独自の Tokio runtime を設定できるので
+            // time が有効になってない Tokio runtime が使われることでパニックになる可能性がある。
+            tauri::async_runtime::spawn_blocking(move || std::thread::sleep(duration)).await?;
+            Ok(())
+        }
+        #[if_sync] {
+            std::thread::sleep(duration);
+            Ok(())
         }
     }
 }

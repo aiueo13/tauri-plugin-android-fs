@@ -87,8 +87,8 @@ enum OutputAttr {
 
 
 #[sync_async(
-    use(if_async) async_task as task;
-    use(if_sync) sync_task as task;
+    use(if_async) async_utils::{run_blocking, run_blocking_with_io_err};
+    use(if_sync) sync_utils::{run_blocking, run_blocking_with_io_err};
     use(if_async) AsyncImpls as Impls;
     use(if_sync) SyncImpls as Impls;
 )]
@@ -115,7 +115,7 @@ impl<R: tauri::Runtime> WritableStreamImpls<R> {
         
         if let OutputAttr::ActualTarget = output_attr.as_ref() {
             let output = Arc::clone(output);
-            task::run_blocking_with_io_err(move || output.sync_all()).await?;
+            run_blocking_with_io_err(move || output.sync_all()).await?;
         }
         Ok(())
     }
@@ -131,7 +131,7 @@ impl<R: tauri::Runtime> WritableStreamImpls<R> {
         
         if let OutputAttr::ActualTarget = output_attr.as_ref() {
             let output = Arc::clone(output);
-            task::run_blocking_with_io_err(move || output.sync_data()).await?;
+            run_blocking_with_io_err(move || output.sync_data()).await?;
         }
         Ok(())
     }
@@ -154,7 +154,7 @@ impl<R: tauri::Runtime> WritableStreamImpls<R> {
         } = Arc::try_unwrap(output_attr).unwrap_or_else(|arc| (*arc).clone()) {
 
             // コピーする前にファイルデータを反映させてファイルを閉じる
-            let result1 = task::run_blocking(move || {
+            let result1 = run_blocking(move || {
                 let result = output.sync_data().map_err(Into::into);
                 std::mem::drop(output);
                 result
@@ -168,7 +168,7 @@ impl<R: tauri::Runtime> WritableStreamImpls<R> {
                 None
             ).await;
 
-            let result3 = task::run_blocking(move || 
+            let result3 = run_blocking(move || 
                 std::fs::remove_file(output_path).map_err(Into::into)
             ).await;
 
@@ -196,7 +196,7 @@ impl<R: tauri::Runtime> WritableStreamImpls<R> {
 
         if let OutputAttr::TempBuffer { output_path, .. } = output_attr.as_ref() {
             let tmp_file_path = output_path.clone();
-            task::run_blocking(move || std::fs::remove_file(tmp_file_path).map_err(Into::into)).await?;
+            run_blocking(move || std::fs::remove_file(tmp_file_path).map_err(Into::into)).await?;
         }
 
         Ok(())

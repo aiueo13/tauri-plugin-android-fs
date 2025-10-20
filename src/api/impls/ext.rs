@@ -5,8 +5,8 @@ use super::*;
 
 
 #[sync_async(
-    use(if_async) async_task as task;
-    use(if_sync) sync_task as task;
+    use(if_async) async_utils::{run_blocking, sleep};
+    use(if_sync) sync_utils::{run_blocking, sleep};
 )]
 impl<'a, R: tauri::Runtime> Impls<'a, R> {
 
@@ -40,7 +40,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     pub fn remove_all_tmp_files(&self) -> Result<()> {
         let path = self.tmp_dir_path()?;
 
-        task::run_blocking(move || {
+        run_blocking(move || {
             match std::fs::remove_dir_all(path) {
                 Ok(_) => Ok(()),
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
@@ -53,7 +53,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     pub fn create_new_tmp_file(&self) -> Result<(std::fs::File, std::path::PathBuf)> {
         let tmp_dir_path = self.tmp_dir_path()?;
 
-        task::run_blocking(move || {
+        run_blocking(move || {
             std::fs::create_dir_all(&tmp_dir_path).ok();
 
             let uid = next_id_for_tmp_file();
@@ -72,7 +72,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn get_entry_metadata(&self, uri: &FileUri) -> Result<std::fs::Metadata> {
         let file = self.open_file_readable(uri).await?;
-        task::run_blocking(move || Ok(file.metadata()?)).await
+        run_blocking(move || Ok(file.metadata()?)).await
     }
 
     #[maybe_async]
@@ -110,7 +110,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
                 // かつ書き込むデータ量が元のそれより少ない場合にファイルが壊れる可能性がある。
                 // これを避けるため強制的にデータを切り捨てる。
                 // ただし file provider の実装によっては set_len は失敗することがあるので最終手段。
-                task::run_blocking(move || {
+                run_blocking(move || {
                     file.set_len(0)?;
                     Ok(file)
                 }).await
@@ -124,7 +124,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn read_file(&self, uri: &FileUri) -> Result<Vec<u8>> {
         let mut file = self.open_file_readable(uri).await?;
-        task::run_blocking(move || {
+        run_blocking(move || {
             let mut buf = file.metadata().ok()
                 .map(|m| m.len() as usize)
                 .map(Vec::with_capacity)
@@ -138,7 +138,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn read_file_to_string(&self, uri: &FileUri) -> Result<String> {
         let mut file = self.open_file_readable(uri).await?;
-        task::run_blocking(move || {
+        run_blocking(move || {
             let mut buf = file.metadata().ok()
                 .map(|m| m.len() as usize)
                 .map(String::with_capacity)
@@ -187,7 +187,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         #[if_async]
         let (result, stream) = {
             let contents = upgrade_bytes_ref(contents);
-            task::run_blocking(move ||{
+            run_blocking(move ||{
                 let result = stream.write_all(&contents);
                 Ok((result, stream))
             }).await.expect("should not return err in run_blocking")
@@ -212,7 +212,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             // そのため WritableStream は用いない。
             let mut src = self.open_file_readable(src).await?;
             let mut dest = self.open_file_writable(dest).await?;
-            task::run_blocking(move || std::io::copy(&mut src, &mut dest).map_err(Into::into)).await?;
+            run_blocking(move || std::io::copy(&mut src, &mut dest).map_err(Into::into)).await?;
         }
         Ok(())
     }

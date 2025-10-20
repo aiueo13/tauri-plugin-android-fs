@@ -3,7 +3,10 @@ use crate::*;
 use super::*;
 
 
-#[sync_async]
+#[sync_async(
+    use(if_async) async_utils::sleep;
+    use(if_sync) sync_utils::sleep;
+)]
 impl<'a, R: tauri::Runtime> Impls<'a, R> {
 
     #[maybe_async]
@@ -517,11 +520,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         // その frontend 側の関数の呼び出しがなぜか終了しないことが偶にある。
         // よって遅延を強制的に追加してこれを回避する。
         // https://github.com/aiueo13/tauri-plugin-android-fs/issues/1
-        // 
-        // TODO: 
-        // - sleep await を用いる
-        // - kotlin側で invoke.resolve ではなく channel を用いて結果を返すことを試してみる
-        std::thread::sleep(std::time::Duration::from_millis(200));
+        sleep(std::time::Duration::from_millis(200)).await?;
 
         result
     }
@@ -555,7 +554,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             .map(|v| v.uris);
 
         // show_pick_file_dialog 内のコメントを参照
-        std::thread::sleep(std::time::Duration::from_millis(200));
+        sleep(std::time::Duration::from_millis(200)).await?;
 
         result
     }
@@ -575,7 +574,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             .map(|v| v.uris);
 
         // show_pick_file_dialog 内のコメントを参照
-        std::thread::sleep(std::time::Duration::from_millis(200));
+        sleep(std::time::Duration::from_millis(200)).await?;
 
         result
     }
@@ -594,7 +593,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             .map(|v| v.uri);
 
         // show_pick_file_dialog 内のコメントを参照
-        std::thread::sleep(std::time::Duration::from_millis(200));
+        sleep(std::time::Duration::from_millis(200)).await?;
 
         result
     }
@@ -621,7 +620,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             .map(|v| v.uri);
 
         // show_pick_file_dialog 内のコメントを参照
-        std::thread::sleep(std::time::Duration::from_millis(200));
+        sleep(std::time::Duration::from_millis(200)).await?;
 
         result
     }
