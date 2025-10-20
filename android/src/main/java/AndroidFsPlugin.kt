@@ -257,6 +257,15 @@ class CreateNewMediaStoreFileArgs {
     lateinit var mediaStoreVolumeName: String
     lateinit var relativePath: String
     var mimeType: String? = null
+    // isPending と命名するとなぜか常にnullになる
+    var pending: Boolean? = null
+}
+
+@InvokeArg
+class SetMediaStoreFilePending {
+    lateinit var uri: FileUri
+    // isPending と命名するとなぜか常にnullになる
+    var pending: Boolean? = null
 }
 
 
@@ -351,6 +360,11 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
+    fun noop(invoke: Invoke) {
+        invoke.resolve()
+    }
+
+    @Command
     fun getConsts(invoke: Invoke) {
         try {
             val res = JSObject()
@@ -383,6 +397,39 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
+    fun setMediaStoreFilePending(invoke: Invoke) {
+        try {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                throw Exception("requires Android 10 (API level 29) or higher")
+            }
+
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val args = invoke.parseArgs(SetMediaStoreFilePending::class.java)
+
+                    AFMediaStore.setPending(
+                        args.uri,
+                        args.pending ?: throw Exception("missing value: isPending"),
+                        activity
+                    )
+
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve()
+                    }
+                }
+                catch (ex: Exception) {
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(ex.message ?: "unknown")
+                    }
+                }
+            }
+        }
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "unknown")
+        }
+    }
+
+    @Command
     fun createNewMediaStoreFile(invoke: Invoke) {
         try {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
@@ -397,6 +444,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                             args.mediaStoreVolumeName,
                             args.relativePath,
                             args.mimeType,
+                            args.pending ?: throw Exception("missing value: isPending"),
                             activity
                         ))
                     }

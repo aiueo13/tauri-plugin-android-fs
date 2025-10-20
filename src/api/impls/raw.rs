@@ -438,15 +438,36 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
+    pub fn set_file_pending_in_public_storage(
+        &self,
+        uri: &FileUri,
+        is_pending: bool
+    ) -> Result<()> {
+
+        impl_se!(struct Req<'a> { uri: &'a FileUri, pending: bool });
+        impl_de!(struct Res;);
+
+        self.invoke::<Res>("setMediaStoreFilePending", Req { uri, pending: is_pending })
+            .await
+            .map(|_| ())
+    }
+
+    #[maybe_async]
     pub fn create_new_file_in_public_storage(
         &self,
         volume_id: Option<&StorageVolumeId>,
         base_dir: impl Into<PublicDir>,
         relative_path: impl AsRef<std::path::Path>, 
-        mime_type: Option<&str>
+        mime_type: Option<&str>,
+        is_pending: bool,
     ) -> Result<FileUri> {
 
-        impl_se!(struct Req<'a> { media_store_volume_name: &'a str, relative_path: std::path::PathBuf, mime_type: Option<&'a str> });
+        impl_se!(struct Req<'a> { 
+            media_store_volume_name: &'a str, 
+            relative_path: std::path::PathBuf, 
+            mime_type: Option<&'a str>,
+            pending: bool
+        });
         impl_de!(struct Res { uri: FileUri });
 
         self.requires(api_level::ANDROID_10)?;
@@ -467,6 +488,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
                 media_store_volume_name, 
                 relative_path,
                 mime_type,
+                pending: is_pending
             })
             .await
             .map(|v| v.uri)
@@ -487,9 +509,21 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         });
         impl_de!(struct Res { uris: Vec<FileUri> });
     
-        self.invoke::<Res>("showOpenFileDialog", Req { mime_types, multiple, initial_location })
+        let result = self.invoke::<Res>("showOpenFileDialog", Req { mime_types, multiple, initial_location })
             .await
-            .map(|v| v.uris)
+            .map(|v| v.uris);
+
+        // intent からの結果を取得してからすぐ frontend 側に戻ると
+        // その frontend 側の関数の呼び出しがなぜか終了しないことが偶にある。
+        // よって遅延を強制的に追加してこれを回避する。
+        // https://github.com/aiueo13/tauri-plugin-android-fs/issues/1
+        // 
+        // TODO: 
+        // - sleep await を用いる
+        // - kotlin側で invoke.resolve ではなく channel を用いて結果を返すことを試してみる
+        std::thread::sleep(std::time::Duration::from_millis(200));
+
+        result
     }
 
     #[maybe_async]
@@ -516,9 +550,14 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             }
         };
     
-        self.invoke::<Res>("showOpenVisualMediaDialog", Req { multiple, target })
+        let result = self.invoke::<Res>("showOpenVisualMediaDialog", Req { multiple, target })
             .await
-            .map(|v| v.uris)
+            .map(|v| v.uris);
+
+        // show_pick_file_dialog 内のコメントを参照
+        std::thread::sleep(std::time::Duration::from_millis(200));
+
+        result
     }
 
     #[maybe_async]
@@ -531,9 +570,14 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         impl_se!(struct Req<'a> { mime_types: &'a [&'a str], multiple: bool });
         impl_de!(struct Res { uris: Vec<FileUri> });
 
-        self.invoke::<Res>("showOpenContentDialog", Req { mime_types, multiple })
+        let result = self.invoke::<Res>("showOpenContentDialog", Req { mime_types, multiple })
             .await
-            .map(|v| v.uris)
+            .map(|v| v.uris);
+
+        // show_pick_file_dialog 内のコメントを参照
+        std::thread::sleep(std::time::Duration::from_millis(200));
+
+        result
     }
 
     #[maybe_async]
@@ -545,9 +589,14 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         impl_se!(struct Req<'a> { initial_location: Option<&'a FileUri> });
         impl_de!(struct Res { uri: Option<FileUri> });
 
-        self.invoke::<Res>("showManageDirDialog", Req { initial_location })
+        let result = self.invoke::<Res>("showManageDirDialog", Req { initial_location })
             .await
-            .map(|v| v.uri)
+            .map(|v| v.uri);
+
+        // show_pick_file_dialog 内のコメントを参照
+        std::thread::sleep(std::time::Duration::from_millis(200));
+
+        result
     }
 
     #[maybe_async]
@@ -567,9 +616,14 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     
         let initial_file_name = initial_file_name.as_ref();
         
-        self.invoke::<Res>("showSaveFileDialog", Req { initial_file_name, mime_type, initial_location })
+        let result = self.invoke::<Res>("showSaveFileDialog", Req { initial_file_name, mime_type, initial_location })
             .await
-            .map(|v| v.uri)
+            .map(|v| v.uri);
+
+        // show_pick_file_dialog 内のコメントを参照
+        std::thread::sleep(std::time::Duration::from_millis(200));
+
+        result
     }
 
     #[maybe_async]

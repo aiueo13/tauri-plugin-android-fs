@@ -1,3 +1,8 @@
+# Version 17.1.0
+- Fix an issue where returning to the frontend immediately after invoking the FilePicker causes the frontend function call not to complete.
+- Add `PublicStorage::create_new_file_with_pending`
+- Add `PublicStorage::set_pending`
+
 # Version 17.0.1
 - Update documentation.
 

@@ -339,7 +339,8 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
                 PublicDir::Audio(_) => "audio/mp3",
                 PublicDir::Video(_) => "video/mp4",
                 PublicDir::GeneralPurpose(_) => "application/octet-stream"
-            })
+            }),
+            true
         ).await?;
         self.remove_file(&tmp_file_uri).await.ok();
 

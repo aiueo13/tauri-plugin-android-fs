@@ -159,7 +159,70 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().create_new_file_in_public_storage(volume_id, base_dir, relative_path, mime_type).await
+            self.impls().create_new_file_in_public_storage(volume_id, base_dir, relative_path, mime_type, false).await
+        }
+    }
+
+    /// Creates a new empty file in the specified public directory of the storage volume.  
+    /// This returns a **persistent read-write** URI.
+    ///
+    /// The created file has the following features:  
+    /// - Marked as pending and will not be visible to other apps until [`PublicStorage::set_pending(..., false)`](PublicStorage::set_pending) is called.
+    /// - It is registered with the appropriate MediaStore as needed.  
+    /// - The app can fully manage it until the app is uninstalled.  
+    /// - It is **not** removed when the app itself is uninstalled.  
+    /// 
+    /// # Args
+    /// - ***volume_id*** :  
+    /// ID of the storage volume, such as internal storage, SD card, etc.  
+    /// Usually, you don't need to specify this unless there is a special reason.  
+    /// If `None` is provided, [`the primary storage volume`](PublicStorage::get_primary_volume) will be used.  
+    /// 
+    /// - ***base_dir*** :  
+    /// The base directory.  
+    /// When using [`PublicImageDir`], use only image MIME types for ***mime_type***, which is discussed below.; using other types may cause errors.
+    /// Similarly, use only the corresponding media types for [`PublicVideoDir`] and [`PublicAudioDir`].
+    /// Only [`PublicGeneralPurposeDir`] supports all MIME types. 
+    /// 
+    /// - ***relative_path*** :  
+    /// The file path relative to the base directory.  
+    /// To avoid cluttering files, it is helpful to place the app name directory at the top level.   
+    /// Any missing subdirectories in the specified path will be created automatically.  
+    /// If a file with the same name already exists, 
+    /// the system append a sequential number to ensure uniqueness.  
+    /// If no extension is present, 
+    /// the system may infer one from ***mime_type*** and may append it to the file name. 
+    /// But this append-extension operation depends on the model and version.  
+    /// The system may sanitize these strings as needed, so those strings may not be used as it is.
+    ///  
+    /// - ***mime_type*** :  
+    /// The MIME type of the file to be created.  
+    /// If this is None, MIME type is inferred from the extension of ***relative_path***
+    /// and if that fails, `application/octet-stream` is used.  
+    /// 
+    /// # Support
+    /// Android 10 (API level 29) or higher.  
+    ///
+    /// Note :  
+    /// - [`PublicAudioDir::Audiobooks`] is not available on Android 9 (API level 28) and lower.
+    /// Availability on a given device can be verified by calling [`PublicStorage::is_audiobooks_dir_available`].  
+    /// - [`PublicAudioDir::Recordings`] is not available on Android 11 (API level 30) and lower.
+    /// Availability on a given device can be verified by calling [`PublicStorage::is_recordings_dir_available`].  
+    /// - Others dirs are available in all Android versions.
+    #[maybe_async]
+    pub fn create_new_file_with_pending(
+        &self,
+        volume_id: Option<&StorageVolumeId>,
+        base_dir: impl Into<PublicDir>,
+        relative_path: impl AsRef<std::path::Path>, 
+        mime_type: Option<&str>
+    ) -> Result<FileUri> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().create_new_file_in_public_storage(volume_id, base_dir, relative_path, mime_type, true).await
         }
     }
 
@@ -202,6 +265,33 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         }
         #[cfg(target_os = "android")] {
             self.impls().create_dir_all_in_public_storage(volume_id, base_dir, relative_path).await
+        }
+    }
+
+    /// Specifies whether the specified file on PublicStorage is marked as pending.   
+    /// When set to `true`, the app has exclusive access to the file, and it becomes invisible to other apps.
+    /// 
+    /// If it remains `true` for more than seven days, 
+    /// the system will automatically delete the file.
+    /// 
+    /// # Args
+    /// - ***uri*** :  
+    /// Target file URI on PublicStorage.
+    /// This must be **read-writable**.
+    /// 
+    /// # Support
+    /// Android 10 (API level 29) or higher.  
+    /// 
+    /// # References
+    /// <https://developer.android.com/reference/android/provider/MediaStore.MediaColumns#IS_PENDING>
+    /// <https://developer.android.com/training/data-storage/shared/media?hl=en#toggle-pending-status>
+    #[maybe_async]
+    pub fn set_pending(&self, uri: &FileUri, is_pending: bool) -> Result<()> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().set_file_pending_in_public_storage(uri, is_pending).await
         }
     }
 
