@@ -814,7 +814,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ///  
     /// - ***relative_path*** :  
     /// The file path relative to the base directory.  
-    /// Any missing subdirectories in the specified path will be created automatically.  
+    /// Any missing parent directories will be created recursively.  
     /// If a file with the same name already exists, 
     /// the system append a sequential number to ensure uniqueness.  
     /// If no extension is present, 

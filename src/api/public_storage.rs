@@ -124,7 +124,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// - ***relative_path*** :  
     /// The file path relative to the base directory.  
     /// To avoid cluttering files, it is helpful to place the app name directory at the top level.   
-    /// Any missing subdirectories in the specified path will be created automatically.  
+    /// Any missing parent directories will be created recursively.  
     /// If a file with the same name already exists, 
     /// the system append a sequential number to ensure uniqueness.  
     /// If no extension is present, 
@@ -187,7 +187,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// - ***relative_path*** :  
     /// The file path relative to the base directory.  
     /// To avoid cluttering files, it is helpful to place the app name directory at the top level.   
-    /// Any missing subdirectories in the specified path will be created automatically.  
+    /// Any missing parent directories will be created recursively.  
     /// If a file with the same name already exists, 
     /// the system append a sequential number to ensure uniqueness.  
     /// If no extension is present, 
@@ -283,8 +283,8 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// Android 10 (API level 29) or higher.  
     /// 
     /// # References
-    /// <https://developer.android.com/reference/android/provider/MediaStore.MediaColumns#IS_PENDING>
-    /// <https://developer.android.com/training/data-storage/shared/media?hl=en#toggle-pending-status>
+    /// - <https://developer.android.com/reference/android/provider/MediaStore.MediaColumns#IS_PENDING>
+    /// - <https://developer.android.com/training/data-storage/shared/media?hl=en#toggle-pending-status>
     #[maybe_async]
     pub fn set_pending(&self, uri: &FileUri, is_pending: bool) -> Result<()> {
         #[cfg(not(target_os = "android"))] {

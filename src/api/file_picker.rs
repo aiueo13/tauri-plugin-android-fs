@@ -87,7 +87,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// All Android version.
     /// 
     /// # References
-    /// <https://developer.android.com/reference/android/content/Intent#ACTION_OPEN_DOCUMENT>
+    /// - <https://developer.android.com/reference/android/content/Intent#ACTION_OPEN_DOCUMENT>
     #[maybe_async]
     pub fn pick_files(
         &self,
@@ -147,7 +147,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// All Android version.
     /// 
     /// # References
-    /// <https://developer.android.com/reference/android/content/Intent#ACTION_OPEN_DOCUMENT>
+    /// - <https://developer.android.com/reference/android/content/Intent#ACTION_OPEN_DOCUMENT>
     #[maybe_async]
     pub fn pick_file(
         &self,
@@ -194,7 +194,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If not supported, this function behaves the same as [`FilePicker::pick_files`].  
     /// 
     /// # References
-    /// <https://developer.android.com/training/data-storage/shared/photopicker>
+    /// - <https://developer.android.com/training/data-storage/shared/photopicker>
     #[maybe_async]
     pub fn pick_visual_medias(
         &self,
@@ -238,7 +238,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If not supported, this function behaves the same as [`FilePicker::pick_file`].  
     /// 
     /// # References
-    /// <https://developer.android.com/training/data-storage/shared/photopicker>
+    /// - <https://developer.android.com/training/data-storage/shared/photopicker>
     #[maybe_async]
     pub fn pick_visual_media(
         &self,
@@ -274,7 +274,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// All Android version.
     /// 
     /// # References
-    /// <https://developer.android.com/reference/android/content/Intent#ACTION_GET_CONTENT>
+    /// - <https://developer.android.com/reference/android/content/Intent#ACTION_GET_CONTENT>
     #[maybe_async]
     pub fn pick_contents(
         &self,
@@ -308,7 +308,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// All Android version.
     /// 
     /// # References
-    /// <https://developer.android.com/reference/android/content/Intent#ACTION_GET_CONTENT>
+    /// - <https://developer.android.com/reference/android/content/Intent#ACTION_GET_CONTENT>
     #[maybe_async]
     pub fn pick_content(
         &self,
@@ -363,7 +363,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// All Android version.
     /// 
     /// # References
-    /// <https://developer.android.com/reference/android/content/Intent#ACTION_OPEN_DOCUMENT_TREE>
+    /// - <https://developer.android.com/reference/android/content/Intent#ACTION_OPEN_DOCUMENT_TREE>
     #[maybe_async]
     pub fn pick_dir(
         &self,
@@ -431,7 +431,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// All Android version.
     /// 
     /// # References
-    /// <https://developer.android.com/reference/android/content/Intent#ACTION_CREATE_DOCUMENT>
+    /// - <https://developer.android.com/reference/android/content/Intent#ACTION_CREATE_DOCUMENT>
     #[maybe_async]
     pub fn save_file(
         &self,

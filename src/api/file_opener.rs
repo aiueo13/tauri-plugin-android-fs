@@ -62,8 +62,8 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
     /// All Android version.
     /// 
     /// # References
-    /// <https://developer.android.com/reference/android/content/Intent#ACTION_SEND_MULTIPLE>
-    /// <https://developer.android.com/reference/android/content/Intent#ACTION_SEND>
+    /// - <https://developer.android.com/reference/android/content/Intent#ACTION_SEND_MULTIPLE>
+    /// - <https://developer.android.com/reference/android/content/Intent#ACTION_SEND>
     #[maybe_async]
     pub fn share_files<'b>(
         &self, 
@@ -96,7 +96,7 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
     /// All Android version.
     /// 
     /// # References
-    /// <https://developer.android.com/reference/android/content/Intent#ACTION_SEND>
+    /// - <https://developer.android.com/reference/android/content/Intent#ACTION_SEND>
     #[maybe_async]
     pub fn share_file(
         &self, 
@@ -129,7 +129,7 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
     /// All Android version.
     /// 
     /// # References
-    /// <https://developer.android.com/reference/android/content/Intent#ACTION_VIEW>
+    /// - <https://developer.android.com/reference/android/content/Intent#ACTION_VIEW>
     #[maybe_async]
     pub fn open_file(
         &self, 
@@ -161,7 +161,7 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
     /// All Android version.
     /// 
     /// # References
-    /// <https://developer.android.com/reference/android/content/Intent#ACTION_VIEW>
+    /// - <https://developer.android.com/reference/android/content/Intent#ACTION_VIEW>
     #[maybe_async]
     pub fn open_dir(
         &self, 
@@ -199,7 +199,7 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
     /// All Android version.
     /// 
     /// # References
-    /// <https://developer.android.com/reference/android/content/Intent#ACTION_EDIT>
+    /// - <https://developer.android.com/reference/android/content/Intent#ACTION_EDIT>
     #[maybe_async]
     pub fn edit_file(
         &self, 
