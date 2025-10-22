@@ -35,7 +35,6 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         })
     }
 
-    #[allow(unused)]
     #[maybe_async]
     pub fn remove_all_tmp_files(&self) -> Result<()> {
         let path = self.tmp_dir_path()?;
@@ -188,9 +187,13 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         let (result, stream) = {
             let contents = upgrade_bytes_ref(contents);
             run_blocking(move ||{
+                // run_blocking内ではエラーを返さないようにする。
                 let result = stream.write_all(&contents);
                 Ok((result, stream))
-            }).await.expect("should not return err in run_blocking")
+            }).await? 
+            // 起こることはないと思うが、
+            // tokio の spwan_blocking でエラーになった場合は早期 return する。
+            // reflect や dispose_without_reflct は最悪呼び出されなくてもいい。
         };
 
         match result {
@@ -470,7 +473,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
 }
 
 
-get_or_init!(get_or_init_tmp_dir_path, std::path::PathBuf);
+fn_get_or_init!(get_or_init_tmp_dir_path, std::path::PathBuf);
 
 fn next_id_for_tmp_file() -> usize {
     use std::sync::atomic::{AtomicUsize, Ordering};

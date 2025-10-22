@@ -707,8 +707,8 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 }
 
-get_or_init!(get_or_init_const, Consts);
-get_or_init!(get_or_init_internal_private_dir_paths, InternalPrivateDirPaths);
+fn_get_or_init!(get_or_init_const, Consts);
+fn_get_or_init!(get_or_init_internal_private_dir_paths, InternalPrivateDirPaths);
 
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]

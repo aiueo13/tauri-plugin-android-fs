@@ -1,4 +1,5 @@
-#[allow(unused)]
+#![allow(unused)]
+
 macro_rules! impl_se {
     ($t:item) => {
         #[derive(serde::Serialize)]
@@ -7,7 +8,6 @@ macro_rules! impl_se {
     };
 }
 
-#[allow(unused)]
 macro_rules! impl_de {
     ($t:item) => {
         #[derive(serde::Deserialize)]
@@ -16,7 +16,7 @@ macro_rules! impl_de {
     };
 }
 
-macro_rules! get_or_init {
+macro_rules! fn_get_or_init {
     ($name:ident, $T:ty) => {
 
         fn $name(init: impl FnOnce() -> Result<$T>) -> Result<&'static $T> {
