@@ -258,7 +258,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Support
     /// All Android version.
     #[maybe_async]
-    pub fn open_file(&self, uri: &FileUri, mode: FileAccessMode) -> crate::Result<std::fs::File> {
+    pub fn open_file(&self, uri: &FileUri, mode: FileAccessMode) -> Result<std::fs::File> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -568,15 +568,13 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Args
     /// - ***uri*** :  
     /// Target file URI.  
-    /// Must be **writable**, at least. But even if it is, 
-    /// removing may not be possible in some cases. 
-    /// For details, refer to the documentation of the function that provided the URI.  
+    /// Must be **read-writable**.   
     /// If not file, an error will occur.
     /// 
     /// # Support
     /// All Android version.
     #[maybe_async]
-    pub fn remove_file(&self, uri: &FileUri) -> crate::Result<()> {
+    pub fn remove_file(&self, uri: &FileUri) -> Result<()> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -590,13 +588,13 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Args
     /// - ***uri*** :  
     /// Target directory URI.  
-    /// Must be **writable**.  
+    /// Must be **read-writable**.  
     /// If not empty directory, an error will occur.
     /// 
     /// # Support
     /// All Android version.
     #[maybe_async]
-    pub fn remove_dir(&self, uri: &FileUri) -> crate::Result<()> {
+    pub fn remove_dir(&self, uri: &FileUri) -> Result<()> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -610,13 +608,13 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Args
     /// - ***uri*** :  
     /// Target directory URI.  
-    /// Must be **writable**.  
+    /// Must be **read-writable**.  
     /// If not directory, an error will occur.
     /// 
     /// # Support
     /// All Android version.
     #[maybe_async]
-    pub fn remove_dir_all(&self, uri: &FileUri) -> crate::Result<()> {
+    pub fn remove_dir_all(&self, uri: &FileUri) -> Result<()> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -1056,7 +1054,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Support
     /// All Android version.
     #[maybe_async]
-    pub fn release_all_persisted_uri_permissions(&self) -> crate::Result<()> {
+    pub fn release_all_persisted_uri_permissions(&self) -> Result<()> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }

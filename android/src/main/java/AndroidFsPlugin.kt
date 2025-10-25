@@ -1,46 +1,44 @@
 package com.plugin.android_fs
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.content.Intent
 import android.content.ActivityNotFoundException
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.ImageDecoder
+import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.DocumentsContract
 import android.provider.MediaStore
+import android.util.Base64
+import android.util.Size
+import android.webkit.MimeTypeMap
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia
 import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
 import androidx.core.app.ShareCompat
-import android.webkit.MimeTypeMap
-import android.media.MediaMetadataRetriever
-import android.media.MediaMetadataRetriever.OPTION_PREVIOUS_SYNC
-import android.util.Base64
-import android.util.Size
+import app.tauri.PermissionState
 import app.tauri.annotation.ActivityCallback
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
+import app.tauri.annotation.Permission
+import app.tauri.annotation.PermissionCallback
 import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSArray
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
-import kotlin.math.min
-import kotlin.io.DEFAULT_BUFFER_SIZE
-import kotlin.io.copyTo
 import java.io.FileOutputStream
 import java.io.OutputStream
+import kotlin.io.copyTo
+
 
 @InvokeArg
 class GetFileDescriptorArgs {
@@ -254,7 +252,7 @@ class CanEditFileArgs {
 
 @InvokeArg
 class CreateNewMediaStoreFileArgs {
-    lateinit var mediaStoreVolumeName: String
+    var volumeName: String? = null
     lateinit var relativePath: String
     var mimeType: String? = null
     // isPending と命名するとなぜか常にnullになる
@@ -268,8 +266,37 @@ class SetMediaStoreFilePending {
     var pending: Boolean? = null
 }
 
+@InvokeArg
+class ScanFileToMediaStoreByPathArgs {
+    lateinit var path: String
+    var mimeType: String? = null
+}
 
-@TauriPlugin
+@InvokeArg
+class ScanMediaStoreFileArgs {
+    lateinit var uri: FileUri
+}
+
+@InvokeArg
+class GetMediaStoreFileAbsolutePathArgs {
+    lateinit var uri: FileUri
+}
+
+private const val ALIAS_LEGACY_WRITE_STORAGE_PERMISSION = "WRITE_EXTERNAL_STORAGE_MAX"
+private const val ALIAS_LEGACY_READ_STORAGE_PERMISSION = "READ_EXTERNAL_STORAGE_MAX"
+
+@TauriPlugin(
+    permissions = [
+        Permission(
+            strings = [Manifest.permission.WRITE_EXTERNAL_STORAGE],
+            alias = ALIAS_LEGACY_WRITE_STORAGE_PERMISSION
+        ),
+        Permission(
+            strings = [Manifest.permission.READ_EXTERNAL_STORAGE],
+            alias = ALIAS_LEGACY_READ_STORAGE_PERMISSION
+        ),
+    ]
+)
 class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     private val isVisualMediaPickerAvailable = PickVisualMedia.isPhotoPickerAvailable()
     private val documentFileController = DocumentFileController(activity)
@@ -360,11 +387,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
-    fun noop(invoke: Invoke) {
-        invoke.resolve()
-    }
-
-    @Command
     fun getConsts(invoke: Invoke) {
         try {
             val res = JSObject()
@@ -390,6 +412,181 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             }
 
             invoke.resolve(res)
+        }
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "unknown")
+        }
+    }
+
+    @Command
+    fun requestLegacyStoragePermission(invoke: Invoke) {
+        try {
+            // Tauri は Android7 未満をサポートしていないので本来これはいらないが、警告を消すために書く
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+                throw Exception("requires API level 24 or higher")
+            }
+
+            val writeGranted = when (getPermissionState(ALIAS_LEGACY_WRITE_STORAGE_PERMISSION)) {
+                PermissionState.GRANTED -> true
+                else -> false
+            }
+            val readGranted = when (getPermissionState(ALIAS_LEGACY_READ_STORAGE_PERMISSION)) {
+                PermissionState.GRANTED -> true
+                else -> false
+            }
+
+            val permissions = mutableListOf<String>()
+            if (!writeGranted) {
+                permissions.add(ALIAS_LEGACY_WRITE_STORAGE_PERMISSION)
+            }
+            if (!readGranted) {
+                permissions.add(ALIAS_LEGACY_READ_STORAGE_PERMISSION)
+            }
+
+            if (permissions.isEmpty()) {
+                invoke.resolve(JSObject().apply {
+                    put("granted", true)
+                    put("prompted", false)
+                })
+            }
+            else {
+                requestPermissionForAliases(
+                    permissions.toTypedArray(),
+                    invoke,
+                    "handleRequestLegacyStoragePermission"
+                )
+            }
+        }
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "unknown")
+        }
+    }
+
+    @PermissionCallback
+    fun handleRequestLegacyStoragePermission(invoke: Invoke) {
+        try {
+            val writeGranted = when (getPermissionState(ALIAS_LEGACY_WRITE_STORAGE_PERMISSION)) {
+                PermissionState.GRANTED -> true
+                else -> false
+            }
+            val readGranted = when (getPermissionState(ALIAS_LEGACY_READ_STORAGE_PERMISSION)) {
+                PermissionState.GRANTED -> true
+                else -> false
+            }
+
+            invoke.resolve(JSObject().apply {
+                put("granted", writeGranted && readGranted)
+                put("prompted", true)
+            })
+        }
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "unknown")
+        }
+    }
+
+    @Command
+    fun hasLegacyStoragePermission(invoke: Invoke) {
+        try {
+            val writeGranted = when (getPermissionState(ALIAS_LEGACY_WRITE_STORAGE_PERMISSION)) {
+                PermissionState.GRANTED -> true
+                else -> false
+            }
+            val readGranted = when (getPermissionState(ALIAS_LEGACY_READ_STORAGE_PERMISSION)) {
+                PermissionState.GRANTED -> true
+                else -> false
+            }
+
+            invoke.resolve(JSObject().apply {
+                put("granted", writeGranted && readGranted)
+            })
+        }
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "unknown")
+        }
+    }
+
+    @Command
+    fun scanFileToMediaStoreByPath(invoke: Invoke) {
+        try {
+            val args = invoke.parseArgs(ScanFileToMediaStoreByPathArgs::class.java)
+
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+
+                    AFMediaStore.scanFile(
+                        File(args.path),
+                        args.mimeType,
+                        { uri -> activity.runOnUiThread { invoke.resolve(JSObject().apply { put("uri", AFJSObject.createFileUri(uri)) }) } },
+                        { err -> activity.runOnUiThread { invoke.reject(err.message ?: "unknown") } },
+                        activity
+                    )
+                }
+                catch (ex: Exception) {
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(ex.message ?: "unknown")
+                    }
+                }
+            }
+        }
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "unknown")
+        }
+    }
+
+    @Command
+    fun scanMediaStoreFile(invoke: Invoke) {
+        try {
+            val args = invoke.parseArgs(ScanMediaStoreFileArgs::class.java)
+
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val e = AFMediaStore.getAbsolutePathAndMimeType(args.uri, activity)
+                    val path = e.first
+                    val mimeType = e.second
+                    
+                    AFMediaStore.scanFileWithIgnoringResult(
+                        File(path),
+                        mimeType,
+                        activity
+                    )
+
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve()
+                    }
+                }
+                catch (ex: Exception) {
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(ex.message ?: "unknown")
+                    }
+                }
+            }
+        }
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "unknown")
+        }
+    }
+
+    @Command
+    fun getMediaStoreFileAbsolutePath(invoke: Invoke) {
+        try {
+            val args = invoke.parseArgs(GetMediaStoreFileAbsolutePathArgs::class.java)
+
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val path: String = AFMediaStore.getAbsolutePath(args.uri, activity)
+
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve(JSObject().apply {
+                            put("path", path)
+                        })
+                    }
+                }
+                catch (ex: Exception) {
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(ex.message ?: "unknown")
+                    }
+                }
+            }
         }
         catch (e: Exception) {
             invoke.reject(e.message ?: "unknown")
@@ -432,19 +629,15 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun createNewMediaStoreFile(invoke: Invoke) {
         try {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                throw Exception("requires Android 10 (API level 29) or higher")
-            }
-
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val args = invoke.parseArgs(CreateNewMediaStoreFileArgs::class.java)
                     val res = JSObject().apply {
                         put("uri", AFMediaStore.createNewFile(
-                            args.mediaStoreVolumeName,
+                            args.volumeName,
                             args.relativePath,
                             args.mimeType,
-                            args.pending ?: throw Exception("missing value: isPending"),
+                            args.pending ?: throw Exception("missing value: pending"),
                             activity
                         ))
                     }

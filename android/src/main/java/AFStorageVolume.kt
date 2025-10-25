@@ -154,6 +154,15 @@ private fun createStorageVolumeJSObject(
     // アプリ専用フォルダはシステムに不安定と判断された StorageVolume に存在しない
     val isStable = privateDataDirPath != null || privateCacheDirPath != null
 
+    val isAvailableForPublicStorage = when {
+
+        // Q は Android 10
+        Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT -> mediaStoreVolumeName != null
+
+        // Android 9 以下の場合、primary storage volume 以外の操作は SAF でしか行えない
+        else -> storageVolume.isPrimary
+    }
+
     return JSObject().apply {
         put("id", JSObject().apply {
             put("topDirectoryPath", topDirectoryPath)
@@ -168,7 +177,7 @@ private fun createStorageVolumeJSObject(
         put("isStable", isStable)
         put("isEmulated", storageVolume.isEmulated)
         put("isReadonly", storageVolume.state == Environment.MEDIA_MOUNTED_READ_ONLY)
-        put("isAvailableForPublicStorage", mediaStoreVolumeName != null)
+        put("isAvailableForPublicStorage", isAvailableForPublicStorage)
         put("isAvailableForPrivateStorage", isStable)
     }
 }

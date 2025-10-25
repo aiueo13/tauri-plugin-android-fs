@@ -43,6 +43,65 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
 )]
 impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
 
+    /// Requests file access permission from the user if needed.
+    ///
+    /// When this function returns `true`,
+    /// the app is allowed to create files in `PublicStorage` and read/write the files it creates. 
+    /// Access to files created by other apps is not guaranteed.
+    /// Additionally, after the app is uninstalled and reinstalled, 
+    /// previously created files may become inaccessible
+    ///
+    /// # Version behavior
+    /// ### Android 10 or higher
+    /// Requests no permission.   
+    /// This function always returns `true`.
+    ///
+    /// ### Android 9 or lower
+    /// Requests [`WRITE_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#WRITE_EXTERNAL_STORAGE) and [`READ_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#READ_EXTERNAL_STORAGE) permissions.   
+    /// To request the permissions, you must declare it in `AndroidManifest.xml`.
+    /// By enabling the `legacy_storage_permission` feature,
+    /// the permissions will be declared automatically only for Android 9 or lower.
+    ///
+    /// # Support
+    /// All Android versions
+    #[maybe_async]
+    pub fn request_permission(&self) -> Result<bool> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().request_storage_permission_for_public_storage().await
+        }
+    }
+
+    /// Indicates whether the app has file access permission.
+    ///
+    /// When this function returns `true`,
+    /// the app is allowed to create files in `PublicStorage` and read/write the files it creates. 
+    /// Access to files created by other apps is not guaranteed.
+    /// Additionally, after the app is uninstalled and reinstalled, 
+    /// previously created files may become inaccessible
+    ///
+    /// # Version behavior
+    /// ### Android 10 or higher
+    /// Always returns `true`.
+    ///
+    /// ### Android 9 or lower
+    /// Returns `true` if the app has been granted [`WRITE_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#WRITE_EXTERNAL_STORAGE) and [`READ_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#READ_EXTERNAL_STORAGE) permissions.    
+    /// See [`PublicStorage::request_permission`] for requesting the permissions.
+    ///
+    /// # Support
+    /// All Android versions.
+    #[maybe_async]
+    pub fn has_permission(&self) -> Result<bool> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().has_storage_permission_for_public_storage().await
+        }
+    }
+
     /// Gets a list of currently available storage volumes (internal storage, SD card, USB drive, etc.).
     /// Be aware of TOCTOU.
     /// 
@@ -55,14 +114,18 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     ///
     /// Primary storage volume is always listed first, if included. 
     /// But the order of the others is not guaranteed.  
-    ///
+    /// 
+    /// # Version behavior
+    /// For Android 9 (API level 28) or lower, 
+    /// this does not include any storage volumes other than the primary one. 
+    /// 
     /// # Note
     /// The volume represents the logical view of a storage volume for an individual user:
     /// each user may have a different view for the same physical volume.
     /// In other words, it provides a separate area for each user in a multi-user environment.
     /// 
     /// # Support
-    /// Android 10 (API level 29) or higher.  
+    /// All Android version.  
     #[maybe_async]
     pub fn get_volumes(&self) -> Result<Vec<StorageVolume>> {
         #[cfg(not(target_os = "android"))] {
@@ -90,7 +153,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// In other words, it provides a separate area for each user in a multi-user environment.
     /// 
     /// # Support
-    /// Android 10 (API level 29) or higher.   
+    /// All Android version.
     #[maybe_async]
     pub fn get_primary_volume(&self) -> Result<Option<StorageVolume>> {
         #[cfg(not(target_os = "android"))] {
@@ -104,41 +167,59 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// Creates a new empty file in the specified public directory of the storage volume.  
     /// This returns a **persistent read-write** URI.
     ///
-    /// The created file has the following features:  
-    /// - It is registered with the appropriate MediaStore as needed.  
-    /// - The app can fully manage it until the app is uninstalled.  
-    /// - It is **not** removed when the app itself is uninstalled.  
+    /// The app can read/write it until the app is uninstalled. 
+    /// And it is **not** removed when the app itself is uninstalled.  
+    /// 
+    /// # Version behavior
+    /// ### Android 10 or higher. 
+    /// No permission is required.  
+    /// Files are automatically registered in the appropriate MediaStore as needed. 
+    /// Scanning is triggered when the file descriptor is closed
+    /// or as part of the [`pending`](PublicStorage::set_pending) lifecycle.
+    /// 
+    /// ### Android 9 or lower
+    /// [`WRITE_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#WRITE_EXTERNAL_STORAGE) and [`READ_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#READ_EXTERNAL_STORAGE) permissions are required.    
+    /// This needs two steps: 
+    /// 
+    /// 1. Declare :  
+    ///     By enabling the `legacy_storage_permission` feature,  
+    ///     you can declare the permissions only for Android 9 or lower automatically at build time.  
+    ///
+    /// 2. Runtime request :  
+    ///     By calling [`PublicStorage::request_permission`],
+    ///     you can request the permissions from the user at runtime.  
+    ///
+    /// After writing content to the file, call [`PublicStorage::scan_file`].  
+    /// Until then, the file may not appear in the gallery or other apps.
     /// 
     /// # Args
     /// - ***volume_id*** :  
-    /// ID of the storage volume, such as internal storage, SD card, etc.  
+    /// The ID of the storage volume, such as internal storage or an SD card.  
     /// Usually, you don't need to specify this unless there is a special reason.  
-    /// If `None` is provided, [`the primary storage volume`](PublicStorage::get_primary_volume) will be used.  
-    /// 
+    /// If `None` is provided, [`the primary storage volume`](PublicStorage::get_primary_volume) will be used.
+    ///
     /// - ***base_dir*** :  
-    /// The base directory.  
-    /// When using [`PublicImageDir`], use only image MIME types for ***mime_type***, which is discussed below.; using other types may cause errors.
-    /// Similarly, use only the corresponding media types for [`PublicVideoDir`] and [`PublicAudioDir`].
-    /// Only [`PublicGeneralPurposeDir`] supports all MIME types. 
-    /// 
+    /// The base directory for the file.  
+    /// When using [`PublicImageDir`], only image MIME types should be used for ***mime_type***; using other types may cause errors.  
+    /// Similarly, [`PublicVideoDir`] and [`PublicAudioDir`] should only be used with their respective media types.  
+    /// Only [`PublicGeneralPurposeDir`] supports all MIME types.
+    ///
     /// - ***relative_path*** :  
     /// The file path relative to the base directory.  
-    /// To avoid cluttering files, it is helpful to place the app name directory at the top level.   
-    /// Any missing parent directories will be created recursively.  
-    /// If a file with the same name already exists, 
-    /// the system append a sequential number to ensure uniqueness.  
-    /// If no extension is present, 
-    /// the system may infer one from ***mime_type*** and may append it to the file name. 
-    /// But this append-extension operation depends on the model and version.  
-    /// The system may sanitize these strings as needed, so those strings may not be used as it is.
-    ///  
+    /// To keep files organized, it is recommended to place your app's name directory at the top level.  
+    /// Any missing parent directories will be created automatically.  
+    /// If a file with the same name already exists, a sequential number is appended to ensure uniqueness.  
+    /// If the file has no extension, one may be inferred from ***mime_type*** and appended to the file name.  
+    /// Strings may also be sanitized as needed, so they may not be used exactly as provided.
+    /// Note that append-exntesion and sanitize-path operation may vary depending on the device model and Android version.  
+    ///
     /// - ***mime_type*** :  
     /// The MIME type of the file to be created.  
-    /// If this is None, MIME type is inferred from the extension of ***relative_path***
-    /// and if that fails, `application/octet-stream` is used.  
+    /// If `None`, the MIME type will be inferred from the extension of ***relative_path***.  
+    /// If that also fails, `application/octet-stream` will be used.
     /// 
     /// # Support
-    /// Android 10 (API level 29) or higher.  
+    /// All Android version.
     ///
     /// Note :  
     /// - [`PublicAudioDir::Audiobooks`] is not available on Android 9 (API level 28) and lower.
@@ -159,49 +240,79 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().create_new_file_in_public_storage(volume_id, base_dir, relative_path, mime_type, false).await
+            self.impls().create_new_file_in_public_store(
+                volume_id, 
+                base_dir, 
+                relative_path, 
+                mime_type, 
+                false
+            ).await
         }
     }
 
     /// Creates a new empty file in the specified public directory of the storage volume.  
     /// This returns a **persistent read-write** URI.
     ///
-    /// The created file has the following features:  
-    /// - Marked as pending and will not be visible to other apps until [`PublicStorage::set_pending(..., false)`](PublicStorage::set_pending) is called.
-    /// - It is registered with the appropriate MediaStore as needed.  
-    /// - The app can fully manage it until the app is uninstalled.  
-    /// - It is **not** removed when the app itself is uninstalled.  
+    /// The app can read/write it until the app is uninstalled. 
+    /// And it is **not** removed when the app itself is uninstalled.  
+    /// 
+    /// # Version behavior
+    /// ### Android 10 or higher
+    /// No permission is required.  
+    /// Files are automatically registered in the appropriate MediaStore as needed. 
+    /// Scanning is triggered when the file descriptor is closed
+    /// or as part of the [`pending`](PublicStorage::set_pending) lifecycle.
+    /// 
+    /// Diffrences from [`PublicStorage::create_new_file`] are that
+    /// files are marked as pending and will not be visible to other apps until 
+    /// [`PublicStorage::set_pending(..., false)`](PublicStorage::set_pending) is called. 
+    ///
+    /// ### Android 9 or lower
+    /// This behavior is equal to [`PublicStorage::create_new_file`]. 
+    /// So `pending` is ignored.  
+    /// 
+    /// [`WRITE_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#WRITE_EXTERNAL_STORAGE) and [`READ_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#READ_EXTERNAL_STORAGE) permissions are required.    
+    /// This needs two steps: 
+    /// 
+    /// 1. Declare :  
+    ///     By enabling the `legacy_storage_permission` feature,  
+    ///     you can declare the permissions only for Android 9 or lower automatically at build time.  
+    ///
+    /// 2. Runtime request :  
+    ///     By calling [`PublicStorage::request_permission`],
+    ///     you can request the permissions from the user at runtime.  
+    ///
+    /// After writing content to the file, call [`PublicStorage::scan_file`].  
+    /// Until then, the file may not appear in the gallery or other apps.
     /// 
     /// # Args
     /// - ***volume_id*** :  
-    /// ID of the storage volume, such as internal storage, SD card, etc.  
+    /// The ID of the storage volume, such as internal storage or an SD card.  
     /// Usually, you don't need to specify this unless there is a special reason.  
-    /// If `None` is provided, [`the primary storage volume`](PublicStorage::get_primary_volume) will be used.  
-    /// 
+    /// If `None` is provided, [`the primary storage volume`](PublicStorage::get_primary_volume) will be used.
+    ///
     /// - ***base_dir*** :  
-    /// The base directory.  
-    /// When using [`PublicImageDir`], use only image MIME types for ***mime_type***, which is discussed below.; using other types may cause errors.
-    /// Similarly, use only the corresponding media types for [`PublicVideoDir`] and [`PublicAudioDir`].
-    /// Only [`PublicGeneralPurposeDir`] supports all MIME types. 
-    /// 
+    /// The base directory for the file.  
+    /// When using [`PublicImageDir`], only image MIME types should be used for ***mime_type***; using other types may cause errors.  
+    /// Similarly, [`PublicVideoDir`] and [`PublicAudioDir`] should only be used with their respective media types.  
+    /// Only [`PublicGeneralPurposeDir`] supports all MIME types.
+    ///
     /// - ***relative_path*** :  
     /// The file path relative to the base directory.  
-    /// To avoid cluttering files, it is helpful to place the app name directory at the top level.   
-    /// Any missing parent directories will be created recursively.  
-    /// If a file with the same name already exists, 
-    /// the system append a sequential number to ensure uniqueness.  
-    /// If no extension is present, 
-    /// the system may infer one from ***mime_type*** and may append it to the file name. 
-    /// But this append-extension operation depends on the model and version.  
-    /// The system may sanitize these strings as needed, so those strings may not be used as it is.
-    ///  
+    /// To keep files organized, it is recommended to place your app's name directory at the top level.  
+    /// Any missing parent directories will be created automatically.  
+    /// If a file with the same name already exists, a sequential number is appended to ensure uniqueness.  
+    /// If the file has no extension, one may be inferred from ***mime_type*** and appended to the file name.  
+    /// Strings may also be sanitized as needed, so they may not be used exactly as provided.
+    /// Note that append-exntesion and sanitize-path operation may vary depending on the device model and Android version.  
+    ///
     /// - ***mime_type*** :  
     /// The MIME type of the file to be created.  
-    /// If this is None, MIME type is inferred from the extension of ***relative_path***
-    /// and if that fails, `application/octet-stream` is used.  
+    /// If `None`, the MIME type will be inferred from the extension of ***relative_path***.  
+    /// If that also fails, `application/octet-stream` will be used.
     /// 
     /// # Support
-    /// Android 10 (API level 29) or higher.  
+    /// All Android version.
     ///
     /// Note :  
     /// - [`PublicAudioDir::Audiobooks`] is not available on Android 9 (API level 28) and lower.
@@ -222,15 +333,38 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().create_new_file_in_public_storage(volume_id, base_dir, relative_path, mime_type, true).await
+            self.impls().create_new_file_in_public_store(
+                volume_id, 
+                base_dir, 
+                relative_path, 
+                mime_type, 
+                true
+            ).await
         }
     }
 
     /// Recursively create a directory and all of its parent components if they are missing.  
     /// If it already exists, do nothing.
     /// 
-    /// [`PublicStorage::create_new_file`] does this automatically, so there is no need to use it together.
+    /// [`PublicStorage::create_new_file`] and [`PublicStorage::create_new_file_with_pending`]
+    /// do this automatically, so there is no need to use it together.
     /// 
+    /// # Version behavior
+    /// ### Android 10 or higher
+    /// No permission is required.  
+    /// 
+    /// ### Android 9 or lower
+    /// [`WRITE_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#WRITE_EXTERNAL_STORAGE) and [`READ_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#READ_EXTERNAL_STORAGE) permissions are required.    
+    /// This needs two steps: 
+    /// 
+    /// 1. Declare :  
+    ///     By enabling the `legacy_storage_permission` feature,  
+    ///     you can declare the permissions only for Android 9 or lower automatically at build time.  
+    ///
+    /// 2. Runtime request :  
+    ///     By calling [`PublicStorage::request_permission`],
+    ///     you can request the permissions from the user at runtime.  
+    ///
     /// # Args  
     /// - ***volume_id*** :  
     /// ID of the storage volume, such as internal storage, SD card, etc.  
@@ -241,10 +375,11 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     ///  
     /// - ***relative_path*** :  
     /// The directory path relative to the base directory.    
-    /// The system may sanitize these strings as needed, so those strings may not be used as it is.
-    ///  
+    /// Strings may also be sanitized as needed, so they may not be used exactly as provided.
+    /// Note that sanitize-path operation may vary depending on the device model and Android version.  
+    ///
     /// # Support
-    /// Android 10 (API level 29) or higher.  
+    /// All Android Version.
     ///
     /// Note :  
     /// - [`PublicAudioDir::Audiobooks`] is not available on Android 9 (API level 28) and lower.
@@ -268,11 +403,133 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         }
     }
 
+    /// Writes contents to the new file in the specified public directory of the storage volume.  
+    /// This returns a **persistent read-write** URI.
+    ///
+    /// The app can read/write it until the app is uninstalled. 
+    /// And it is **not** removed when the app itself is uninstalled.  
+    /// 
+    /// # Version behavior
+    /// ### Android 10 or higher. 
+    /// No permission is required.  
+    /// 
+    /// ### Android 9 or lower
+    /// [`WRITE_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#WRITE_EXTERNAL_STORAGE) and [`READ_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#READ_EXTERNAL_STORAGE) permissions are required.    
+    /// This needs two steps: 
+    /// 
+    /// 1. Declare :  
+    ///     By enabling the `legacy_storage_permission` feature,  
+    ///     you can declare the permissions only for Android 9 or lower automatically at build time.  
+    ///
+    /// 2. Runtime request :  
+    ///     By calling [`PublicStorage::request_permission`],
+    ///     you can request the permissions from the user at runtime.  
+    ///
+    /// # Args
+    /// - ***volume_id*** :  
+    /// The ID of the storage volume, such as internal storage or an SD card.  
+    /// Usually, you don't need to specify this unless there is a special reason.  
+    /// If `None` is provided, [`the primary storage volume`](PublicStorage::get_primary_volume) will be used.
+    ///
+    /// - ***base_dir*** :  
+    /// The base directory for the file.  
+    /// When using [`PublicImageDir`], only image MIME types should be used for ***mime_type***; using other types may cause errors.  
+    /// Similarly, [`PublicVideoDir`] and [`PublicAudioDir`] should only be used with their respective media types.  
+    /// Only [`PublicGeneralPurposeDir`] supports all MIME types.
+    ///
+    /// - ***relative_path*** :  
+    /// The file path relative to the base directory.  
+    /// To keep files organized, it is recommended to place your app's name directory at the top level.  
+    /// Any missing parent directories will be created automatically.  
+    /// If a file with the same name already exists, a sequential number is appended to ensure uniqueness.  
+    /// If the file has no extension, one may be inferred from ***mime_type*** and appended to the file name.  
+    /// Strings may also be sanitized as needed, so they may not be used exactly as provided.
+    /// Note that append-exntesion and sanitize-path operation may vary depending on the device model and Android version.  
+    ///
+    /// - ***mime_type*** :  
+    /// The MIME type of the file to be created.  
+    /// If `None`, the MIME type will be inferred from the extension of ***relative_path***.  
+    /// If that also fails, `application/octet-stream` will be used.
+    /// 
+    /// - ***contents*** :  
+    /// Contents.
+    /// 
+    /// # Support
+    /// All Android version.
+    ///
+    /// Note :  
+    /// - [`PublicAudioDir::Audiobooks`] is not available on Android 9 (API level 28) and lower.
+    /// Availability on a given device can be verified by calling [`PublicStorage::is_audiobooks_dir_available`].  
+    /// - [`PublicAudioDir::Recordings`] is not available on Android 11 (API level 30) and lower.
+    /// Availability on a given device can be verified by calling [`PublicStorage::is_recordings_dir_available`].  
+    /// - Others dirs are available in all Android versions.
+    #[maybe_async]
+    pub fn write_new(
+        &self,
+        volume_id: Option<&StorageVolumeId>,
+        base_dir: impl Into<PublicDir>,
+        relative_path: impl AsRef<std::path::Path>,
+        mime_type: Option<&str>,
+        contents: impl AsRef<[u8]>
+    ) -> Result<FileUri> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().write_new_file_in_public_store(volume_id, base_dir, relative_path, mime_type, contents).await
+        }
+    }
+
+    /// Scans the specified file.   
+    /// This ensures that the file will be visible in the Gallery and etc.
+    ///
+    /// You don’t need to call this after [`PublicStorage::write_new`].   
+    /// 
+    /// # Version behavior
+    /// ### Android 10 or higher
+    /// This function does nothing, 
+    /// because files are automatically registered in the appropriate MediaStore as needed. 
+    /// Scanning is triggered when the file descriptor is closed
+    /// or as part of the [`pending`](PublicStorage::set_pending) lifecycle.
+    ///
+    /// ### Android 9 or lower
+    /// Requests the specified file to be scanned by MediaStore.  
+    /// This function returns when the scan request has been initiated.   
+    /// 
+    /// # Args
+    /// - **uri** :  
+    /// The target file URI.
+    /// This must be a URI obtained from one of the following:  
+    ///     - [`PublicStorage::write_new`]
+    ///     - [`PublicStorage::create_new_file`]
+    ///     - [`PublicStorage::create_new_file_with_pending`]
+    ///
+    /// # Support
+    /// All Android versions.
+    #[maybe_async]
+    pub fn scan_file(
+        &self, 
+        uri: &FileUri,
+    ) -> Result<()> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().scan_file_in_public_storage(uri).await
+        }
+    }
+
     /// Specifies whether the specified file on PublicStorage is marked as pending.   
     /// When set to `true`, the app has exclusive access to the file, and it becomes invisible to other apps.
     /// 
     /// If it remains `true` for more than seven days, 
     /// the system will automatically delete the file.
+    /// 
+    /// # Version behavior
+    /// This is available for Android 10 or higher.  
+    /// On Android 9 or lower, this does nothing. 
     /// 
     /// # Args
     /// - ***uri*** :  
@@ -280,7 +537,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// This must be **read-writable**.
     /// 
     /// # Support
-    /// Android 10 (API level 29) or higher.  
+    /// All Android version.
     /// 
     /// # References
     /// - <https://developer.android.com/reference/android/provider/MediaStore.MediaColumns#IS_PENDING>
@@ -298,30 +555,46 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// Retrieves the absolute path for a specified public directory within the given storage volume.   
     /// This function does **not** create any directories; it only constructs the path.
     /// 
-    /// **Please avoid using this whenever possible.**    
-    /// Use it only in cases that cannot be handled by [`PublicStorage::create_new_file`] or [`PrivateStorage::resolve_path`], 
-    /// such as when you need to pass the absolute path of a user-accessible file as an argument to any database library, debug logger, and etc.  
-    ///
-    /// Since **Android 11** (not Android 10),
-    /// you can create files and folders under this directory and read or write **only** them.  
-    /// If not, you can do nothing with this path.
+    /// Please **avoid using this whenever possible.**  
+    /// Use it only in cases that cannot be handled by [`PublicStorage::create_new_file`] or [`PrivateStorage::resolve_path`],  
+    /// such as when you need to pass the absolute path of a user-accessible file as an argument to debug logger, and etc.
+    /// This should not be used in production.
+    /// 
+    /// # Version behavior
+    /// ### Android 11 or higher
+    /// You can create files and folders under this directory and read/write the files it creates.  
+    /// You cannot access files created by other apps. 
+    /// Additionally, if the app is uninstalled, 
+    /// you will no longer be able to access the files you created, 
+    /// even if the app is reinstalled.  
     /// 
     /// When using [`PublicImageDir`], use only image type for file name extension, 
     /// using other type extension or none may cause errors.
     /// Similarly, use only the corresponding extesions for [`PublicVideoDir`] and [`PublicAudioDir`].
     /// Only [`PublicGeneralPurposeDir`] supports all extensions and no extension. 
     /// 
+    /// ### Android 10
+    /// You can do nothing with this path.
+    /// 
+    /// ### Android 9 or lower
+    /// You can create/read/write files and folders under this directory.  
+    /// 
+    /// [`WRITE_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#WRITE_EXTERNAL_STORAGE) and [`READ_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#READ_EXTERNAL_STORAGE) permissions are required.    
+    /// This needs two steps: 
+    /// 
+    /// 1. Declare :  
+    ///     By enabling the `legacy_storage_permission` feature,  
+    ///     you can declare the permissions only for Android 9 or lower automatically at build time.  
+    ///
+    /// 2. Runtime request :  
+    ///     By calling [`PublicStorage::request_permission`],
+    ///     you can request the permissions from the user at runtime.  
+    ///
     /// # Note
     /// Filesystem access via this path may be heavily impacted by emulation overhead.
     /// And those files will not be registered in MediaStore. 
     /// It might eventually be registered over time, but this should not be expected.
     /// As a result, it may not appear in gallery apps or photo picker tools.
-    /// 
-    /// You cannot access files created by other apps. 
-    /// Additionally, if the app is uninstalled, 
-    /// you will no longer be able to access the files you created, 
-    /// even if the app is reinstalled.  
-    /// Android tends to restrict public file access using paths, so this may stop working in the future.
     /// 
     /// # Args
     /// - ***volume_id*** :  
@@ -332,7 +605,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// The base directory.  
     ///  
     /// # Support
-    /// Android 10 (API level 29) or higher.  
+    /// All Android version.
     /// 
     /// Note :  
     /// - [`PublicAudioDir::Audiobooks`] is not available on Android 9 (API level 28) and lower.
@@ -341,6 +614,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// Availability on a given device can be verified by calling [`PublicStorage::is_recordings_dir_available`].  
     /// - Others dirs are available in all Android versions.
     #[maybe_async]
+    #[deprecated]
     pub fn resolve_path(
         &self,
         volume_id: Option<&StorageVolumeId>,
@@ -351,7 +625,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().resolve_path(volume_id, base_dir).await
+            self.impls().resolve_path_in_public_storage(volume_id, base_dir).await
         }
     }
 
@@ -396,7 +670,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().resolve_public_storage_initial_location(volume_id, base_dir, relative_path, create_dir_all).await
+            self.impls().resolve_initial_location_in_public_storage(volume_id, base_dir, relative_path, create_dir_all).await
         }
     }
 
@@ -432,32 +706,14 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().resolve_public_storage_initial_location_top(volume_id).await
-        }
-    }
-
-    /// Verify whether the basic functions of PublicStorage 
-    /// (such as [`PublicStorage::create_new_file`]) can be performed.
-    /// 
-    /// If on Android 9 (API level 28) and lower, this returns false.  
-    /// If on Android 10 (API level 29) or higher, this returns true.  
-    /// 
-    /// # Support
-    /// All Android version.
-    #[always_sync]
-    pub fn is_available(&self) -> Result<bool> {
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            Ok(api_level::ANDROID_10 <= self.impls().api_level()?)
+            self.impls().resolve_initial_location_top_in_public_storage(volume_id).await
         }
     }
 
     /// Verify whether [`PublicAudioDir::Audiobooks`] is available on a given device.   
     /// 
-    /// If on Android 9 (API level 28) and lower, this returns false.  
     /// If on Android 10 (API level 29) or higher, this returns true.  
+    /// If on Android 9 (API level 28) and lower, this returns false.  
     /// 
     /// # Support
     /// All Android version.
@@ -473,8 +729,8 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
 
     /// Verify whether [`PublicAudioDir::Recordings`] is available on a given device.   
     /// 
-    /// If on Android 11 (API level 30) and lower, this returns false.  
     /// If on Android 12 (API level 31) or higher, this returns true.  
+    /// If on Android 11 (API level 30) and lower, this returns false.  
     /// 
     /// # Support
     /// All Android version.
@@ -485,6 +741,26 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         }
         #[cfg(target_os = "android")] {
             Ok(self.impls().consts()?.env_dir_recordings.is_some())
+        }
+    }
+
+
+
+    /// ~~Verify whether the basic functions of PublicStorage (such as [`PublicStorage::create_new_file`]) can be performed.~~
+    /// 
+    /// If on Android 9 (API level 28) and lower, this returns false.  
+    /// If on Android 10 (API level 29) or higher, this returns true.  
+    /// 
+    /// # Support
+    /// All Android version.
+    #[deprecated]
+    #[always_sync]
+    pub fn is_available(&self) -> Result<bool> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            Ok(api_level::ANDROID_10 <= self.impls().api_level()?)
         }
     }
 }

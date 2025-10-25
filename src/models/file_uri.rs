@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use crate::*;
 
 
 /// Path to represent a file or directory.
@@ -33,33 +34,34 @@ pub struct FileUri {
     pub document_top_tree_uri: Option<String>,
 }
 
+#[allow(unused)]
 impl FileUri {
 
     /// This is same as [`FileUri::to_json_string`]
     #[deprecated = "Confusing name. Use FileUri::to_json_string instead"]
-    pub fn to_string(&self) -> crate::Result<String> {
+    pub fn to_string(&self) -> Result<String> {
         serde_json::to_string(self).map_err(Into::into)
     }
 
     /// This is same as [`FileUri::from_json_str`]
     #[deprecated = "Confusing name. Use FileUri::from_json_str instead"]
-    pub fn from_str(s: &str) -> crate::Result<Self> {
+    pub fn from_str(s: &str) -> Result<Self> {
         serde_json::from_str(s).map_err(Into::into)
     }
 
-    pub fn to_json_string(&self) -> crate::Result<String> {
+    pub fn to_json_string(&self) -> Result<String> {
         serde_json::to_string(self).map_err(Into::into)
     }
 
-    pub fn from_json_str(json: impl AsRef<str>) -> crate::Result<Self> {
+    pub fn from_json_str(json: impl AsRef<str>) -> Result<Self> {
         serde_json::from_str(json.as_ref()).map_err(Into::into)
     }
 
-    pub fn to_bytes(&self) -> crate::Result<Vec<u8>> {
+    pub fn to_bytes(&self) -> Result<Vec<u8>> {
         serde_json::to_vec(self).map_err(Into::into)
     }
 
-    pub fn from_bytes(bytes: impl AsRef<[u8]>) -> crate::Result<Self> {
+    pub fn from_bytes(bytes: impl AsRef<[u8]>) -> Result<Self> {
         serde_json::from_slice(bytes.as_ref()).map_err(Into::into)
     }
 
@@ -67,12 +69,15 @@ impl FileUri {
         Self { uri: format!("file://{}", path.as_ref().to_string_lossy()), document_top_tree_uri: None }
     }
 
-    #[allow(unused)]
     pub(crate) fn as_path(&self) -> Option<&std::path::Path> {
         if self.uri.starts_with("file://") {
             return Some(std::path::Path::new(self.uri.trim_start_matches("file://")))
         }
         None
+    }
+
+    pub(crate) fn is_content_scheme(&self) -> bool {
+        self.uri.starts_with("content://")
     }
 }
 

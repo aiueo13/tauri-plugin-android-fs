@@ -15,17 +15,26 @@ sealed class EntryType {
 
 class AFUtils private constructor() { companion object {
 
+    fun getExtensionFromMimeType(mimeType: String): String? {
+        return MimeTypeMap
+            .getSingleton()
+            .getExtensionFromMimeType(mimeType)
+    }
+
     fun guessFileMimeTypeFromExtension(file: File): String {
+        return guessFileMimeTypeFromExtensionOrNull(file) ?: "application/octet-stream"
+    }
+
+    fun guessFileMimeTypeFromExtensionOrNull(file: File): String? {
         val ext = file.extension
 
         if (ext.isEmpty()) {
-            return "application/octet-stream"
+            return null
         }
 
         return MimeTypeMap
             .getSingleton()
             .getMimeTypeFromExtension(ext)
-            ?: "application/octet-stream"
     }
 
     fun getFileMimeType(

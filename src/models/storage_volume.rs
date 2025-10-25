@@ -58,7 +58,11 @@ pub struct StorageVolume {
 #[serde(rename_all = "camelCase")]
 pub struct StorageVolumeId {
     pub(crate) top_directory_path: Option<std::path::PathBuf>,
+
+    /// None の時は primary storage volume を指す。
+    /// Android 9 以下では常に None になる。
     pub(crate) media_store_volume_name: Option<String>,
+
     pub(crate) private_data_dir_path: Option<std::path::PathBuf>,
     pub(crate) private_cache_dir_path: Option<std::path::PathBuf>,
     pub(crate) uuid: Option<String>,

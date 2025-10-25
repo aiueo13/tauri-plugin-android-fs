@@ -147,7 +147,7 @@ fn encode_document_id(input: impl AsRef<str>) -> String {
     percent_encoding::utf8_percent_encode(input.as_ref(), SAFE).to_string()
 }
 
-fn validate_relative_path(path: &std::path::Path) -> crate::Result<&std::path::Path> {
+fn validate_relative_path(path: &std::path::Path) -> Result<&std::path::Path> {
     for component in path.components() {
         use std::path::Component::*;
         

@@ -15,61 +15,19 @@ class MediaFileController(private val activity: Activity): FileController {
 
     // フォルダが指定されることは想定していない
     override fun getMimeType(uri: FileUri): String {
-        activity.contentResolver.query(
-            Uri.parse(uri.uri),
-            arrayOf(MediaStore.Files.FileColumns.MIME_TYPE),
-            null,
-            null,
-            null
-        )?.use {
-
-            if (it.moveToFirst()) {
-                return it.getStringOrNull(it.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE))
-                    ?: "application/octet-stream"
-            }
-        }
-
-        throw Exception("Failed to find entry: ${uri.uri}")
+        return AFMediaStore.getMimeType(uri, activity)
     }
 
     override fun getName(uri: FileUri): String {
-        activity.contentResolver.query(
-            Uri.parse(uri.uri),
-            arrayOf(MediaStore.MediaColumns.DISPLAY_NAME),
-            null,
-            null,
-            null
-        )?.use {
-
-            if (it.moveToFirst()) {
-                return it.getString(it.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME))
-            }
-        }
-
-        throw Exception("Failed to find entry: ${uri.uri}")
+        return AFMediaStore.getDisplayName(uri, activity)
     }
 
     override fun deleteFile(uri: FileUri) {
-        if (activity.contentResolver.delete(Uri.parse(uri.uri), null, null) <= 0) {
-            throw Exception("Failed to delete file: ${uri.uri}")
-        }
+        AFMediaStore.delete(uri, activity)
     }
 
     override fun rename(uri: FileUri, newName: String): JSObject {
-        if (getName(uri) != newName) {
-            val updated = activity.contentResolver.update(
-                Uri.parse(uri.uri),
-                ContentValues().apply {
-                    put(MediaStore.MediaColumns.DISPLAY_NAME, newName)
-                },
-                null,
-                null
-            )
-
-            if (updated == 0) {
-                throw Exception("Failed to rename: ${uri.uri}")
-            }
-        }
+        AFMediaStore.rename(uri, newName, activity)
 
         val res = JSObject()
         res.put("uri", uri.uri)

@@ -14,7 +14,7 @@ impl Error {
         msg: Cow::Borrowed("This plugin is only for Android")
     };
 
-    pub(crate) fn with(msg: impl Into<Cow<'static, str>>) -> Self {
+    pub fn with(msg: impl Into<Cow<'static, str>>) -> Self {
         Self { msg: msg.into() }
     }
 }

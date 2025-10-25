@@ -441,7 +441,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn set_file_pending_in_public_storage(
+    pub fn set_media_store_file_pending(
         &self,
         uri: &FileUri,
         is_pending: bool
@@ -456,7 +456,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn create_new_file_in_public_storage(
+    pub fn create_new_media_store_file(
         &self,
         volume_id: Option<&StorageVolumeId>,
         base_dir: impl Into<PublicDir>,
@@ -466,14 +466,12 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     ) -> Result<FileUri> {
 
         impl_se!(struct Req<'a> { 
-            media_store_volume_name: &'a str, 
+            volume_name: Option<&'a str>, 
             relative_path: std::path::PathBuf, 
             mime_type: Option<&'a str>,
             pending: bool
         });
         impl_de!(struct Res { uri: FileUri });
-
-        self.requires(api_level::ANDROID_10)?;
 
         let consts = self.consts()?;
         let relative_path = {
@@ -482,13 +480,11 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             p.push(validate_relative_path(relative_path.as_ref())?);
             p
         };
-        let media_store_volume_name = volume_id
-            .map(|v| v.media_store_volume_name.as_ref())
-            .unwrap_or(consts.media_store_primary_volume_name.as_ref())
-            .ok_or_else(|| Error::with("The storage volume is not available for PublicStorage"))?;
+
+        let volume_name = volume_id.and_then(|v| v.media_store_volume_name.as_deref());
 
         self.invoke::<Res>("createNewMediaStoreFile", Req {
-                media_store_volume_name, 
+                volume_name, 
                 relative_path,
                 mime_type,
                 pending: is_pending
@@ -516,7 +512,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             .await
             .map(|v| v.uris);
 
-        // intent からの結果を取得してからすぐ frontend 側に戻ると
+        // kotlin の @ActivityCallback 上の invoke.resolve により frontend 側にすぐに戻ると
         // その frontend 側の関数の呼び出しがなぜか終了しないことが偶にある。
         // よって遅延を強制的に追加してこれを回避する。
         // https://github.com/aiueo13/tauri-plugin-android-fs/issues/1
@@ -705,6 +701,72 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             .await
             .map(|_| ())
     }
+
+    #[maybe_async]
+    pub fn request_legacy_storage_permission(&self) -> Result<bool> {
+        impl_de!(struct Res { granted: bool, prompted: bool });
+
+        let result = self.invoke::<Res>("requestLegacyStoragePermission", ()).await?;
+
+        if result.prompted {
+            // show_pick_file_dialog 内のコメントを参照
+            sleep(std::time::Duration::from_millis(200)).await?;
+        }
+            
+        Ok(result.granted)
+    }
+
+    #[maybe_async]
+    pub fn has_legacy_storage_permission(&self) -> Result<bool> {
+        impl_de!(struct Res { granted: bool });
+
+        self.invoke::<Res>("hasLegacyStoragePermission", ())
+            .await
+            .map(|res| res.granted)
+    }
+
+    #[maybe_async]
+    pub fn scan_media_store_file(
+        &self,
+        uri: &FileUri,
+    ) -> Result<()> {
+        
+        impl_se!(struct Req<'a> { uri: &'a FileUri });
+            
+        self.invoke::<()>("scanMediaStoreFile", Req { uri }).await
+    }
+
+    /*
+    #[maybe_async]
+    pub fn scan_file_to_media_store_by_path(
+        &self, 
+        path: impl AsRef<std::path::Path>,
+        mime_type: Option<&str>,
+    ) -> Result<FileUri> {
+       
+        impl_se!(struct Req<'a> { path: &'a std::path::Path, mime_type: Option<&'a str>, });
+        impl_de!(struct Res { uri: FileUri });
+
+        let path = path.as_ref();
+            
+        self.invoke::<Res>("scanFileToMediaStoreByPath", Req { path, mime_type })
+            .await
+            .map(|res| res.uri)
+    }
+
+    #[maybe_async]
+    pub fn get_file_path_in_public_storage(
+        &self,
+        uri: &FileUri
+    ) -> Result<std::path::PathBuf> {
+
+        impl_se!(struct Req<'a> { uri: &'a FileUri });
+        impl_de!(struct Res { path: std::path::PathBuf });
+      
+        self.invoke::<Res>("getMediaStoreFileAbsolutePath", Req { uri })
+            .await
+            .map(|v| v.path)
+    }*/
 }
 
 fn_get_or_init!(get_or_init_const, Consts);

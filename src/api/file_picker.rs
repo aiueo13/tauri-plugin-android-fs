@@ -63,16 +63,9 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// System will do its best to launch the dialog in the specified entry 
     /// if it's a directory, or the directory that contains the specified file if not.  
     /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.  
-    /// This must be a URI taken from following :   
+    /// This must be a URI taken from following or it's derivative :   
     ///     - [`PublicStorage::resolve_initial_location`]
     ///     - [`PublicStorage::resolve_initial_location_top`]
-    ///     - [`AndroidFs::try_resolve_file_uri`]
-    ///     - [`AndroidFs::try_resolve_dir_uri`]
-    ///     - [`AndroidFs::resolve_uri`]
-    ///     - [`AndroidFs::read_dir`]
-    ///     - [`AndroidFs::create_new_file`]
-    ///     - [`AndroidFs::create_dir_all`]
-    ///     - [`AndroidFs::rename`]
     ///     - [`FilePicker::pick_files`]
     ///     - [`FilePicker::pick_file`]
     ///     - [`FilePicker::pick_dir`]
@@ -123,16 +116,9 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// System will do its best to launch the dialog in the specified entry 
     /// if it's a directory, or the directory that contains the specified file if not.  
     /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.  
-    /// This must be a URI taken from following :   
+    /// This must be a URI taken from following or it's derivative :   
     ///     - [`PublicStorage::resolve_initial_location`]
     ///     - [`PublicStorage::resolve_initial_location_top`]
-    ///     - [`AndroidFs::try_resolve_file_uri`]
-    ///     - [`AndroidFs::try_resolve_dir_uri`]
-    ///     - [`AndroidFs::resolve_uri`]
-    ///     - [`AndroidFs::read_dir`]
-    ///     - [`AndroidFs::create_new_file`]
-    ///     - [`AndroidFs::create_dir_all`]
-    ///     - [`AndroidFs::rename`]
     ///     - [`FilePicker::pick_files`]
     ///     - [`FilePicker::pick_file`]
     ///     - [`FilePicker::pick_dir`]
@@ -344,16 +330,9 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// System will do its best to launch the dialog in the specified entry 
     /// if it's a directory, or the directory that contains the specified file if not.  
     /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.   
-    /// This must be a URI taken from following :   
+    /// This must be a URI taken from following or it's derivative :   
     ///     - [`PublicStorage::resolve_initial_location`]
     ///     - [`PublicStorage::resolve_initial_location_top`]
-    ///     - [`AndroidFs::try_resolve_file_uri`]
-    ///     - [`AndroidFs::try_resolve_dir_uri`]
-    ///     - [`AndroidFs::resolve_uri`]
-    ///     - [`AndroidFs::read_dir`]
-    ///     - [`AndroidFs::create_new_file`]
-    ///     - [`AndroidFs::create_dir_all`]
-    ///     - [`AndroidFs::rename`]
     ///     - [`FilePicker::pick_files`]
     ///     - [`FilePicker::pick_file`]
     ///     - [`FilePicker::pick_dir`]
@@ -400,16 +379,9 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// System will do its best to launch the dialog in the specified entry 
     /// if it's a directory, or the directory that contains the specified file if not.  
     /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.   
-    /// This must be a URI taken from following :   
+    /// This must be a URI taken from following or it's derivative :   
     ///     - [`PublicStorage::resolve_initial_location`]
     ///     - [`PublicStorage::resolve_initial_location_top`]
-    ///     - [`AndroidFs::try_resolve_file_uri`]
-    ///     - [`AndroidFs::try_resolve_dir_uri`]
-    ///     - [`AndroidFs::resolve_uri`]
-    ///     - [`AndroidFs::read_dir`]
-    ///     - [`AndroidFs::create_new_file`]
-    ///     - [`AndroidFs::create_dir_all`]
-    ///     - [`AndroidFs::rename`]
     ///     - [`FilePicker::pick_files`]
     ///     - [`FilePicker::pick_file`]
     ///     - [`FilePicker::pick_dir`]
@@ -453,7 +425,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// # Support
     /// All Android version.
     #[maybe_async]
-    pub fn is_visual_media_picker_available(&self) -> crate::Result<bool> {
+    pub fn is_visual_media_picker_available(&self) -> Result<bool> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }

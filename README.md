@@ -2,9 +2,7 @@ Note: **I’m using a translation tool, so there may be some inappropriate expre
 
 # Overview
 
-The Android file system is strict and complex. This plugin was created to provide practical file operations. You don’t need to set special permissions or configurations. 
-
-And this does not use any options that require additional permissions or review, so you can submit your app for Google Play review with peace of mind.
+The Android file system is strict and complex. This plugin was created to provide practical file operations. By default (default-feature), this does not use any options that require additional permissions or review, so you can submit your app for Google Play review with peace of mind.
 
 # Setup
 Register this plugin in your Tauri project:
@@ -34,7 +32,7 @@ Opens the file/folder picker to read and write user-selected entries.
 ```rust
 use tauri_plugin_android_fs::{AndroidFsExt, ImageFormat, Result, Size};
 
-async fn file_picker_example(app: tauri::AppHandle<impl tauri::Runtime>) -> Result<()> {
+async fn file_picker_example(&app: tauri::AppHandle<impl tauri::Runtime>) -> Result<()> {
     let api = app.android_fs_async();
     
     // Pick files to read and write
@@ -76,7 +74,7 @@ async fn file_picker_example(app: tauri::AppHandle<impl tauri::Runtime>) -> Resu
 ```rust
 use tauri_plugin_android_fs::{AndroidFsExt, PublicImageDir, Result};
 
-async fn file_saver_example(app: tauri::AppHandle<impl tauri::Runtime>) -> Result<()> {
+async fn file_saver_example(app: &tauri::AppHandle<impl tauri::Runtime>) -> Result<()> {
     let api = app.android_fs_async();
 
     // Directory on file picker launch
@@ -166,7 +164,7 @@ async fn file_saver_example(app: tauri::AppHandle<impl tauri::Runtime>) -> Resul
 ```rust
 use tauri_plugin_android_fs::{AndroidFsExt, Entry, Result};
 
-async fn dir_picker_example(app: tauri::AppHandle<impl tauri::Runtime>) -> Result<()> {
+async fn dir_picker_example(app: &tauri::AppHandle<impl tauri::Runtime>) -> Result<()> {
     let api = app.android_fs_async();
 
     // Pick directory to read and write
@@ -212,52 +210,51 @@ async fn dir_picker_example(app: tauri::AppHandle<impl tauri::Runtime>) -> Resul
 ```
 
 ### 2. Public Storage
-File storage that is available to other applications and users.
-This is for Android 10 (API level 29) or higher.  
+File storage that is available to other applications and users.  
+For Android 9 (API level 29) or lower, please enable `legacy_storage_permission` feature.  
 
 ```rust
-use tauri_plugin_android_fs::{AndroidFsExt, PublicGeneralPurposeDir, PublicImageDir, Result};
+use tauri_plugin_android_fs::{AndroidFsExt, Error, PublicGeneralPurposeDir, PublicImageDir, Result};
 
-async fn example(app: tauri::AppHandle<impl tauri::Runtime>) -> Result<()> {
+async fn example(app: &tauri::AppHandle<impl tauri::Runtime>) -> Result<()> {
     let api = app.android_fs_async();
 
-    // Create an empty file
-    // and mark it pending (hidden from other apps).
-    // 
-    // ~/Pictures/MyApp/my-image.png
-    let uri = api
-        .public_storage()
-        .create_new_file_with_pending(
-            // Storage volume (e.g. internal storage, SD card). 
-            // If None, use primary storage volume
-            None, 
-
-            // Base directory. 
-            // One of: PublicImageDir, PublicVideoDir, PublicAudioDir, PublicGeneralPurposeDir
-            PublicImageDir::Pictures, 
-
-            // Relative file path.
-            // The parent directories will be created recursively.
-            "MyApp/my-image.png",
-
-            // Mime type.
-            Some("image/png") 
-        ).await?;
-
-    // Write the contents to the file
-    if let Err(e) = api.write(&uri, &[]).await {
-        // Handle err
-        api.remove_file(&uri).await.ok();
-        return Err(e)
+    // Request permission for PublicStorage
+    //
+    // NOTE:
+    // Please enable 'legacy_storage_permission' feature,
+    // for Android 9 or lower.
+    if !api.public_storage().request_permission().await? {
+        return Err(Error::with("Permission denied by user"))
     }
 
-    // Clear pending state
-    api.public_storage()
-        .set_pending(&uri, false).await?;
+    // Save to new file.
+    // 
+    // Destination:
+    // ~/Pictures/MyApp/my-image.png
+    api.public_storage().write_new(
+        // Storage volume (e.g. internal storage, SD card). 
+        // If None, use primary storage volume
+        None, 
+
+        // Base directory. 
+        // One of: PublicImageDir, PublicVideoDir, PublicAudioDir, PublicGeneralPurposeDir
+        PublicImageDir::Pictures, 
+
+        // Relative file path.
+        // The parent directories will be created recursively.
+        "MyApp/my-image.png",
+
+        // Mime type.
+        Some("image/png"),
+
+        // Contents to save
+        &[]
+    ).await?;
 
 
 
-    // Get any available volume other than the primary one.
+    // Get any available volume other than the primary one if possible.
     // e.g. SD card, USB drive
     let volume = api
         .public_storage()
@@ -265,9 +262,11 @@ async fn example(app: tauri::AppHandle<impl tauri::Runtime>) -> Result<()> {
         .into_iter()
         .find(|v| !v.is_primary && !v.is_readonly);
 
+    // Create an empty file
+    // and mark it pending (hidden from other apps).
     let uri = api
         .public_storage()
-        .create_new_file(
+        .create_new_file_with_pending(
             volume.as_ref().map(|v| &v.id),
             PublicGeneralPurposeDir::Documents,
             "MyApp/2025-9-14/data.txt",
@@ -275,6 +274,30 @@ async fn example(app: tauri::AppHandle<impl tauri::Runtime>) -> Result<()> {
         ).await?;
 
     let mut file: std::fs::File = api.open_file_writable(&uri).await?;
+
+    // Write content in blocking thread
+    let result = tauri::async_runtime::spawn_blocking(move || -> Result<()> {
+        use std::io::Write;
+
+        // Write content
+        file.write_all(&[])?;
+
+        Ok(())
+    }).await.map_err(Into::into).and_then(|r| r);
+
+    // Handle error
+    if let Err(err) = result {
+        api.remove_file(&uri).await.ok();
+        return Err(err)
+    }
+
+    // Clear pending state
+    api.public_storage()
+        .set_pending(&uri, false).await?;
+
+    // Register with Gallery
+    api.public_storage()
+        .scan_file(&uri).await?;
 
     Ok(())
 }

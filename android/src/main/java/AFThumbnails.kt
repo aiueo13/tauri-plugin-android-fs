@@ -14,6 +14,7 @@ import android.util.Size
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.OutputStream
+import kotlin.math.ceil
 import kotlin.math.min
 
 
@@ -124,6 +125,11 @@ private fun fetchThumbnail(
                     return it
                 }
             }
+            else if (mimeType.startsWith("image/")) {
+                createImageThumbnailWithoutResizeFromContentFile(uri, preferredSize, ctx)?.let {
+                    return it
+                }
+            }
         }
         else -> {}
     }
@@ -210,6 +216,51 @@ private fun fetchThumbnailFromFile(file: File, preferredSize: Size): Bitmap? {
     return null
 }
 
+
+// https://developer.android.com/social-and-messaging/guides/media-thumbnails?hl=ja#create-thumbnail
+// を改変したもの (Apache 2.0 ライセンス)
+private fun createImageThumbnailWithoutResizeFromContentFile(uri: Uri, size: Size, context: Context): Bitmap?{
+    try {
+        // P は Android 9
+        if (Build.VERSION_CODES.P <= Build.VERSION.SDK_INT) {
+            val source = ImageDecoder.createSource(context.contentResolver, uri)
+
+            return ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
+                val widthSample = ceil(info.size.width / size.width.toDouble()).toInt()
+                val heightSample = ceil(info.size.height / size.height.toDouble()).toInt()
+                val sample = min(widthSample, heightSample)
+                if (sample > 1) decoder.setTargetSampleSize(sample)
+            }
+        }
+
+        val options = context.contentResolver.openInputStream(uri)?.use {
+            val options = BitmapFactory.Options()
+            options.inJustDecodeBounds = true
+            BitmapFactory.decodeStream(it, null, options)
+            options
+        } ?: return null
+
+        if ( options.outHeight != 0 ) {
+            val widthSample = options.outWidth / size.width
+            val heightSample = options.outHeight / size.height
+            val sample = min(widthSample, heightSample)
+            if (sample > 1) {
+                options.inSampleSize = sample
+            }
+            options.inJustDecodeBounds = false
+            val decodeStream = context.contentResolver.openInputStream(uri)
+            val bitmap =  BitmapFactory.decodeStream(decodeStream, null, options)
+            decodeStream?.close()
+            return bitmap
+        }
+    }
+    catch (_: Exception) {}
+
+    return null
+}
+
+// https://developer.android.com/social-and-messaging/guides/media-thumbnails?hl=ja#create-thumbnail
+// を改変したもの (Apache 2.0 ライセンス)
 private fun createVideoThumbnailWithoutResizeFromContentFile(
     uri: Uri,
     preferredSize: Size,

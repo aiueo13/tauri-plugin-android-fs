@@ -1,12 +1,12 @@
-use std::io::{Read, Write};
+use std::{borrow::Cow, io::{Read, Write}};
 use sync_async::sync_async;
 use crate::*;
 use super::*;
 
 
 #[sync_async(
-    use(if_async) async_utils::{run_blocking, sleep};
-    use(if_sync) sync_utils::{run_blocking, sleep};
+    use(if_async) async_utils::{run_blocking, run_blocking_with_io_err, sleep};
+    use(if_sync) sync_utils::{run_blocking, run_blocking_with_io_err, sleep};
 )]
 impl<'a, R: tauri::Runtime> Impls<'a, R> {
 
@@ -293,6 +293,9 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         if relative_path.is_empty() {
             return Ok(dir.clone())
         }
+        if let Some(path) = dir.as_path() {
+            return Ok(FileUri::from_path(path.join(relative_path.as_ref())))
+        }
 
         Ok(FileUri {
             document_top_tree_uri: dir.document_top_tree_uri.clone(),
@@ -301,12 +304,28 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn get_available_storage_volumes_for_public_storage(&self) -> Result<Vec<StorageVolume>> {
-        self.requires(api_level::ANDROID_10)?;
+    pub fn request_storage_permission_for_public_storage(&self) -> Result<bool> {
+        if api_level::ANDROID_10 <= self.api_level()? {
+            return Ok(true)
+        }
+        
+        self.request_legacy_storage_permission().await
+    }
 
+    #[maybe_async]
+    pub fn has_storage_permission_for_public_storage(&self) -> Result<bool> {
+        if api_level::ANDROID_10 <= self.api_level()? {
+            return Ok(true)
+        }
+        
+        self.has_legacy_storage_permission().await
+    }
+
+    #[maybe_async]
+    pub fn get_available_storage_volumes_for_public_storage(&self) -> Result<Vec<StorageVolume>> {
         let volumes = self.get_available_storage_volumes().await?
             .into_iter()
-            .filter(|v| v.id.media_store_volume_name.is_some())
+            .filter(|v| v.is_available_for_public_storage)
             .collect::<Vec<_>>();
 
         Ok(volumes)
@@ -314,11 +333,64 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
 
     #[maybe_async]
     pub fn get_primary_storage_volume_if_available_for_public_storage(&self) -> Result<Option<StorageVolume>> {
-        self.requires(api_level::ANDROID_10)?;
-
         self.get_primary_storage_volume_if_available()
             .await
-            .map(|v| v.filter(|v| v.id.media_store_volume_name.is_some()))
+            .map(|v| v.filter(|v| v.is_available_for_public_storage))
+    }
+
+    #[maybe_async]
+    pub fn create_new_file_in_public_store(
+        &self,
+        volume_id: Option<&StorageVolumeId>,
+        base_dir: impl Into<PublicDir>,
+        relative_path: impl AsRef<std::path::Path>, 
+        mime_type: Option<&str>,
+        is_pending: bool,
+    ) -> Result<FileUri> {
+
+        self.create_new_media_store_file(volume_id, base_dir, relative_path, mime_type, is_pending).await
+    }
+
+    #[maybe_async]
+    pub fn write_new_file_in_public_store(
+        &self,
+        volume_id: Option<&StorageVolumeId>,
+        base_dir: impl Into<PublicDir>,
+        relative_path: impl AsRef<std::path::Path>, 
+        mime_type: Option<&str>,
+        contents: impl AsRef<[u8]>,
+    ) -> Result<FileUri> {
+
+        let uri = self.create_new_file_in_public_store(
+            volume_id, 
+            base_dir, 
+            relative_path, 
+            mime_type,
+            true
+        ).await?;
+
+        let mut file = self.open_file_writable(&uri).await?;
+
+        #[if_sync]
+        let result = file.write_all(contents.as_ref()).map_err(Into::into);
+
+        #[if_async]
+        let result = {
+            let contents = upgrade_bytes_ref(contents);
+            run_blocking(move ||{
+                // run_blocking内ではエラーを返さないようにする。
+                file.write_all(&contents).map_err(Into::into)
+            }).await 
+        };
+
+        if let Err(err) = result {
+            self.remove_file(&uri).await.ok();
+            return Err(err)
+        }
+
+        self.set_file_pending_in_public_storage(&uri, false).await?;
+        self.scan_file_in_public_storage(&uri).await?;
+        Ok(uri)
     }
 
     #[maybe_async]
@@ -328,12 +400,10 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         base_dir: impl Into<PublicDir>,
         relative_path: impl AsRef<std::path::Path>, 
     ) -> Result<()> {
-
-        self.requires(api_level::ANDROID_10)?;
-
+        
         let relative_path = validate_relative_path(relative_path.as_ref())?;
         let base_dir = base_dir.into();
-        let tmp_file_uri = self.create_new_file_in_public_storage(
+        let tmp_file_uri = self.create_new_file_in_public_store(
             volume_id,
             base_dir, 
             relative_path.join("TMP-01K3CGCKYSAQ1GHF8JW5FGD4RW"), 
@@ -345,31 +415,56 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             }),
             true
         ).await?;
-        self.remove_file(&tmp_file_uri).await.ok();
 
+        self.remove_file(&tmp_file_uri).await.ok();
         Ok(())
     }
 
     #[maybe_async]
-    pub fn resolve_path(
+    pub fn scan_file_in_public_storage(
+        &self,
+        uri: &FileUri,
+    ) -> Result<()> {
+        
+        if api_level::ANDROID_11 <= self.api_level()? {
+            return Ok(())
+        }
+
+        self.scan_media_store_file(uri).await
+    }
+
+    #[maybe_async]
+    pub fn set_file_pending_in_public_storage(
+        &self,
+        uri: &FileUri,
+        is_pending: bool
+    ) -> Result<()> {
+
+        if api_level::ANDROID_10 <= self.api_level()? {
+            return self.set_media_store_file_pending(uri, is_pending).await
+        }
+        
+        Ok(())
+    }
+
+    #[maybe_async]
+    pub fn resolve_path_in_public_storage(
         &self,
         volume_id: Option<&StorageVolumeId>,
         base_dir: impl Into<PublicDir>,
     ) -> Result<std::path::PathBuf> {
 
-        self.requires(api_level::ANDROID_10)?;
-
         let mut path = match volume_id {
             Some(volume_id) => {
-                let (vn, tp) = volume_id.media_store_volume_name.as_ref()
-                    .zip(volume_id.top_directory_path.as_ref())
+                let path = volume_id.top_directory_path
+                    .as_ref()
                     .ok_or_else(|| Error::with("The storage volume is not available for PublicStorage"))?;
-                
-                if !self.check_media_store_volume_name_available(vn).await? {
+                  
+                if !self.check_storage_volume_available_by_path(path).await? {
                     return Err(Error::with("The storage volume is not currently available"))
                 }
 
-                tp.clone()
+                path.clone()
             },
             None => {
                 self.get_primary_storage_volume_if_available_for_public_storage().await?
@@ -383,7 +478,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn resolve_public_storage_initial_location(
+    pub fn resolve_initial_location_in_public_storage(
         &self,
         volume_id: Option<&StorageVolumeId>,
         base_dir: impl Into<PublicDir>,
@@ -393,7 +488,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
 
         let base_dir = base_dir.into();
             
-        let mut uri = self.resolve_public_storage_initial_location_top(volume_id).await?;
+        let mut uri = self.resolve_initial_location_top_in_public_storage(volume_id).await?;
         uri.uri.push_str(self.consts()?.public_dir_name(base_dir)?);
 
         let relative_path = validate_relative_path(relative_path.as_ref())?;
@@ -415,7 +510,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn resolve_public_storage_initial_location_top(
+    pub fn resolve_initial_location_top_in_public_storage(
         &self,
         volume_id: Option<&StorageVolumeId>
     ) -> Result<FileUri> {
@@ -434,7 +529,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     pub fn get_available_storage_volumes_for_private_storage(&self) -> Result<Vec<StorageVolume>> {
         let volumes = self.get_available_storage_volumes().await?
             .into_iter()
-            .filter(|v| v.id.private_data_dir_path.is_some() || v.id.private_cache_dir_path.is_some())
+            .filter(|v| v.is_available_for_private_storage)
             .collect::<Vec<_>>();
 
         Ok(volumes)
@@ -444,7 +539,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     pub fn get_primary_storage_volume_if_available_for_private_storage(&self) -> Result<Option<StorageVolume>> {
         self.get_primary_storage_volume_if_available()
             .await
-            .map(|v| v.filter(|v| v.id.private_data_dir_path.is_some() || v.id.private_cache_dir_path.is_some()))
+            .map(|v| v.filter(|v| v.is_available_for_private_storage))
     }
 
     #[maybe_async]

@@ -1,7 +1,18 @@
+# Version 17.2.0
+- Change `PublicStorage` to be available for Android 9 or lower.
+- Add feature `legacy_storage_permission`
+- Add `PublicStorage::request_permission`
+- Add `PublicStorage::has_permission`
+- Add `PublicStorage::scan_file`
+- Add `PublicStorage::write_new`
+- Deprecate `PublicStorage::resolve_path`
+- Update documentation.
+
 # Version 17.1.0
 - Fix an issue where returning to the frontend immediately after invoking the FilePicker causes the frontend function call not to complete.
 - Add `PublicStorage::create_new_file_with_pending`
 - Add `PublicStorage::set_pending`
+- Update documentation.
 
 # Version 17.0.1
 - Update documentation.
@@ -11,6 +22,7 @@
 - Add `is_available_for_publicstorage` and `is_available_for_private_storage` to `StorageVolume`
 - Add async APIs
 - Change module hierarchy
+- Update documentation.
 
 # Version 16.1.0
 - Add feature `tauri-plugin-fs` and set to default.
