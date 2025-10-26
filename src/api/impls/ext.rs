@@ -256,12 +256,17 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         relative_path: impl AsRef<std::path::Path>
     ) -> Result<FileUri> {
 
-        let uri = self.resolve_entry_uri_unvalidated(dir, relative_path).await?;         
+        let relative_path = relative_path.as_ref();
+        let candidate_uri = self.build_candidate_uri(dir, relative_path).await?;  
 
-        if !self.get_entry_type(&uri).await?.is_file() {
-            return Err(crate::Error::with(format!("This is not a file: {uri:?}")))
+        if let Ok(entry_type) = self.get_entry_type(&candidate_uri).await {
+            if !entry_type.is_file() {
+                return Err(Error::with(format!("This is not a file: {candidate_uri:?}")))
+            }
+            return Ok(candidate_uri)
         }
-        Ok(uri)
+
+        self.find_file_uri(dir, relative_path).await
     }
 
     #[maybe_async]
@@ -271,16 +276,21 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         relative_path: impl AsRef<std::path::Path>
     ) -> Result<FileUri> {
 
-        let uri = self.resolve_entry_uri_unvalidated(dir, relative_path).await?;
-            
-        if !self.get_entry_type(&uri).await?.is_dir() {
-            return Err(crate::Error::with(format!("This is not a directory: {uri:?}")))
+        let relative_path = relative_path.as_ref();
+        let candidate_uri = self.build_candidate_uri(dir, relative_path).await?;  
+
+        if let Ok(entry_type) = self.get_entry_type(&candidate_uri).await {
+            if !entry_type.is_dir() {
+                return Err(Error::with(format!("This is not a directory: {candidate_uri:?}")))
+            }
+            return Ok(candidate_uri)
         }
-        Ok(uri)
+
+        self.find_dir_uri(dir, relative_path).await
     }
 
     #[maybe_async]
-    pub fn resolve_entry_uri_unvalidated(
+    pub fn build_candidate_uri(
         &self, 
         dir: &FileUri, 
         relative_path: impl AsRef<std::path::Path>

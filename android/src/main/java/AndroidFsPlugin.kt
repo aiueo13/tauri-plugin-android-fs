@@ -282,6 +282,19 @@ class GetMediaStoreFileAbsolutePathArgs {
     lateinit var uri: FileUri
 }
 
+@InvokeArg
+class FindFileUriArgs {
+    lateinit var parentUri: FileUri
+    lateinit var relativePath: String
+}
+
+@InvokeArg
+class FindDirUriArgs {
+    lateinit var parentUri: FileUri
+    lateinit var relativePath: String
+}
+
+
 private const val ALIAS_LEGACY_WRITE_STORAGE_PERMISSION = "WRITE_EXTERNAL_STORAGE_MAX"
 private const val ALIAS_LEGACY_READ_STORAGE_PERMISSION = "READ_EXTERNAL_STORAGE_MAX"
 
@@ -499,6 +512,54 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             invoke.resolve(JSObject().apply {
                 put("granted", writeGranted && readGranted)
             })
+        }
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "unknown")
+        }
+    }
+
+    @Command
+    fun findFileUri(invoke: Invoke) {
+        try {
+            val args = invoke.parseArgs(FindFileUriArgs::class.java)
+
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val uri = documentFileController.findFileUri(args.parentUri, args.relativePath)
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve(uri)
+                    }
+                }
+                catch (ex: Exception) {
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(ex.message ?: "unknown")
+                    }
+                }
+            }
+        }
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "unknown")
+        }
+    }
+
+    @Command
+    fun findDirUri(invoke: Invoke) {
+        try {
+            val args = invoke.parseArgs(FindDirUriArgs::class.java)
+
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val uri = documentFileController.findDirUri(args.parentUri, args.relativePath)
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve(uri)
+                    }
+                }
+                catch (ex: Exception) {
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(ex.message ?: "unknown")
+                    }
+                }
+            }
         }
         catch (e: Exception) {
             invoke.reject(e.message ?: "unknown")

@@ -736,6 +736,34 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         self.invoke::<()>("scanMediaStoreFile", Req { uri }).await
     }
 
+    #[maybe_async]
+    pub fn find_file_uri(
+        &self,
+        parent_uri: &FileUri,
+        relative_path: impl AsRef<std::path::Path>,
+    ) -> Result<FileUri> {
+        
+        impl_se!(struct Req<'a> { parent_uri: &'a FileUri, relative_path: &'a std::path::Path });
+            
+        let relative_path = validate_relative_path(relative_path.as_ref())?;
+
+        self.invoke::<FileUri>("findFileUri", Req { parent_uri, relative_path }).await
+    }
+
+    #[maybe_async]
+    pub fn find_dir_uri(
+        &self,
+        parent_uri: &FileUri,
+        relative_path: impl AsRef<std::path::Path>,
+    ) -> Result<FileUri> {
+        
+        impl_se!(struct Req<'a> { parent_uri: &'a FileUri, relative_path: &'a std::path::Path });
+            
+        let relative_path = validate_relative_path(relative_path.as_ref())?;
+
+        self.invoke::<FileUri>("findDirUri", Req { parent_uri, relative_path }).await
+    }
+
     /*
     #[maybe_async]
     pub fn scan_file_to_media_store_by_path(

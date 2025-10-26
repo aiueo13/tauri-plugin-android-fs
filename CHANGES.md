@@ -1,3 +1,6 @@
+# Version 17.2.1
+- Deprecate `AndroidFs::resolve_uri_unvalidated`
+
 # Version 17.2.0
 - Change `PublicStorage` to be available for Android 9 or lower.
 - Add feature `legacy_storage_permission`

@@ -693,49 +693,6 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         }
     }
 
-    /// Build a URI of an entry located at the relative path from the specified directory.   
-    /// 
-    /// This function does **not** create any entries; it only constructs the URI.
-    /// 
-    /// This function does not perform checks on the arguments or the returned URI.  
-    /// Even if the dir argument refers to a file, no error occurs (and no panic either).
-    /// Instead, it simply returns an invalid URI that will cause errors if used with other functions.  
-    /// 
-    /// If you need check, consider using [`AndroidFs::try_resolve_file_uri`] or [`AndroidFs::try_resolve_dir_uri`] instead. 
-    /// Or use this with [`AndroidFs::get_type`].
-    /// 
-    /// The permissions and validity period of the returned URI depend on the origin directory 
-    /// (e.g., the top directory selected by [`FilePicker::pick_dir`]) 
-    /// 
-    /// # Note
-    /// For [`PublicStorage::create_new_file`] and etc, the system may sanitize path strings as needed, so those strings may not be used as it is.
-    /// However, this function does not perform any sanitization, so the same ***relative_path*** may still fail.
-    /// 
-    /// # Args
-    /// - ***uri*** :  
-    /// Base directory URI.  
-    /// Must be **readable**.  
-    /// 
-    /// - ***relative_path*** :
-    /// Relative path from base directory.
-    /// 
-    /// # Support
-    /// All Android version.
-    #[maybe_async]
-    pub fn resolve_uri_unvalidated(
-        &self, 
-        dir: &FileUri, 
-        relative_path: impl AsRef<std::path::Path>
-    ) -> Result<FileUri> {
-
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().resolve_entry_uri_unvalidated(dir, relative_path).await
-        }
-    }
-
     /// See [`AndroidFs::get_thumbnail_to`] for descriptions.  
     /// 
     /// If thumbnail does not wrote to dest, return false.
@@ -1136,7 +1093,23 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     }
 
 
-    #[deprecated = "use `AndroidFs::resolve_uri_unvalidated`"]
+    #[deprecated = "This may not return the correct uri. Use try_resolve_file_uri or try_resolve_dir_uri instead"]
+    #[maybe_async]
+    pub fn resolve_uri_unvalidated(
+        &self, 
+        dir: &FileUri, 
+        relative_path: impl AsRef<std::path::Path>
+    ) -> Result<FileUri> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().build_candidate_uri(dir, relative_path).await
+        }
+    }
+
+    #[deprecated = "This may not return the correct uri. Use try_resolve_file_uri or try_resolve_dir_uri instead"]
     #[maybe_async]
     pub fn resolve_uri(
         &self, 
@@ -1144,6 +1117,11 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         relative_path: impl AsRef<std::path::Path>
     ) -> Result<FileUri> {
 
-        self.resolve_uri_unvalidated(dir, relative_path).await
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().build_candidate_uri(dir, relative_path).await
+        }
     }
 }

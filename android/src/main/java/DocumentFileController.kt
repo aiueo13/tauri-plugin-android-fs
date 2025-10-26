@@ -4,9 +4,6 @@ import android.app.Activity
 import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
-import android.graphics.Bitmap
-import android.graphics.Point
-import android.os.Build
 import androidx.core.database.getLongOrNull
 import androidx.core.database.getStringOrNull
 import app.tauri.plugin.JSArray
@@ -280,5 +277,73 @@ class DocumentFileController(private val activity: Activity): FileController {
         }
 
         return DocumentsContract.buildDocumentUriUsingTree(topTreeUri, parentId)
+    }
+
+    private fun findUri(dirUri: FileUri, relativePath: String): Uri {
+        val topTreeUri = Uri.parse(dirUri.documentTopTreeUri!!)
+        var id = DocumentsContract.getDocumentId(Uri.parse(dirUri.uri))
+
+        for (name in relativePath.split("/").filter { it.isNotEmpty() }) {
+            id = findIdFromName(activity, topTreeUri, id, name)
+        }
+
+        return DocumentsContract.buildDocumentUriUsingTree(topTreeUri, id)
+    }
+
+    private fun isDir(uri: Uri): Boolean {
+        activity.contentResolver.query(
+            uri,
+            arrayOf(DocumentsContract.Document.COLUMN_MIME_TYPE),
+            null,
+            null,
+            null
+        )?.use {
+
+            if (it.moveToFirst()) {
+                val mimeType = it.getStringOrNull(it.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE))
+
+                return mimeType == DocumentsContract.Document.MIME_TYPE_DIR
+            }
+        }
+
+        throw Exception("No file or permission: $uri")
+    }
+
+    fun findFileUri(dirUri: FileUri, relativePath: String): JSObject {
+        if (relativePath.startsWith('/')) {
+            throw Exception("Illegal file path format, starts with '/'.")
+        }
+        if (relativePath.isEmpty()) {
+            throw Exception("Relative path is empty.")
+        }
+
+        val uri = findUri(dirUri, relativePath)
+        if (isDir(uri)) {
+            throw Exception("This is a directory: $uri")
+        }
+
+        val res = JSObject()
+        res.put("uri", uri)
+        res.put("documentTopTreeUri", dirUri.documentTopTreeUri)
+        return res
+    }
+
+    fun findDirUri(dirUri: FileUri, relativePath: String): JSObject {
+        if (relativePath.startsWith('/')) {
+            throw Exception("Illegal file path format, starts with '/'.")
+        }
+        if (relativePath.isEmpty()) {
+            throw Exception("Relative path is empty.")
+        }
+
+        val uri = findUri(dirUri, relativePath)
+        if (!isDir(uri)) {
+            throw Exception("This is a file: $uri")
+        }
+
+        val res = JSObject()
+        res.put("uri", uri)
+        res.put("documentTopTreeUri", dirUri.documentTopTreeUri)
+        return res
     }
 }
