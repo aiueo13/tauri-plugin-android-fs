@@ -349,7 +349,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn create_new_file_in_public_store(
+    pub fn create_new_file_in_public_storage(
         &self,
         volume_id: Option<&StorageVolumeId>,
         base_dir: impl Into<PublicDir>,
@@ -362,7 +362,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn write_new_file_in_public_store(
+    pub fn write_new_file_in_public_storage(
         &self,
         volume_id: Option<&StorageVolumeId>,
         base_dir: impl Into<PublicDir>,
@@ -371,7 +371,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         contents: impl AsRef<[u8]>,
     ) -> Result<FileUri> {
 
-        let uri = self.create_new_file_in_public_store(
+        let uri = self.create_new_file_in_public_storage(
             volume_id, 
             base_dir, 
             relative_path, 
@@ -413,7 +413,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         
         let relative_path = validate_relative_path(relative_path.as_ref())?;
         let base_dir = base_dir.into();
-        let tmp_file_uri = self.create_new_file_in_public_store(
+        let tmp_file_uri = self.create_new_file_in_public_storage(
             volume_id,
             base_dir, 
             relative_path.join("TMP-01K3CGCKYSAQ1GHF8JW5FGD4RW"), 
@@ -436,7 +436,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         uri: &FileUri,
     ) -> Result<()> {
         
-        if api_level::ANDROID_11 <= self.api_level()? {
+        if api_level::ANDROID_10 <= self.api_level()? {
             return Ok(())
         }
 

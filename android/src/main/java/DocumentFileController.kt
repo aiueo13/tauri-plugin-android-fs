@@ -284,7 +284,10 @@ class DocumentFileController(private val activity: Activity): FileController {
         var id = DocumentsContract.getDocumentId(Uri.parse(dirUri.uri))
 
         for (name in relativePath.split("/").filter { it.isNotEmpty() }) {
-            id = findIdFromName(activity, topTreeUri, id, name)
+            val i = findIdFromName(activity, topTreeUri, id, name)
+                ?: throw Exception("Part of the file or directory path was not found or permission denied")
+
+            id = i
         }
 
         return DocumentsContract.buildDocumentUriUsingTree(topTreeUri, id)

@@ -240,7 +240,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().create_new_file_in_public_store(
+            self.impls().create_new_file_in_public_storage(
                 volume_id, 
                 base_dir, 
                 relative_path, 
@@ -333,7 +333,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().create_new_file_in_public_store(
+            self.impls().create_new_file_in_public_storage(
                 volume_id, 
                 base_dir, 
                 relative_path, 
@@ -477,7 +477,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().write_new_file_in_public_store(volume_id, base_dir, relative_path, mime_type, contents).await
+            self.impls().write_new_file_in_public_storage(volume_id, base_dir, relative_path, mime_type, contents).await
         }
     }
 
