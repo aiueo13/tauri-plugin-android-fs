@@ -250,53 +250,120 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn try_resolve_file_uri(
+    pub fn is_dir(&self, uri: &FileUri) -> Result<bool> {
+        if let Some(path) = uri.as_path() {
+            return Ok(std::fs::metadata(&path)?.is_dir())
+        }
+
+        Ok(self.get_entry_type(&uri).await?.is_dir())
+    }
+
+    #[maybe_async]
+    pub fn is_file(&self, uri: &FileUri) -> Result<bool> {
+        if let Some(path) = uri.as_path() {
+            return Ok(std::fs::metadata(&path)?.is_file())
+        }
+        
+        Ok(self.get_entry_type(&uri).await?.is_file())
+    }
+
+    #[maybe_async]
+    pub fn resolve_file_uri(
         &self, 
         dir: &FileUri, 
         relative_path: impl AsRef<std::path::Path>
     ) -> Result<FileUri> {
 
-        let relative_path = relative_path.as_ref();
-        let candidate_uri = self.build_candidate_uri(dir, relative_path).await?;  
-
-        if let Ok(entry_type) = self.get_entry_type(&candidate_uri).await {
-            if !entry_type.is_file() {
-                return Err(Error::with(format!("This is not a file: {candidate_uri:?}")))
-            }
-            return Ok(candidate_uri)
+        let mut uri = None;
+        if let Some(built_uri) = self.try_build_path_uri(dir, relative_path.as_ref())? {
+            uri = Some(built_uri);
+        }
+        else if let Some(built_uri) = self.try_build_saf_external_storage_uri(dir, relative_path.as_ref())? {
+            uri = Some(built_uri);
         }
 
-        self.find_file_uri(dir, relative_path).await
+        if let Some(uri) = uri {
+            if self.is_file(&uri).await? {
+               return Ok(uri) 
+            }
+            return Err(Error::with(format!("This is not a file: {uri:?}")))
+        }
+        
+        self.find_saf_file_uri(dir, relative_path).await
     }
 
     #[maybe_async]
-    pub fn try_resolve_dir_uri(
+    pub fn resolve_dir_uri(
         &self,
         dir: &FileUri, 
         relative_path: impl AsRef<std::path::Path>
     ) -> Result<FileUri> {
 
-        let relative_path = relative_path.as_ref();
-        let candidate_uri = self.build_candidate_uri(dir, relative_path).await?;  
-
-        if let Ok(entry_type) = self.get_entry_type(&candidate_uri).await {
-            if !entry_type.is_dir() {
-                return Err(Error::with(format!("This is not a directory: {candidate_uri:?}")))
-            }
-            return Ok(candidate_uri)
+        let mut uri = None;
+        if let Some(built_uri) = self.try_build_path_uri(dir, relative_path.as_ref())? {
+            uri = Some(built_uri);
         }
-
-        self.find_dir_uri(dir, relative_path).await
+        else if let Some(built_uri) = self.try_build_saf_external_storage_uri(dir, relative_path.as_ref())? {
+            uri = Some(built_uri);
+        }
+        
+        if let Some(uri) = uri {
+            if self.is_dir(&uri).await? {
+               return Ok(uri) 
+            }
+            return Err(Error::with(format!("This is not a directory: {uri:?}")))
+        }
+        
+        self.find_saf_dir_uri(dir, relative_path).await
     }
 
+    #[always_sync]
+    pub fn try_build_path_uri(
+        &self,
+        dir: &FileUri,
+        relative_path: impl AsRef<std::path::Path>
+    ) -> Result<Option<FileUri>> {
+
+        let relative_path = validate_relative_path(relative_path.as_ref())?;
+
+        // file:// 形式の URI
+        if let Some(path) = dir.as_path() {
+            let uri = FileUri::from_path(path.join(relative_path));
+            return Ok(Some(uri))
+        }
+
+        Ok(None)
+    }
+
+    #[always_sync]
+    pub fn try_build_saf_external_storage_uri(
+        &self,
+        dir: &FileUri,
+        relative_path: impl AsRef<std::path::Path>
+    ) -> Result<Option<FileUri>> {
+
+        let relative_path = validate_relative_path(relative_path.as_ref())?;
+        let relative_path = relative_path.to_string_lossy();
+        
+        if dir.uri.starts_with("content://com.android.externalstorage.documents/") {
+            let uri = FileUri {
+                document_top_tree_uri: dir.document_top_tree_uri.clone(),
+                uri: format!("{}%2F{}", &dir.uri, encode_uri(relative_path))
+            };
+            return Ok(Some(uri))
+        }
+
+        Ok(None)
+    }
+
+    #[deprecated]
     #[maybe_async]
-    pub fn build_candidate_uri(
+    pub fn _resolve_uri_legacy(
         &self, 
         dir: &FileUri, 
         relative_path: impl AsRef<std::path::Path>
     ) -> Result<FileUri> {
 
-        let base_dir = &dir.uri;
         let relative_path = validate_relative_path(relative_path.as_ref())?;
         let relative_path = relative_path.to_string_lossy();
 
@@ -309,7 +376,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
 
         Ok(FileUri {
             document_top_tree_uri: dir.document_top_tree_uri.clone(),
-            uri: format!("{base_dir}%2F{}", encode_document_id(relative_path))
+            uri: format!("{}%2F{}", &dir.uri, encode_uri(relative_path))
         })
     }
 
@@ -387,8 +454,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         #[if_async]
         let result = {
             let contents = upgrade_bytes_ref(contents);
-            run_blocking(move ||{
-                // run_blocking内ではエラーを返さないようにする。
+            run_blocking(move || {
                 file.write_all(&contents).map_err(Into::into)
             }).await 
         };
@@ -505,7 +571,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         let relative_path = relative_path.to_string_lossy();
         if !relative_path.is_empty() {
             uri.uri.push_str("%2F");
-            uri.uri.push_str(&encode_document_id(relative_path.as_ref()));
+            uri.uri.push_str(&encode_uri(relative_path.as_ref()));
         }
 
         if create_dir_all {

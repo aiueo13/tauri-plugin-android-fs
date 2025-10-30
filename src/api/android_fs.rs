@@ -644,7 +644,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Support
     /// All Android version.
     #[maybe_async]
-    pub fn try_resolve_file_uri(
+    pub fn resolve_file_uri(
         &self, 
         dir: &FileUri, 
         relative_path: impl AsRef<std::path::Path>
@@ -654,7 +654,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().try_resolve_file_uri(dir, relative_path).await
+            self.impls().resolve_file_uri(dir, relative_path).await
         }
     }
 
@@ -679,7 +679,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Support
     /// All Android version.
     #[maybe_async]
-    pub fn try_resolve_dir_uri(
+    pub fn resolve_dir_uri(
         &self,
         dir: &FileUri, 
         relative_path: impl AsRef<std::path::Path>
@@ -689,7 +689,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().try_resolve_dir_uri(dir, relative_path).await
+            self.impls().resolve_dir_uri(dir, relative_path).await
         }
     }
 
@@ -921,7 +921,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ///     - [`FilePicker::pick_visual_media`]  
     ///     - [`FilePicker::pick_dir`]  
     ///     - [`FilePicker::save_file`]  
-    ///     - [`AndroidFs::try_resolve_file_uri`], [`AndroidFs::try_resolve_dir_uri`], [`AndroidFs::resolve_uri`], [`AndroidFs::read_dir`], [`AndroidFs::create_new_file`], [`AndroidFs::create_dir_all`] :  
+    ///     - [`AndroidFs::resolve_file_uri`], [`AndroidFs::resolve_dir_uri`], [`AndroidFs::read_dir`], [`AndroidFs::create_new_file`], [`AndroidFs::create_dir_all`] :  
     ///     If use URI from thoese fucntions, the permissions of the origin directory URI is persisted, not a entry iteself by this function. 
     ///     Because the permissions and validity period of the descendant entry URIs depend on the origin directory.   
     /// 
@@ -950,7 +950,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ///     - [`FilePicker::pick_visual_media`]  
     ///     - [`FilePicker::pick_dir`]  
     ///     - [`FilePicker::save_file`]  
-    ///     - [`AndroidFs::try_resolve_file_uri`], [`AndroidFs::try_resolve_dir_uri`], [`AndroidFs::resolve_uri`], [`AndroidFs::read_dir`], [`AndroidFs::create_new_file`], [`AndroidFs::create_dir_all`] :  
+    ///     - [`AndroidFs::resolve_file_uri`], [`AndroidFs::resolve_dir_uri`], [`AndroidFs::read_dir`], [`AndroidFs::create_new_file`], [`AndroidFs::create_dir_all`] :  
     ///     If use URI from thoese fucntions, the permissions of the origin directory URI is checked, not a entry iteself by this function. 
     ///     Because the permissions and validity period of the descendant entry URIs depend on the origin directory.   
     /// 
@@ -1093,7 +1093,39 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     }
 
 
-    #[deprecated = "This may not return the correct uri. Use try_resolve_file_uri or try_resolve_dir_uri instead"]
+    #[deprecated = "Use resolve_file_uri instead"]
+    #[maybe_async]
+    pub fn try_resolve_file_uri(
+        &self,
+        dir: &FileUri, 
+        relative_path: impl AsRef<std::path::Path>
+    ) -> Result<FileUri> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().resolve_file_uri(dir, relative_path).await
+        }
+    }
+
+    #[deprecated = "Use resolve_dir_uri instead"]
+    #[maybe_async]
+    pub fn try_resolve_dir_uri(
+        &self,
+        dir: &FileUri, 
+        relative_path: impl AsRef<std::path::Path>
+    ) -> Result<FileUri> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().resolve_dir_uri(dir, relative_path).await
+        }
+    }
+
+    #[deprecated = "This may not return the correct uri. Use resolve_file_uri or resolve_dir_uri instead"]
     #[maybe_async]
     pub fn resolve_uri_unvalidated(
         &self, 
@@ -1105,11 +1137,12 @@ impl<R: tauri::Runtime> AndroidFs<R> {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().build_candidate_uri(dir, relative_path).await
+            #[allow(deprecated)]
+            self.impls()._resolve_uri_legacy(dir, relative_path).await
         }
     }
 
-    #[deprecated = "This may not return the correct uri. Use try_resolve_file_uri or try_resolve_dir_uri instead"]
+    #[deprecated = "This may not return the correct uri. Use resolve_file_uri or resolve_dir_uri instead"]
     #[maybe_async]
     pub fn resolve_uri(
         &self, 
@@ -1121,7 +1154,8 @@ impl<R: tauri::Runtime> AndroidFs<R> {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().build_candidate_uri(dir, relative_path).await
+            #[allow(deprecated)]
+            self.impls()._resolve_uri_legacy(dir, relative_path).await
         }
     }
 }

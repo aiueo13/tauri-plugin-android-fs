@@ -130,7 +130,7 @@ mod utils {
     }
 }
 
-fn encode_document_id(input: impl AsRef<str>) -> String {
+fn encode_uri(input: impl AsRef<str>) -> String {
     // https://developer.android.com/reference/android/net/Uri.html#encode(java.lang.String)
     
     const SAFE: &percent_encoding::AsciiSet = &percent_encoding::NON_ALPHANUMERIC

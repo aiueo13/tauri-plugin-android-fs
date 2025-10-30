@@ -1,3 +1,11 @@
+# Version 17.3.0
+- Fix an issue where returning to the frontend immediately after invoking file opener causes the frontend function call not to complete.
+- Add `AndroiFs::resolve_file_uri`
+- Add `AndroidFs::resolve_dir_uri`
+- Deprecate `AndroidFs::try_resolve_file_uri`
+- Deprecate `AndroidFs::try_resolve_dir_uri`
+- Update documentation.
+
 # Version 17.2.1
 - Deprecate `AndroidFs::resolve_uri_unvalidated`
 

@@ -512,7 +512,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             .await
             .map(|v| v.uris);
 
-        // kotlin の @ActivityCallback 上の invoke.resolve により frontend 側にすぐに戻ると
+        // kotlin から他のアプリを呼び出した後にすぐに frontend 側に戻ると、
         // その frontend 側の関数の呼び出しがなぜか終了しないことが偶にある。
         // よって遅延を強制的に追加してこれを回避する。
         // https://github.com/aiueo13/tauri-plugin-android-fs/issues/1
@@ -644,9 +644,13 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         let common_mime_type = None;
         let uris = uris.into_iter().collect::<Vec<_>>();
 
-        self.invoke::<Res>("shareFiles", Req { uris, common_mime_type, use_app_chooser, exclude_self_from_app_chooser })
+        let result = self.invoke::<Res>("shareFiles", Req { uris, common_mime_type, use_app_chooser, exclude_self_from_app_chooser })
             .await
-            .map(|_| ())
+            .map(|_| ());
+
+        sleep(std::time::Duration::from_millis(200)).await?;
+
+        result
     }
 
     #[maybe_async]
@@ -662,9 +666,13 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         let exclude_self_from_app_chooser = true;
         let mime_type = None;
     
-        self.invoke::<Res>("viewFile", Req { uri, mime_type, use_app_chooser, exclude_self_from_app_chooser })
+        let result = self.invoke::<Res>("viewFile", Req { uri, mime_type, use_app_chooser, exclude_self_from_app_chooser })
             .await
-            .map(|_| ())
+            .map(|_| ());
+
+        sleep(std::time::Duration::from_millis(200)).await?;
+
+        result
     }
 
     #[maybe_async]
@@ -679,9 +687,14 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         let use_app_chooser = true;
         let exclude_self_from_app_chooser = true;
     
-        self.invoke::<Res>("viewDir", Req { uri, use_app_chooser, exclude_self_from_app_chooser })
+        let result = self.invoke::<Res>("viewDir", Req { uri, use_app_chooser, exclude_self_from_app_chooser })
             .await
-            .map(|_| ())
+            .map(|_| ());
+
+        // show_pick_file_dialog 内のコメントを参照
+        sleep(std::time::Duration::from_millis(200)).await?;
+
+        result
     }
 
     #[maybe_async]
@@ -697,9 +710,13 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         let exclude_self_from_app_chooser = true;
         let mime_type = None;
     
-        self.invoke::<Res>("editFile", Req { uri, mime_type, use_app_chooser, exclude_self_from_app_chooser })
+        let result = self.invoke::<Res>("editFile", Req { uri, mime_type, use_app_chooser, exclude_self_from_app_chooser })
             .await
-            .map(|_| ())
+            .map(|_| ());
+
+        sleep(std::time::Duration::from_millis(200)).await?;
+
+        result
     }
 
     #[maybe_async]
@@ -737,7 +754,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn find_file_uri(
+    pub fn find_saf_file_uri(
         &self,
         parent_uri: &FileUri,
         relative_path: impl AsRef<std::path::Path>,
@@ -747,11 +764,11 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             
         let relative_path = validate_relative_path(relative_path.as_ref())?;
 
-        self.invoke::<FileUri>("findFileUri", Req { parent_uri, relative_path }).await
+        self.invoke::<FileUri>("findSafFileUri", Req { parent_uri, relative_path }).await
     }
 
     #[maybe_async]
-    pub fn find_dir_uri(
+    pub fn find_saf_dir_uri(
         &self,
         parent_uri: &FileUri,
         relative_path: impl AsRef<std::path::Path>,
@@ -761,7 +778,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             
         let relative_path = validate_relative_path(relative_path.as_ref())?;
 
-        self.invoke::<FileUri>("findDirUri", Req { parent_uri, relative_path }).await
+        self.invoke::<FileUri>("findSafDirUri", Req { parent_uri, relative_path }).await
     }
 
     /*

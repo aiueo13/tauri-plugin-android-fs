@@ -519,7 +519,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
-    fun findFileUri(invoke: Invoke) {
+    fun findSafFileUri(invoke: Invoke) {
         try {
             val args = invoke.parseArgs(FindFileUriArgs::class.java)
 
@@ -543,7 +543,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
-    fun findDirUri(invoke: Invoke) {
+    fun findSafDirUri(invoke: Invoke) {
         try {
             val args = invoke.parseArgs(FindDirUriArgs::class.java)
 
