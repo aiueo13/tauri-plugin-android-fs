@@ -154,6 +154,25 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
+    pub fn create_new_file_and_retrun_relative_path(
+        &self,
+        dir: &FileUri, 
+        relative_path: impl AsRef<std::path::Path>, 
+        mime_type: Option<&str>
+    ) -> Result<(FileUri, std::path::PathBuf)> {
+
+        impl_se!(struct Req<'a> { dir: &'a FileUri, mime_type: Option<&'a str>, relative_path: &'a str });
+        impl_de!(struct Res { uri: FileUri, relative_path: std::path::PathBuf });
+
+        let relative_path = validate_relative_path(relative_path.as_ref())?;
+        let relative_path = relative_path.to_string_lossy();
+                
+        self.invoke::<Res>("createFileAndReturnRelativePath", Req { dir, mime_type, relative_path: relative_path.as_ref() })
+            .await
+            .map(|v| (v.uri, v.relative_path))
+    }
+
+    #[maybe_async]
     pub fn create_dir_all(
         &self,
         dir: &FileUri, 
@@ -167,6 +186,24 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
                 
         self.invoke::<FileUri>("createDirAll", Req { dir, relative_path: relative_path.as_ref() })
             .await
+    }
+
+    #[maybe_async]
+    pub fn create_dir_all_and_return_relative_path(
+        &self,
+        dir: &FileUri, 
+        relative_path: impl AsRef<std::path::Path>, 
+    ) -> Result<(FileUri, std::path::PathBuf)> {
+
+        impl_se!(struct Req<'a> { dir: &'a FileUri,relative_path: &'a str });
+        impl_de!(struct Res { uri: FileUri, relative_path: std::path::PathBuf });
+        
+        let relative_path = validate_relative_path(relative_path.as_ref())?;
+        let relative_path = relative_path.to_string_lossy();
+                
+        self.invoke::<Res>("createDirAllAndReturnRelativePath", Req { dir, relative_path: relative_path.as_ref() })
+            .await
+            .map(|v| (v.uri, v.relative_path))
     }
 
     #[maybe_async]

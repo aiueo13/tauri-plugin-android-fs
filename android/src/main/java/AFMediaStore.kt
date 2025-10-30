@@ -18,6 +18,7 @@ import java.io.IOException
 
 class AFMediaStore private constructor() { companion object {
 
+    @Synchronized
     fun createNewFile(
         volumeName: String?,
         relativePath: String,
@@ -49,6 +50,7 @@ class AFMediaStore private constructor() { companion object {
         return AFJSObject.createFileUri(uri)
     }
 
+    @Synchronized
     fun delete(
         uri: FileUri,
         ctx: Context
@@ -65,6 +67,7 @@ class AFMediaStore private constructor() { companion object {
         }
     }
 
+    @Synchronized
     fun rename(
         uri: FileUri,
         newName: String,

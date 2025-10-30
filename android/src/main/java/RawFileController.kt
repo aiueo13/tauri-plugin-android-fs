@@ -84,6 +84,46 @@ class RawFileController: FileController {
     }
 
     @Synchronized
+    override fun createFileAndReturnRelativePath(
+        dirUri: FileUri,
+        relativePath: String,
+        mimeType: String
+    ): JSObject {
+
+        val dir = File(Uri.parse(dirUri.uri).path!!)
+        val baseFile = File(dir.path + "/" + relativePath.trimStart('/'))
+        val fileName = baseFile.nameWithoutExtension
+        val fileExtension = baseFile.extension
+
+        var file = baseFile
+        var counter = 1
+        var actualRelativePath = relativePath
+
+        // 同じ名前のファイルが既に存在する場合、連番を追加してファイル名を変更
+        while (file.exists()) {
+            val newFileName = if (fileExtension.isEmpty()) {
+                "$fileName($counter)"
+            } else {
+                "$fileName($counter).$fileExtension"
+            }
+            file = File(baseFile.parentFile, newFileName)
+            actualRelativePath = file.absolutePath
+            counter++
+        }
+
+        file.parentFile?.mkdirs()
+        file.createNewFile()
+
+        return JSObject().apply {
+            put("relativePath", actualRelativePath)
+            put("uri", JSObject().apply {
+                put("uri", Uri.fromFile(file))
+                put("documentTopTreeUri", null)
+            })
+        }
+    }
+
+    @Synchronized
     override fun createDirAll(dirUri: FileUri, relativePath: String): JSObject {
         val parentPath = Uri.parse(dirUri.uri).path!!.trimEnd('/')
         val dir = File(parentPath + "/" + relativePath.trimStart('/'))
@@ -93,6 +133,21 @@ class RawFileController: FileController {
         res.put("uri", Uri.fromFile(dir))
         res.put("documentTopTreeUri", null)
         return res
+    }
+
+    @Synchronized
+    override fun createDirAllAndReturnRelativePath(dirUri: FileUri, relativePath: String): JSObject {
+        val parentPath = Uri.parse(dirUri.uri).path!!.trimEnd('/')
+        val dir = File(parentPath + "/" + relativePath.trimStart('/'))
+        dir.mkdirs()
+
+        return JSObject().apply {
+            put("relativePath", relativePath)
+            put("uri", JSObject().apply {
+                put("uri", Uri.fromFile(dir))
+                put("documentTopTreeUri", null)
+            })
+        }
     }
 
     override fun deleteFile(uri: FileUri) {

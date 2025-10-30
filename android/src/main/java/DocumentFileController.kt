@@ -149,6 +149,41 @@ class DocumentFileController(private val activity: Activity): FileController {
     }
 
     @Synchronized
+    override fun createFileAndReturnRelativePath(dirUri: FileUri, relativePath: String, mimeType: String): JSObject {
+        if (relativePath.endsWith('/')) {
+            throw Exception("Illegal file path format, ends with '/'. $relativePath")
+        }
+        if (relativePath.isEmpty()) {
+            throw Exception("Relative path is empty.")
+        }
+
+        val _relativePath = relativePath.trimStart('/')
+        val relativeDirPath = _relativePath.substringBeforeLast("/", "")
+        val fileName = _relativePath.substringAfterLast("/", _relativePath)
+
+        val entry = createOrGetDirAndReturnRelativePath(dirUri, relativeDirPath)
+        val parentUri = entry.first
+        val parentActualRelativePath = entry.second
+
+        val uri = DocumentsContract.createDocument(
+            activity.contentResolver,
+            parentUri,
+            mimeType,
+            fileName
+        ) ?: throw Exception("Failed to create file: { parent: $parentUri, fileName: $fileName, mimeType: $mimeType }")
+        val actualFileName = _getName(uri)
+        val actualRelativePath = "${parentActualRelativePath.trim('/')}/${actualFileName}"
+
+        return JSObject().apply {
+            put("relativePath", actualRelativePath)
+            put("uri", JSObject().apply {
+                put("uri", uri)
+                put("documentTopTreeUri", dirUri.documentTopTreeUri)
+            })
+        }
+    }
+
+    @Synchronized
     override fun createDirAll(dirUri: FileUri, relativePath: String): JSObject {
         if (relativePath.endsWith('/')) {
             throw Exception("Illegal file path format, ends with '/'. $relativePath")
@@ -163,6 +198,28 @@ class DocumentFileController(private val activity: Activity): FileController {
         res.put("uri", uri)
         res.put("documentTopTreeUri", dirUri.documentTopTreeUri)
         return res
+    }
+
+    @Synchronized
+    override fun createDirAllAndReturnRelativePath(dirUri: FileUri, relativePath: String): JSObject {
+        if (relativePath.endsWith('/')) {
+            throw Exception("Illegal file path format, ends with '/'. $relativePath")
+        }
+        if (relativePath.isEmpty()) {
+            throw Exception("Relative path is empty.")
+        }
+
+        val entry = createOrGetDirAndReturnRelativePath(dirUri, relativePath)
+        val uri = entry.first
+        val actualRelativePath = entry.second
+
+        return JSObject().apply {
+            put("relativePath", actualRelativePath)
+            put("uri", JSObject().apply {
+                put("uri", uri)
+                put("documentTopTreeUri", dirUri.documentTopTreeUri)
+            })
+        }
     }
 
     override fun deleteFile(uri: FileUri) {
@@ -272,11 +329,46 @@ class DocumentFileController(private val activity: Activity): FileController {
                     DocumentsContract.buildDocumentUriUsingTree(topTreeUri, parentId),
                     DocumentsContract.Document.MIME_TYPE_DIR,
                     dirName
-                )
+                )!!
             )
         }
 
         return DocumentsContract.buildDocumentUriUsingTree(topTreeUri, parentId)
+    }
+
+    private fun createOrGetDirAndReturnRelativePath(dirUri: FileUri, relativePath: String): Pair<Uri, String> {
+        val topTreeUri = Uri.parse(dirUri.documentTopTreeUri!!)
+        var parentId = DocumentsContract.getDocumentId(Uri.parse(dirUri.uri))
+        var actualRelativePath = ""
+
+        // フォルダが存在しなければ再帰的に作成する
+        for (dirName in relativePath.split("/").filter { it.isNotEmpty() }) {
+            val id = findIdFromName(activity, topTreeUri, parentId, dirName)
+            if (id != null) {
+                parentId = id
+                actualRelativePath += dirName
+                actualRelativePath += "/"
+            }
+            else {
+                val newUri = DocumentsContract.createDocument(
+                    activity.contentResolver,
+                    DocumentsContract.buildDocumentUriUsingTree(topTreeUri, parentId),
+                    DocumentsContract.Document.MIME_TYPE_DIR,
+                    dirName
+                )!!
+                val newId = DocumentsContract.getDocumentId(newUri)
+                val actualDirName = _getName(newUri)
+
+                parentId = newId
+                actualRelativePath += actualDirName
+                actualRelativePath += "/"
+            }
+        }
+
+        return Pair(
+            DocumentsContract.buildDocumentUriUsingTree(topTreeUri, parentId),
+            actualRelativePath.trim('/')
+        )
     }
 
     private fun findUri(dirUri: FileUri, relativePath: String): Uri {
@@ -348,5 +440,22 @@ class DocumentFileController(private val activity: Activity): FileController {
         res.put("uri", uri)
         res.put("documentTopTreeUri", dirUri.documentTopTreeUri)
         return res
+    }
+
+    private fun _getName(uri: Uri): String {
+        activity.contentResolver.query(
+            uri,
+            arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+            null,
+            null,
+            null
+        )?.use {
+
+            if (it.moveToFirst()) {
+                return it.getString(it.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME))
+            }
+        }
+
+        throw Exception("Failed to get name from $uri")
     }
 }

@@ -631,7 +631,8 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// # Note
     /// For [`AndroidFs::create_new_file`] and etc, the system may sanitize path strings as needed, so those strings may not be used as it is.
-    /// However, this function does not perform any sanitization, so the same ***relative_path*** may still fail.
+    /// However, this function does not perform any sanitization, so the same ***relative_path*** may still fail.  
+    /// So consider using [`AndroidFs::create_new_file_and_return_relative_path`].
     /// 
     /// # Args
     /// - ***uri*** :  
@@ -665,8 +666,9 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// (e.g., the top directory selected by [`FilePicker::pick_dir`]) 
     /// 
     /// # Note
-    /// For [`AndroidFs::create_new_file`] and etc, the system may sanitize path strings as needed, so those strings may not be used as it is.
-    /// However, this function does not perform any sanitization, so the same ***relative_path*** may still fail.
+    /// For [`AndroidFs::create_dir_all`] and etc, the system may sanitize path strings as needed, so those strings may not be used as it is.
+    /// However, this function does not perform any sanitization, so the same ***relative_path*** may still fail.  
+    /// So consider using [`AndroidFs::create_dir_all_and_return_relative_path`].
     /// 
     /// # Args
     /// - ***uri*** :  
@@ -769,14 +771,12 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ///  
     /// - ***relative_path*** :  
     /// The file path relative to the base directory.  
-    /// Any missing parent directories will be created recursively.  
-    /// If a file with the same name already exists, 
-    /// the system append a sequential number to ensure uniqueness.  
-    /// If no extension is present, 
-    /// the system may infer one from ***mime_type*** and may append it to the file name. 
-    /// But this append-extension operation depends on the model and version.  
-    /// The system may sanitize these strings as needed, so those strings may not be used as it is.
-    ///  
+    /// Any missing parent directories will be created automatically.  
+    /// If a file with the same name already exists, a sequential number may be appended to ensure uniqueness.  
+    /// If the file has no extension, one may be inferred from ***mime_type*** and appended to the file name.  
+    /// Strings may also be sanitized as needed, so they may not be used exactly as provided.
+    /// Note those operation may vary depending on the file provider.  
+    /// 
     /// - ***mime_type*** :  
     /// The MIME type of the file to be created.  
     /// If this is None, MIME type is inferred from the extension of ***relative_path***
@@ -800,6 +800,52 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         }
     }
 
+    /// Creates a new empty file in the specified location and returns a URI and relative path.   
+    /// 
+    /// The returned relative path may be sanitized and have a suffix appended to the file name, 
+    /// so it may differ from the input relative path.
+    /// And it is a logical path within the file provider and 
+    /// available for [`AndroidFs::resolve_file_uri`].
+    /// 
+    /// The permissions and validity period of the returned URIs depend on the origin directory 
+    /// (e.g., the top directory selected by [`FilePicker::pick_dir`]) 
+    /// 
+    /// # Args  
+    /// - ***dir*** :  
+    /// The URI of the base directory.  
+    /// Must be **read-write**.
+    ///  
+    /// - ***relative_path*** :  
+    /// The file path relative to the base directory.  
+    /// Any missing parent directories will be created automatically.  
+    /// If a file with the same name already exists, a sequential number may be appended to ensure uniqueness.  
+    /// If the file has no extension, one may be inferred from ***mime_type*** and appended to the file name.  
+    /// Strings may also be sanitized as needed, so they may not be used exactly as provided.
+    /// Note those operation may vary depending on the file provider.  
+    ///  
+    /// - ***mime_type*** :  
+    /// The MIME type of the file to be created.  
+    /// If this is None, MIME type is inferred from the extension of ***relative_path***
+    /// and if that fails, `application/octet-stream` is used.  
+    ///  
+    /// # Support
+    /// All Android version.
+    #[maybe_async]
+    pub fn create_new_file_and_return_relative_path(
+        &self,
+        dir: &FileUri, 
+        relative_path: impl AsRef<std::path::Path>, 
+        mime_type: Option<&str>
+    ) -> Result<(FileUri, std::path::PathBuf)> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().create_new_file_and_retrun_relative_path(dir, relative_path, mime_type).await
+        }
+    }
+
     /// Recursively create a directory and all of its parent components if they are missing,
     /// then return the URI.  
     /// If it already exists, do nothing and just return the direcotry uri.
@@ -813,7 +859,9 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ///  
     /// - ***relative_path*** :  
     /// The directory path relative to the base directory.    
-    /// The system may sanitize these strings as needed, so those strings may not be used as it is.
+    /// Any missing parent directories will be created automatically.  
+    /// Strings may also be sanitized as needed, so they may not be used exactly as provided.
+    /// Note this sanitization may vary depending on the file provider.  
     ///  
     /// # Support
     /// All Android version.
@@ -829,6 +877,44 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         }
         #[cfg(target_os = "android")] {
             self.impls().create_dir_all(dir, relative_path).await
+        }
+    }
+
+    /// Recursively create a directory and all of its parent components if they are missing,
+    /// then return the URI and relative path.  
+    /// 
+    /// The returned relative path may be sanitized, 
+    /// so it may differ from the input relative path.
+    /// And it is a logical path within the file provider and 
+    /// available for [`AndroidFs::resolve_dir_uri`].
+    /// 
+    /// [`AndroidFs::create_new_file`] does this automatically, so there is no need to use it together.
+    /// 
+    /// # Args  
+    /// - ***dir*** :  
+    /// The URI of the base directory.  
+    /// Must be **read-write**.
+    ///  
+    /// - ***relative_path*** :  
+    /// The directory path relative to the base directory.    
+    /// Any missing parent directories will be created automatically.  
+    /// Strings may also be sanitized as needed, so they may not be used exactly as provided.
+    /// Note this sanitization may vary depending on the file provider.  
+    ///  
+    /// # Support
+    /// All Android version.
+    #[maybe_async]
+    pub fn create_dir_all_and_return_relative_path(
+        &self,
+        dir: &FileUri, 
+        relative_path: impl AsRef<std::path::Path>, 
+    ) -> Result<(FileUri, std::path::PathBuf)> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().create_dir_all_and_return_relative_path(dir, relative_path).await
         }
     }
 

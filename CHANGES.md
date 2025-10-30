@@ -1,3 +1,8 @@
+# Version 17.4.0
+- Add `AndroidFs::create_new_file_and_return_relative_path`
+- Add `AndroidFs::create_dir_all_and_return_relative_path`
+- Update documentation.
+
 # Version 17.3.0
 - Fix an issue where returning to the frontend immediately after invoking file opener causes the frontend function call not to complete.
 - Add `AndroiFs::resolve_file_uri`

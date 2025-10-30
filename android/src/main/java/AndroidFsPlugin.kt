@@ -160,7 +160,14 @@ class ReadDirEntryOptions(
 )
 
 @InvokeArg
-class CreateFileInDirArgs {
+class CreateFileArgs {
+    lateinit var dir: FileUri
+    lateinit var relativePath: String
+    var mimeType: String? = null
+}
+
+@InvokeArg
+class CreateFileAndReturnRelativePathArgs {
     lateinit var dir: FileUri
     lateinit var relativePath: String
     var mimeType: String? = null
@@ -168,6 +175,12 @@ class CreateFileInDirArgs {
 
 @InvokeArg
 class CreateDirAllArgs {
+    lateinit var dir: FileUri
+    lateinit var relativePath: String
+}
+
+@InvokeArg
+class CreateDirAllAndReturnRelativePathArgs {
     lateinit var dir: FileUri
     lateinit var relativePath: String
 }
@@ -1064,7 +1077,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun createFile(invoke: Invoke) {
         try {
-            val args = invoke.parseArgs(CreateFileInDirArgs::class.java)
+            val args = invoke.parseArgs(CreateFileArgs::class.java)
 
             CoroutineScope(Dispatchers.IO).launch {
                 try {
@@ -1092,6 +1105,36 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
+    fun createFileAndReturnRelativePath(invoke: Invoke) {
+        try {
+            val args = invoke.parseArgs(CreateFileAndReturnRelativePathArgs::class.java)
+
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val fileName = args.relativePath.substringAfterLast('/', args.relativePath)
+                    val mimeType = args.mimeType ?: getMimeTypeFromName(fileName)
+                    val res = getFileController(args.dir)
+                        .createFileAndReturnRelativePath(args.dir, args.relativePath, mimeType)
+
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve(res)
+                    }
+                }
+                catch (ex: Exception) {
+                    withContext(Dispatchers.Main) {
+                        val message = ex.message ?: "Failed to invoke createFile."
+                        invoke.reject(message)
+                    }
+                }
+            }
+        }
+        catch (ex: Exception) {
+            val message = ex.message ?: "Failed to invoke createFile."
+            invoke.reject(message)
+        }
+    }
+
+    @Command
     fun createDirAll(invoke: Invoke) {
         try {
             val args = invoke.parseArgs(CreateDirAllArgs::class.java)
@@ -1100,6 +1143,34 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 try {
                     val res = getFileController(args.dir)
                         .createDirAll(args.dir, args.relativePath)
+
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve(res)
+                    }
+                }
+                catch (ex: Exception) {
+                    withContext(Dispatchers.Main) {
+                        val message = ex.message ?: "Failed to invoke createDirAll."
+                        invoke.reject(message)
+                    }
+                }
+            }
+        }
+        catch(ex: Exception) {
+            val message = ex.message ?: "Failed to invoke createDirAll."
+            invoke.reject(message)
+        }
+    }
+
+    @Command
+    fun createDirAllAndReturnRelativePath(invoke: Invoke) {
+        try {
+            val args = invoke.parseArgs(CreateDirAllAndReturnRelativePathArgs::class.java)
+
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val res = getFileController(args.dir)
+                        .createDirAllAndReturnRelativePath(args.dir, args.relativePath)
 
                     withContext(Dispatchers.Main) {
                         invoke.resolve(res)

@@ -35,13 +35,19 @@ class MediaFileController(private val activity: Activity): FileController {
         return res
     }
 
-
-
     override fun createFile(dirUri: FileUri, relativePath: String, mimeType: String): JSObject {
         throw Exception("Unsupported operation for ${dirUri.uri}")
     }
 
+    override fun createFileAndReturnRelativePath(dirUri: FileUri, relativePath: String, mimeType: String): JSObject {
+        throw Exception("Unsupported operation for ${dirUri.uri}")
+    }
+
     override fun createDirAll(dirUri: FileUri, relativePath: String): JSObject {
+        throw Exception("Unsupported operation for ${dirUri.uri}")
+    }
+
+    override fun createDirAllAndReturnRelativePath(dirUri: FileUri, relativePath: String): JSObject {
         throw Exception("Unsupported operation for ${dirUri.uri}")
     }
 
