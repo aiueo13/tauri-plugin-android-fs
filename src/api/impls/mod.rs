@@ -98,22 +98,6 @@ mod utils {
     }
 
     #[maybe_async]
-    pub fn run_blocking_with_io_err<T, F>(task: F) -> std::io::Result<T> 
-    where 
-        T: Send + 'static,
-        F: FnOnce() -> std::io::Result<T> + Send + 'static,
-    {
-        #[if_async] {
-            tauri::async_runtime::spawn_blocking(task)
-                .await
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?
-        }
-        #[if_sync] {
-            task()
-        }
-    }
-
-    #[maybe_async]
     pub fn sleep(duration: std::time::Duration) -> Result<()> {
         #[if_async] {
             // NOTE:

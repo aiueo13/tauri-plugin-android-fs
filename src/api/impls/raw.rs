@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use sync_async::sync_async;
 use crate::*;
 use super::*;
@@ -87,7 +88,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         impl_de!(struct Res;);
 
         if buffer_size.is_some_and(|s| s <= 0) {
-            return Err(Error { msg: "buffer_size must be non zero".into() })
+            return Err(Error::with("buffer_size must be non zero"))
         }
 
         self.invoke::<Res>("copyFile", Req { src, dest, buffer_size })
@@ -359,12 +360,12 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn get_file_thumbnail_in_memory(
+    pub fn get_file_thumbnail_base64(
         &self, 
         uri: &FileUri,
         preferred_size: Size,
         format: ImageFormat,
-    ) -> Result<Option<Vec<u8>>> {
+    ) -> Result<Option<String>> {
 
         impl_se!(struct Req<'a> {
             uri: &'a FileUri, 
@@ -385,19 +386,17 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         let quality = (quality * 100.0).clamp(0.0, 100.0) as u8;
         let Size { width, height } = preferred_size;
         
-        let Some(bytes) = self.invoke::<Res>("getThumbnail", Req { uri, format, quality, width, height })
+        let Some(thumbnail) = self.invoke::<Res>("getThumbnail", Req { uri, format, quality, width, height })
             .await
             .map(|v| v.bytes)? else {
                     
             return Ok(None)
         };
-        if bytes.is_empty() {
+        if thumbnail.is_empty() {
             return Ok(None)
         }
 
-        use base64::engine::Engine;
-        let bytes = base64::engine::general_purpose::STANDARD.decode(bytes)?;
-        Ok(Some(bytes))
+        Ok(Some(thumbnail))
     }
 
     #[maybe_async]
@@ -461,13 +460,13 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[always_sync]
-    pub fn internal_private_dir_path(
+    pub fn private_dir_path(
         &self, 
         dir: PrivateDir
     ) -> Result<&'static std::path::PathBuf> {
 
-        let paths = get_or_init_internal_private_dir_paths(
-            || self.invoke_sync::<InternalPrivateDirPaths>("getPrivateBaseDirAbsolutePaths", "")
+        let paths = get_or_init_private_dir_paths(
+            || self.invoke_sync::<PrivateDirPaths>("getPrivateBaseDirAbsolutePaths", "")
         )?;
 
         Ok(match dir {
@@ -685,6 +684,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             .await
             .map(|_| ());
 
+        // show_pick_file_dialog 内のコメントを参照
         sleep(std::time::Duration::from_millis(200)).await?;
 
         result
@@ -707,6 +707,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             .await
             .map(|_| ());
 
+        // show_pick_file_dialog 内のコメントを参照
         sleep(std::time::Duration::from_millis(200)).await?;
 
         result
@@ -751,6 +752,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             .await
             .map(|_| ());
 
+        // show_pick_file_dialog 内のコメントを参照
         sleep(std::time::Duration::from_millis(200)).await?;
 
         result
@@ -777,17 +779,6 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         self.invoke::<Res>("hasLegacyStoragePermission", ())
             .await
             .map(|res| res.granted)
-    }
-
-    #[maybe_async]
-    pub fn scan_media_store_file(
-        &self,
-        uri: &FileUri,
-    ) -> Result<()> {
-        
-        impl_se!(struct Req<'a> { uri: &'a FileUri });
-            
-        self.invoke::<()>("scanMediaStoreFile", Req { uri }).await
     }
 
     #[maybe_async]
@@ -818,7 +809,28 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         self.invoke::<FileUri>("findSafDirUri", Req { parent_uri, relative_path }).await
     }
 
-    /*
+    #[maybe_async]
+    pub fn scan_media_store_file(
+        &self,
+        uri: &FileUri,
+    ) -> Result<()> {
+        
+        impl_se!(struct Req<'a> { uri: &'a FileUri });
+            
+        self.invoke::<()>("scanMediaStoreFile", Req { uri }).await
+    }
+
+    #[maybe_async]
+    pub fn scan_media_store_file_for_result(
+        &self,
+        uri: &FileUri,
+    ) -> Result<()> {
+        
+        impl_se!(struct Req<'a> { uri: &'a FileUri });
+            
+        self.invoke::<()>("scanMediaStoreFileForResult", Req { uri }).await
+    }
+
     #[maybe_async]
     pub fn scan_file_to_media_store_by_path(
         &self, 
@@ -837,7 +849,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn get_file_path_in_public_storage(
+    pub fn get_media_store_file_path(
         &self,
         uri: &FileUri
     ) -> Result<std::path::PathBuf> {
@@ -848,15 +860,15 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         self.invoke::<Res>("getMediaStoreFileAbsolutePath", Req { uri })
             .await
             .map(|v| v.path)
-    }*/
+    }
 }
 
 fn_get_or_init!(get_or_init_const, Consts);
-fn_get_or_init!(get_or_init_internal_private_dir_paths, InternalPrivateDirPaths);
+fn_get_or_init!(get_or_init_private_dir_paths, PrivateDirPaths);
 
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct InternalPrivateDirPaths {
+struct PrivateDirPaths {
     data: std::path::PathBuf, 
     cache: std::path::PathBuf, 
     no_backup_data: std::path::PathBuf, 
@@ -907,8 +919,8 @@ impl Consts {
                 PublicAudioDir::Notifications => &self.env_dir_notifications,
                 PublicAudioDir::Podcasts => &self.env_dir_podcasts,
                 PublicAudioDir::Ringtones => &self.env_dir_ringtones,
-                PublicAudioDir::Recordings => self.env_dir_recordings.as_ref().ok_or_else(|| Error { msg: "requires API level 31 or higher".into() })?,
-                PublicAudioDir::Audiobooks => self.env_dir_audiobooks.as_ref().ok_or_else(|| Error { msg: "requires API level 29 or higher".into() })?,
+                PublicAudioDir::Recordings => self.env_dir_recordings.as_ref().ok_or_else(|| Error::with("requires Android 12 (API level 31) or higher"))?,
+                PublicAudioDir::Audiobooks => self.env_dir_audiobooks.as_ref().ok_or_else(|| Error::with("requires Android 10 (API level 29) or higher"))?,
             },
             PublicDir::GeneralPurpose(dir) => match dir {
                 PublicGeneralPurposeDir::Documents => &self.env_dir_documents,

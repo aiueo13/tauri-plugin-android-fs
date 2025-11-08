@@ -8,320 +8,300 @@ import android.os.storage.StorageManager
 import android.os.storage.StorageVolume
 import android.provider.MediaStore
 import androidx.annotation.RequiresApi
-import app.tauri.plugin.JSArray
-import app.tauri.plugin.JSObject
 import java.io.File
 import java.util.Locale
+import java.util.UUID
 
 
 // N は Android 7
 @RequiresApi(Build.VERSION_CODES.N)
-class AFStorageVolume private constructor() { companion object {
+class AFStorageVolume private constructor() {
 
-    fun getAvailableStorageVolumes(ctx: Context): JSArray {
-        val sm = storageManager(ctx)
-        val privateDirs = getPrivateDataAndCacheDirsWithStorageVolume(ctx, sm)
-        val availableMediaStoreVolumeNames = when {
-            Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT -> MediaStore.getExternalVolumeNames(ctx)
-            else -> emptySet()
-        }
+    data class StorageVolume(
+        val mediaStoreVolumeName: String?,
+        val topDir: File?,
+        val externalFilesDir: File?,
+        val externalCacheDir: File?,
+        val externalMediaDir: File?,
+        val description: String,
+        val storageUuid: UUID?,
+        val uuid: String?,
+        val isPrimary: Boolean,
+        val isRemovable: Boolean,
+        val isEmulated: Boolean,
+        val state: String
+    );
 
-        val buffer = JSArray()
-        for (storageVolume in sm.storageVolumes) {
-            if (!isAvailable(storageVolume)) continue
+    companion object {
 
-            val topDirectoryPath = getTopDirectoryPath(storageVolume)
-            val privateDirEntry = privateDirs[storageVolume]
-            val privateDataDir = privateDirEntry?.first
-            val privateCacheDir = privateDirEntry?.second
+        fun getAvailableStorageVolumes(ctx: Context): List<StorageVolume> {
+            val svc = StorageVolumeContext(ctx)
+            val externalDirs = getExternalFilesCacheMediaDirsWithStorageVolume(svc)
+            val buf = mutableListOf<StorageVolume>()
 
-            val mediaStoreVolumeName = when {
-                // Q は Android 10
-                Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT ->
-                    getMediaStoreVolumeName(storageVolume, availableMediaStoreVolumeNames)
+            for (sv in svc.storageVolumes) {
+                if (!svc.checkAvailable(sv)) continue
 
-                else -> null
+                val externalDirEntry = externalDirs[sv]
+
+                buf.add(StorageVolume(
+                    mediaStoreVolumeName = svc.getMediaStoreVolumeName(sv),
+                    topDir = svc.getTopDir(sv),
+                    externalFilesDir = externalDirEntry?.first,
+                    externalCacheDir = externalDirEntry?.second,
+                    externalMediaDir = externalDirEntry?.third,
+                    storageUuid = svc.getStorageUuid(sv),
+                    uuid = sv.uuid,
+                    description = svc.getDescription(sv),
+                    isPrimary = sv.isPrimary,
+                    isRemovable = sv.isRemovable,
+                    isEmulated = sv.isEmulated,
+                    state = sv.state
+                ))
             }
 
-            buffer.put(createStorageVolumeJSObject(
-                storageVolume = storageVolume,
-                topDirectoryPath = topDirectoryPath,
-                mediaStoreVolumeName = mediaStoreVolumeName,
-                privateDataDirPath = privateDataDir?.absolutePath,
-                privateCacheDirPath = privateCacheDir?.absolutePath,
-                context = ctx
-            ))
+            return buf
         }
 
-        return buffer
-    }
+        fun getPrimaryStorageVolumeIfAvailable(ctx: Context): StorageVolume? {
+            val svc = StorageVolumeContext(ctx)
+            val sv = svc.storageVolumes.find { it.isPrimary } ?: return null
+            return createStorageVolumeFromRawIfAvailable(sv, svc)
+        }
 
-    fun getPrimaryStorageVolumeIfAvailable(ctx: Context): JSObject? {
-        val sm = storageManager(ctx)
-        val storageVolume = sm.storageVolumes.find { it.isPrimary } ?: return null
+        fun getStorageVolumeByFileIfAvailable(file: File, ctx: Context): StorageVolume? {
+            val svc = StorageVolumeContext(ctx)
+            val sv = svc.storageManager.getStorageVolume(file) ?: return null
+            return createStorageVolumeFromRawIfAvailable(sv, svc)
+        }
 
-        return createStorageVolumeJSObjectFromStorageVolumeIfAvailable(
-            storageVolume,
-            ctx,
-            sm
-        )
-    }
+        fun checkMediaStoreVolumeNameAvailable(
+            mediaStoreVolumeName: String,
+            ctx: Context
+        ): Boolean {
 
-    fun getStorageVolumeByFileIfAvailable(
-        file: File,
-        ctx: Context
-    ): JSObject? {
+            val svc = StorageVolumeContext(ctx)
 
-        val sm = storageManager(ctx)
-        val storageVolume = sm.getStorageVolume(file) ?: return null
+            for (sv in svc.storageVolumes) {
+                if (mediaStoreVolumeName == svc.getMediaStoreVolumeName(sv)) {
+                    return svc.checkAvailable(sv)
+                }
+            }
 
-        return createStorageVolumeJSObjectFromStorageVolumeIfAvailable(
-            storageVolume,
-            ctx,
-            sm
-        )
-    }
+            return false
+        }
 
-    fun checkMediaStoreVolumeNameAvailable(
-        mediaStoreVolumeName: String,
-        ctx: Context
-    ): Boolean {
+        fun checkStorageVolumeAvailableByFile(
+            file: File,
+            ctx: Context
+        ): Boolean {
 
-        return when {
-            // Q は Android 10
-            Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT ->
-                MediaStore.getExternalVolumeNames(ctx).any { it == mediaStoreVolumeName }
-
-            else -> false
+            val svc = StorageVolumeContext(ctx)
+            val sv = svc.storageManager.getStorageVolume(file)
+            return sv != null && svc.checkAvailable(sv)
         }
     }
-
-    fun checkStorageVolumeAvailableByFile(
-        entryInStorageVolume: File,
-        ctx: Context
-    ): Boolean {
-
-        val sm = storageManager(ctx)
-        val storageVolume = sm.getStorageVolume(entryInStorageVolume)
-        return storageVolume != null && isAvailable(storageVolume)
-    }
-}}
+}
 
 
 // N は Android 7
 @RequiresApi(Build.VERSION_CODES.N)
-private fun createStorageVolumeJSObjectFromStorageVolumeIfAvailable(
-    storageVolume: StorageVolume,
-    ctx: Context,
-    sm: StorageManager
-): JSObject? {
+private fun createStorageVolumeFromRawIfAvailable(
+    sv: StorageVolume,
+    svc: StorageVolumeContext
+): AFStorageVolume.StorageVolume? {
 
-    if (!isAvailable(storageVolume)) return null
-    val topDirectoryPath = getTopDirectoryPath(storageVolume)
-    val privateDataDir = getPrivateDataDir(storageVolume, ctx, sm)
-    val privateCacheDir = getPrivateCacheDir(storageVolume, ctx, sm)
-    val mediaStoreVolumeName = when {
-        // Q は Android 10
-        Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT -> {
-            val availableVolumeNames = MediaStore.getExternalVolumeNames(ctx)
-            getMediaStoreVolumeName(storageVolume, availableVolumeNames)
-        }
+    if (!svc.checkAvailable(sv)) return null
 
-        else -> null
-    }
-
-    return createStorageVolumeJSObject(
-        storageVolume = storageVolume,
-        topDirectoryPath = topDirectoryPath,
-        mediaStoreVolumeName = mediaStoreVolumeName,
-        privateDataDirPath = privateDataDir?.absolutePath,
-        privateCacheDirPath = privateCacheDir?.absolutePath,
-        context = ctx
+    return AFStorageVolume.StorageVolume(
+        mediaStoreVolumeName = svc.getMediaStoreVolumeName(sv),
+        topDir = svc.getTopDir(sv),
+        externalFilesDir = svc.getExternalFilesDir(sv),
+        externalCacheDir = svc.getExternalCacheDir(sv),
+        externalMediaDir = svc.getExternalMediaDir(sv),
+        storageUuid = svc.getStorageUuid(sv),
+        uuid = sv.uuid,
+        description = svc.getDescription(sv),
+        isPrimary = sv.isPrimary,
+        isRemovable = sv.isRemovable,
+        isEmulated = sv.isEmulated,
+        state = sv.state
     )
 }
 
+
 // N は Android 7
 @RequiresApi(Build.VERSION_CODES.N)
-private fun createStorageVolumeJSObject(
-    storageVolume: StorageVolume,
-    topDirectoryPath: String?,
-    mediaStoreVolumeName: String?,
-    privateDataDirPath: String?,
-    privateCacheDirPath: String?,
-    context: Context
-): JSObject {
+private fun getExternalFilesCacheMediaDirsWithStorageVolume(
+    svc: StorageVolumeContext
+): Map<StorageVolume, Triple<File?, File?, File?>> {
 
-    // アプリ専用フォルダはシステムに不安定と判断された StorageVolume に存在しない
-    val isStable = privateDataDirPath != null || privateCacheDirPath != null
+    val entries = mutableMapOf<StorageVolume, Triple<File?, File?, File?>>()
 
-    val isAvailableForPublicStorage = when {
-
-        // Q は Android 10
-        Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT -> mediaStoreVolumeName != null
-
-        // Android 9 以下の場合、primary storage volume 以外の操作は SAF でしか行えない
-        else -> storageVolume.isPrimary
-    }
-
-    return JSObject().apply {
-        put("id", JSObject().apply {
-            put("topDirectoryPath", topDirectoryPath)
-            put("privateDataDirPath", privateDataDirPath)
-            put("privateCacheDirPath", privateCacheDirPath)
-            put("uuid", storageVolume.uuid)
-            put("mediaStoreVolumeName", mediaStoreVolumeName)
-        })
-        put("description", storageVolume.getDescription(context))
-        put("isPrimary", storageVolume.isPrimary)
-        put("isRemovable", storageVolume.isRemovable)
-        put("isStable", isStable)
-        put("isEmulated", storageVolume.isEmulated)
-        put("isReadonly", storageVolume.state == Environment.MEDIA_MOUNTED_READ_ONLY)
-        put("isAvailableForPublicStorage", isAvailableForPublicStorage)
-        put("isAvailableForPrivateStorage", isStable)
-    }
-}
-
-
-/**
- * Note:
- * アプリ固有ディレクトリは現在有効な StorageVolume でも存在するとは限らない。
- * USB フラッシュドライバーのような「一時的なデバイス」の場合、アプリ固有ディレクトリは存在しない。
- */
-// N は Android 7
-@RequiresApi(Build.VERSION_CODES.N)
-private fun getPrivateDataAndCacheDirsWithStorageVolume(
-    ctx: Context,
-    sm: StorageManager
-): Map<StorageVolume, Pair<File?, File?>> {
-
-    val entries = mutableMapOf<StorageVolume, Pair<File?, File?>>()
-
-    for (dataDir in ctx.getExternalFilesDirs(null).filterNotNull()) {
-        val sv = sm.getStorageVolume(dataDir)
+    for (dataDir in svc.externalFilesDirs) {
+        val sv = svc.storageManager.getStorageVolume(dataDir)
         if (sv != null) {
-            entries[sv] = (entries[sv] ?: Pair(null, null)).copy(first = dataDir)
+            entries[sv] = (entries[sv] ?: Triple(null, null, null)).copy(first = dataDir)
         }
     }
-    for (cacheDir in ctx.externalCacheDirs.filterNotNull()) {
-        val sv = sm.getStorageVolume(cacheDir)
+    for (cacheDir in svc.externalCacheDirs) {
+        val sv = svc.storageManager.getStorageVolume(cacheDir)
         if (sv != null) {
-            entries[sv] = (entries[sv] ?: Pair(null, null)).copy(second = cacheDir)
+            entries[sv] = (entries[sv] ?: Triple(null, null, null)).copy(second = cacheDir)
+        }
+    }
+    for (mediaDir in svc.externalMediaDirs) {
+        val sv = svc.storageManager.getStorageVolume(mediaDir)
+        if (sv != null) {
+            entries[sv] = (entries[sv] ?: Triple(null, null, null)).copy(third = mediaDir)
         }
     }
 
     return entries
 }
 
-/**
- * Note:
- * アプリ固有ディレクトリは現在有効な StorageVolume でも存在するとは限らない。
- * USB フラッシュドライバーのような「一時的なデバイス」の場合、アプリ固有ディレクトリは存在しない。
- */
-// N は Android 7
-@RequiresApi(Build.VERSION_CODES.N)
-private fun getPrivateDataDir(
-    storageVolume: StorageVolume,
-    ctx: Context,
-    sm: StorageManager,
-): File? {
-
-    if (storageVolume.isPrimary) {
-        return ctx.getExternalFilesDir(null)
-    }
-
-    return ctx.getExternalFilesDirs(null)
-        .filterNotNull()
-        .find { sm.getStorageVolume(it) == storageVolume }
-}
-
-/**
- * Note:
- * アプリ固有ディレクトリは現在有効な StorageVolume でも存在するとは限らない。
- * USB フラッシュドライバーのような「一時的なデバイス」の場合、アプリ固有ディレクトリは存在しない。
- */
-// N は Android 7
-@RequiresApi(Build.VERSION_CODES.N)
-private fun getPrivateCacheDir(
-    storageVolume: StorageVolume,
-    ctx: Context,
-    sm: StorageManager
-): File? {
-
-    if (storageVolume.isPrimary) {
-        return ctx.externalCacheDir
-    }
-
-    return ctx.externalCacheDirs
-        .filterNotNull()
-        .find { sm.getStorageVolume(it) == storageVolume }
-}
 
 // N は Android 7
 @RequiresApi(Build.VERSION_CODES.N)
-private fun isAvailable(sv: StorageVolume): Boolean {
-    // これは StorageVolume.getDirectory で使われる判定処理と同じである
-    // https://android.googlesource.com/platform/frameworks/base/+/HEAD/core/java/android/os/storage/StorageVolume.java
+private class StorageVolumeContext(val ctx: Context) {
 
-    return when (sv.state) {
-        Environment.MEDIA_MOUNTED,
-        Environment.MEDIA_MOUNTED_READ_ONLY -> true
-
-        else -> false
-    }
-}
-
-// N は Android 7
-@RequiresApi(Build.VERSION_CODES.N)
-private fun getTopDirectoryPath(sv: StorageVolume): String? {
-    // この関数内で使用する StorageVolume.getDirectory は現在有効でない場合に null を返すのでこの動作に統一する
-    if (!isAvailable(sv)) {
-        return null
+    val storageManager: StorageManager by lazy {
+        ctx.getSystemService(Context.STORAGE_SERVICE) as StorageManager
     }
 
-    // Q は Android 10
-    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
-        if (sv.isPrimary) {
-            return Environment.getExternalStorageDirectory().absolutePath
+    val storageVolumes: List<StorageVolume> by lazy {
+        storageManager.storageVolumes
+    }
+
+    val mediaStoreVolumeNames: Set<String> by lazy {
+        when {
+            // 一部のデバイスでは getExternalVolumeNames ではなく getRecentExternalVolumeNames でないと
+            // Primary Storage Volume 以外を検知できないバグがある。
+            // https://forum.developer.samsung.com/t/usb-massive-storage-not-recognized-in-galaxy-s20-android-11/9758/6
+            Build.VERSION_CODES.R <= Build.VERSION.SDK_INT->
+                MediaStore.getRecentExternalVolumeNames(ctx)
+
+            Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT ->
+                MediaStore.getExternalVolumeNames(ctx)
+
+            else -> emptySet()
         }
+    }
 
-        return try {
-            // https://qiita.com/wa2c/items/4b3bacfec9667a5a99d7
-            // https://android.googlesource.com/platform/frameworks/base/+/HEAD/core/java/android/os/storage/StorageVolume.java
-            @SuppressLint("PrivateApi")
-            val getPath = StorageVolume::class.java.getDeclaredMethod("getPath")
+    val externalFilesDirs: List<File> by lazy {
+        ctx.getExternalFilesDirs(null).filterNotNull()
+    }
 
-            getPath.invoke(sv) as String?
+    val externalCacheDirs: List<File> by lazy {
+        ctx.externalCacheDirs.filterNotNull()
+    }
+
+    val externalFilesDir: File? by lazy {
+        ctx.getExternalFilesDir(null)
+    }
+
+    val externalCacheDir: File? by lazy {
+        ctx.externalCacheDir
+    }
+
+    val externalMediaDirs: List<File> by lazy {
+        try {
+            @Suppress("DEPRECATION")
+            ctx.externalMediaDirs.filterNotNull()
         }
         catch (_: Exception) {
-            null
+            listOf()
         }
     }
 
-    return sv.directory?.absolutePath
-}
-
-// Q は Android 10
-@RequiresApi(Build.VERSION_CODES.Q)
-private fun getMediaStoreVolumeName(
-    sv: StorageVolume,
-    availableMediaStoreVolumeNames: Set<String>
-): String? {
-
-    val volumeName: String = when {
-        sv.isPrimary -> MediaStore.VOLUME_EXTERNAL_PRIMARY
-
-        // R は Android 11
-        Build.VERSION_CODES.R <= Build.VERSION.SDK_INT -> sv.mediaStoreVolumeName ?: return null
-
+    fun checkAvailable(sv: StorageVolume): Boolean {
+        // これは StorageVolume.getDirectory で使われる判定処理と同じである
         // https://android.googlesource.com/platform/frameworks/base/+/HEAD/core/java/android/os/storage/StorageVolume.java
-        // の getMediaStoreVolumeName の実装をそのまま使用
-        else -> sv.uuid?.lowercase(Locale.US) ?: return null
+
+        return when (sv.state) {
+            Environment.MEDIA_MOUNTED,
+            Environment.MEDIA_MOUNTED_READ_ONLY -> true
+
+            else -> false
+        }
     }
 
-    return availableMediaStoreVolumeNames.find { it == volumeName }
-}
+    fun getExternalFilesDir(sv: StorageVolume): File? {
+        if (sv.isPrimary) {
+            return externalFilesDir
+        }
 
-private fun storageManager(ctx: Context): StorageManager {
-    return ctx.getSystemService(Context.STORAGE_SERVICE) as StorageManager
+        return externalFilesDirs.find { storageManager.getStorageVolume(it) == sv }
+    }
+
+    fun getExternalCacheDir(sv: StorageVolume): File? {
+        if (sv.isPrimary) {
+            return externalCacheDir
+        }
+
+        return externalCacheDirs.find { storageManager.getStorageVolume(it) == sv }
+    }
+
+    fun getExternalMediaDir(sv: StorageVolume): File? {
+        return externalMediaDirs.find { storageManager.getStorageVolume(it) == sv }
+    }
+
+    fun getMediaStoreVolumeName(sv: StorageVolume): String? {
+        // Q は Android 10
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return null
+        }
+
+        val volumeName: String = when {
+            sv.isPrimary -> MediaStore.VOLUME_EXTERNAL_PRIMARY
+
+            // R は Android 11
+            Build.VERSION_CODES.R <= Build.VERSION.SDK_INT -> sv.mediaStoreVolumeName ?: return null
+
+            // https://android.googlesource.com/platform/frameworks/base/+/HEAD/core/java/android/os/storage/StorageVolume.java
+            // の getMediaStoreVolumeName の実装をそのまま使用
+            else -> sv.uuid?.lowercase(Locale.US) ?: return null
+        }
+
+        return mediaStoreVolumeNames.find { it == volumeName }
+    }
+
+    fun getTopDir(sv: StorageVolume): File? {
+        // この関数内で使用する StorageVolume.getDirectory は現在有効でない場合に null を返すのでこの動作に統一する
+        if (!checkAvailable(sv)) {
+            return null
+        }
+
+        // Q は Android 10
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
+            if (sv.isPrimary) {
+                return Environment.getExternalStorageDirectory()
+            }
+
+            return try {
+                // https://qiita.com/wa2c/items/4b3bacfec9667a5a99d7
+                // https://android.googlesource.com/platform/frameworks/base/+/HEAD/core/java/android/os/storage/StorageVolume.java
+                @SuppressLint("PrivateApi")
+                val getPath = StorageVolume::class.java.getDeclaredMethod("getPath")
+                val path = getPath.invoke(sv) as String?
+                return path?.let { File(it) }
+            }
+            catch (_: Exception) {
+                null
+            }
+        }
+
+        return sv.directory
+    }
+
+    fun getStorageUuid(sv: StorageVolume): UUID? {
+        return when {
+            Build.VERSION_CODES.S <= Build.VERSION.SDK_INT -> sv.storageUuid
+            else -> null
+        }
+    }
+
+    fun getDescription(sv: StorageVolume): String {
+        return sv.getDescription(ctx)
+    }
 }

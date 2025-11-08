@@ -38,10 +38,16 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 }
 
 #[sync_async(
-    use(if_async) api_async::{FileOpener, FilePicker, PrivateStorage, PublicStorage, WritableStream};
-    use(if_sync) api_sync::{FileOpener, FilePicker, PrivateStorage, PublicStorage, WritableStream};
+    use(if_async) api_async::{FileOpener, FilePicker, AppStorage, PrivateStorage, PublicStorage, WritableStream};
+    use(if_sync) api_sync::{FileOpener, FilePicker, AppStorage, PrivateStorage, PublicStorage, WritableStream};
 )]
 impl<R: tauri::Runtime> AndroidFs<R> {
+
+    /// API of file storage that is available to other applications and users.
+    #[always_sync]
+    pub fn public_storage(&self) -> PublicStorage<'_, R> {
+        PublicStorage { handle: &self.handle }
+    }
 
     /// API of file storage intended for the app's use only.
     #[always_sync]
@@ -49,10 +55,10 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         PrivateStorage { handle: &self.handle }
     }
 
-    /// API of file storage that is available to other applications and users.
+    /// API of file storage intended for the app's use.  
     #[always_sync]
-    pub fn public_storage(&self) -> PublicStorage<'_, R> {
-        PublicStorage { handle: &self.handle }
+    pub fn app_storage(&self) -> AppStorage<'_, R> {
+        AppStorage { handle: &self.handle }
     }
 
     /// API of file/dir picker.
@@ -695,7 +701,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         }
     }
 
-    /// See [`AndroidFs::get_thumbnail_to`] for descriptions.  
+    /// See [`AndroidFs::get_thumbnail`] for descriptions.  
     /// 
     /// If thumbnail does not wrote to dest, return false.
     #[maybe_async]
@@ -733,13 +739,13 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// - ***preferred_size*** :  
     /// Optimal thumbnail size desired.  
     /// This may return a thumbnail of a different size, 
-    /// but never more than double the requested size. 
+    /// but never more than about double the requested size. 
     /// In any case, the aspect ratio is maintained.
     /// 
     /// - ***format*** :  
-    /// Thumbnail image format.  
-    /// [`ImageFormat::Jpeg`] is recommended. 
-    /// If you need transparency, use others.
+    /// Thumbnail image format.   
+    /// If you’re not sure which one to use, [`ImageFormat::Jpeg`] is recommended.   
+    /// If you need transparency, use others.   
     /// 
     /// # Support
     /// All Android version.
@@ -755,7 +761,55 @@ impl<R: tauri::Runtime> AndroidFs<R> {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().get_file_thumbnail_in_memory(uri, preferred_size, format).await
+            self.impls().get_file_thumbnail(uri, preferred_size, format).await
+        }
+    }
+
+    /// Get a file thumbnail that encoded to base64 string.  
+    /// If thumbnail does not exist it, return None.
+    /// 
+    /// Note this does not cache. Please do it in your part if need.  
+    /// 
+    /// # Inner
+    /// This uses Kotlin's [`android.util.Base64.encodeToString(.., android.util.Base64.NO_WRAP)`](https://developer.android.com/reference/android/util/Base64#encodeToString(byte[],%20int)) internally. 
+    /// It is the same as [`base64::engine::general_purpose::STANDARD`](https://docs.rs/base64/0.22.1/base64/engine/general_purpose/constant.STANDARD.html) in `base64` crate.
+    /// 
+    /// # Args
+    /// - ***uri*** :  
+    /// Targe file uri.  
+    /// Thumbnail availablty depends on the file provider.  
+    /// In general, images and videos are available.  
+    /// For file URIs via [`FileUri::from_path`], 
+    /// the file type must match the filename extension. 
+    /// In this case, the type is determined by the extension and generate thumbnails.  
+    /// Otherwise, thumbnails are provided through MediaStore, file provider, and etc.
+    /// 
+    /// - ***preferred_size*** :  
+    /// Optimal thumbnail size desired.  
+    /// This may return a thumbnail of a different size, 
+    /// but never more than about double the requested size. 
+    /// In any case, the aspect ratio is maintained.
+    /// 
+    /// - ***format*** :  
+    /// Thumbnail image format.   
+    /// If you’re not sure which one to use, [`ImageFormat::Jpeg`] is recommended.   
+    /// If you need transparency, use others.   
+    /// 
+    /// # Support
+    /// All Android version.
+    #[maybe_async]
+    pub fn get_thumbnail_base64(
+        &self,
+        uri: &FileUri,
+        preferred_size: Size,
+        format: ImageFormat,
+    ) -> Result<Option<String>> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().get_file_thumbnail_base64(uri, preferred_size, format).await
         }
     }
 
@@ -1106,10 +1160,10 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         }
     }
 
-    /// See [`PublicStorage::get_volumes`] or [`PrivateStorage::get_volumes`] for details.
+    /// See [`AppStorage::get_volumes`] or [`PublicStorage::get_volumes`] for details.
     /// 
     /// The difference is that this does not perform any filtering.
-    /// You can it by [`StorageVolume { is_available_for_public_storage, is_available_for_private_storage, .. } `](StorageVolume).
+    /// You can it by [`StorageVolume { is_available_for_app_storage, is_available_for_public_storage, .. } `](StorageVolume).
     #[maybe_async]
     pub fn get_volumes(&self) -> Result<Vec<StorageVolume>> {
         #[cfg(not(target_os = "android"))] {
@@ -1120,10 +1174,10 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         }
     }
 
-    /// See [`PublicStorage::get_primary_volume`] or [`PrivateStorage::get_primary_volume`] for details.
+    /// See [`AppStorage::get_primary_volume`] or [`PublicStorage::get_primary_volume`] for details.
     /// 
     /// The difference is that this does not perform any filtering.
-    /// You can it by [`StorageVolume { is_available_for_public_storage, is_available_for_private_storage, .. } `](StorageVolume).
+    /// You can it by [`StorageVolume { is_available_for_app_storage, is_available_for_public_storage, .. } `](StorageVolume).
     #[maybe_async]
     pub fn get_primary_volume(&self) -> Result<Option<StorageVolume>> {
         #[cfg(not(target_os = "android"))] {
@@ -1131,6 +1185,31 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         }
         #[cfg(target_os = "android")] {
             self.impls().get_primary_storage_volume_if_available().await
+        }
+    }
+
+    /// Builds the storage volume root URI.  
+    /// 
+    /// This should only be used as `initial_location` in the file picker, such as [`FilePicker::pick_files`]. 
+    /// It must not be used for any other purpose.  
+    /// 
+    /// This is useful when selecting save location, 
+    /// but when selecting existing entries, `initial_location` is often better with None.
+    /// 
+    /// # Args  
+    /// - ***volume_id*** :  
+    /// ID of the storage volume, such as internal storage, SD card, etc.  
+    /// If `None` is provided, [`the primary storage volume`](AndroidFs::get_primary_volume) will be used.  
+    /// 
+    /// # Support
+    /// All Android version.
+    #[maybe_async]
+    pub fn resolve_root_initial_location(&self, volume_id: Option<&StorageVolumeId>) -> Result<FileUri> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().resolve_root_initial_location(volume_id).await
         }
     }
 
@@ -1175,73 +1254,6 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         }
         #[cfg(target_os = "android")] {
             self.impls().api_level()
-        }
-    }
-
-
-    #[deprecated = "Use resolve_file_uri instead"]
-    #[maybe_async]
-    pub fn try_resolve_file_uri(
-        &self,
-        dir: &FileUri, 
-        relative_path: impl AsRef<std::path::Path>
-    ) -> Result<FileUri> {
-
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().resolve_file_uri(dir, relative_path).await
-        }
-    }
-
-    #[deprecated = "Use resolve_dir_uri instead"]
-    #[maybe_async]
-    pub fn try_resolve_dir_uri(
-        &self,
-        dir: &FileUri, 
-        relative_path: impl AsRef<std::path::Path>
-    ) -> Result<FileUri> {
-
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().resolve_dir_uri(dir, relative_path).await
-        }
-    }
-
-    #[deprecated = "This may not return the correct uri. Use resolve_file_uri or resolve_dir_uri instead"]
-    #[maybe_async]
-    pub fn resolve_uri_unvalidated(
-        &self, 
-        dir: &FileUri, 
-        relative_path: impl AsRef<std::path::Path>
-    ) -> Result<FileUri> {
-
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            #[allow(deprecated)]
-            self.impls()._resolve_uri_legacy(dir, relative_path).await
-        }
-    }
-
-    #[deprecated = "This may not return the correct uri. Use resolve_file_uri or resolve_dir_uri instead"]
-    #[maybe_async]
-    pub fn resolve_uri(
-        &self, 
-        dir: &FileUri, 
-        relative_path: impl AsRef<std::path::Path>
-    ) -> Result<FileUri> {
-
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            #[allow(deprecated)]
-            self.impls()._resolve_uri_legacy(dir, relative_path).await
         }
     }
 }

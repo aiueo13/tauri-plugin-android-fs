@@ -65,7 +65,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.  
     /// This must be a URI taken from following or it's derivative :   
     ///     - [`PublicStorage::resolve_initial_location`]
-    ///     - [`PublicStorage::resolve_initial_location_top`]
+    ///     - [`AndroidFs::resolve_root_initial_location`]
     ///     - [`FilePicker::pick_files`]
     ///     - [`FilePicker::pick_file`]
     ///     - [`FilePicker::pick_dir`]
@@ -118,7 +118,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.  
     /// This must be a URI taken from following or it's derivative :   
     ///     - [`PublicStorage::resolve_initial_location`]
-    ///     - [`PublicStorage::resolve_initial_location_top`]
+    ///     - [`AndroidFs::resolve_root_initial_location`]
     ///     - [`FilePicker::pick_files`]
     ///     - [`FilePicker::pick_file`]
     ///     - [`FilePicker::pick_dir`]
@@ -332,7 +332,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.   
     /// This must be a URI taken from following or it's derivative :   
     ///     - [`PublicStorage::resolve_initial_location`]
-    ///     - [`PublicStorage::resolve_initial_location_top`]
+    ///     - [`AndroidFs::resolve_root_initial_location`]
     ///     - [`FilePicker::pick_files`]
     ///     - [`FilePicker::pick_file`]
     ///     - [`FilePicker::pick_dir`]
@@ -381,7 +381,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.   
     /// This must be a URI taken from following or it's derivative :   
     ///     - [`PublicStorage::resolve_initial_location`]
-    ///     - [`PublicStorage::resolve_initial_location_top`]
+    ///     - [`AndroidFs::resolve_root_initial_location`]
     ///     - [`FilePicker::pick_files`]
     ///     - [`FilePicker::pick_file`]
     ///     - [`FilePicker::pick_dir`]

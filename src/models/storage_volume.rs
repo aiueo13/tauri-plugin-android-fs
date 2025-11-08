@@ -47,7 +47,7 @@ pub struct StorageVolume {
     /// but it might not be the case due to any issues or rare cases.
     pub is_readonly: bool,
 
-    pub is_available_for_private_storage: bool,
+    pub is_available_for_app_storage: bool,
 
     pub is_available_for_public_storage: bool,
 
@@ -57,24 +57,42 @@ pub struct StorageVolume {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StorageVolumeId {
-    pub(crate) top_directory_path: Option<std::path::PathBuf>,
+    /// これは常に存在すると期待していい。
+    pub(crate) top_dir_path: Option<std::path::PathBuf>,
 
-    /// None の時は primary storage volume を指す。
-    /// Android 9 以下では常に None になる。
+    /// USB drive などの一時的な storage volume の場合は存在しない。
+    pub(crate) app_data_dir_path: Option<std::path::PathBuf>,
+
+    /// USB drive などの一時的な storage volume の場合は存在しない。
+    pub(crate) app_cache_dir_path: Option<std::path::PathBuf>,
+
+    /// USB drive などの一時的な storage volume の場合は存在しない。
+    pub(crate) app_media_dir_path: Option<std::path::PathBuf>,
+
+    /// 常に存在するとは限らない。
+    /// primary storage volume はこれが None になることが多い。
+    pub(crate) uid: Option<String>,
+
+    /// None の場合は primary storage volume を指す。
+    /// None でないから primary storage volume でないとは限らない。
+    /// Android 9 以下は常に None。
     pub(crate) media_store_volume_name: Option<String>,
 
-    pub(crate) private_data_dir_path: Option<std::path::PathBuf>,
-    pub(crate) private_cache_dir_path: Option<std::path::PathBuf>,
-    pub(crate) uuid: Option<String>,
+    /// 常に存在するとは限らない。
+    /// Android 11 以下は常に None。
+    pub(crate) storage_uuid: Option<String>,
 }
 
 #[allow(unused)]
 impl StorageVolumeId {
 
-    pub(crate) fn outside_private_dir_path(&self, dir: OutsidePrivateDir) -> Option<&std::path::PathBuf> {
-        match dir {
-            OutsidePrivateDir::Data => self.private_data_dir_path.as_ref(),
-            OutsidePrivateDir::Cache => self.private_cache_dir_path.as_ref(),
+    pub(crate) fn app_dir_path(&self, dir: impl Into<AppDir>) -> Option<&std::path::PathBuf> {
+        match dir.into() {
+            AppDir::Data => self.app_data_dir_path.as_ref(),
+            AppDir::Cache => self.app_cache_dir_path.as_ref(),
+
+            #[allow(deprecated)]
+            AppDir::PublicMedia => self.app_media_dir_path.as_ref()
         }
     }
 }

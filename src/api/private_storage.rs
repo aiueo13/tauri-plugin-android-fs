@@ -77,44 +77,13 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().internal_private_dir_path(dir).map(Clone::clone)
+            self.impls().private_dir_path(dir).map(Clone::clone)
         }
     }
 
-    /// Get an absolute path of the app-specific directory on the specified storage volume.  
-    /// App can fully manage entries within this directory.  
-    /// 
-    /// This function does **not** create any directories; it only constructs the path.
-    ///    
-    /// Since these locations may contain files created by other Tauri plugins or webview systems, 
-    /// it is recommended to add a subdirectory with a unique name.
-    ///
-    /// These entries will be deleted when the app is uninstalled and may also be deleted at the user’s initialising request.   
-    /// 
-    /// # Note
-    /// If you are unsure between this function and [`PrivateStorage::resolve_path`], 
-    /// you don’t need to use this one.  
-    /// The difference from [`PrivateStorage::resolve_path`] is that these files may be accessed by other apps that have specific permissions,
-    /// and it cannot always be available since removable storage can be ejected.  
-    /// 
-    /// One advantage of using this is that it allows storing large app-specific data/cache on SD cards or other supplementary storage, 
-    /// which can be useful on older devices with limited built-in storage capacity. 
-    /// However on modern devices, the built-in storage capacity is relatively large,
-    /// and there is little advantage in using this.  
-    /// 
-    /// By using [`StorageVolume { is_emulated, .. }`](StorageVolume), 
-    /// you can determine whether this belongs to the same storage volume as [`PrivateStorage::resolve_path`]. 
-    /// In this case, there is no advantage in using this instead of `PrivateStorage::resolve_path`. 
-    /// It only reduces security.
-    /// 
-    /// # Args
-    /// - ***volume_id*** :  
-    /// ID of the storage volume, such as internal storage, SD card, etc.  
-    /// If `None` is provided, [`the primary storage volume`](PrivateStorage::get_primary_volume) will be used.  
-    /// 
-    /// # Support
-    /// All Android version. 
     #[maybe_async]
+    #[allow(deprecated)]
+    #[deprecated = "Use `AppStorage::resolve_path` instead"]
     pub fn resolve_outside_path(
         &self, 
         volume_id: Option<&StorageVolumeId>,
@@ -125,69 +94,29 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().resolve_outside_private_dir_path(volume_id, dir).await
+            self.impls().resolve_dir_path_in_app_storage(volume_id, dir).await
         }
     }
 
-    /// Gets a list of currently available storage volumes (internal storage, SD card, USB drive, etc.).
-    /// Be aware of TOCTOU.
-    /// 
-    /// Since read-only SD cards and similar cases may be included, 
-    /// please use [`StorageVolume { is_readonly, .. }`](StorageVolume) for filtering as needed.
-    /// 
-    /// This function returns only storage volume that is considered stable by system. 
-    /// It includes device’s built-in storage and physical media slots under protective covers,
-    /// but does not include storage volume considered temporary, 
-    /// such as USB flash drives connected to handheld devices.
-    /// 
-    /// This typically includes [`primary storage volume`](PrivateStorage::get_primary_volume),
-    /// but it may occasionally be absent if primary torage volume is inaccessible 
-    /// (e.g., mounted on a computer, removed, or another issue).
-    ///
-    /// Primary storage volume is always listed first, if included. 
-    /// But the order of the others is not guaranteed.  
-    /// 
-    /// # Note
-    /// The volume represents the logical view of a storage volume for an individual user:
-    /// each user may have a different view for the same physical volume.
-    /// In other words, it provides a separate area for each user in a multi-user environment.
-    /// 
-    /// # Support
-    /// All Android version.
+    #[deprecated = "Use `AppStorage::get_volumes` instead"]
     #[maybe_async]
     pub fn get_volumes(&self) -> Result<Vec<StorageVolume>> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().get_available_storage_volumes_for_private_storage().await
+            self.impls().get_available_storage_volumes_for_app_storage().await
         }
     }
 
-    /// Gets a primary storage volume.  
-    /// In many cases, it is device's built-in storage. 
-    /// 
-    /// A device always has one (and one only) primary storage volume.  
-    /// 
-    /// Primary volume may not currently be accessible 
-    /// if it has been mounted by the user on their computer, 
-    /// has been removed from the device, or some other problem has happened. 
-    /// If so, this returns `None`.
-    /// 
-    /// # Note
-    /// The volume represents the logical view of a storage volume for an individual user:
-    /// each user may have a different view for the same physical volume.
-    /// In other words, it provides a separate area for each user in a multi-user environment.
-    /// 
-    /// # Support
-    /// All Android version.
+    #[deprecated = "Use `AppStorage::get_primary_volume` instead"]
     #[maybe_async]
     pub fn get_primary_volume(&self) -> Result<Option<StorageVolume>> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().get_primary_storage_volume_if_available_for_private_storage().await
+            self.impls().get_primary_storage_volume_if_available_for_app_storage().await
         }
     }
 

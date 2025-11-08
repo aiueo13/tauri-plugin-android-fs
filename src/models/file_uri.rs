@@ -37,18 +37,6 @@ pub struct FileUri {
 #[allow(unused)]
 impl FileUri {
 
-    /// This is same as [`FileUri::to_json_string`]
-    #[deprecated = "Confusing name. Use FileUri::to_json_string instead"]
-    pub fn to_string(&self) -> Result<String> {
-        serde_json::to_string(self).map_err(Into::into)
-    }
-
-    /// This is same as [`FileUri::from_json_str`]
-    #[deprecated = "Confusing name. Use FileUri::from_json_str instead"]
-    pub fn from_str(s: &str) -> Result<Self> {
-        serde_json::from_str(s).map_err(Into::into)
-    }
-
     pub fn to_json_string(&self) -> Result<String> {
         serde_json::to_string(self).map_err(Into::into)
     }

@@ -4,10 +4,12 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.os.storage.StorageManager
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.util.Base64
@@ -400,12 +402,16 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         throw Exception("Failed to open file with truncate and write")
     }
 
-    @Suppress("NAME_SHADOWING")
-    private fun tryAsDocumentUri(uri: FileUri): Uri? {
-        val documentTopTreeUri = uri.documentTopTreeUri
-        val uri = Uri.parse(uri.uri)
+    private fun tryIntoSafInitialLocation(initialLocation: FileUri): Uri? {
+        val documentTopTreeUri = initialLocation.documentTopTreeUri
+        val uri = Uri.parse(initialLocation.uri)
 
-        if (documentTopTreeUri != null || DocumentsContract.isDocumentUri(activity, uri)) {
+        if (
+            documentTopTreeUri != null ||
+            DocumentsContract.isDocumentUri(activity, uri) ||
+            initialLocation.uri.startsWith("content://com.android.externalstorage.documents/root/")
+            ) {
+
             return uri
         }
 
@@ -641,6 +647,37 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
+    fun scanMediaStoreFileForResult(invoke: Invoke) {
+        try {
+            val args = invoke.parseArgs(ScanMediaStoreFileArgs::class.java)
+
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val e = AFMediaStore.getAbsolutePathAndMimeType(args.uri, activity)
+                    val path = e.first
+                    val mimeType = e.second
+
+                    AFMediaStore.scanFile(
+                        File(path),
+                        mimeType,
+                        { activity.runOnUiThread { invoke.resolve() } },
+                        { err -> activity.runOnUiThread { invoke.reject(err.message ?: "unknown") } },
+                        activity
+                    )
+                }
+                catch (ex: Exception) {
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(ex.message ?: "unknown")
+                    }
+                }
+            }
+        }
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "unknown")
+        }
+    }
+
+    @Command
     fun getMediaStoreFileAbsolutePath(invoke: Invoke) {
         try {
             val args = invoke.parseArgs(GetMediaStoreFileAbsolutePathArgs::class.java)
@@ -744,7 +781,9 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 try {
                     val args = invoke.parseArgs(GetStorageVolumeByPathArgs::class.java)
                     val res = JSObject().apply {
-                        put("volume", AFStorageVolume.getStorageVolumeByFileIfAvailable(File(args.path!!), activity))
+                        val sv = AFStorageVolume.getStorageVolumeByFileIfAvailable(File(args.path!!), activity)
+                        val svJsObj: JSObject? = sv?.let { AFJSObject.createStorageVolumeJSObject(it) }
+                        put("volume", svJsObj)
                     }
 
                     withContext(Dispatchers.Main) {
@@ -776,7 +815,9 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val res = JSObject().apply {
-                        put("volume", AFStorageVolume.getPrimaryStorageVolumeIfAvailable(activity))
+                        val sv = AFStorageVolume.getPrimaryStorageVolumeIfAvailable(activity)
+                        val svJsObj: JSObject? = sv?.let { AFJSObject.createStorageVolumeJSObject(it) }
+                        put("volume", svJsObj)
                     }
 
                     withContext(Dispatchers.Main) {
@@ -808,7 +849,13 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val res = JSObject().apply {
-                        put("volumes", AFStorageVolume.getAvailableStorageVolumes(activity))
+                        val svs = AFStorageVolume.getAvailableStorageVolumes(activity)
+                        val svsObj: JSArray = JSArray().apply {
+                            for (sv in svs) {
+                                put(AFJSObject.createStorageVolumeJSObject(sv))
+                            }
+                        }
+                        put("volumes", svsObj)
                     }
 
                     withContext(Dispatchers.Main) {
@@ -842,7 +889,8 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 try {
                     val args = invoke.parseArgs(CheckStorageVolumeAvailableByPathArgs::class.java)
                     val res = JSObject().apply {
-                        put("value", AFStorageVolume.checkStorageVolumeAvailableByFile(File(args.path!!) ,activity))
+                        val ok: Boolean = AFStorageVolume.checkStorageVolumeAvailableByFile(File(args.path!!) ,activity)
+                        put("value", ok)
                     }
 
                     withContext(Dispatchers.Main) {
@@ -876,7 +924,8 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 try {
                     val args = invoke.parseArgs(CheckMediaStoreVolumeNameAvailableArgs::class.java)
                     val res = JSObject().apply {
-                        put("value", AFStorageVolume.checkMediaStoreVolumeNameAvailable(args.mediaStoreVolumeName!! ,activity))
+                        val ok: Boolean = AFStorageVolume.checkMediaStoreVolumeNameAvailable(args.mediaStoreVolumeName!! ,activity)
+                        put("value", ok)
                     }
 
                     withContext(Dispatchers.Main) {
@@ -1587,18 +1636,43 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun showManageDirDialog(invoke: Invoke) {
         try {
             val args = invoke.parseArgs(ShowManageDirDialogArgs::class.java)
-            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
-            
-            args.initialLocation?.let { uri ->
-                tryAsDocumentUri(uri)?.let { dUri ->
-                    if (Build.VERSION_CODES.O <= Build.VERSION.SDK_INT){
-                        intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, dUri)
+            val initialLocation = args.initialLocation?.let { tryIntoSafInitialLocation(it) }
+            val initialLocationStr = initialLocation?.toString()
+            val initialLocationIsStorageVolumeRoot = initialLocationStr?.startsWith("content://com.android.externalstorage.documents/root/") ?: false
+
+            var intent: Intent? = null
+
+            // Rust 側の resolve_initial_location_in_public_storage による RootUri が指定された場合は
+            // StorageVolume.createOpenDocumentTreeIntent を用いる。
+            // これは DocumentsContract.EXTRA_INITIAL_URI で指定するよりもアクセシビリティの最適化が行われる。
+            if (initialLocation != null && Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT && initialLocationIsStorageVolumeRoot) {
+                val id = initialLocationStr!!.removePrefix("content://com.android.externalstorage.documents/root/")
+                val sm = activity.getSystemService(Context.STORAGE_SERVICE) as StorageManager
+
+                when (id) {
+                    "primary" -> intent = sm.primaryStorageVolume.createOpenDocumentTreeIntent()
+                    else -> {
+                        for (vol in sm.storageVolumes) {
+                            if (vol.uuid.equals(id, true)) {
+                                intent = vol.createOpenDocumentTreeIntent()
+                                break
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (intent == null) {
+                intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                    if (Build.VERSION_CODES.O <= Build.VERSION.SDK_INT && initialLocation != null) {
+                        putExtra(DocumentsContract.EXTRA_INITIAL_URI, initialLocation)
                     }
                 }
             }
 
             startActivityForResult(invoke, intent, "handleShowManageDirDialog")
-        } catch (ex: Exception) {
+        }
+        catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke showManageDirDialog."
             invoke.reject(message)
         }
@@ -1667,7 +1741,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             val intent = createFilePickerIntent(args.mimeTypes, args.multiple)
 
             args.initialLocation?.let { uri ->
-                tryAsDocumentUri(uri)?.let { dUri ->
+                tryIntoSafInitialLocation(uri)?.let { dUri ->
                     if (Build.VERSION_CODES.O <= Build.VERSION.SDK_INT){
                         intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, dUri)
                     }
@@ -1719,7 +1793,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             intent.putExtra(Intent.EXTRA_TITLE, args.initialFileName)
             
             args.initialLocation?.let { uri ->
-                tryAsDocumentUri(uri)?.let { dUri ->
+                tryIntoSafInitialLocation(uri)?.let { dUri ->
                     if (Build.VERSION_CODES.O <= Build.VERSION.SDK_INT){
                         intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, dUri)
                     }

@@ -1,65 +1,85 @@
 use std::borrow::Cow;
 use serde::{ser::Serializer, Serialize};
 
-#[derive(Debug, Clone, thiserror::Error)]
-#[error("{msg}")]
+#[derive(Debug, thiserror::Error)]
+#[error(transparent)]
 pub struct Error {
-    pub(crate) msg: Cow<'static, str>
+    inner: InnerError
 }
 
 #[allow(unused)]
-impl Error {
+impl crate::Error {
 
     pub(crate) const NOT_ANDROID: Self = Self {
-        msg: Cow::Borrowed("This plugin is only for Android")
+        inner: InnerError::Raw(Cow::Borrowed("This plugin is only for Android"))
     };
 
+    pub(crate) fn missing_value(value_name: impl AsRef<str>) -> Self {
+        Self::with(format!("missing value: {}", value_name.as_ref()))
+    }
+
     pub fn with(msg: impl Into<Cow<'static, str>>) -> Self {
-        Self { msg: msg.into() }
+        Self { inner: InnerError::Raw(msg.into()) }
     }
+}
+
+impl From<crate::Error> for std::io::Error {
+
+    fn from(e: crate::Error) -> std::io::Error {
+        match e.inner {
+            InnerError::Io(e) => e,
+            e => std::io::Error::new(std::io::ErrorKind::Other, e)
+        }
+    }
+}
+
+
+#[derive(Debug, thiserror::Error)]
+enum InnerError {
+    #[error("{0}")]
+    Raw(Cow<'static, str>),
+
+    #[cfg(target_os = "android")]
+    #[error(transparent)]
+    PluginInvoke(tauri::plugin::mobile::PluginInvokeError),
+
+    #[cfg(target_os = "android")]
+    #[error(transparent)]
+    Base64Decode(base64::DecodeError),
+
+    #[error(transparent)]
+    Io(std::io::Error),
+
+    #[error(transparent)]
+    SerdeJson(serde_json::Error),
+
+    #[error(transparent)]
+    Tauri(tauri::Error),
+}
+
+macro_rules! impl_into_err_from_inner {
+    ($from:ty, $e:pat => $a:expr) => {
+        impl From<$from> for crate::Error {
+            fn from($e: $from) -> crate::Error {
+                $a
+            }
+        }
+    };
 }
 
 #[cfg(target_os = "android")]
-impl From<tauri::plugin::mobile::PluginInvokeError> for crate::Error {
-
-    fn from(value: tauri::plugin::mobile::PluginInvokeError) -> Self {
-        Self { msg: Cow::Owned(value.to_string())}
-    }
-}
+impl_into_err_from_inner!(tauri::plugin::mobile::PluginInvokeError, e => crate::Error { inner: InnerError::PluginInvoke(e) });
 
 #[cfg(target_os = "android")]
-impl From<base64::DecodeError> for crate::Error {
+impl_into_err_from_inner!(base64::DecodeError, e => crate::Error { inner: InnerError::Base64Decode(e) });
 
-    fn from(value: base64::DecodeError) -> Self {
-        Self { msg: Cow::Owned(value.to_string())}
-    }
-}
-
-impl From<std::io::Error> for crate::Error {
-
-    fn from(value: std::io::Error) -> Self {
-        Self { msg: Cow::Owned(value.to_string())}
-    }
-}
+impl_into_err_from_inner!(std::io::Error, e => crate::Error { inner: InnerError::Io(e) });
+impl_into_err_from_inner!(serde_json::Error, e => crate::Error { inner: InnerError::SerdeJson(e) });
+impl_into_err_from_inner!(tauri::Error, e => crate::Error { inner: InnerError::Tauri(e) });
 
 impl<W> From<std::io::IntoInnerError<W>> for crate::Error {
-
-    fn from(value: std::io::IntoInnerError<W>) -> Self {
-        Self { msg: Cow::Owned(value.error().to_string())}
-    }
-}
-
-impl From<serde_json::Error> for crate::Error {
-
-    fn from(value: serde_json::Error) -> Self {
-        Self { msg: Cow::Owned(value.to_string())}
-    }
-}
-
-impl From<tauri::Error> for crate::Error {
-
-    fn from(value: tauri::Error) -> Self {
-        Self { msg: Cow::Owned(value.to_string())}
+    fn from(e: std::io::IntoInnerError<W>) -> crate::Error {
+        crate::Error { inner: InnerError::Io(e.into_error()) }
     }
 }
 
@@ -69,6 +89,9 @@ impl Serialize for crate::Error {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&self.msg)
+        match &self.inner {
+            InnerError::Raw(msg) => serializer.serialize_str(&msg),
+            e => serializer.serialize_str(&e.to_string())
+        }
     }
 }

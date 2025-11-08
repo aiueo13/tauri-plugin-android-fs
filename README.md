@@ -292,12 +292,10 @@ async fn example(app: &tauri::AppHandle<impl tauri::Runtime>) -> Result<()> {
     }
 
     // Clear pending state
-    api.public_storage()
-        .set_pending(&uri, false).await?;
+    api.public_storage().set_pending(&uri, false).await?;
 
     // Register with Gallery
-    api.public_storage()
-        .scan_file(&uri).await?;
+    api.public_storage().scan(&uri).await?;
 
     Ok(())
 }

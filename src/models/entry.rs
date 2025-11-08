@@ -200,21 +200,36 @@ impl OptionalEntry {
     }
 
     /// If `EntryOptions { uri, .. }` is set to `true`, 
+    /// this will never be `None`.
+    pub fn into_uri(self) -> Option<FileUri> {
+        match self {
+            Self::File { uri, .. } => uri,
+            Self::Dir { uri, .. } => uri,
+        }
+    }
+    
+    /// If `EntryOptions { uri, .. }` is set to `true`, 
+    /// this will never be error.
+    pub fn into_uri_or_err(self) -> Result<FileUri> {
+        self.into_uri().ok_or_else(|| Error::missing_value("uri"))
+    }
+
+    /// If `EntryOptions { uri, .. }` is set to `true`, 
     /// this will never be error.
     pub fn uri_or_err(&self) -> Result<&FileUri> {
-        self.uri().ok_or_else(|| Error::with("Missing value: uri"))
+        self.uri().ok_or_else(|| Error::missing_value("uri"))
     }
 
     /// If `EntryOptions { name, .. }` is set to `true`, 
     /// this will never be error.
     pub fn name_or_err(&self) -> Result<&str> {
-        self.name().ok_or_else(|| Error::with("Missing value: name"))
+        self.name().ok_or_else(|| Error::missing_value("name"))
     }
 
     /// If `EntryOptions { last_modified, .. }` is set to `true`, 
     /// this will never be error.
     pub fn last_modified_or_err(&self) -> Result<std::time::SystemTime> {
-        self.last_modified().ok_or_else(|| Error::with("Missing value: last_modified"))
+        self.last_modified().ok_or_else(|| Error::missing_value("last_modified"))
     }
 
     /// If a file and `EntryOptions { mime_type, .. }` is set to `true`, 
@@ -321,16 +336,16 @@ impl TryFrom<OptionalEntry> for Entry {
     fn try_from(value: OptionalEntry) -> std::result::Result<Self, Self::Error> {
         Ok(match value {
             OptionalEntry::File { uri, name, last_modified, len, mime_type } => Entry::File {
-                uri: uri.ok_or_else(|| Error::with("Missing value: uri"))?,
-                name: name.ok_or_else(|| Error::with("Missing value: name"))?,
-                last_modified: last_modified.ok_or_else(|| Error::with("Missing value: last_modified"))?,
-                len: len.ok_or_else(|| Error::with("Missing value: len"))?,
-                mime_type: mime_type.ok_or_else(|| Error::with("Missing value: mime_type"))?,
+                uri: uri.ok_or_else(|| Error::missing_value("uri"))?,
+                name: name.ok_or_else(|| Error::missing_value("name"))?,
+                last_modified: last_modified.ok_or_else(|| Error::missing_value("last_modified"))?,
+                len: len.ok_or_else(|| Error::missing_value("len"))?,
+                mime_type: mime_type.ok_or_else(|| Error::missing_value("mime_type"))?,
             },
             OptionalEntry::Dir { uri, name, last_modified } => Entry::Dir {
-                uri: uri.ok_or_else(|| Error::with("Missing value: uri"))?,
-                name: name.ok_or_else(|| Error::with("Missing value: name"))?,
-                last_modified: last_modified.ok_or_else(|| Error::with("Missing value: last_modified"))?,
+                uri: uri.ok_or_else(|| Error::missing_value("uri"))?,
+                name: name.ok_or_else(|| Error::missing_value("name"))?,
+                last_modified: last_modified.ok_or_else(|| Error::missing_value("last_modified"))?,
             },
         })
     }

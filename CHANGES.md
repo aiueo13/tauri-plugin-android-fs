@@ -1,3 +1,23 @@
+# Version 18.0.0
+- Remove deprecated items
+- Deprecate ``PublicStorage::resolve_initial_location_top`
+- Deprecate `PrivateStorage::get_volumes`
+- Deprecate `PrivateStorage::get_primary_volume`
+- Deprecate `PrivateStorage::resolve_outside_path`
+- Deprecate `OutsidePrivateDir`
+- Add `AppDir`
+- Add `AppStorage`
+- Add `AndroidFs::app_storage`
+- Add `AndroidFs::get_thumbnail_base64`
+- Add `AndroidFs::resolve_root_initial_location`
+- Add `PublicStorage::scan_file_by_path`
+- Add `PublicStorage::_scan_file`
+- Add `PublicStorage::_scan_file_for_result`
+- Add `PublicStorage::get_path`
+- Add `is_available_for_app_storage` to `StorageVolume`
+- Remove `is_available_for_private_storage` from `StorageVolume`
+- Update documentation.
+
 # Version 17.4.0
 - Add `AndroidFs::create_new_file_and_return_relative_path`
 - Add `AndroidFs::create_dir_all_and_return_relative_path`

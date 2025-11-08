@@ -73,7 +73,7 @@ impl FileAccessMode {
             "wa" => Ok(Self::WriteAppend),
             "rwt" => Ok(Self::ReadWriteTruncate),
             "rw" => Ok(Self::ReadWrite),
-            mode => Err(Error { msg: format!("Illegal mode: {mode}").into() })
+            mode => Err(Error::with(format!("Illegal mode: {mode}")))
         }
     }
 }

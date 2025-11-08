@@ -5,8 +5,8 @@ use super::*;
 
 
 #[sync_async(
-    use(if_async) async_utils::{run_blocking, run_blocking_with_io_err, sleep};
-    use(if_sync) sync_utils::{run_blocking, run_blocking_with_io_err, sleep};
+    use(if_async) async_utils::{run_blocking, sleep};
+    use(if_sync) sync_utils::{run_blocking, sleep};
 )]
 impl<'a, R: tauri::Runtime> Impls<'a, R> {
 
@@ -16,19 +16,14 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[always_sync]
-    pub fn requires(&self, api_level: i32) -> Result<()> {
-        let current = self.api_level()?;
-        if api_level <= current {
-            return Ok(())
-        }
-
-        Err(Error::with(format!("requires Android API level {api_level} or higher. but: {current}")))
+    pub fn public_dir_name(&self, dir: impl Into<PublicDir>) -> Result<&'static str> {
+        Ok(self.consts()?.public_dir_name(dir)?)
     }
 
     #[always_sync]
     pub fn tmp_dir_path(&self) -> Result<&'static std::path::PathBuf> {
         get_or_init_tmp_dir_path(|| {
-            let path = self.internal_private_dir_path(PrivateDir::Cache)?
+            let path = self.private_dir_path(PrivateDir::Cache)?
                 .join("pluginAndroidFs-tmpDir-01K486FKQ2BZSBGFD34RFH9FWJ");
 
             Ok(path)
@@ -250,9 +245,25 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
+    pub fn get_file_thumbnail(
+        &self, 
+        uri: &FileUri,
+        preferred_size: Size,
+        format: ImageFormat,
+    ) -> Result<Option<Vec<u8>>> {
+
+        if let Some(t) = self.get_file_thumbnail_base64(uri, preferred_size, format).await? {
+            use base64::engine::Engine;
+            return Ok(Some(base64::engine::general_purpose::STANDARD.decode(t)?))
+        }
+        
+        Ok(None)
+    }
+
+    #[maybe_async]
     pub fn is_dir(&self, uri: &FileUri) -> Result<bool> {
-        if let Some(path) = uri.as_path() {
-            return Ok(std::fs::metadata(&path)?.is_dir())
+        if let Some(path) = uri.as_path().map(|p| p.to_path_buf()) {
+            return run_blocking(move || Ok(std::fs::metadata(&path)?.is_dir())).await
         }
 
         Ok(self.get_entry_type(&uri).await?.is_dir())
@@ -260,8 +271,8 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
 
     #[maybe_async]
     pub fn is_file(&self, uri: &FileUri) -> Result<bool> {
-        if let Some(path) = uri.as_path() {
-            return Ok(std::fs::metadata(&path)?.is_file())
+        if let Some(path) = uri.as_path().map(|p| p.to_path_buf()) {
+            return run_blocking(move || Ok(std::fs::metadata(&path)?.is_file())).await
         }
         
         Ok(self.get_entry_type(&uri).await?.is_file())
@@ -278,7 +289,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         if let Some(built_uri) = self.try_build_path_uri(dir, relative_path.as_ref())? {
             uri = Some(built_uri);
         }
-        else if let Some(built_uri) = self.try_build_saf_external_storage_uri(dir, relative_path.as_ref())? {
+        else if let Some(built_uri) = self.try_build_saf_external_storage_provider_uri(dir, relative_path.as_ref())? {
             uri = Some(built_uri);
         }
 
@@ -303,7 +314,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         if let Some(built_uri) = self.try_build_path_uri(dir, relative_path.as_ref())? {
             uri = Some(built_uri);
         }
-        else if let Some(built_uri) = self.try_build_saf_external_storage_uri(dir, relative_path.as_ref())? {
+        else if let Some(built_uri) = self.try_build_saf_external_storage_provider_uri(dir, relative_path.as_ref())? {
             uri = Some(built_uri);
         }
         
@@ -336,7 +347,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[always_sync]
-    pub fn try_build_saf_external_storage_uri(
+    pub fn try_build_saf_external_storage_provider_uri(
         &self,
         dir: &FileUri,
         relative_path: impl AsRef<std::path::Path>
@@ -345,7 +356,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         let relative_path = validate_relative_path(relative_path.as_ref())?;
         let relative_path = relative_path.to_string_lossy();
         
-        if dir.uri.starts_with("content://com.android.externalstorage.documents/") {
+        if dir.uri.starts_with("content://com.android.externalstorage.documents/tree/") {
             let uri = FileUri {
                 document_top_tree_uri: dir.document_top_tree_uri.clone(),
                 uri: format!("{}%2F{}", &dir.uri, encode_uri(relative_path))
@@ -354,30 +365,6 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         }
 
         Ok(None)
-    }
-
-    #[deprecated]
-    #[maybe_async]
-    pub fn _resolve_uri_legacy(
-        &self, 
-        dir: &FileUri, 
-        relative_path: impl AsRef<std::path::Path>
-    ) -> Result<FileUri> {
-
-        let relative_path = validate_relative_path(relative_path.as_ref())?;
-        let relative_path = relative_path.to_string_lossy();
-
-        if relative_path.is_empty() {
-            return Ok(dir.clone())
-        }
-        if let Some(path) = dir.as_path() {
-            return Ok(FileUri::from_path(path.join(relative_path.as_ref())))
-        }
-
-        Ok(FileUri {
-            document_top_tree_uri: dir.document_top_tree_uri.clone(),
-            uri: format!("{}%2F{}", &dir.uri, encode_uri(relative_path))
-        })
     }
 
     #[maybe_async]
@@ -465,7 +452,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         }
 
         self.set_file_pending_in_public_storage(&uri, false).await?;
-        self.scan_file_in_public_storage(&uri).await?;
+        self.scan_file_in_public_storage(&uri, false).await?;
         Ok(uri)
     }
 
@@ -500,13 +487,47 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     pub fn scan_file_in_public_storage(
         &self,
         uri: &FileUri,
+        force: bool,
     ) -> Result<()> {
         
-        if api_level::ANDROID_10 <= self.api_level()? {
+        if !force && api_level::ANDROID_10 <= self.api_level()? {
             return Ok(())
         }
 
         self.scan_media_store_file(uri).await
+    }
+
+    #[maybe_async]
+    pub fn scan_file_in_public_storage_for_result(
+        &self,
+        uri: &FileUri,
+        force: bool,
+    ) -> Result<()> {
+        
+        if !force && api_level::ANDROID_10 <= self.api_level()? {
+            return Ok(())
+        }
+
+        self.scan_media_store_file_for_result(uri).await
+    }
+
+    #[maybe_async]
+    pub fn scan_file_by_path_in_public_storage(
+        &self,
+        path: impl AsRef<std::path::Path>,
+        mime_type: Option<&str>,
+    ) -> Result<FileUri> {
+
+        self.scan_file_to_media_store_by_path(path, mime_type).await
+    }
+
+    #[maybe_async]
+    pub fn get_file_path_in_public_storage(
+        &self,
+        uri: &FileUri,
+    ) -> Result<std::path::PathBuf> {
+
+        self.get_media_store_file_path(uri).await
     }
 
     #[maybe_async]
@@ -524,7 +545,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn resolve_path_in_public_storage(
+    pub fn resolve_dir_path_in_public_storage(
         &self,
         volume_id: Option<&StorageVolumeId>,
         base_dir: impl Into<PublicDir>,
@@ -532,24 +553,25 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
 
         let mut path = match volume_id {
             Some(volume_id) => {
-                let path = volume_id.top_directory_path
+                let top_dir_path = volume_id.top_dir_path
                     .as_ref()
                     .ok_or_else(|| Error::with("The storage volume is not available for PublicStorage"))?;
                   
-                if !self.check_storage_volume_available_by_path(path).await? {
+                if !self.check_storage_volume_available_by_path(top_dir_path).await? {
                     return Err(Error::with("The storage volume is not currently available"))
                 }
 
-                path.clone()
+                top_dir_path.clone()
             },
             None => {
                 self.get_primary_storage_volume_if_available_for_public_storage().await?
-                    .and_then(|v| v.id.top_directory_path)
                     .ok_or_else(|| Error::with("Primary storage volume is not currently available"))?
+                    .id.top_dir_path
+                    .ok_or_else(|| Error::with("Primary storage volume is not available for PublicStorage"))?
             }
         };
 
-        path.push(self.consts()?.public_dir_name(base_dir)?);
+        path.push(self.public_dir_name(base_dir)?);
         Ok(path)
     }
 
@@ -563,22 +585,29 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     ) -> Result<FileUri> {
 
         let base_dir = base_dir.into();
-            
-        let mut uri = self.resolve_initial_location_top_in_public_storage(volume_id).await?;
-        uri.uri.push_str(self.consts()?.public_dir_name(base_dir)?);
-
         let relative_path = validate_relative_path(relative_path.as_ref())?;
-        let relative_path = relative_path.to_string_lossy();
-        if !relative_path.is_empty() {
-            uri.uri.push_str("%2F");
-            uri.uri.push_str(&encode_uri(relative_path.as_ref()));
-        }
+        let uri = {
+            let volume_id = volume_id
+                .and_then(|v| v.uid.as_deref())
+                .unwrap_or("primary");
+
+            let mut relative_path_from_volume_root = std::path::PathBuf::new();
+            relative_path_from_volume_root.push(self.public_dir_name(base_dir)?);
+            relative_path_from_volume_root.push(relative_path);
+
+            let mut uri = String::from("content://com.android.externalstorage.documents/document/");
+            uri.push_str(volume_id);
+            uri.push_str("%3A");
+            uri.push_str(&encode_uri(relative_path_from_volume_root.to_string_lossy()));
+      
+            FileUri { uri, document_top_tree_uri: None }
+        };
 
         if create_dir_all {
             self.create_dir_all_in_public_storage(
                 volume_id, 
                 base_dir, 
-                relative_path.as_ref()
+                relative_path
             ).await.ok();
         }
 
@@ -586,48 +615,54 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn resolve_initial_location_top_in_public_storage(
+    pub fn resolve_root_initial_location(
         &self,
         volume_id: Option<&StorageVolumeId>
     ) -> Result<FileUri> {
 
         let volume_id = volume_id
-            .and_then(|v| v.uuid.as_deref())
+            .and_then(|v| v.uid.as_deref())
             .unwrap_or("primary");
 
-        Ok(FileUri {
-            uri: format!("content://com.android.externalstorage.documents/document/{volume_id}%3A"),
-            document_top_tree_uri: None 
-        })
+        if api_level::ANDROID_10 <= self.api_level()? {
+            let base = "content://com.android.externalstorage.documents/root";
+            let uri = format!("{base}/{volume_id}");
+            Ok(FileUri { uri, document_top_tree_uri: None })
+        }
+        else {
+            let base = "content://com.android.externalstorage.documents/document";
+            let uri = format!("{base}/{volume_id}%3A");
+            Ok(FileUri { uri, document_top_tree_uri: None })
+        }
     }
 
     #[maybe_async]
-    pub fn get_available_storage_volumes_for_private_storage(&self) -> Result<Vec<StorageVolume>> {
+    pub fn get_available_storage_volumes_for_app_storage(&self) -> Result<Vec<StorageVolume>> {
         let volumes = self.get_available_storage_volumes().await?
             .into_iter()
-            .filter(|v| v.is_available_for_private_storage)
+            .filter(|v| v.is_available_for_app_storage)
             .collect::<Vec<_>>();
 
         Ok(volumes)
     }
 
     #[maybe_async]
-    pub fn get_primary_storage_volume_if_available_for_private_storage(&self) -> Result<Option<StorageVolume>> {
+    pub fn get_primary_storage_volume_if_available_for_app_storage(&self) -> Result<Option<StorageVolume>> {
         self.get_primary_storage_volume_if_available()
             .await
-            .map(|v| v.filter(|v| v.is_available_for_private_storage))
+            .map(|v| v.filter(|v| v.is_available_for_app_storage))
     }
 
     #[maybe_async]
-    pub fn resolve_outside_private_dir_path(
+    pub fn resolve_dir_path_in_app_storage(
         &self, 
         volume_id: Option<&StorageVolumeId>,
-        dir: OutsidePrivateDir
+        dir: AppDir
     ) -> Result<std::path::PathBuf> {
 
         if let Some(volume_id) = volume_id {
             let dir_path = volume_id
-                .outside_private_dir_path(dir)
+                .app_dir_path(dir)
                 .ok_or_else(|| Error::with("The storage volume has no app-speific directory"))?;
             
             if !self.check_storage_volume_available_by_path(dir_path).await? {
@@ -637,9 +672,19 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             return Ok(dir_path.clone())
         }
 
-        self.get_primary_storage_volume_if_available_for_private_storage().await?
-            .and_then(|v| v.id.outside_private_dir_path(dir).map(Clone::clone))
-            .ok_or_else(|| Error::with("Primary storage volume is not currently available"))
+        self.get_primary_storage_volume_if_available_for_app_storage().await?
+            .ok_or_else(|| Error::with("Primary storage volume is not currently available"))?
+            .id.app_dir_path(dir).cloned()
+            .ok_or_else(|| Error::with("Primary storage volume has no app-speific directory"))
+    }
+
+    #[maybe_async]
+    pub fn get_public_media_file_path_in_app_storage(
+        &self,
+        uri: &FileUri,
+    ) -> Result<std::path::PathBuf> {
+
+        self.get_media_store_file_path(uri).await
     }
 }
 

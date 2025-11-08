@@ -87,8 +87,8 @@ enum OutputAttr {
 
 
 #[sync_async(
-    use(if_async) async_utils::{run_blocking, run_blocking_with_io_err};
-    use(if_sync) sync_utils::{run_blocking, run_blocking_with_io_err};
+    use(if_async) async_utils::run_blocking;
+    use(if_sync) sync_utils::run_blocking;
     use(if_async) AsyncImpls as Impls;
     use(if_sync) SyncImpls as Impls;
 )]
@@ -115,7 +115,7 @@ impl<R: tauri::Runtime> WritableStreamImpls<R> {
         
         if let OutputAttr::ActualTarget = output_attr.as_ref() {
             let output = Arc::clone(output);
-            run_blocking_with_io_err(move || output.sync_all()).await?;
+            run_blocking(move || output.sync_all().map_err(Into::into)).await?;
         }
         Ok(())
     }
@@ -131,7 +131,7 @@ impl<R: tauri::Runtime> WritableStreamImpls<R> {
         
         if let OutputAttr::ActualTarget = output_attr.as_ref() {
             let output = Arc::clone(output);
-            run_blocking_with_io_err(move || output.sync_data()).await?;
+            run_blocking(move || output.sync_data().map_err(Into::into)).await?;
         }
         Ok(())
     }

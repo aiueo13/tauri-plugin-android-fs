@@ -38,8 +38,8 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
 }
 
 #[sync_async(
-    use(if_async) api_async::{AndroidFs, FileOpener, FilePicker, PrivateStorage, WritableStream};
-    use(if_sync) api_sync::{AndroidFs, FileOpener, FilePicker, PrivateStorage, WritableStream};
+    use(if_async) api_async::{AndroidFs, FileOpener, FilePicker, AppStorage, PrivateStorage, WritableStream};
+    use(if_sync) api_sync::{AndroidFs, FileOpener, FilePicker, AppStorage, PrivateStorage, WritableStream};
 )]
 impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
 
@@ -49,7 +49,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// the app is allowed to create files in `PublicStorage` and read/write the files it creates. 
     /// Access to files created by other apps is not guaranteed.
     /// Additionally, after the app is uninstalled and reinstalled, 
-    /// previously created files may become inaccessible
+    /// previously created files may become inaccessible.
     ///
     /// # Version behavior
     /// ### Android 10 or higher
@@ -80,7 +80,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// the app is allowed to create files in `PublicStorage` and read/write the files it creates. 
     /// Access to files created by other apps is not guaranteed.
     /// Additionally, after the app is uninstalled and reinstalled, 
-    /// previously created files may become inaccessible
+    /// previously created files may become inaccessible.
     ///
     /// # Version behavior
     /// ### Android 10 or higher
@@ -189,7 +189,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     ///     By calling [`PublicStorage::request_permission`],
     ///     you can request the permissions from the user at runtime.  
     ///
-    /// After writing content to the file, call [`PublicStorage::scan_file`].  
+    /// After writing content to the file, call [`PublicStorage::scan`].  
     /// Until then, the file may not appear in the gallery or other apps.
     /// 
     /// # Args
@@ -282,7 +282,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     ///     By calling [`PublicStorage::request_permission`],
     ///     you can request the permissions from the user at runtime.  
     ///
-    /// After writing content to the file, call [`PublicStorage::scan_file`].  
+    /// After writing content to the file, call [`PublicStorage::scan`].  
     /// Until then, the file may not appear in the gallery or other apps.
     /// 
     /// # Args
@@ -481,8 +481,8 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         }
     }
 
-    /// Scans the specified file.   
-    /// This ensures that the file will be visible in the Gallery and etc.
+    /// Scans the specified file in MediaStore.   
+    /// By doing this, the file will be visible with corrent metadata in the Gallery and etc.
     ///
     /// You don’t need to call this after [`PublicStorage::write_new`].   
     /// 
@@ -491,24 +491,28 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// This function does nothing, 
     /// because files are automatically registered in the appropriate MediaStore as needed. 
     /// Scanning is triggered when the file descriptor is closed
-    /// or as part of the [`pending`](PublicStorage::set_pending) lifecycle.
+    /// or as part of the [`pending`](PublicStorage::set_pending) lifecycle.  
+    /// 
+    /// If you really need to perform this operation in this version, 
+    /// please use [`PublicStorage::_scan`].
     ///
     /// ### Android 9 or lower
     /// Requests the specified file to be scanned by MediaStore.  
     /// This function returns when the scan request has been initiated.   
     /// 
     /// # Args
-    /// - **uri** :  
+    /// - ***uri*** :  
     /// The target file URI.
     /// This must be a URI obtained from one of the following:  
     ///     - [`PublicStorage::write_new`]
     ///     - [`PublicStorage::create_new_file`]
     ///     - [`PublicStorage::create_new_file_with_pending`]
+    ///     - [`PublicStorage::scan_by_path`]
     ///
     /// # Support
     /// All Android versions.
     #[maybe_async]
-    pub fn scan_file(
+    pub fn scan(
         &self, 
         uri: &FileUri,
     ) -> Result<()> {
@@ -517,7 +521,82 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().scan_file_in_public_storage(uri).await
+            self.impls().scan_file_in_public_storage(uri, false).await
+        }
+    }
+
+    /// For details, see [`PublicStorage::scan`].
+    /// 
+    /// The difference is that this method scans the file even on Android 10 or higher.
+    /// 
+    /// On Android 10 or higher, files are automatically registered in the appropriate MediaStore as needed. 
+    /// Scanning is triggered when the file descriptor is closed
+    /// or as part of the [`pending`](PublicStorage::set_pending) lifecycle.  
+    /// Therefore, please consider carefully whether this is truly necessary. 
+    #[maybe_async]
+    pub fn _scan(
+        &self, 
+        uri: &FileUri,
+    ) -> Result<()> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().scan_file_in_public_storage(uri, true).await
+        }
+    }
+
+    /// For details, see [`PublicStorage::_scan`].
+    /// 
+    /// The difference is that this function waits until the scan is complete and then returns either success or an error.
+    #[maybe_async]
+    pub fn _scan_for_result(
+        &self, 
+        uri: &FileUri,
+    ) -> Result<()> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().scan_file_in_public_storage_for_result(uri, true).await
+        }
+    }
+
+    /// Scans the specified file in MediaStore and returns it's URI if success.   
+    /// By doing this, the file will be visible in the Gallery and etc.
+    ///
+    /// # Note
+    /// Unlike [`PublicStorage::scan`], 
+    /// this function waits until the scan is complete and then returns either success or an error.
+    /// 
+    /// # Args
+    /// - ***uri*** :  
+    /// Absolute path of the target file.
+    /// This must be a path obtained from one of the following:  
+    ///     - [`PublicStorage::resolve_path`] and it's descendants path.
+    ///     - [`PublicStorage::get_path`]
+    /// 
+    /// - ***mime_type*** :  
+    /// The MIME type of the file.  
+    /// If `None`, the MIME type will be inferred from the extension of the path.  
+    /// If that also fails, `application/octet-stream` will be used.
+    /// 
+    /// # Support
+    /// All Android version.
+    #[maybe_async]
+    pub fn scan_by_path(
+        &self, 
+        path: impl AsRef<std::path::Path>,
+        mime_type: Option<&str>
+    ) -> Result<FileUri> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().scan_file_by_path_in_public_storage(path, mime_type).await
         }
     }
 
@@ -533,8 +612,12 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// 
     /// # Args
     /// - ***uri*** :  
-    /// Target file URI on PublicStorage.
-    /// This must be **read-writable**.
+    /// Target file URI.
+    /// This must be a URI obtained from one of the following:  
+    ///     - [`PublicStorage::write_new`]
+    ///     - [`PublicStorage::create_new_file`]
+    ///     - [`PublicStorage::create_new_file_with_pending`]
+    ///     - [`PublicStorage::scan_by_path`]
     /// 
     /// # Support
     /// All Android version.
@@ -552,33 +635,78 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         }
     }
 
+    /// Gets the absolute path of the specified file.
+    /// 
+    /// For description and notes on path permissions and handling, 
+    /// see [`PublicStorage::resolve_path`].
+    /// 
+    /// # Args
+    /// - ***uri*** :   
+    /// Target file URI.
+    /// This must be a URI obtained from one of the following:  
+    ///     - [`PublicStorage::write_new`]
+    ///     - [`PublicStorage::create_new_file`]
+    ///     - [`PublicStorage::create_new_file_with_pending`]
+    ///     - [`PublicStorage::scan_by_path`]
+    /// 
+    /// # Support
+    /// All Android version.
+    #[maybe_async]
+    pub fn get_path(
+        &self,
+        uri: &FileUri,
+    ) -> Result<std::path::PathBuf> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().get_file_path_in_public_storage(uri).await
+        }
+    }
+
     /// Retrieves the absolute path for a specified public directory within the given storage volume.   
     /// This function does **not** create any directories; it only constructs the path.
     /// 
-    /// Please **avoid using this whenever possible.**  
-    /// Use it only in cases that cannot be handled by [`PublicStorage::create_new_file`] or [`PrivateStorage::resolve_path`],  
-    /// such as when you need to pass the absolute path of a user-accessible file as an argument to debug logger, and etc.
-    /// This should not be used in production.
+    /// The app is allowed to create files in the directory and read/write the files it creates. 
+    /// Access to files created by other apps is not guaranteed.
+    /// Additionally, after the app is uninstalled and reinstalled, 
+    /// previously created files may become inaccessible.
+    /// 
+    /// The directory is **not** removed when the app itself is uninstalled.  
+    /// 
+    /// It is strongly recommended to call [`PublicStorage::scan_by_path`] 
+    /// after writing to the file to request registration in MediaStore.  
+    /// 
+    /// # Note
+    /// Use this only when it is necessary to operate on files using their paths. 
+    /// Otherwise, it is strongly recommended to use [`PublicStorage::create_new_file`].  
+    /// Even when a path is required, 
+    /// it is recommended to first create an empty file using [`PublicStorage::create_new_file`], 
+    /// then obtain its path with [`PublicStorage::get_path`] and use that instead of this.
+    /// 
+    /// Do not use operations such as rename or remove that rely on paths 
+    /// (including URIs obtained via [`FileUri::from_path`] with this paths), 
+    /// as they may break consistency with the MediaStore on old version.
+    /// Instead, use the URI obtained through [`PublicStorage::scan_by_path`] together with methods 
+    /// such as [`AndroidFs::rename`] or [`AndroidFs::remove_file`].
     /// 
     /// # Version behavior
     /// ### Android 11 or higher
-    /// You can create files and folders under this directory and read/write the files it creates.  
-    /// You cannot access files created by other apps. 
-    /// Additionally, if the app is uninstalled, 
-    /// you will no longer be able to access the files you created, 
-    /// even if the app is reinstalled.  
-    /// 
+    /// No permission is required.   
     /// When using [`PublicImageDir`], use only image type for file name extension, 
     /// using other type extension or none may cause errors.
     /// Similarly, use only the corresponding extesions for [`PublicVideoDir`] and [`PublicAudioDir`].
     /// Only [`PublicGeneralPurposeDir`] supports all extensions and no extension. 
     /// 
     /// ### Android 10
-    /// You can do nothing with this path.
+    /// You can do nothing with this path. 
+    /// This is because, 
+    /// on Android 10, it is not permitted to manipulate files in PublicStorage using their paths.   
+    /// If operations using a path are necessary, 
+    /// cosinder using [`AppStorage::resolve_path`] with [`AppDir::PublicMedia`] in this version.  
     /// 
     /// ### Android 9 or lower
-    /// You can create/read/write files and folders under this directory.  
-    /// 
     /// [`WRITE_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#WRITE_EXTERNAL_STORAGE) and [`READ_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#READ_EXTERNAL_STORAGE) permissions are required.    
     /// This needs two steps: 
     /// 
@@ -590,12 +718,6 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     ///     By calling [`PublicStorage::request_permission`],
     ///     you can request the permissions from the user at runtime.  
     ///
-    /// # Note
-    /// Filesystem access via this path may be heavily impacted by emulation overhead.
-    /// And those files will not be registered in MediaStore. 
-    /// It might eventually be registered over time, but this should not be expected.
-    /// As a result, it may not appear in gallery apps or photo picker tools.
-    /// 
     /// # Args
     /// - ***volume_id*** :  
     /// ID of the storage volume, such as internal storage, SD card, etc.  
@@ -603,6 +725,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// 
     /// - ***base_dir*** :  
     /// The base directory.  
+    /// One of [`PublicImageDir`], [`PublicVideoDir`], [`PublicAudioDir`], [`PublicGeneralPurposeDir`].  
     ///  
     /// # Support
     /// All Android version.
@@ -614,7 +737,6 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// Availability on a given device can be verified by calling [`PublicStorage::is_recordings_dir_available`].  
     /// - Others dirs are available in all Android versions.
     #[maybe_async]
-    #[deprecated]
     pub fn resolve_path(
         &self,
         volume_id: Option<&StorageVolumeId>,
@@ -625,13 +747,13 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().resolve_path_in_public_storage(volume_id, base_dir).await
+            self.impls().resolve_dir_path_in_public_storage(volume_id, base_dir).await
         }
     }
 
-    /// Create the specified directory URI that has **no permissions**.  
+    /// Builds the specified directory URI.  
     /// 
-    /// This should only be used as `initial_location` in the file picker. 
+    /// This should only be used as `initial_location` in the file picker, such as [`FilePicker::pick_files`]. 
     /// It must not be used for any other purpose.  
     /// 
     /// This is useful when selecting save location, 
@@ -646,7 +768,12 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// The base directory.  
     ///  
     /// - ***relative_path*** :  
-    /// The directory path relative to the base directory.    
+    /// The directory path relative to the base directory.  
+    /// 
+    /// - ***create_dir_all*** :  
+    /// Creates directories if missing.  
+    /// See [`PublicStorage::create_dir_all`].
+    /// If error occurs, it will be ignored.
     ///  
     /// # Support
     /// All Android version.
@@ -671,42 +798,6 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         }
         #[cfg(target_os = "android")] {
             self.impls().resolve_initial_location_in_public_storage(volume_id, base_dir, relative_path, create_dir_all).await
-        }
-    }
-
-    /// Create the specified directory URI that has **no permissions**.  
-    /// 
-    /// This should only be used as `initial_location` in the file picker. 
-    /// It must not be used for any other purpose.  
-    /// 
-    /// This is useful when selecting save location, 
-    /// but when selecting existing entries, `initial_location` is often better with None.
-    /// 
-    /// # Args  
-    /// - ***volume_id*** :  
-    /// ID of the storage volume, such as internal storage, SD card, etc.  
-    /// If `None` is provided, [`the primary storage volume`](PublicStorage::get_primary_volume) will be used.  
-    /// 
-    /// # Support
-    /// All Android version.
-    ///
-    /// Note :  
-    /// - [`PublicAudioDir::Audiobooks`] is not available on Android 9 (API level 28) and lower.
-    /// Availability on a given device can be verified by calling [`PublicStorage::is_audiobooks_dir_available`].  
-    /// - [`PublicAudioDir::Recordings`] is not available on Android 11 (API level 30) and lower.
-    /// Availability on a given device can be verified by calling [`PublicStorage::is_recordings_dir_available`].  
-    /// - Others dirs are available in all Android versions.
-    #[maybe_async]
-    pub fn resolve_initial_location_top(
-        &self,
-        volume_id: Option<&StorageVolumeId>
-    ) -> Result<FileUri> {
-
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().resolve_initial_location_top_in_public_storage(volume_id).await
         }
     }
 
@@ -743,24 +834,30 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
             Ok(self.impls().consts()?.env_dir_recordings.is_some())
         }
     }
+    
 
+    #[deprecated = "Use PublicStorage::scan instead"]
+    #[maybe_async]
+    pub fn scan_file(
+        &self, 
+        uri: &FileUri,
+    ) -> Result<()> {
 
+        self.scan(uri).await
+    }
 
-    /// ~~Verify whether the basic functions of PublicStorage (such as [`PublicStorage::create_new_file`]) can be performed.~~
-    /// 
-    /// If on Android 9 (API level 28) and lower, this returns false.  
-    /// If on Android 10 (API level 29) or higher, this returns true.  
-    /// 
-    /// # Support
-    /// All Android version.
-    #[deprecated]
-    #[always_sync]
-    pub fn is_available(&self) -> Result<bool> {
+    #[deprecated = "Use `AndroidFs::resolve_root_initial_location` instead"]
+    #[maybe_async]
+    pub fn resolve_initial_location_top(
+        &self,
+        volume_id: Option<&StorageVolumeId>
+    ) -> Result<FileUri> {
+
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            Ok(api_level::ANDROID_10 <= self.impls().api_level()?)
+            self.impls().resolve_root_initial_location(volume_id).await
         }
     }
 }

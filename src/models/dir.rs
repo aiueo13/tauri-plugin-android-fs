@@ -53,20 +53,55 @@ pub enum PrivateDir {
     NoBackupData,
 }
 
-/// The application specific directory.  
+#[deprecated = "Use AppDir instead"]
+pub type OutsidePrivateDir = AppDir;
+
+/// The directory for the app.  
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[non_exhaustive]
-pub enum OutsidePrivateDir {
+pub enum AppDir {
 
-    /// The application specific persistent-data directory.  
+    /// The directory for persistent-data files.  
     /// 
     /// These files will be deleted when the app is uninstalled and may also be deleted at the user’s request.  
+    ///
+    /// Please note that, unlike [`PrivateDir::Data`], it may be accessible by other apps or user.
+    /// 
+    /// e.g. 
+    /// - `/storage/emulated/0/Android/data/{app-package-name}/files`
+    /// - `/storage/{sd-card-id}/Android/data/{app-package-name}/files`
+    ///
+    /// <https://developer.android.com/reference/android/content/Context#getExternalFilesDirs(java.lang.String)>
     Data,
     
-    /// The application specific cache directory.  
+    /// The directory for cache files.  
     /// 
     /// These files will be deleted when the app is uninstalled and may also be deleted at the user’s request. 
+    ///
+    /// Please note that, unlike [`PrivateDir::Cache`], it may be accessible by other apps or user.
+    /// 
+    /// e.g. 
+    /// - `/storage/emulated/0/Android/data/{app-package-name}/cache`
+    /// - `/storage/{sd-card-id}/Android/data/{app-package-name}/cache`
+    ///
+    /// <https://developer.android.com/reference/android/content/Context#getExternalCacheDirs()>
     Cache,
+
+    /// The directory for shared media files to other apps or user.  
+    /// 
+    /// These files will be deleted when the app is uninstalled and may also be deleted at the user’s request. 
+    ///
+    /// For Android 11 (API level 30) or higher, 
+    /// this has been marked as deprecated. 
+    /// It still works, but you should consider migrating to [`PublicDir`] of [`PublicStorage`](crate::api::api_async::PublicStorage).
+    ///
+    /// e.g. 
+    /// - `/storage/emulated/0/Android/media/{app-package-name}`
+    /// - `/storage/{sd-card-id}/Android/media/{app-package-name}`
+    /// 
+    /// <https://developer.android.com/reference/android/content/Context#getExternalMediaDirs()>
+    #[deprecated(note = "For Android 11 (API level 30) or higher, this is deprecated. Use `PublicDir` of `PublicStorage` instead.")]
+    PublicMedia
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Deserialize, Serialize)]
@@ -91,10 +126,8 @@ pub enum PublicDir {
 #[non_exhaustive]
 pub enum PublicImageDir {
 
-    /// e.g. `~/Pictures`
     Pictures,
 
-    /// e.g. `~/DCIM`
     DCIM,
 }
 
@@ -103,10 +136,8 @@ pub enum PublicImageDir {
 #[non_exhaustive]
 pub enum PublicVideoDir {
 
-	/// e.g. `~/Movies`
 	Movies,
 
-	/// e.g. `~/DCIM`
 	DCIM,
 }
 
@@ -115,29 +146,20 @@ pub enum PublicVideoDir {
 #[non_exhaustive]
 pub enum PublicAudioDir {
 
-    /// e.g. `~/Music`
     Music,
 
-    /// e.g. `~/Alarms`
     Alarms,
 
     /// This is not available on Android 9 (API level 28) and lower.  
-    /// 
-    /// e.g. `~/Audiobooks`  
     Audiobooks,
 
-    /// e.g. `~/Notifications`
     Notifications,
 
-    /// e.g. `~/Podcasts`
     Podcasts,
 
-    /// e.g. `~/Ringtones`
     Ringtones,
 
     /// This is not available on Android 11 (API level 30) and lower.  
-    /// 
-    /// e.g. `~/Recordings`
     Recordings,
 }
 
@@ -146,11 +168,8 @@ pub enum PublicAudioDir {
 #[non_exhaustive]
 pub enum PublicGeneralPurposeDir {
 
-    /// e.g. `~/Documents`
     Documents,
 
-    /// e.g. `~/Download`  
-    ///
     /// This is not the plural "Downloads", but the singular "Download".
     /// <https://developer.android.com/reference/android/os/Environment#DIRECTORY_DOWNLOADS>
     Download,
