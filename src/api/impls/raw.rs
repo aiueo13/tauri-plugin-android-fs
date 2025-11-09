@@ -781,6 +781,17 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             .map(|res| res.granted)
     }
 
+    #[always_sync]
+    pub fn is_legacy_storage(&self) -> Result<bool> {
+        let is_legacy_storage = get_or_init_is_legacy_storage(move || {
+            impl_de!(struct Res { value: bool });
+
+            self.invoke_sync::<Res>("isLegacyStorage", ()).map(|res| res.value)
+        })?;
+
+        Ok(*is_legacy_storage)
+    }
+
     #[maybe_async]
     pub fn find_saf_file_uri(
         &self,
@@ -863,6 +874,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 }
 
+fn_get_or_init!(get_or_init_is_legacy_storage, bool);
 fn_get_or_init!(get_or_init_const, Consts);
 fn_get_or_init!(get_or_init_private_dir_paths, PrivateDirPaths);
 

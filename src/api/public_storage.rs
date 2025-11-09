@@ -52,9 +52,12 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// previously created files may become inaccessible.
     ///
     /// # Version behavior
-    /// ### Android 10 or higher
+    /// ### Android 11 or higher
     /// Requests no permission.   
     /// This function always returns `true`.
+    /// 
+    /// ### Android 10
+    /// Selects either the behavior for Android 11 or higher or for Android 9 or lower, as needed.
     ///
     /// ### Android 9 or lower
     /// Requests [`WRITE_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#WRITE_EXTERNAL_STORAGE) and [`READ_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#READ_EXTERNAL_STORAGE) permissions.   
@@ -83,8 +86,11 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// previously created files may become inaccessible.
     ///
     /// # Version behavior
-    /// ### Android 10 or higher
+    /// ### Android 11 or higher
     /// Always returns `true`.
+    ///
+    /// ### Android 10
+    /// Selects either the behavior for Android 11 or higher or for Android 9 or lower, as needed.
     ///
     /// ### Android 9 or lower
     /// Returns `true` if the app has been granted [`WRITE_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#WRITE_EXTERNAL_STORAGE) and [`READ_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#READ_EXTERNAL_STORAGE) permissions.    
@@ -170,9 +176,8 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// The app can read/write it until the app is uninstalled. 
     /// And it is **not** removed when the app itself is uninstalled.  
     /// 
-    /// # Version behavior
+    /// # Note
     /// ### Android 10 or higher. 
-    /// No permission is required.  
     /// Files are automatically registered in the appropriate MediaStore as needed. 
     /// Scanning is triggered when the file descriptor is closed
     /// or as part of the [`pending`](PublicStorage::set_pending) lifecycle.
@@ -256,9 +261,8 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// The app can read/write it until the app is uninstalled. 
     /// And it is **not** removed when the app itself is uninstalled.  
     /// 
-    /// # Version behavior
+    /// # Note
     /// ### Android 10 or higher
-    /// No permission is required.  
     /// Files are automatically registered in the appropriate MediaStore as needed. 
     /// Scanning is triggered when the file descriptor is closed
     /// or as part of the [`pending`](PublicStorage::set_pending) lifecycle.
@@ -349,11 +353,8 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// [`PublicStorage::create_new_file`] and [`PublicStorage::create_new_file_with_pending`]
     /// do this automatically, so there is no need to use it together.
     /// 
-    /// # Version behavior
-    /// ### Android 10 or higher
-    /// No permission is required.  
-    /// 
-    /// ### Android 9 or lower
+    /// # Note
+    /// On Android 9 or lower,
     /// [`WRITE_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#WRITE_EXTERNAL_STORAGE) and [`READ_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#READ_EXTERNAL_STORAGE) permissions are required.    
     /// This needs two steps: 
     /// 
@@ -409,11 +410,8 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// The app can read/write it until the app is uninstalled. 
     /// And it is **not** removed when the app itself is uninstalled.  
     /// 
-    /// # Version behavior
-    /// ### Android 10 or higher. 
-    /// No permission is required.  
-    /// 
-    /// ### Android 9 or lower
+    /// # Note
+    /// On Android 9 or lower,
     /// [`WRITE_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#WRITE_EXTERNAL_STORAGE) and [`READ_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#READ_EXTERNAL_STORAGE) permissions are required.    
     /// This needs two steps: 
     /// 
@@ -575,8 +573,8 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// - ***uri*** :  
     /// Absolute path of the target file.
     /// This must be a path obtained from one of the following:  
-    ///     - [`PublicStorage::resolve_path`] and it's descendants path.
-    ///     - [`PublicStorage::get_path`]
+    ///     - [`PublicStorage::_resolve_path`] and it's descendants path.
+    ///     - [`PublicStorage::_get_path`]
     /// 
     /// - ***mime_type*** :  
     /// The MIME type of the file.  
@@ -637,8 +635,11 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
 
     /// Gets the absolute path of the specified file.
     /// 
+    /// # Note
     /// For description and notes on path permissions and handling, 
-    /// see [`PublicStorage::resolve_path`].
+    /// see [`PublicStorage::_resolve_path`].
+    /// It involves important constraints and required settings. 
+    /// Therefore, **operate files via paths only when it is truly necessary**.
     /// 
     /// # Args
     /// - ***uri*** :   
@@ -652,7 +653,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// # Support
     /// All Android version.
     #[maybe_async]
-    pub fn get_path(
+    pub fn _get_path(
         &self,
         uri: &FileUri,
     ) -> Result<std::path::PathBuf> {
@@ -679,11 +680,8 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// after writing to the file to request registration in MediaStore.  
     /// 
     /// # Note
-    /// Use this only when it is necessary to operate on files using their paths. 
-    /// Otherwise, it is strongly recommended to use [`PublicStorage::create_new_file`].  
-    /// Even when a path is required, 
-    /// it is recommended to first create an empty file using [`PublicStorage::create_new_file`], 
-    /// then obtain its path with [`PublicStorage::get_path`] and use that instead of this.
+    /// As shown below, this involves important constraints and required settings.
+    /// Therefore, **operate files via paths only when it is truly necessary**.
     /// 
     /// Do not use operations such as rename or remove that rely on paths 
     /// (including URIs obtained via [`FileUri::from_path`] with this paths), 
@@ -691,7 +689,6 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// Instead, use the URI obtained through [`PublicStorage::scan_by_path`] together with methods 
     /// such as [`AndroidFs::rename`] or [`AndroidFs::remove_file`].
     /// 
-    /// # Version behavior
     /// ### Android 11 or higher
     /// No permission is required.   
     /// When using [`PublicImageDir`], use only image type for file name extension, 
@@ -699,25 +696,41 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// Similarly, use only the corresponding extesions for [`PublicVideoDir`] and [`PublicAudioDir`].
     /// Only [`PublicGeneralPurposeDir`] supports all extensions and no extension. 
     /// 
-    /// ### Android 10
-    /// You can do nothing with this path. 
-    /// This is because, 
-    /// on Android 10, it is not permitted to manipulate files in PublicStorage using their paths.   
-    /// If operations using a path are necessary, 
-    /// cosinder using [`AppStorage::resolve_path`] with [`AppDir::PublicMedia`] in this version.  
-    /// 
-    /// ### Android 9 or lower
+    /// ### Android 10 or lower
     /// [`WRITE_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#WRITE_EXTERNAL_STORAGE) and [`READ_EXTERNAL_STORAGE`](https://developer.android.com/reference/android/Manifest.permission#READ_EXTERNAL_STORAGE) permissions are required.    
     /// This needs two steps: 
     /// 
     /// 1. Declare :  
-    ///     By enabling the `legacy_storage_permission` feature,  
-    ///     you can declare the permissions only for Android 9 or lower automatically at build time.  
-    ///
+    ///     By enabling the `legacy_storage_permission_include_android_10` feature,  
+    ///     you can declare the permissions only for Android 10 or lower automatically at build time.  
+    /// 
     /// 2. Runtime request :  
     ///     By calling [`PublicStorage::request_permission`],
     ///     you can request the permissions from the user at runtime.  
     ///
+    /// ### Android 10
+    /// Files within PublicStorage cannot be accessed via file paths, 
+    /// so it is necessary to declare that the app need access `PublicStorage` using the method of Android 9 or lower.   
+    /// 
+    /// For it, please [set `android:requestLegacyExternalStorage="true"`](https://developer.android.com/training/data-storage/use-cases#opt-out-in-production-app).
+    /// 
+    /// `src-tauri/gen/android/app/src/main/AndroidManifest.xml`
+    /// ```xml
+    /// <manifest ... >
+    ///     <application 
+  	///         android:requestLegacyExternalStorage="true" 
+  	///         ...
+    ///     >
+    ///         ...
+    ///     </application>
+    /// </manifest>
+    /// ```
+    /// And it is not possible to access `PublicStorage`
+	/// on volumes other than the primary storage via paths, just like on Android 9 or lower.   
+	/// But filtering using [`PublicStorage::get_volumes`]
+	/// or [`StorageVolume::is_available_for_public_storage`] may not work correctly, 
+	/// as these are intended for access via URIs.
+    /// 
     /// # Args
     /// - ***volume_id*** :  
     /// ID of the storage volume, such as internal storage, SD card, etc.  
@@ -737,7 +750,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// Availability on a given device can be verified by calling [`PublicStorage::is_recordings_dir_available`].  
     /// - Others dirs are available in all Android versions.
     #[maybe_async]
-    pub fn resolve_path(
+    pub fn _resolve_path(
         &self,
         volume_id: Option<&StorageVolumeId>,
         base_dir: impl Into<PublicDir>,
@@ -859,5 +872,26 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         #[cfg(target_os = "android")] {
             self.impls().resolve_root_initial_location(volume_id).await
         }
+    }
+
+    #[deprecated = "Use `PublicStorage::_resolve_path` instead"]
+    #[maybe_async]
+    pub fn resolve_path(
+        &self,
+        volume_id: Option<&StorageVolumeId>,
+        base_dir: impl Into<PublicDir>,
+    ) -> Result<std::path::PathBuf> {
+
+        self._resolve_path(volume_id, base_dir).await
+    }
+
+    #[deprecated = "Use `PublicStorage::_get_path` instead"]
+    #[maybe_async]
+    pub fn get_path(
+        &self,
+        uri: &FileUri,
+    ) -> Result<std::path::PathBuf> {
+
+        self._get_path(uri).await
     }
 }

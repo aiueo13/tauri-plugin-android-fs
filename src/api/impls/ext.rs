@@ -369,20 +369,22 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
 
     #[maybe_async]
     pub fn request_storage_permission_for_public_storage(&self) -> Result<bool> {
-        if api_level::ANDROID_10 <= self.api_level()? {
-            return Ok(true)
+        if self.is_legacy_storage()? {
+            self.request_legacy_storage_permission().await
         }
-        
-        self.request_legacy_storage_permission().await
+        else {
+            Ok(true)
+        }
     }
 
     #[maybe_async]
     pub fn has_storage_permission_for_public_storage(&self) -> Result<bool> {
-        if api_level::ANDROID_10 <= self.api_level()? {
-            return Ok(true)
+        if self.is_legacy_storage()? {
+            self.has_legacy_storage_permission().await
         }
-        
-        self.has_legacy_storage_permission().await
+        else {
+            Ok(true)
+        }
     }
 
     #[maybe_async]

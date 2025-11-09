@@ -451,6 +451,23 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
+    fun isLegacyStorage(invoke: Invoke) {
+        try {
+            val isLegacyStorage = when {
+                // Q は Android 10
+                Build.VERSION_CODES.Q < Build.VERSION.SDK_INT -> false
+                Build.VERSION_CODES.Q == Build.VERSION.SDK_INT -> Environment.isExternalStorageLegacy()
+                else -> true
+            }
+
+            invoke.resolve(JSObject().apply { put("value", isLegacyStorage) })
+        }
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "unknown")
+        }
+    }
+
+    @Command
     fun requestLegacyStoragePermission(invoke: Invoke) {
         try {
             // Tauri は Android7 未満をサポートしていないので本来これはいらないが、警告を消すために書く

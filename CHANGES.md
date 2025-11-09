@@ -1,3 +1,11 @@
+# Version 18.1.0
+- Deprecate `PublicStorage::resolve_path`
+- Deprecate `PublicStorage::get_path`
+- Add `PublicStorage::_resolve_path`
+- Add `PublicStorage::_get_path`
+- Add feature `legay_storage_permission_include_android_10`
+- Update documentation.
+
 # Version 18.0.0
 - Remove deprecated items
 - Deprecate ``PublicStorage::resolve_initial_location_top`
