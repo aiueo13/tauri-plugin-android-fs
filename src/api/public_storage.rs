@@ -121,11 +121,10 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// Primary storage volume is always listed first, if included. 
     /// But the order of the others is not guaranteed.  
     /// 
-    /// # Version behavior
+    /// # Note
     /// For Android 9 (API level 28) or lower, 
     /// this does not include any storage volumes other than the primary one. 
     /// 
-    /// # Note
     /// The volume represents the logical view of a storage volume for an individual user:
     /// each user may have a different view for the same physical volume.
     /// In other words, it provides a separate area for each user in a multi-user environment.
@@ -573,8 +572,8 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// - ***uri*** :  
     /// Absolute path of the target file.
     /// This must be a path obtained from one of the following:  
-    ///     - [`PublicStorage::_resolve_path`] and it's descendants path.
-    ///     - [`PublicStorage::_get_path`]
+    ///     - [`PublicStorage::resolve_path`] and it's descendants path.
+    ///     - [`PublicStorage::get_path`]
     /// 
     /// - ***mime_type*** :  
     /// The MIME type of the file.  
@@ -604,7 +603,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// If it remains `true` for more than seven days, 
     /// the system will automatically delete the file.
     /// 
-    /// # Version behavior
+    /// # Note
     /// This is available for Android 10 or higher.  
     /// On Android 9 or lower, this does nothing. 
     /// 
@@ -637,7 +636,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// 
     /// # Note
     /// For description and notes on path permissions and handling, 
-    /// see [`PublicStorage::_resolve_path`].
+    /// see [`PublicStorage::resolve_path`].
     /// It involves important constraints and required settings. 
     /// Therefore, **operate files via paths only when it is truly necessary**.
     /// 
@@ -652,8 +651,9 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// 
     /// # Support
     /// All Android version.
+    #[deprecated = "File operations via paths may result in unstable behaviour and inconsistent outcomes."]
     #[maybe_async]
-    pub fn _get_path(
+    pub fn get_path(
         &self,
         uri: &FileUri,
     ) -> Result<std::path::PathBuf> {
@@ -749,8 +749,9 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// - [`PublicAudioDir::Recordings`] is not available on Android 11 (API level 30) and lower.
     /// Availability on a given device can be verified by calling [`PublicStorage::is_recordings_dir_available`].  
     /// - Others dirs are available in all Android versions.
+    #[deprecated = "File operations via paths may result in unstable behaviour and inconsistent outcomes."]
     #[maybe_async]
-    pub fn _resolve_path(
+    pub fn resolve_path(
         &self,
         volume_id: Option<&StorageVolumeId>,
         base_dir: impl Into<PublicDir>,
@@ -846,52 +847,5 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         #[cfg(target_os = "android")] {
             Ok(self.impls().consts()?.env_dir_recordings.is_some())
         }
-    }
-    
-
-    #[deprecated = "Use PublicStorage::scan instead"]
-    #[maybe_async]
-    pub fn scan_file(
-        &self, 
-        uri: &FileUri,
-    ) -> Result<()> {
-
-        self.scan(uri).await
-    }
-
-    #[deprecated = "Use `AndroidFs::resolve_root_initial_location` instead"]
-    #[maybe_async]
-    pub fn resolve_initial_location_top(
-        &self,
-        volume_id: Option<&StorageVolumeId>
-    ) -> Result<FileUri> {
-
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().resolve_root_initial_location(volume_id).await
-        }
-    }
-
-    #[deprecated = "Use `PublicStorage::_resolve_path` instead"]
-    #[maybe_async]
-    pub fn resolve_path(
-        &self,
-        volume_id: Option<&StorageVolumeId>,
-        base_dir: impl Into<PublicDir>,
-    ) -> Result<std::path::PathBuf> {
-
-        self._resolve_path(volume_id, base_dir).await
-    }
-
-    #[deprecated = "Use `PublicStorage::_get_path` instead"]
-    #[maybe_async]
-    pub fn get_path(
-        &self,
-        uri: &FileUri,
-    ) -> Result<std::path::PathBuf> {
-
-        self._get_path(uri).await
     }
 }

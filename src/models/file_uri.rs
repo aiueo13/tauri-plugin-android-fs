@@ -27,11 +27,8 @@ use crate::*;
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileUri {
-    /// `file://` or `content://` URI of file or directory.
-    pub uri: String,
-
-    /// Only files/directories under the directory obtained by `FilePicker::pick_dir` will own this.
-    pub document_top_tree_uri: Option<String>,
+    pub(crate) uri: String,
+    pub(crate) document_top_tree_uri: Option<String>,
 }
 
 #[allow(unused)]
@@ -43,14 +40,6 @@ impl FileUri {
 
     pub fn from_json_str(json: impl AsRef<str>) -> Result<Self> {
         serde_json::from_str(json.as_ref()).map_err(Into::into)
-    }
-
-    pub fn to_bytes(&self) -> Result<Vec<u8>> {
-        serde_json::to_vec(self).map_err(Into::into)
-    }
-
-    pub fn from_bytes(bytes: impl AsRef<[u8]>) -> Result<Self> {
-        serde_json::from_slice(bytes.as_ref()).map_err(Into::into)
     }
 
     pub fn from_path(path: impl AsRef<std::path::Path>) -> Self {

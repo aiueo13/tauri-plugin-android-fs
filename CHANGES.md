@@ -1,3 +1,12 @@
+# Version 19.0.0
+- Remove deprecated items
+- Remove `PublicStorage::_resolve_path`
+- Remove `PublicStorage::_get_path`
+- Remove `FileUri::from_bytes`
+- Remove `FileUri::to_bytes`
+- Add `AppStorage::resolve_uri`
+- Update documentation.
+
 # Version 18.1.0
 - Deprecate `PublicStorage::resolve_path`
 - Deprecate `PublicStorage::get_path`

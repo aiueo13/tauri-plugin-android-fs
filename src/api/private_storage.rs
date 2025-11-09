@@ -81,48 +81,7 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
         }
     }
 
-    #[maybe_async]
-    #[allow(deprecated)]
-    #[deprecated = "Use `AppStorage::resolve_path` instead"]
-    pub fn resolve_outside_path(
-        &self, 
-        volume_id: Option<&StorageVolumeId>,
-        dir: OutsidePrivateDir
-    ) -> Result<std::path::PathBuf> {
-
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().resolve_dir_path_in_app_storage(volume_id, dir).await
-        }
-    }
-
-    #[deprecated = "Use `AppStorage::get_volumes` instead"]
-    #[maybe_async]
-    pub fn get_volumes(&self) -> Result<Vec<StorageVolume>> {
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().get_available_storage_volumes_for_app_storage().await
-        }
-    }
-
-    #[deprecated = "Use `AppStorage::get_primary_volume` instead"]
-    #[maybe_async]
-    pub fn get_primary_volume(&self) -> Result<Option<StorageVolume>> {
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().get_primary_storage_volume_if_available_for_app_storage().await
-        }
-    }
-
-
-    /// This is same as [`FileUri::from_path`]
-    #[deprecated = "use `FileUri::from_path` instead"]
+    /// See [`PrivateStorage::resolve_path`] and [`FileUri::from_path`]
     #[maybe_async]
     pub fn resolve_uri(
         &self, 

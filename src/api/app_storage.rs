@@ -174,6 +174,25 @@ impl<'a, R: tauri::Runtime> AppStorage<'a, R> {
         }
     }
 
+    /// See [`AppStorage::resolve_path`] and [`FileUri::from_path`].
+    #[maybe_async]
+    pub fn resolve_uri(
+        &self, 
+        volume_id: Option<&StorageVolumeId>,
+        dir: AppDir,
+        relative_path: impl AsRef<std::path::Path>
+    ) -> Result<FileUri> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            let mut path = self.resolve_path(volume_id, dir).await?;
+            path.push(relative_path.as_ref());
+            Ok(path.into())
+        }
+    }
+
     /// Scans the specified file in MediaStore and returns it's URI if success.   
     /// By doing this, the file will be visible in the Gallery and etc.
     ///
