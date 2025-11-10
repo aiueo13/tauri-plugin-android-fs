@@ -522,45 +522,6 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         }
     }
 
-    /// For details, see [`PublicStorage::scan`].
-    /// 
-    /// The difference is that this method scans the file even on Android 10 or higher.
-    /// 
-    /// On Android 10 or higher, files are automatically registered in the appropriate MediaStore as needed. 
-    /// Scanning is triggered when the file descriptor is closed
-    /// or as part of the [`pending`](PublicStorage::set_pending) lifecycle.  
-    /// Therefore, please consider carefully whether this is truly necessary. 
-    #[maybe_async]
-    pub fn _scan(
-        &self, 
-        uri: &FileUri,
-    ) -> Result<()> {
-
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().scan_file_in_public_storage(uri, true).await
-        }
-    }
-
-    /// For details, see [`PublicStorage::_scan`].
-    /// 
-    /// The difference is that this function waits until the scan is complete and then returns either success or an error.
-    #[maybe_async]
-    pub fn _scan_for_result(
-        &self, 
-        uri: &FileUri,
-    ) -> Result<()> {
-
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().scan_file_in_public_storage_for_result(uri, true).await
-        }
-    }
-
     /// Scans the specified file in MediaStore and returns it's URI if success.   
     /// By doing this, the file will be visible in the Gallery and etc.
     ///
@@ -690,7 +651,6 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// such as [`AndroidFs::rename`] or [`AndroidFs::remove_file`].
     /// 
     /// ### Android 11 or higher
-    /// No permission is required.   
     /// When using [`PublicImageDir`], use only image type for file name extension, 
     /// using other type extension or none may cause errors.
     /// Similarly, use only the corresponding extesions for [`PublicVideoDir`] and [`PublicAudioDir`].
@@ -846,6 +806,45 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         }
         #[cfg(target_os = "android")] {
             Ok(self.impls().consts()?.env_dir_recordings.is_some())
+        }
+    }
+
+    /// For details, see [`PublicStorage::scan`].
+    /// 
+    /// The difference is that this method scans the file even on Android 10 or higher.
+    /// 
+    /// On Android 10 or higher, files are automatically registered in the appropriate MediaStore as needed. 
+    /// Scanning is triggered when the file descriptor is closed
+    /// or as part of the [`pending`](PublicStorage::set_pending) lifecycle.  
+    /// Therefore, please consider carefully whether this is truly necessary. 
+    #[maybe_async]
+    pub fn _scan(
+        &self, 
+        uri: &FileUri,
+    ) -> Result<()> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().scan_file_in_public_storage(uri, true).await
+        }
+    }
+
+    /// For details, see [`PublicStorage::_scan`].
+    /// 
+    /// The difference is that this function waits until the scan is complete and then returns either success or an error.
+    #[maybe_async]
+    pub fn _scan_for_result(
+        &self, 
+        uri: &FileUri,
+    ) -> Result<()> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().scan_file_in_public_storage_for_result(uri, true).await
         }
     }
 }

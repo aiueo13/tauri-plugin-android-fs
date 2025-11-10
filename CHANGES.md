@@ -1,3 +1,8 @@
+# Version 19.1.0
+- Add `AndroidFs::_resolve_file_uri`
+- Add `AndroidFs::_resolve_dir_uri`
+- Update documentation.
+
 # Version 19.0.0
 - Remove deprecated items
 - Remove `PublicStorage::_resolve_path`

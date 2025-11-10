@@ -42,6 +42,13 @@ impl FileUri {
         serde_json::from_str(json.as_ref()).map_err(Into::into)
     }
 
+    /// Constructs a URI from the absolute path of a file or directory.   
+    /// Even if the path is invalid, it will not cause an error or panic; an invalid URI will be returned.   
+    /// 
+    /// # Note
+    /// There are a few points to note regarding this.
+    /// - This URI cannot be passed to functions of [`FileOpener`](crate::api::api_async::FileOpener).
+    /// - Operations using this URI may fall back to [`std::fs`] instead of Kotlin API.
     pub fn from_path(path: impl AsRef<std::path::Path>) -> Self {
         Self { uri: format!("file://{}", path.as_ref().to_string_lossy()), document_top_tree_uri: None }
     }

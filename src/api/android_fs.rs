@@ -195,7 +195,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// This truncates the existing contents.  
     /// 
     /// # Note
-    /// For file provider of some cloud storage, 
+    /// For file provider of some third-party apps, 
     /// writing by file descriptor like std::fs may not correctoly notify and reflect changes. 
     /// If you need to write to such files, use [`AndroidFs::open_writable_stream`].
     /// It will fall back to Kotlin API as needed.
@@ -225,31 +225,33 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Open the file in the specified mode.  
     /// 
     /// # Note
+    /// Please note the following points when handling files obtained from the [`FilePicker`].
+    /// This does not apply to files obtained from [`PublicStorage`], [`PrivateStorage`], or [`AppStorage`].
+    /// 
+    /// 1. **Delay**:   
     /// If the target is a file on cloud storage or otherwise not physically present on the device,
     /// the file provider may downloads the entire contents, and then opens it. 
     /// As a result, this processing may take longer than with regular local files.
     /// And files might be a pair of pipe or socket for streaming data.
     /// 
-    /// When writing to a file with this function,
-    /// pay attention to the following points:
-    /// 
-    /// 1. **File reflection**:  
-    /// For file provider of some cloud storage, 
+    /// 2. **File reflection**:  
+    /// For file provider of some third-party apps, 
     /// writing by file descriptor like std::fs may not correctoly notify and reflect changes. 
     /// If you need to write to such files, use [`AndroidFs::open_writable_stream`].
     /// It will fall back to Kotlin API as needed.
     /// And you can check by [`AndroidFs::need_write_via_kotlin`].
     /// 
-    /// 2. **File mode restrictions**:  
-    /// Files provided by third-party apps may not support writable modes other than
-    /// [`FileAccessMode::Write`]. However, [`FileAccessMode::Write`] does not guarantee
+    /// 3. **File mode restrictions**:  
+    /// Files provided by third-party apps may not support modes other than
+    /// [`FileAccessMode::Write`] or [`FileAccessMode::Read`]. 
+    /// However, [`FileAccessMode::Write`] does not guarantee
     /// that existing contents will always be truncated.  
     /// As a result, if the new contents are shorter than the original, the file may
     /// become corrupted. To avoid this, consider using
     /// [`AndroidFs::open_file_writable`] or [`AndroidFs::open_writable_stream`], which
     /// ensure that existing contents are truncated and also automatically apply the
     /// maximum possible fallbacks.  
-    /// <https://issuetracker.google.com/issues/180526528>
+    /// - <https://issuetracker.google.com/issues/180526528>
     /// 
     /// # Args
     /// - ***uri*** :  
@@ -258,8 +260,6 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// 
     /// - ***mode*** :  
     /// Indicates how the file is opened and the permissions granted. 
-    /// The only ones that can be expected to work in all cases are [`FileAccessMode::Write`] and [`FileAccessMode::Read`].
-    /// Because files hosted by third-party apps may not support others.
     /// 
     /// # Support
     /// All Android version.
@@ -661,7 +661,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().resolve_file_uri(dir, relative_path).await
+            self.impls().resolve_file_uri(dir, relative_path, false).await
         }
     }
 
@@ -697,7 +697,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().resolve_dir_uri(dir, relative_path).await
+            self.impls().resolve_dir_uri(dir, relative_path, false).await
         }
     }
 
@@ -1254,6 +1254,52 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         }
         #[cfg(target_os = "android")] {
             self.impls().api_level()
+        }
+    }
+
+    /// See [`AndroidFs::resolve_file_uri`] for details.
+    /// 
+    /// The difference is that this may skip checking whether the target exists and is a file.  
+    /// As a result, in many cases it avoids the delay (from a few to several tens of milliseconds) caused by calling a Kotlin-side function.
+    /// 
+    /// Note that, depending on the situation, 
+    /// the Kotlin-side function may be called or a check may be performed, 
+    /// which could result in an error or a delay.
+    #[maybe_async]
+    pub fn _resolve_file_uri(
+        &self, 
+        dir: &FileUri, 
+        relative_path: impl AsRef<std::path::Path>
+    ) -> Result<FileUri> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().resolve_file_uri(dir, relative_path, true).await
+        }
+    }
+
+    /// See [`AndroidFs::resolve_dir_uri`] for details.
+    /// 
+    /// The difference is that this may skip checking whether the target exists and is a directory.  
+    /// As a result, in many cases it avoids the delay (from a few to several tens of milliseconds) caused by calling a Kotlin-side function.
+    ///
+    /// Note that, depending on the situation, 
+    /// the Kotlin-side function may be called or a check may be performed, 
+    /// which could result in an error or a delay.
+    #[maybe_async]
+    pub fn _resolve_dir_uri(
+        &self, 
+        dir: &FileUri, 
+        relative_path: impl AsRef<std::path::Path>
+    ) -> Result<FileUri> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().resolve_dir_uri(dir, relative_path, true).await
         }
     }
 }

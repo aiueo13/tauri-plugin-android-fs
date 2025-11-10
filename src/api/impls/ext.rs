@@ -282,7 +282,8 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     pub fn resolve_file_uri(
         &self, 
         dir: &FileUri, 
-        relative_path: impl AsRef<std::path::Path>
+        relative_path: impl AsRef<std::path::Path>,
+        allow_unchecked: bool
     ) -> Result<FileUri> {
 
         let mut uri = None;
@@ -294,7 +295,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         }
 
         if let Some(uri) = uri {
-            if self.is_file(&uri).await? {
+            if allow_unchecked || self.is_file(&uri).await? {
                return Ok(uri) 
             }
             return Err(Error::with(format!("This is not a file: {uri:?}")))
@@ -307,7 +308,8 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     pub fn resolve_dir_uri(
         &self,
         dir: &FileUri, 
-        relative_path: impl AsRef<std::path::Path>
+        relative_path: impl AsRef<std::path::Path>,
+        allow_unchecked: bool
     ) -> Result<FileUri> {
 
         let mut uri = None;
@@ -319,7 +321,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         }
         
         if let Some(uri) = uri {
-            if self.is_dir(&uri).await? {
+            if allow_unchecked || self.is_dir(&uri).await? {
                return Ok(uri) 
             }
             return Err(Error::with(format!("This is not a directory: {uri:?}")))

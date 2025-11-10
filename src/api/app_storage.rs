@@ -117,7 +117,7 @@ impl<'a, R: tauri::Runtime> AppStorage<'a, R> {
 	/// only relative paths should be stored.
     /// 
     /// # Note
-    /// ## About [`AppDir::Data`] and [`AppDir::Cache`]
+    /// ### About AppDir::Data and AppDir::Cache
     /// Since these locations may contain files created by other Tauri plugins or webview systems, 
     /// it is recommended to add a subdirectory with a unique name.
     ///
@@ -136,7 +136,7 @@ impl<'a, R: tauri::Runtime> AppStorage<'a, R> {
     /// If it is `true`, there is no advantage in using this instead of [`PrivateStorage::resolve_path`]. 
     /// It only reduces security.
     /// 
-    /// ## About [`AppDir::PublicMedia`]
+    /// ### About AppDir::PublicMedia
     /// This is a location for storing media files shared with other apps nad user on older versions of Android. 
     /// For Android 11 (API level 30) or higher, 
     /// it has been marked as deprecated. 
