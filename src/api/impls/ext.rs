@@ -144,104 +144,35 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn write_file_auto(
-        &self,
-        uri: &FileUri, 
-        contents: impl AsRef<[u8]>,
-    ) -> Result<()> {
-
-        let need_write_via_kotlin = self.need_write_file_via_kotlin(uri).await?;
-        self.write_file(uri, contents, need_write_via_kotlin).await
-    }
-
-    #[maybe_async]
-    pub fn write_file_via_kotlin(
-        &self,
-        uri: &FileUri, 
-        contents: impl AsRef<[u8]>,
-    ) -> Result<()> {
-
-        let need_write_via_kotlin = true;
-        self.write_file(uri, contents, need_write_via_kotlin).await
-    }
-
-    #[maybe_async]
     pub fn write_file(
         &self,
         uri: &FileUri, 
         contents: impl AsRef<[u8]>,
-        need_write_via_kotlin: bool,
     ) -> Result<()> {
 
-        let mut stream = self.create_writable_stream(uri, need_write_via_kotlin).await?;
+        let mut file = self.open_file_writable(uri).await?;
 
-        #[if_sync]
-        let result = stream.write_all(contents.as_ref());
-
-        #[if_async]
-        let (result, stream) = {
+        #[if_sync] {
+            file.write_all(contents.as_ref())?;
+        }
+        #[if_async] {
             let contents = upgrade_bytes_ref(contents);
-            run_blocking(move ||{
-                // run_blocking内ではエラーを返さないようにする。
-                let result = stream.write_all(&contents);
-                Ok((result, stream))
-            }).await? 
-            // 起こることはないと思うが、
-            // tokio の spwan_blocking でエラーになった場合は早期 return する。
-            // reflect や dispose_without_reflct は最悪呼び出されなくてもいい。
-        };
-
-        match result {
-            Ok(_) => stream.reflect().await,
-            Err(e) => {
-                stream.dispose_without_reflect().await.ok();
-                Err(e.into())
-            },
-        }
-    }
-
-    #[maybe_async]
-    pub fn copy_file(&self, src: &FileUri, dest: &FileUri) -> Result<()> {
-        if self.need_write_file_via_kotlin(dest).await? {
-            self.copy_file_via_kotlin(src, dest, None).await?;
-        }
-        else {
-            // std::io::copy は std::fs::File 同士のコピーの場合、最適化が働く可能性がある。
-            // そのため WritableStream は用いない。
-            let mut src = self.open_file_readable(src).await?;
-            let mut dest = self.open_file_writable(dest).await?;
-            run_blocking(move || std::io::copy(&mut src, &mut dest).map_err(Into::into)).await?;
+            run_blocking(move || file.write_all(&contents).map_err(Into::into)).await?;
         }
         Ok(())
     }
 
     #[maybe_async]
-    pub fn need_write_file_via_kotlin(&self, uri: &FileUri) -> Result<bool> {
-        // - https://issuetracker.google.com/issues/200201777
-        // - https://stackoverflow.com/questions/51015513/fileoutputstream-writes-0-bytes-to-google-drive
-        // - https://stackoverflow.com/questions/51490194/file-written-using-action-create-document-is-empty-on-google-drive-but-not-local
-        // - https://community.latenode.com/t/csv-export-to-google-drive-results-in-empty-file-but-local-storage-works-fine 
-        // 
-        // Intent.ACTION_OPEN_DOCUMENT や Intent.ACTION_CREATE_DOCUMENT などの SAF で
-        // 取得した Google Drive のファイルに対して生の FD を用いて書き込んだ場合、
-        // それが反映されず空のファイルのみが残ることがある。
-        // これの対処法として Context.openOutputStream から得た OutputStream で書き込んだ後
-        // flush 関数を使うことで反映させることができる。
-        // このプラグインでは Context.openAssetFileDescriptor から FD を取得して操作しているが
-        // これはハック的な手法ではなく公式の doc でも SAF の例として用いられている手法であるため
-        // この動作は仕様ではなく GoogleDrive 側のバグだと考えていいと思う。
-        // 
-        // また Web を調べたが GoogleDrive 以外でこのような問題が起こるのは見つけれなかった。
-        // 実際、試した限りでは DropBox で書き込んだものが普通に反映された。
-        // もしかしたら他のクラウドストレージアプリでは起こるかもしれないが、
-        // それは仕様ではなく FileProvider 側のバグ？だと思うのでこちら側ではコストを考え
-        // ホワイトリスト方式ではなくブラックリスト方式を用いて判定する。
-        
-        const TARGET_URI_PREFIXES: &'static [&'static str] = &[
-            "content://com.google.android.apps.docs", // Google drive
-        ];
+    pub fn copy_file(&self, src: &FileUri, dest: &FileUri) -> Result<()> {
+        let mut src = self.open_file_readable(src).await?;
+        let mut dest = self.open_file_writable(dest).await?;
+        run_blocking(move || std::io::copy(&mut src, &mut dest).map_err(Into::into)).await?;
+        Ok(())
+    }
 
-        Ok(TARGET_URI_PREFIXES.iter().any(|prefix| uri.uri.starts_with(prefix)))
+    #[maybe_async]
+    pub fn need_write_file_via_kotlin(&self, uri: &FileUri) -> Result<bool> {
+        Ok(false)
     }
 
     #[maybe_async]

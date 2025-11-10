@@ -106,52 +106,6 @@ async fn file_saver_example(app: &tauri::AppHandle<impl tauri::Runtime>) -> Resu
         // NOTE:
         // This truncate existing contents
         let file: std::fs::File = api.open_file_writable(&uri).await?;
-
-
-        // But, writing files via file picker,
-        // consider using 'open_writable_stream' instead.
-        // For reason, see document of 'open_file_writable'.
-        // https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_sync/struct.AndroidFs.html#method.open_file_writable
-
-        use std::io::{BufWriter, Write as _};
-
-        {
-            // NOTE:
-            // This truncate existing contents
-            let mut stream = api.open_writable_stream(&uri).await?;
-
-            // Write contents with 'std::io::Write'
-
-            // After write, call 'reflect'
-            // This is required
-            stream.reflect().await?;
-        }
-
-        {
-            let stream = api.open_writable_stream(&uri).await?;
-
-            tauri::async_runtime::spawn_blocking(move || -> Result<()> {
-                // Wrap with 'std::io::BufWriter'
-                // This is optional
-                let mut buf_stream = BufWriter::new(stream);
-
-                for i in 0..100 {
-                    buf_stream.write(&[i])?;
-                }
-
-                buf_stream.flush()?;
-
-                let stream = buf_stream
-                    .into_inner()? 
-                    .into_sync(); // Into synchronous WritableStream for follwing functions
-
-                stream.sync_all()?; // This is optional
-                stream.reflect()?; // This is required
-
-                Ok(())
-            })
-            .await??;
-        }
     }
     else {
         // Handle cancel

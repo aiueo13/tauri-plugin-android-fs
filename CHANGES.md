@@ -1,3 +1,12 @@
+# Version 19.1.1
+- Fix an issue where writes made through a file descriptor may be not reflected for files provided by certain third-party file providers.
+- Deprecate `AndroidFs::open_writable_stream`
+- Deprecate `AndroidFs::open_writable_stream_via_kotlin`
+- Deprecate `AndroidFs::write_via_kotlin`
+- Deprecate `AndroidFs::copy_via_kotlin`
+- Deprecate `AndroidFs::need_write_via_kotlin`
+- Update documentation.
+
 # Version 19.1.0
 - Add `AndroidFs::_resolve_file_uri`
 - Add `AndroidFs::_resolve_dir_uri`

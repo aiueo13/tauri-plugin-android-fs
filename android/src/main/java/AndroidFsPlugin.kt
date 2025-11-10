@@ -1878,9 +1878,8 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val args = invoke.parseArgs(GetFileDescriptorArgs::class.java)
-                    val fd = activity.contentResolver
-                        .openAssetFileDescriptor(Uri.parse(args.uri.uri), args.mode)!!
-                        .parcelFileDescriptor
+                    val fd: Int = AFFileDescriptor
+                        .getPfd(Uri.parse(args.uri.uri), args.mode, activity)
                         .detachFd()
 
                     val res = JSObject()
@@ -1889,7 +1888,8 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     withContext(Dispatchers.Main) {
                         invoke.resolve(res)
                     }
-                } catch (ex: Exception) {
+                }
+                catch (ex: Exception) {
                     val message = ex.message ?: "Failed to invoke getFileDescriptor."
 
                     withContext(Dispatchers.Main) {
@@ -1918,8 +1918,9 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     for (m in args.modes) {
                         try {
                             mode = m
-                            val afd = activity.contentResolver.openAssetFileDescriptor(uri, m)
-                            fd = afd?.parcelFileDescriptor?.detachFd()
+                            fd = AFFileDescriptor
+                                .getPfd(uri, m, activity)
+                                .detachFd()
                         }
                         catch (ignore: Exception) {}
 
@@ -1927,13 +1928,14 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     }
                     
                     val res = JSObject()
-                    res.put("fd", fd ?: throw Exception("Failed to get FileDescriptor with ${args.modes.toString()}"))
+                    res.put("fd", fd ?: throw Exception("Failed to get FileDescriptor with ${args.modes}"))
                     res.put("mode", mode!!)
 
                     withContext(Dispatchers.Main) {
                         invoke.resolve(res)
                     }
-                } catch (ex: Exception) {
+                }
+                catch (ex: Exception) {
                     val message = ex.message ?: "Failed to invoke getFileDescriptor."
                     withContext(Dispatchers.Main) {
                         invoke.reject(message)
@@ -1943,19 +1945,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         }
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke getFileDescriptor."
-            invoke.reject(message)
-        }
-    }
-
-    @Command
-    fun getApiLevel(invoke: Invoke) {
-        try {
-            val res = JSObject()
-            res.put("value", Build.VERSION.SDK_INT)
-            invoke.resolve(res)
-        } 
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke getApiLevel."
             invoke.reject(message)
         }
     }

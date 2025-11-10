@@ -194,13 +194,6 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Open the file in **writable** mode.  
     /// This truncates the existing contents.  
     /// 
-    /// # Note
-    /// For file provider of some third-party apps, 
-    /// writing by file descriptor like std::fs may not correctoly notify and reflect changes. 
-    /// If you need to write to such files, use [`AndroidFs::open_writable_stream`].
-    /// It will fall back to Kotlin API as needed.
-    /// And you can check by [`AndroidFs::need_write_via_kotlin`].
-    /// 
     /// # Args
     /// - ***uri*** :  
     /// Target file URI.  
@@ -225,30 +218,20 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Open the file in the specified mode.  
     /// 
     /// # Note
-    /// Please note the following points when handling files obtained from the [`FilePicker`].
-    /// This does not apply to files obtained from [`PublicStorage`], [`PrivateStorage`], or [`AppStorage`].
-    /// 
     /// 1. **Delay**:   
     /// If the target is a file on cloud storage or otherwise not physically present on the device,
     /// the file provider may downloads the entire contents, and then opens it. 
     /// As a result, this processing may take longer than with regular local files.
     /// And files might be a pair of pipe or socket for streaming data.
     /// 
-    /// 2. **File reflection**:  
-    /// For file provider of some third-party apps, 
-    /// writing by file descriptor like std::fs may not correctoly notify and reflect changes. 
-    /// If you need to write to such files, use [`AndroidFs::open_writable_stream`].
-    /// It will fall back to Kotlin API as needed.
-    /// And you can check by [`AndroidFs::need_write_via_kotlin`].
-    /// 
-    /// 3. **File mode restrictions**:  
+    /// 2. **File mode restrictions**:  
     /// Files provided by third-party apps may not support modes other than
     /// [`FileAccessMode::Write`] or [`FileAccessMode::Read`]. 
     /// However, [`FileAccessMode::Write`] does not guarantee
     /// that existing contents will always be truncated.  
     /// As a result, if the new contents are shorter than the original, the file may
     /// become corrupted. To avoid this, consider using
-    /// [`AndroidFs::open_file_writable`] or [`AndroidFs::open_writable_stream`], which
+    /// [`AndroidFs::open_file_writable`], which
     /// ensure that existing contents are truncated and also automatically apply the
     /// maximum possible fallbacks.  
     /// - <https://issuetracker.google.com/issues/180526528>
@@ -293,77 +276,6 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         }
     }
 
-    /// Opens a stream for writing to the specified file.  
-    /// This truncates the existing contents.  
-    /// 
-    /// # Usage
-    /// [`WritableStream`] implements [`std::io::Write`], so it can be used for writing.  
-    /// As with [`std::fs::File`], wrap it with [`std::io::BufWriter`] if buffering is needed.  
-    ///
-    /// After writing, call [`WritableStream::reflect`].  
-    /// 
-    /// # Note
-    /// The behavior depends on [`AndroidFs::need_write_via_kotlin`].  
-    /// If it is `false`, this behaves like [`AndroidFs::open_file_writable`].  
-    /// If it is `true`, this behaves like [`AndroidFs::open_writable_stream_via_kotlin`].  
-    /// 
-    /// # Args
-    /// - ***uri*** :  
-    /// Target file URI.  
-    /// This need to be **writable**.
-    /// 
-    /// # Support
-    /// All Android version.
-    #[maybe_async]
-    pub fn open_writable_stream(
-        &self,
-        uri: &FileUri
-    ) -> Result<WritableStream<R>> {
-
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            let impls = self.impls().create_writable_stream_auto(uri).await?;
-            Ok(WritableStream { impls })
-        }
-    }
-
-    /// Opens a writable stream to the specified file.  
-    /// This truncates the existing contents.  
-    /// 
-    /// This function always writes content via the Kotlin API.
-    /// But this takes several times longer compared.  
-    /// [`AndroidFs::open_writable_stream`] automatically falls back to this function depending on [`AndroidFs::need_write_via_kotlin`].  
-    /// 
-    /// # Usage
-    /// [`WritableStream`] implements [`std::io::Write`], so it can be used for writing.  
-    /// As with [`std::fs::File`], wrap it with [`std::io::BufWriter`] if buffering is needed.  
-    ///
-    /// After writing, call [`WritableStream::reflect`].
-    /// 
-    /// # Args
-    /// - ***uri*** :  
-    /// Target file URI.  
-    /// This need to be **writable**.
-    /// 
-    /// # Support
-    /// All Android version.
-    #[maybe_async]
-    pub fn open_writable_stream_via_kotlin(
-        &self,
-        uri: &FileUri
-    ) -> Result<WritableStream<R>> {
-
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            let impls = self.impls().create_writable_stream_via_kotlin(uri).await?;
-            Ok(WritableStream { impls })
-        }
-    }
-
     /// Reads the entire contents of a file into a bytes vector.  
     /// 
     /// # Args
@@ -405,11 +317,6 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Writes a slice as the entire contents of a file.  
     /// This function will entirely replace its contents if it does exist.    
     /// 
-    /// # Note
-    /// The behavior depends on [`AndroidFs::need_write_via_kotlin`].  
-    /// If it is `false`, this uses [`std::fs::File`].  
-    /// If it is `true`, this uses [`AndroidFs::write_via_kotlin`].  
-    /// 
     /// # Args
     /// - ***uri*** :  
     /// Target file URI.  
@@ -423,41 +330,12 @@ impl<R: tauri::Runtime> AndroidFs<R> {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().write_file_auto(uri, contents).await
-        }
-    }
-
-    /// Writes a slice as the entire contents of a file.  
-    /// This function will entirely replace its contents if it does exist.    
-    /// 
-    /// This function always writes content via the Kotlin API.
-    /// But this takes several times longer compared.   
-    /// [`AndroidFs::write`] automatically falls back to this function depending on [`AndroidFs::need_write_via_kotlin`].  
-    /// 
-    /// # Support
-    /// All Android version.
-    #[maybe_async]
-    pub fn write_via_kotlin(
-        &self, 
-        uri: &FileUri,
-        contents: impl AsRef<[u8]>
-    ) -> Result<()> {
-
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().write_file_via_kotlin(uri, contents).await
+            self.impls().write_file(uri, contents).await
         }
     }
 
     /// Copies the contents of the source file to the destination.  
     /// If the destination already has contents, they are truncated before writing the source contents.  
-    /// 
-    /// # Note
-    /// The behavior depends on [`AndroidFs::need_write_via_kotlin`].  
-    /// If it is `false`, this uses [`std::io::copy`] with [`std::fs::File`].  
-    /// If it is `true`, this uses [`AndroidFs::copy_via_kotlin`].  
     /// 
     /// # Args
     /// - ***src*** :  
@@ -477,62 +355,6 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         }
         #[cfg(target_os = "android")] {
             self.impls().copy_file(src, dest).await
-        }
-    }
-
-    /// Copies the contents of src file to dest.  
-    /// If dest already has contents, it is truncated before write src contents.  
-    /// 
-    /// This function always writes content via the Kotlin API.  
-    /// [`AndroidFs::copy`] automatically falls back to this function depending on [`AndroidFs::need_write_via_kotlin`].   
-    /// 
-    /// # Args
-    /// - ***src*** :  
-    /// The URI of source file.   
-    /// Must be **readable**.
-    /// 
-    /// - ***dest*** :  
-    /// The URI of destination file.  
-    /// Must be **writable**.
-    /// 
-    /// - ***buffer_size***:  
-    /// The size of the buffer, in bytes, to use during the copy process on Kotlin.  
-    /// If `None`, [`DEFAULT_BUFFER_SIZE`](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.io/-d-e-f-a-u-l-t_-b-u-f-f-e-r_-s-i-z-e.html) is used. 
-    /// At least, when I checked, it was 8 KB.  
-    /// If zero, this causes error.
-    /// 
-    /// # Support
-    /// All Android version.
-    #[maybe_async]
-    pub fn copy_via_kotlin(
-        &self, 
-        src: &FileUri, 
-        dest: &FileUri,
-        buffer_size: Option<u32>,
-    ) -> Result<()> {
-
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().copy_file_via_kotlin(src, dest, buffer_size).await
-        }
-    }
-
-    /// Determines whether the file must be written via the Kotlin API rather than through a file descriptor.
-    /// 
-    /// In the case of a file that physically exists on the device, this will always return false.
-    /// This is intended for special cases, such as some cloud storage.
-    /// 
-    /// # Support
-    /// All Android version.
-    #[maybe_async]
-    pub fn need_write_via_kotlin(&self, uri: &FileUri) -> Result<bool> {
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().need_write_file_via_kotlin(uri).await
         }
     }
 
@@ -1300,6 +1122,83 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         }
         #[cfg(target_os = "android")] {
             self.impls().resolve_dir_uri(dir, relative_path, true).await
+        }
+    }
+
+
+    #[deprecated = "use `AndroidFs::copy` instead"]
+    #[maybe_async]
+    pub fn copy_via_kotlin(
+        &self, 
+        src: &FileUri, 
+        dest: &FileUri,
+        buffer_size: Option<u32>,
+    ) -> Result<()> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().copy_file_via_kotlin(src, dest, buffer_size).await
+        }
+    }
+
+    #[deprecated = "use `AndroidFs::write` instead"]
+    #[maybe_async]
+    pub fn write_via_kotlin(
+        &self, 
+        uri: &FileUri,
+        contents: impl AsRef<[u8]>
+    ) -> Result<()> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().write_file(uri, contents).await
+        }
+    }
+
+    #[deprecated = "Always returns false"]
+    #[maybe_async]
+    pub fn need_write_via_kotlin(&self, uri: &FileUri) -> Result<bool> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().need_write_file_via_kotlin(uri).await
+        }
+    }
+
+    #[deprecated = "Use `AndroidFs::open_file_writable` instead"]
+    #[maybe_async]
+    pub fn open_writable_stream(
+        &self,
+        uri: &FileUri
+    ) -> Result<WritableStream<R>> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            let impls = self.impls().create_writable_stream_auto(uri).await?;
+            Ok(WritableStream { impls })
+        }
+    }
+
+    #[deprecated = "Use `AndroidFs::open_file_writable` instead"]
+    #[maybe_async]
+    pub fn open_writable_stream_via_kotlin(
+        &self,
+        uri: &FileUri
+    ) -> Result<WritableStream<R>> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            let impls = self.impls().create_writable_stream_via_kotlin(uri).await?;
+            Ok(WritableStream { impls })
         }
     }
 }
