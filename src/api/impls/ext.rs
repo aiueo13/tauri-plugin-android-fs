@@ -171,11 +171,6 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn need_write_file_via_kotlin(&self, uri: &FileUri) -> Result<bool> {
-        Ok(false)
-    }
-
-    #[maybe_async]
     pub fn get_file_thumbnail(
         &self, 
         uri: &FileUri,

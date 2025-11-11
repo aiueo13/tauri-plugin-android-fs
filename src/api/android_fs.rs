@@ -38,8 +38,8 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 }
 
 #[sync_async(
-    use(if_async) api_async::{FileOpener, FilePicker, AppStorage, PrivateStorage, PublicStorage, WritableStream};
-    use(if_sync) api_sync::{FileOpener, FilePicker, AppStorage, PrivateStorage, PublicStorage, WritableStream};
+    use(if_async) api_async::{FileOpener, FilePicker, AppStorage, PrivateStorage, PublicStorage};
+    use(if_sync) api_sync::{FileOpener, FilePicker, AppStorage, PrivateStorage, PublicStorage};
 )]
 impl<R: tauri::Runtime> AndroidFs<R> {
 
@@ -1122,83 +1122,6 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         }
         #[cfg(target_os = "android")] {
             self.impls().resolve_dir_uri(dir, relative_path, true).await
-        }
-    }
-
-
-    #[deprecated = "use `AndroidFs::copy` instead"]
-    #[maybe_async]
-    pub fn copy_via_kotlin(
-        &self, 
-        src: &FileUri, 
-        dest: &FileUri,
-        buffer_size: Option<u32>,
-    ) -> Result<()> {
-
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().copy_file_via_kotlin(src, dest, buffer_size).await
-        }
-    }
-
-    #[deprecated = "use `AndroidFs::write` instead"]
-    #[maybe_async]
-    pub fn write_via_kotlin(
-        &self, 
-        uri: &FileUri,
-        contents: impl AsRef<[u8]>
-    ) -> Result<()> {
-
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().write_file(uri, contents).await
-        }
-    }
-
-    #[deprecated = "Always returns false"]
-    #[maybe_async]
-    pub fn need_write_via_kotlin(&self, uri: &FileUri) -> Result<bool> {
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().need_write_file_via_kotlin(uri).await
-        }
-    }
-
-    #[deprecated = "Use `AndroidFs::open_file_writable` instead"]
-    #[maybe_async]
-    pub fn open_writable_stream(
-        &self,
-        uri: &FileUri
-    ) -> Result<WritableStream<R>> {
-
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            let impls = self.impls().create_writable_stream_auto(uri).await?;
-            Ok(WritableStream { impls })
-        }
-    }
-
-    #[deprecated = "Use `AndroidFs::open_file_writable` instead"]
-    #[maybe_async]
-    pub fn open_writable_stream_via_kotlin(
-        &self,
-        uri: &FileUri
-    ) -> Result<WritableStream<R>> {
-
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            let impls = self.impls().create_writable_stream_via_kotlin(uri).await?;
-            Ok(WritableStream { impls })
         }
     }
 }

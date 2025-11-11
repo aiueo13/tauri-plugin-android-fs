@@ -35,14 +35,11 @@ macro_rules! fn_get_or_init {
 
 mod ext;
 mod raw;
-mod writable_stream;
 
 use serde::{de::DeserializeOwned, Serialize};
 use crate::*;
 use sync_async::sync_async;
 
-
-pub use writable_stream::{AsyncWritableStreamImpls, SyncWritableStreamImpls};
 
 #[sync_async]
 pub struct Impls<'a, R: tauri::Runtime> {

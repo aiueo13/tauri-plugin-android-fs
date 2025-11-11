@@ -38,8 +38,8 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
 }
 
 #[sync_async(
-    use(if_async) api_async::{AndroidFs, FileOpener, FilePicker, AppStorage, PrivateStorage, WritableStream};
-    use(if_sync) api_sync::{AndroidFs, FileOpener, FilePicker, AppStorage, PrivateStorage, WritableStream};
+    use(if_async) api_async::{AndroidFs, FileOpener, FilePicker, AppStorage, PrivateStorage};
+    use(if_sync) api_sync::{AndroidFs, FileOpener, FilePicker, AppStorage, PrivateStorage};
 )]
 impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
 

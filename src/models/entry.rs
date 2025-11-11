@@ -50,17 +50,6 @@ impl EntryType {
     pub fn into_file_mime_type_or_err(self) -> Result<String> {
         self.into_file_mime_type().ok_or_else(|| Error::with("This is not a file"))
     }
-
- 
-    #[deprecated = "Use FileType::file_mime_type instead"]
-    pub fn mime_type(&self) -> Option<&str> {
-        self.file_mime_type()
-    }
- 
-    #[deprecated = "Use FileType::into_file_mime_type instead"]
-    pub fn into_mime_type(self) -> Option<String> {
-        self.into_file_mime_type()
-    }
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]

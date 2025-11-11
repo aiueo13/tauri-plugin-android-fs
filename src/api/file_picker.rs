@@ -38,8 +38,8 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
 }
 
 #[sync_async(
-    use(if_async) api_async::{AndroidFs, FileOpener, PrivateStorage, PublicStorage, WritableStream};
-    use(if_sync) api_sync::{AndroidFs, FileOpener, PrivateStorage, PublicStorage, WritableStream};
+    use(if_async) api_async::{AndroidFs, FileOpener, PrivateStorage, PublicStorage};
+    use(if_sync) api_sync::{AndroidFs, FileOpener, PrivateStorage, PublicStorage};
 )]
 impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
 

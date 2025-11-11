@@ -11,7 +11,9 @@ import android.os.storage.StorageManager
 import android.system.ErrnoException
 import android.system.OsConstants
 import androidx.annotation.RequiresApi
+import java.io.FileOutputStream
 import java.io.OutputStream
+import kotlin.math.max
 
 class AFFileDescriptor private constructor() {
 
@@ -24,21 +26,33 @@ class AFFileDescriptor private constructor() {
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
                     throw Exception("Unsupported mode: $mode")
                 }
-                if (isReadableMode(mode)) {
-                    throw Exception("Unsupported mode: $mode")
-                }
 
-                val output = ctx.contentResolver.openAssetFileDescriptor(uri, mode) ?: throw Exception("Failed to open file: $uri")
-                val outputLen = when (mode) {
-                    "wt" -> 0
-                    else -> output.length
+                val output: FileOutputStream
+                val outputInitLen: Long
+                when (mode) {
+                    "wt" -> {
+                        val fd = ctx.contentResolver.openAssetFileDescriptor(uri, mode)
+                            ?: throw Exception("Failed to open file: $uri")
+
+                        outputInitLen = 0
+                        output = fd.createOutputStream()
+                    }
+                    "w" -> {
+                        val fd = ctx.contentResolver.openAssetFileDescriptor(uri, mode)
+                            ?: throw Exception("Failed to open file: $uri")
+
+                        // w モードは Android 10 以降、既存コンテンツの切り詰めを保証しない
+                        outputInitLen = try { fd.length } catch (_: Exception) { -1 }
+                        output = fd.createOutputStream()
+                    }
+                    else -> throw Exception("Unsupported mode: $mode")
                 }
 
                 val sm = ctx.getSystemService(Context.STORAGE_SERVICE) as StorageManager
 
                 return sm.openProxyFileDescriptor(
                     ParcelFileDescriptor.MODE_WRITE_ONLY,
-                    UnseekableWriteonlyFdBehavior(output.createOutputStream(), outputLen) {
+                    FromZeroPositionUnseekableWriteonlyFileBehavior(output, outputInitLen) {
                         HandlerManager.notifyTaskEnd()
                     },
                     HandlerManager.getHandlerAndNotifyTaskAdd()
@@ -55,12 +69,7 @@ class AFFileDescriptor private constructor() {
 
 private fun isWritableMode(mode: String): Boolean {
     // r, rw, w, wa, wt, rwt
-    return mode != "r"
-}
-
-private fun isReadableMode(mode: String): Boolean {
-    // r, rw, w, wa, wt, rwt
-    return mode == "r" || mode == "rw" || mode == "rwt"
+    return mode == "w" || mode == "wt" || mode == "wa" || mode == "rw" || mode == "rwt"
 }
 
 private fun needWriteViaOutputStream(uri: Uri): Boolean {
@@ -70,11 +79,10 @@ private fun needWriteViaOutputStream(uri: Uri): Boolean {
     // - https://community.latenode.com/t/csv-export-to-google-drive-results-in-empty-file-but-local-storage-works-fine
     //
     // Intent.ACTION_OPEN_DOCUMENT や Intent.ACTION_CREATE_DOCUMENT などの SAF で
-    // 取得した Google Drive のファイルに対して生の FD を用いて書き込んだ場合、
+    // 取得した Google Drive のファイルに対して detach した生の FD を用いて書き込んだ場合、
     // それが反映されず空のファイルのみが残ることがある。
-    // これの対処法として Context.openOutputStream から得た OutputStream で書き込んだ後
-    // flush 関数を使うことで反映させることができる。
-    // このプラグインでは Context.openAssetFileDescriptor から FD を取得して操作しているが
+    // これの対処法として OutputStream で書き込んだ後 flush 関数を呼び出すことで反映させることができる。
+    // このプラグインでは Context.openAssetFileDescriptor から FD を detach して操作しているが
     // これはハック的な手法ではなく公式の doc でも SAF の例として用いられている手法であるため
     // この動作は仕様ではなく GoogleDrive 側のバグだと考えていいと思う。
     //
@@ -130,13 +138,13 @@ class HandlerManager {
 }
 
 @RequiresApi(Build.VERSION_CODES.O)
-private class UnseekableWriteonlyFdBehavior(
+private class FromZeroPositionUnseekableWriteonlyFileBehavior(
     private val dest: OutputStream,
     private val destInitLen: Long,
     private val onRelease: (() -> Unit)?
 ) : ProxyFileDescriptorCallback() {
 
-    private var currentPosition: Long = 0
+    private var writtenLen: Long = 0
 
     override fun onRead(offset: Long, size: Int, data: ByteArray): Int {
         throw ErrnoException("read", OsConstants.EBADF)
@@ -147,13 +155,13 @@ private class UnseekableWriteonlyFdBehavior(
             if (data == null) return 0
 
             // シーク不可
-            if (offset != currentPosition) {
+            if (offset != writtenLen) {
                 throw ErrnoException("write", OsConstants.ESPIPE)
             }
 
             val writeSize = size.coerceAtMost(data.size)
             dest.write(data, 0, writeSize)
-            currentPosition = offset + writeSize
+            writtenLen += writeSize
 
             return writeSize
         }
@@ -196,6 +204,10 @@ private class UnseekableWriteonlyFdBehavior(
             return -1
         }
 
-        return destInitLen + currentPosition
+        // destInitLen が 0 より大きい場合はその分のバイト数の既存コンテンツが dest に存在する。
+        // その場合、このクラスは position が 0 から始まり seek はできないので
+        // 書き込んだバイト数が既存コンテンツのそれを超えるまで dest のサイズは変わらない。
+        // (dest が truncate されているなら destInitLen は 0)
+        return max(destInitLen, writtenLen)
     }
 }

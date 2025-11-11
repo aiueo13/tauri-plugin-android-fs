@@ -1,3 +1,7 @@
+# Version 20.0.0
+- Remove deprecated items
+- Update documentation.
+
 # Version 19.1.1
 - Fix an issue where writes made through a file descriptor may be not reflected for files provided by certain third-party file providers.
 - Deprecate `AndroidFs::open_writable_stream`

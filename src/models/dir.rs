@@ -53,9 +53,6 @@ pub enum PrivateDir {
     NoBackupData,
 }
 
-#[deprecated = "Use AppDir instead"]
-pub type OutsidePrivateDir = AppDir;
-
 /// The directory for the app.  
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[non_exhaustive]

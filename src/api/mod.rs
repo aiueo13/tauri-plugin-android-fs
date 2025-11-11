@@ -7,7 +7,6 @@ mod file_picker;
 mod app_storage;
 mod private_storage;
 mod public_storage;
-mod writable_stream;
 
 pub mod api_async {
     pub use crate::api::android_fs::AsyncAndroidFs as AndroidFs;
@@ -16,7 +15,6 @@ pub mod api_async {
     pub use crate::api::app_storage::AsyncAppStorage as AppStorage;
     pub use crate::api::private_storage::AsyncPrivateStorage as PrivateStorage;
     pub use crate::api::public_storage::AsyncPublicStorage as PublicStorage;
-    pub use crate::api::writable_stream::AsyncWritableStream as WritableStream;
 }
 
 pub mod api_sync {
@@ -26,5 +24,4 @@ pub mod api_sync {
     pub use crate::api::app_storage::SyncAppStorage as AppStorage;
     pub use crate::api::private_storage::SyncPrivateStorage as PrivateStorage;
     pub use crate::api::public_storage::SyncPublicStorage as PublicStorage;
-    pub use crate::api::writable_stream::SyncWritableStream as WritableStream;
 }
