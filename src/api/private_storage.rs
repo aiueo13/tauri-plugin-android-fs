@@ -141,14 +141,14 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     /// # Support
     /// All Android version.
     #[maybe_async]
-    pub fn create_new_temp_file_with_guard(&self) -> Result<((std::fs::File, TempFileGuard), std::path::PathBuf, FileUri)> {
+    pub fn create_new_temp_file_with_guard(&self) -> Result<(std::fs::File, TempFileGuard, std::path::PathBuf, FileUri)> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
             let (file, path, uri) = self.impls().create_new_temp_file().await?;
             let guard = TempFileGuard { path: path.clone() };
-            Ok(((file, guard), path, uri))
+            Ok((file, guard, path, uri))
         }
     }
 

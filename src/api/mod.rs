@@ -7,6 +7,9 @@ mod file_picker;
 mod app_storage;
 mod private_storage;
 mod public_storage;
+mod temp_file_guard;
+
+pub use temp_file_guard::TempFileGuard;
 
 pub mod api_async {
     pub use crate::api::android_fs::AsyncAndroidFs as AndroidFs;
@@ -24,17 +27,4 @@ pub mod api_sync {
     pub use crate::api::app_storage::SyncAppStorage as AppStorage;
     pub use crate::api::private_storage::SyncPrivateStorage as PrivateStorage;
     pub use crate::api::public_storage::SyncPublicStorage as PublicStorage;
-}
-
-
-/// A guard that removes the file on drop
-pub struct TempFileGuard {
-    path: std::path::PathBuf
-}
-
-impl Drop for TempFileGuard {
-
-    fn drop(&mut self) {
-        std::fs::remove_file(&self.path).ok();
-    }
 }

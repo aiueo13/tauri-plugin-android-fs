@@ -1,4 +1,9 @@
+# Version 21.0.0
+- Change return value of `PrivateStorage::create_new_temp_file_with_guard`
+- Update documentation.
+
 # Version 20.1.0
+- Add `TempFileGuard`
 - Add `PrivateStorage::create_new_temp_file`
 - Add `PrivateStorage::create_new_temp_file_with_guard`
 - Add `PrivateStorage::remove_all_temp_files`
