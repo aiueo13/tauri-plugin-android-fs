@@ -11,7 +11,7 @@ use super::*;
 ///     use tauri_plugin_android_fs::AndroidFsExt as _;
 /// 
 ///     let api = app.android_fs();
-///     let outside_private_storage = api.private_storage().outside();
+///     let app_storage = api.app_storage();
 /// }
 /// ```
 #[sync_async]
@@ -106,7 +106,7 @@ impl<'a, R: tauri::Runtime> AppStorage<'a, R> {
     }
 
     /// Gets the absolute path of the app directory on the specified storage volume.  
-    /// App can fully manage entries within this directory.  
+    /// App can fully manage entries within this directory via [`std::fs`] and etc.   
     /// 
     /// This function does **not** create any directories; it only constructs the path.
     ///    

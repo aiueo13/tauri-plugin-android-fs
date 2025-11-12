@@ -33,8 +33,8 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
                 let afs_sync = crate::api::api_sync::AndroidFs { handle: handle.clone() };
                 let afs_async = crate::api::api_async::AndroidFs { handle: handle.clone() };
 
-                // クリーンアップされなかった一時ファイルを全て削除
-                afs_sync.impls().remove_all_tmp_files().ok();
+                // 一時ファイルを全て削除
+                afs_sync.impls().remove_all_temp_files().ok();
 
                 app.manage(afs_sync);
                 app.manage(afs_async);

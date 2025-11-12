@@ -21,18 +21,18 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[always_sync]
-    pub fn tmp_dir_path(&self) -> Result<&'static std::path::PathBuf> {
-        get_or_init_tmp_dir_path(|| {
-            let path = self.private_dir_path(PrivateDir::Cache)?
-                .join("pluginAndroidFs-tmpDir-01K486FKQ2BZSBGFD34RFH9FWJ");
+    pub fn temp_dir_path(&self) -> Result<&'static std::path::PathBuf> {
+        get_or_init_temp_dir_path(|| {
+            let path = self.private_dir_path(PrivateDir::NoBackupData)?
+                .join("pluginAndroidFs-tempDir-01K486FKQ2BZSBGFD34RFH9FWJ");
 
             Ok(path)
         })
     }
 
     #[maybe_async]
-    pub fn remove_all_tmp_files(&self) -> Result<()> {
-        let path = self.tmp_dir_path()?;
+    pub fn remove_all_temp_files(&self) -> Result<()> {
+        let path = self.temp_dir_path()?;
 
         run_blocking(move || {
             match std::fs::remove_dir_all(path) {
@@ -44,17 +44,18 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn create_new_tmp_file(&self) -> Result<(std::fs::File, std::path::PathBuf)> {
-        let tmp_dir_path = self.tmp_dir_path()?;
+    pub fn create_new_temp_file(&self) -> Result<(std::fs::File, std::path::PathBuf, FileUri)> {
+        let temp_dir_path = self.temp_dir_path()?;
 
         run_blocking(move || {
-            std::fs::create_dir_all(&tmp_dir_path).ok();
+            std::fs::create_dir_all(&temp_dir_path).ok();
 
-            let uid = next_id_for_tmp_file();
-            let tmp_file_path = tmp_dir_path.join(format!("{uid}"));
-            let tmp_file = std::fs::File::create_new(&tmp_file_path)?;
+            let uid = next_uid_for_temp_file();
+            let temp_file_path = temp_dir_path.join(format!("{uid}"));
+            let temp_file_uri = FileUri::from_path(&temp_file_path);
+            let temp_file = std::fs::File::create_new(&temp_file_path)?;
 
-            Ok((tmp_file, tmp_file_path))
+            Ok((temp_file, temp_file_path, temp_file_uri))
         }).await
     }
 
@@ -619,9 +620,11 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
 }
 
 
-fn_get_or_init!(get_or_init_tmp_dir_path, std::path::PathBuf);
+fn_get_or_init!(get_or_init_temp_dir_path, std::path::PathBuf);
 
-fn next_id_for_tmp_file() -> usize {
+fn next_uid_for_temp_file() -> usize {
+    // temp file の寿命はアプリ起動中までなので 0 から始まる単調増加の ID でいい
+
     use std::sync::atomic::{AtomicUsize, Ordering};
     static COUNTER: AtomicUsize = AtomicUsize::new(0);
 

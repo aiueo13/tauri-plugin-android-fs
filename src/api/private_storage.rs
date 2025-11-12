@@ -44,7 +44,7 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
 impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
 
     /// Get an absolute path of the app-specific directory on the internal storage.  
-    /// App can fully manage entries within this directory.   
+    /// App can fully manage entries within this directory via [`std::fs`] and etc.   
     /// 
     /// This function does **not** create any directories; it only constructs the path.
     /// 
@@ -96,6 +96,75 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
             let mut path = self.resolve_path(dir).await?;
             path.push(relative_path.as_ref());
             Ok(path.into())
+        }
+    }
+
+    /// Creates a new temporary file and returns its file, path, and URI.   
+    /// App can fully manage it via [`std::fs`] and etc.   
+    ///
+    /// This file remains valid until the application exits.  
+    /// It will be deleted when the application starts,
+    /// and may be deleted when the application exits.
+    /// 
+    /// # Inner
+    /// The file will be placed in the `pluginAndroidFs-tempDir-01K486FKQ2BZSBGFD34RFH9FWJ`
+    /// directory inside [`PrivateStorage::resolve_path`] with [`PrivateDir::NoBackupData`].   
+    /// It directory will be deleted by this plugin when the application starts,
+    /// and may be deleted when the application exits.
+    /// 
+    /// # Support
+    /// All Android version.
+    #[maybe_async]
+    pub fn create_new_temp_file(&self) -> Result<(std::fs::File, std::path::PathBuf, FileUri)> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().create_new_temp_file().await
+        }
+    }
+
+    /// Creates a new temporary file and returns its file,
+    /// a guard that removes the file on drop, the file path, and its URI.   
+    /// App can fully manage it via [`std::fs`] and etc.   
+    ///
+    /// This file remains valid until the application exits.  
+    /// It will be deleted when the application starts,
+    /// and may be deleted when the application exits.
+    /// 
+    /// # Inner
+    /// The file will be placed in the `pluginAndroidFs-tempDir-01K486FKQ2BZSBGFD34RFH9FWJ`
+    /// directory inside [`PrivateStorage::resolve_path`] with [`PrivateDir::NoBackupData`].  
+    /// It directory will be deleted by this plugin when the application starts,
+    /// and may be deleted when the application exits.
+    /// 
+    /// # Support
+    /// All Android version.
+    #[maybe_async]
+    pub fn create_new_temp_file_with_guard(&self) -> Result<((std::fs::File, TempFileGuard), std::path::PathBuf, FileUri)> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            let (file, path, uri) = self.impls().create_new_temp_file().await?;
+            let guard = TempFileGuard { path: path.clone() };
+            Ok(((file, guard), path, uri))
+        }
+    }
+
+    /// Removes all temporary files.
+    /// 
+    /// See [`PrivateStorage::create_new_temp_file`].
+    /// 
+    /// # Support
+    /// All Android version.
+    #[maybe_async]
+    pub fn remove_all_temp_files(&self) -> Result<()> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().remove_all_temp_files().await
         }
     }
 }

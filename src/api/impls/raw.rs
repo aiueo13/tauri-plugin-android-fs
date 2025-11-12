@@ -251,8 +251,8 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
                 Some(mime_type) => OptionalEntry::File {
                     uri: v.uri,
                     name: v.name,
-                    last_modified: v.last_modified.map(|i| UNIX_EPOCH + Duration::from_millis(i as u64)),
-                    len: v.len.map(|i| i as u64),
+                    last_modified: v.last_modified.map(|i| UNIX_EPOCH + Duration::from_millis(i64::max(0, i) as u64)),
+                    len: v.len.map(|i| i64::max(0, i) as u64),
                     mime_type: if need_mt { Some(mime_type) } else { None },
                 },
                 None => OptionalEntry::Dir {

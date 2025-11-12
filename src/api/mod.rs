@@ -25,3 +25,16 @@ pub mod api_sync {
     pub use crate::api::private_storage::SyncPrivateStorage as PrivateStorage;
     pub use crate::api::public_storage::SyncPublicStorage as PublicStorage;
 }
+
+
+/// A guard that removes the file on drop
+pub struct TempFileGuard {
+    path: std::path::PathBuf
+}
+
+impl Drop for TempFileGuard {
+
+    fn drop(&mut self) {
+        std::fs::remove_file(&self.path).ok();
+    }
+}

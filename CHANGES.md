@@ -1,3 +1,9 @@
+# Version 20.1.0
+- Add `PrivateStorage::create_new_temp_file`
+- Add `PrivateStorage::create_new_temp_file_with_guard`
+- Add `PrivateStorage::remove_all_temp_files`
+- Update documentation.
+
 # Version 20.0.0
 - Remove deprecated items
 - Update documentation.
@@ -35,7 +41,7 @@
 
 # Version 18.0.0
 - Remove deprecated items
-- Deprecate ``PublicStorage::resolve_initial_location_top`
+- Deprecate `PublicStorage::resolve_initial_location_top`
 - Deprecate `PrivateStorage::get_volumes`
 - Deprecate `PrivateStorage::get_primary_volume`
 - Deprecate `PrivateStorage::resolve_outside_path`
