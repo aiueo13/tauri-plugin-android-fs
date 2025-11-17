@@ -12,6 +12,8 @@ interface FileController {
 
     fun readDir(dirUri: FileUri, options: ReadDirEntryOptions): JSArray
 
+    fun getMetadata(uri: FileUri): JSObject
+
     fun createFile(dirUri: FileUri, relativePath: String, mimeType: String): JSObject
 
     fun createFileAndReturnRelativePath(dirUri: FileUri, relativePath: String, mimeType: String): JSObject

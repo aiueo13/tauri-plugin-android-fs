@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-get-mime-type"
+description = "Enables the get_mime_type command without any pre-configured scope."
+commands.allow = ["get_mime_type"]
+
+[[permission]]
+identifier = "deny-get-mime-type"
+description = "Denies the get_mime_type command without any pre-configured scope."
+commands.deny = ["get_mime_type"]

@@ -1,0 +1,40 @@
+"$schema" = "schemas/schema.json"
+
+[[permission]]
+identifier = "all"
+description = "This enables all commands."
+commands.allow = [
+    "get_name",
+    "get_type",
+    "get_mime_type",
+    "get_metadata",
+    "get_thumbnail",
+    "get_thumbnail_base64",
+    "get_thumbnail_data_url",
+    "get_fs_path",
+    "get_volumes",
+    "create_new_public_file",
+    "create_new_public_image_file",
+    "create_new_public_video_file",
+    "create_new_public_audio_file",
+    "scan_public_file",
+    "request_public_files_permission",
+    "has_public_files_permission",
+    "create_new_file",
+    "truncate_file",
+    "copy_file",
+    "read_dir",
+    "remove_file",
+    "remove_empty_dir",
+    "remove_dir_all",
+    "persist_uri_permission",
+    "check_persisted_uri_permission",
+    "release_persisted_uri_permission",
+    "release_all_persisted_uri_permissions",
+    "show_open_file_picker",
+    "show_open_dir_picker",
+    "show_save_file_picker",
+    "show_share_file_dialog",
+    "show_view_file_dialog",
+    "show_view_dir_dialog",
+]

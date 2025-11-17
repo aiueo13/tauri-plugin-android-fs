@@ -144,6 +144,25 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         }
     }
 
+    /// Gets the entry information.
+    ///
+    /// # Args
+    /// - ***uri*** :  
+    /// Target URI.  
+    /// Must be **readable**.
+    /// 
+    /// # Support
+    /// All Android version.
+    #[maybe_async]
+    pub fn get_info(&self, uri: &FileUri) -> Result<Entry> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().get_entry_info(uri).await
+        }
+    }
+
     /// Queries the file system to get information about a file, directory.
     /// 
     /// # Args
@@ -916,8 +935,8 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ///     If use URI from thoese fucntions, the permissions of the origin directory URI is checked, not a entry iteself by this function. 
     ///     Because the permissions and validity period of the descendant entry URIs depend on the origin directory.   
     /// 
-    /// - **mode** :  
-    /// The mode of permission you want to check.  
+    /// - **permission** :  
+    /// The permission you want to check.  
     /// 
     /// # Support
     /// All Android version.
@@ -925,14 +944,14 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     pub fn check_persisted_uri_permission(
         &self, 
         uri: &FileUri, 
-        mode: PersistableAccessMode
+        permission: UriPermission
     ) -> Result<bool> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().check_persisted_uri_permission(uri, mode).await
+            self.impls().check_persisted_uri_permission(uri, permission).await
         }
     }
 
@@ -941,7 +960,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Support
     /// All Android version.
     #[maybe_async]
-    pub fn get_all_persisted_uri_permissions(&self) -> Result<impl Iterator<Item = PersistedUriPermission>> {
+    pub fn get_all_persisted_uri_permissions(&self) -> Result<impl Iterator<Item = PersistedUriPermissionState>> {
         #[cfg(not(target_os = "android"))] {
             Err::<std::iter::Empty<_>, _>(Error::NOT_ANDROID)
         }

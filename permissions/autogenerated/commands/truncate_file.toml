@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-truncate-file"
+description = "Enables the truncate_file command without any pre-configured scope."
+commands.allow = ["truncate_file"]
+
+[[permission]]
+identifier = "deny-truncate-file"
+description = "Denies the truncate_file command without any pre-configured scope."
+commands.deny = ["truncate_file"]

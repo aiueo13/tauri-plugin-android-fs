@@ -78,9 +78,8 @@ impl FileAccessMode {
     }
 }
 
-/// Access mode
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Deserialize, Serialize)]
-pub enum PersistableAccessMode {
+pub enum UriPermission {
 
     /// Read access.
     Read,
@@ -90,10 +89,13 @@ pub enum PersistableAccessMode {
 
     /// Read-write access.
     ReadAndWrite,
+
+    /// Read or write access.
+    ReadOrWrite,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
-pub enum PersistedUriPermission {
+pub enum PersistedUriPermissionState {
     File {
         uri: FileUri,
         can_read: bool,
@@ -106,41 +108,41 @@ pub enum PersistedUriPermission {
     }
 }
 
-impl PersistedUriPermission {
+impl PersistedUriPermissionState {
 
     pub fn uri(&self) -> &FileUri {
         match self {
-            PersistedUriPermission::File { uri, .. } => uri,
-            PersistedUriPermission::Dir { uri, .. } => uri,
+            PersistedUriPermissionState::File { uri, .. } => uri,
+            PersistedUriPermissionState::Dir { uri, .. } => uri,
         }
     }
 
     pub fn into_uri(self) -> FileUri {
         match self {
-            PersistedUriPermission::File { uri, .. } => uri,
-            PersistedUriPermission::Dir { uri, .. } => uri,
+            PersistedUriPermissionState::File { uri, .. } => uri,
+            PersistedUriPermissionState::Dir { uri, .. } => uri,
         }
     }
 
     pub fn can_read(&self) -> bool {
         match self {
-            PersistedUriPermission::File { can_read, .. } => *can_read,
-            PersistedUriPermission::Dir { can_read, .. } => *can_read,
+            PersistedUriPermissionState::File { can_read, .. } => *can_read,
+            PersistedUriPermissionState::Dir { can_read, .. } => *can_read,
         }
     }
 
     pub fn can_write(&self) -> bool {
         match self {
-            PersistedUriPermission::File { can_write, .. } => *can_write,
-            PersistedUriPermission::Dir { can_write, .. } => *can_write,
+            PersistedUriPermissionState::File { can_write, .. } => *can_write,
+            PersistedUriPermissionState::Dir { can_write, .. } => *can_write,
         }
     }
 
     pub fn is_file(&self) -> bool {
-        matches!(self, PersistedUriPermission::File { .. })
+        matches!(self, PersistedUriPermissionState::File { .. })
     }
 
     pub fn is_dir(&self) -> bool {
-        matches!(self, PersistedUriPermission::Dir { .. })
+        matches!(self, PersistedUriPermissionState::Dir { .. })
     }
 }

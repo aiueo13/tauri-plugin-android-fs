@@ -86,7 +86,6 @@ impl From<std::path::PathBuf> for FileUri {
     }
 }
 
-#[cfg(feature = "tauri-plugin-fs")]
 impl From<tauri_plugin_fs::FilePath> for FileUri {
 
     fn from(value: tauri_plugin_fs::FilePath) -> Self {
@@ -97,7 +96,6 @@ impl From<tauri_plugin_fs::FilePath> for FileUri {
     }
 }
 
-#[cfg(feature = "tauri-plugin-fs")]
 impl From<FileUri> for tauri_plugin_fs::FilePath {
 
     fn from(value: FileUri) -> Self {

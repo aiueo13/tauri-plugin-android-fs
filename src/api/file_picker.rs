@@ -76,6 +76,9 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// However, there is no guarantee that the returned file will match the specified types.  
     /// If left empty, all file types will be available (equivalent to `["*/*"]`).  
     ///  
+    /// - ***local_only*** :
+    /// Indicates whether only entry located on the local device should be selectable, without requiring it to be downloaded from a remote service when opened.
+    ///  
     /// # Support
     /// All Android version.
     /// 
@@ -86,13 +89,14 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
         &self,
         initial_location: Option<&FileUri>,
         mime_types: &[&str],
+        local_only: bool,
     ) -> Result<Vec<FileUri>> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().show_pick_file_dialog(initial_location, mime_types, true).await
+            self.impls().show_pick_file_dialog(initial_location, mime_types, true, local_only).await
         }
     }
 
@@ -129,6 +133,9 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// However, there is no guarantee that the returned file will match the specified types.  
     /// If left empty, all file types will be available (equivalent to `["*/*"]`).  
     ///  
+    /// - ***local_only*** :
+    /// Indicates whether only entry located on the local device should be selectable, without requiring it to be downloaded from a remote service when opened.
+    ///  
     /// # Support
     /// All Android version.
     /// 
@@ -139,13 +146,14 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
         &self,
         initial_location: Option<&FileUri>,
         mime_types: &[&str],
+        local_only: bool
     ) -> Result<Option<FileUri>> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().show_pick_file_dialog(initial_location, mime_types, false)
+            self.impls().show_pick_file_dialog(initial_location, mime_types, false, local_only)
                 .await
                 .map(|mut i| i.pop())
         }
@@ -164,6 +172,9 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// - ***target*** :  
     /// The media type of the file to be selected.  
     /// Images or videos, or both.  
+    ///  
+    /// - ***local_only*** :
+    /// Indicates whether only entry located on the local device should be selectable, without requiring it to be downloaded from a remote service when opened.
     ///  
     /// # Note
     /// The file obtained from this function cannot retrieve the correct file name using [`AndroidFs::get_name`].  
@@ -185,13 +196,14 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     pub fn pick_visual_medias(
         &self,
         target: VisualMediaTarget<'_>,
+        local_only: bool
     ) -> Result<Vec<FileUri>> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().show_pick_visual_media_dialog(target, true).await
+            self.impls().show_pick_visual_media_dialog(target, true, local_only).await
         }
     }
 
@@ -208,6 +220,9 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// - ***target*** :  
     /// The media type of the file to be selected.  
     /// Images or videos, or both.  
+    /// 
+    /// - ***local_only*** :
+    /// Indicates whether only entry located on the local device should be selectable, without requiring it to be downloaded from a remote service when opened.
     ///  
     /// # Note
     /// The file obtained from this function cannot retrieve the correct file name using [`AndroidFs::get_name`].  
@@ -229,13 +244,14 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     pub fn pick_visual_media(
         &self,
         target: VisualMediaTarget<'_>,
+        local_only: bool
     ) -> Result<Option<FileUri>> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().show_pick_visual_media_dialog(target, false)
+            self.impls().show_pick_visual_media_dialog(target, false, local_only)
                 .await
                 .map(|mut i| i.pop())
         }
@@ -262,6 +278,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// # References
     /// - <https://developer.android.com/reference/android/content/Intent#ACTION_GET_CONTENT>
     #[maybe_async]
+    #[deprecated = "This may not support operations other than opening files."]
     pub fn pick_contents(
         &self,
         mime_types: &[&str],
@@ -296,6 +313,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// # References
     /// - <https://developer.android.com/reference/android/content/Intent#ACTION_GET_CONTENT>
     #[maybe_async]
+    #[deprecated = "This may not support operations other than opening files."]
     pub fn pick_content(
         &self,
         mime_types: &[&str],
@@ -338,6 +356,9 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     ///     - [`FilePicker::pick_dir`]
     ///     - [`FilePicker::save_file`]
     /// 
+    /// - ***local_only*** :
+    /// Indicates whether only entry located on the local device should be selectable, without requiring it to be downloaded from a remote service when opened.
+    ///  
     /// # Support
     /// All Android version.
     /// 
@@ -347,13 +368,14 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     pub fn pick_dir(
         &self,
         initial_location: Option<&FileUri>,
+        local_only: bool
     ) -> Result<Option<FileUri>> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().show_pick_dir_dialog(initial_location).await
+            self.impls().show_pick_dir_dialog(initial_location, local_only).await
         }
     }
 
@@ -398,6 +420,9 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// The MIME type of the file to be saved.  
     /// If this is None, MIME type is inferred from the extension of ***initial_file_name*** (not file name by user input)
     /// and if that fails, `application/octet-stream` is used.  
+    /// 
+    /// - ***local_only*** :
+    /// Indicates whether only entry located on the local device should be selectable.
     ///  
     /// # Support
     /// All Android version.
@@ -410,13 +435,14 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
         initial_location: Option<&FileUri>,
         initial_file_name: impl AsRef<str>,
         mime_type: Option<&str>,
+        local_only: bool
     ) -> Result<Option<FileUri>> {
         
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-           self.impls().show_save_file_dialog(initial_location, initial_file_name, mime_type).await 
+           self.impls().show_save_file_dialog(initial_location, initial_file_name, mime_type, local_only).await 
         }
     }
 

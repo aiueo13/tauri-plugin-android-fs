@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-remove-empty-dir"
+description = "Enables the remove_empty_dir command without any pre-configured scope."
+commands.allow = ["remove_empty_dir"]
+
+[[permission]]
+identifier = "deny-remove-empty-dir"
+description = "Denies the remove_empty_dir command without any pre-configured scope."
+commands.deny = ["remove_empty_dir"]

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-show-open-dir-picker"
+description = "Enables the show_open_dir_picker command without any pre-configured scope."
+commands.allow = ["show_open_dir_picker"]
+
+[[permission]]
+identifier = "deny-show-open-dir-picker"
+description = "Denies the show_open_dir_picker command without any pre-configured scope."
+commands.deny = ["show_open_dir_picker"]

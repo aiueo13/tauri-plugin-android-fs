@@ -7,7 +7,7 @@ pub struct Size {
     pub height: u32
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
 #[non_exhaustive]
 pub enum ImageFormat {
 
@@ -41,5 +41,16 @@ pub enum ImageFormat {
         /// 0.0 means compress for the smallest size.  
         /// 1.0 means compress for max visual quality.  
         quality: f32
+    }
+}
+
+impl ImageFormat {
+
+    pub(crate) fn mime_type(&self) -> &'static str {
+        match self {
+            ImageFormat::Jpeg | ImageFormat::JpegWith { .. } => "image/jpeg",
+            ImageFormat::Webp | ImageFormat::WebpWith { .. } => "image/webp",
+            ImageFormat::Png => "image/png",
+        }
     }
 }

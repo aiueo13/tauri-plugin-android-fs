@@ -33,6 +33,37 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
+    pub fn get_entry_info(&self, uri: &FileUri) -> Result<Entry> {
+        impl_se!(struct Req<'a> { uri: &'a FileUri });
+        impl_de!(struct Res {
+            uri: FileUri,
+            mime_type: Option<String>,
+            name: String,
+            last_modified: i64,
+            len: Option<i64>, 
+        });
+
+        let v = self.invoke::<Res>("getMetadata", Req { uri }).await?;
+        
+        Ok(match v.mime_type {
+            // ファイルの時は必ず Some(mime_type) になり、
+            // フォルダの時にのみ None になる。
+            Some(mime_type) => Entry::File {
+                uri: v.uri,
+                name: v.name,
+                last_modified: std::time::UNIX_EPOCH + std::time::Duration::from_millis(i64::max(0, v.last_modified) as u64),
+                len: i64::max(0, v.len.ok_or_else(|| Error::missing_value("len"))?) as u64,
+                mime_type,
+            },
+            None => Entry::Dir {
+                uri: v.uri,
+                name: v.name,
+                last_modified: std::time::UNIX_EPOCH + std::time::Duration::from_millis(i64::max(0, v.last_modified) as u64),
+            }
+        })
+    }
+
+    #[maybe_async]
     pub fn open_file(&self, uri: &FileUri, mode: FileAccessMode) -> Result<std::fs::File> {
         impl_se!(struct Req<'a> { uri: &'a FileUri, mode: &'a str });
         impl_de!(struct Res { fd: std::os::fd::RawFd });
@@ -277,19 +308,19 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     pub fn check_persisted_uri_permission(
         &self, 
         uri: &FileUri, 
-        mode: PersistableAccessMode
+        permission: UriPermission
     ) -> Result<bool> {
         
-        impl_se!(struct Req<'a> { uri: &'a FileUri, mode: PersistableAccessMode });
+        impl_se!(struct Req<'a> { uri: &'a FileUri, mode: UriPermission });
         impl_de!(struct Res { value: bool });
 
-        self.invoke::<Res>("checkPersistedUriPermission", Req { uri, mode })
+        self.invoke::<Res>("checkPersistedUriPermission", Req { uri, mode: permission })
             .await
             .map(|v| v.value)
     }
 
     #[maybe_async]
-    pub fn get_all_persisted_uri_permissions(&self) -> Result<impl Iterator<Item = PersistedUriPermission>> {
+    pub fn get_all_persisted_uri_permissions(&self) -> Result<impl Iterator<Item = PersistedUriPermissionState>> {
         impl_de!(struct Obj { uri: FileUri, r: bool, w: bool, d: bool });
         impl_de!(struct Res { items: Vec<Obj> });
     
@@ -299,8 +330,8 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             .map(|v| v.map(|v| {
                 let (uri, can_read, can_write) = (v.uri, v.r, v.w);
                 match v.d {
-                    true => PersistedUriPermission::Dir { uri, can_read, can_write },
-                    false => PersistedUriPermission::File { uri, can_read, can_write }
+                    true => PersistedUriPermissionState::Dir { uri, can_read, can_write },
+                    false => PersistedUriPermissionState::File { uri, can_read, can_write }
                 }
             }))
     }
@@ -534,16 +565,18 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         initial_location: Option<&FileUri>,
         mime_types: &[&str],
         multiple: bool,
+        local_only: bool,
     ) -> Result<Vec<FileUri>> {
 
         impl_se!(struct Req<'a> { 
             mime_types: &'a [&'a str],
-                multiple: bool,
-                initial_location: Option<&'a FileUri>
+            multiple: bool,
+            initial_location: Option<&'a FileUri>,
+            local_only: bool
         });
         impl_de!(struct Res { uris: Vec<FileUri> });
     
-        let result = self.invoke::<Res>("showOpenFileDialog", Req { mime_types, multiple, initial_location })
+        let result = self.invoke::<Res>("showOpenFileDialog", Req { mime_types, multiple, initial_location, local_only })
             .await
             .map(|v| v.uris);
 
@@ -561,9 +594,10 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         &self,
         target: VisualMediaTarget<'_>,
         multiple: bool,
+        local_only: bool,
     ) -> Result<Vec<FileUri>> {
 
-        impl_se!(struct Req<'a> { multiple: bool, target: &'a str });
+        impl_se!(struct Req<'a> { multiple: bool, target: &'a str, local_only: bool });
         impl_de!(struct Res { uris: Vec<FileUri> });
 
         let target = match target {
@@ -580,7 +614,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             }
         };
     
-        let result = self.invoke::<Res>("showOpenVisualMediaDialog", Req { multiple, target })
+        let result = self.invoke::<Res>("showOpenVisualMediaDialog", Req { multiple, target, local_only })
             .await
             .map(|v| v.uris);
 
@@ -614,12 +648,13 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     pub fn show_pick_dir_dialog(
         &self,
         initial_location: Option<&FileUri>,
+        local_only: bool
     ) -> Result<Option<FileUri>> {
 
-        impl_se!(struct Req<'a> { initial_location: Option<&'a FileUri> });
+        impl_se!(struct Req<'a> { initial_location: Option<&'a FileUri>, local_only: bool });
         impl_de!(struct Res { uri: Option<FileUri> });
 
-        let result = self.invoke::<Res>("showManageDirDialog", Req { initial_location })
+        let result = self.invoke::<Res>("showManageDirDialog", Req { initial_location, local_only })
             .await
             .map(|v| v.uri);
 
@@ -635,18 +670,20 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         initial_location: Option<&FileUri>,
         initial_file_name: impl AsRef<str>,
         mime_type: Option<&str>,
+        local_only: bool,
     ) -> Result<Option<FileUri>> {
         
         impl_se!(struct Req<'a> {
             initial_file_name: &'a str, 
             mime_type: Option<&'a str>, 
-            initial_location: Option<&'a FileUri> 
+            initial_location: Option<&'a FileUri>,
+            local_only: bool,
         });
         impl_de!(struct Res { uri: Option<FileUri> });
     
         let initial_file_name = initial_file_name.as_ref();
         
-        let result = self.invoke::<Res>("showSaveFileDialog", Req { initial_file_name, mime_type, initial_location })
+        let result = self.invoke::<Res>("showSaveFileDialog", Req { local_only, initial_file_name, mime_type, initial_location })
             .await
             .map(|v| v.uri);
 

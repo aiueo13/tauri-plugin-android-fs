@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-scan-public-file"
+description = "Enables the scan_public_file command without any pre-configured scope."
+commands.allow = ["scan_public_file"]
+
+[[permission]]
+identifier = "deny-scan-public-file"
+description = "Denies the scan_public_file command without any pre-configured scope."
+commands.deny = ["scan_public_file"]

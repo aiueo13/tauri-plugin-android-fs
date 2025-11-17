@@ -82,6 +82,7 @@ class GetThumbnailArgs {
 class ShowOpenFileDialogArgs {
     lateinit var mimeTypes: Array<String>
     var multiple: Boolean = false
+    var localOnly: Boolean = false
     var initialLocation: FileUri? = null
 }
 
@@ -94,18 +95,21 @@ class ShowOpenContentDialogArgs {
 @InvokeArg
 class ShowOpenVisualMediaDialogArgs {
     lateinit var target: String
+    var localOnly: Boolean = false
     var multiple: Boolean = false
 }
 
 @InvokeArg
 class ShowManageDirDialogArgs {
     var initialLocation: FileUri? = null
+    var localOnly: Boolean = false
 }
 
 @InvokeArg
 class ShowSaveFileDialogArgs {
     var initialLocation: FileUri? = null
     lateinit var initialFileName: String
+    var localOnly: Boolean = false
     var mimeType: String? = null
 }
 
@@ -113,7 +117,8 @@ class ShowSaveFileDialogArgs {
 enum class PersistableUriPermissionMode {
     Read,
     Write,
-    ReadAndWrite
+    ReadAndWrite,
+    ReadOrWrite,
 }
 
 @InvokeArg
@@ -133,6 +138,11 @@ class CheckMediaStoreVolumeNameAvailableArgs {
 
 @InvokeArg
 class GetMimeTypeArgs {
+    lateinit var uri: FileUri
+}
+
+@InvokeArg
+class GetMetadataArgs {
     lateinit var uri: FileUri
 }
 
@@ -1122,6 +1132,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     PersistableUriPermissionMode.Read -> p.isReadPermission
                     PersistableUriPermissionMode.Write -> p.isWritePermission
                     PersistableUriPermissionMode.ReadAndWrite -> p.isReadPermission && p.isWritePermission
+                    PersistableUriPermissionMode.ReadOrWrite -> p.isReadPermission || p.isWritePermission
                 }
 
                 invoke.resolve(JSObject().apply {
@@ -1293,6 +1304,33 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             invoke.resolve(res)
         } catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke getFileName."
+            invoke.reject(message)
+        }
+    }
+
+    @Command
+    fun getMetadata(invoke: Invoke) {
+        try {
+            val args = invoke.parseArgs(GetMetadataArgs::class.java)
+
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val res = getFileController(args.uri).getMetadata(args.uri)
+
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve(res)
+                    }
+                }
+                catch (ex: Exception) {
+                    withContext(Dispatchers.Main) {
+                        val message = ex.message ?: "Failed to invoke getMetadata."
+                        invoke.reject(message)
+                    }
+                }
+            }
+        }
+        catch (ex: Exception) {
+            val message = ex.message ?: "Failed to invoke getMetadata."
             invoke.reject(message)
         }
     }
@@ -1687,6 +1725,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 }
             }
 
+            if (args.localOnly) {
+                intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true)
+            }
+
             startActivityForResult(invoke, intent, "handleShowManageDirDialog")
         }
         catch (ex: Exception) {
@@ -1765,8 +1807,13 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 }
             }
 
+            if (args.localOnly) {
+                intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true)
+            }
+
             startActivityForResult(invoke, intent, "handleShowOpenFileAndVisualMediaDialog")
-        } catch (ex: Exception) {
+        }
+        catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke showOpenFileDialog."
             invoke.reject(message)
         }
@@ -1790,6 +1837,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         try {
             val args = invoke.parseArgs(ShowOpenVisualMediaDialogArgs::class.java)
             val intent = createVisualMediaPickerIntent(args.multiple, args.target)
+
+            if (args.localOnly) {
+                intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true)
+            }
 
             startActivityForResult(invoke, intent, "handleShowOpenFileAndVisualMediaDialog")
         } catch (ex: Exception) {
@@ -1815,6 +1866,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                         intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, dUri)
                     }
                 }
+            }
+
+            if (args.localOnly) {
+                intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true)
             }
 
             startActivityForResult(invoke, intent, "handleShowSaveFileDialog")

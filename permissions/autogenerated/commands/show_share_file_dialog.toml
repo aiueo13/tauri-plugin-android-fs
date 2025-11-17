@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-show-share-file-dialog"
+description = "Enables the show_share_file_dialog command without any pre-configured scope."
+commands.allow = ["show_share_file_dialog"]
+
+[[permission]]
+identifier = "deny-show-share-file-dialog"
+description = "Denies the show_share_file_dialog command without any pre-configured scope."
+commands.deny = ["show_share_file_dialog"]

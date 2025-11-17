@@ -81,19 +81,19 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         uri: &FileUri, 
     ) -> Result<std::fs::File> {
 
-        #[allow(deprecated)]
-        const WRITE_TRUNCATE_OR_NOT: FileAccessMode = FileAccessMode::Write;
-
-        // Android 9 以下の場合、w は既存コンテンツを切り捨てる
         if self.api_level()? <= api_level::ANDROID_9 {
-            self.open_file(uri, WRITE_TRUNCATE_OR_NOT).await
+            // Android 9 以下の場合、w は既存コンテンツを必ず切り捨てる
+            #[allow(deprecated)]
+            self.open_file(uri, FileAccessMode::Write).await
         }
-        // Android 10 以上の場合、w は既存コンテンツの切り捨てを保証しない。
-        // そのため切り捨ててファイルを開くには wt を用いる必要があるが、
-        // wt は全ての file provider が対応しているとは限らないため、
-        // フォールバックを用いてなるべく多くの状況に対応する。
-        // https://issuetracker.google.com/issues/180526528?pli=1
         else {
+            // Android 10 以上の場合、w は既存コンテンツの切り捨てを保証しない。
+            // https://issuetracker.google.com/issues/180526528?pli=1
+            #[allow(deprecated)]
+            const WRITE_TRUNCATE_OR_NOT: FileAccessMode = FileAccessMode::Write;
+
+            // 切り捨ててファイルを開く wt と rwt は全ての file provider が対応しているとは限らない。
+            // よってフォールバックを用いてなるべく切り捨てて開けるように試みる。
             let (file, mode) = self.open_file_with_fallback(uri, [
                 FileAccessMode::WriteTruncate, 
                 FileAccessMode::ReadWriteTruncate,

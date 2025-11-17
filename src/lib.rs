@@ -3,6 +3,7 @@
 #![allow(unused_variables)]
 
 mod models;
+mod cmds;
 mod consts;
 
 pub mod api;
@@ -48,6 +49,45 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
 
             Ok(())
         })
+        .js_init_script(format!(
+            "window.__TAURI_ANDROID_FS_PLUGIN_INTERNALS__ = {{ isAndroid: {} }};",
+            cfg!(target_os = "android")
+        ))
+        .invoke_handler(tauri::generate_handler![
+            cmds::get_name,
+            cmds::get_mime_type,
+            cmds::get_type,
+            cmds::get_metadata,
+            cmds::get_fs_path,
+            cmds::get_thumbnail,
+            cmds::get_thumbnail_base64,
+            cmds::get_thumbnail_data_url,
+            cmds::get_volumes,
+            cmds::create_new_public_file,
+            cmds::create_new_public_image_file,
+            cmds::create_new_public_video_file,
+            cmds::create_new_public_audio_file,
+            cmds::scan_public_file,
+            cmds::request_public_files_permission,
+            cmds::has_public_files_permission,
+            cmds::create_new_file,
+            cmds::copy_file,
+            cmds::truncate_file,
+            cmds::read_dir,
+            cmds::remove_file,
+            cmds::remove_empty_dir,
+            cmds::remove_dir_all,
+            cmds::persist_uri_permission,
+            cmds::check_persisted_uri_permission,
+            cmds::release_persisted_uri_permission,
+            cmds::release_all_persisted_uri_permissions,
+            cmds::show_open_file_picker,
+            cmds::show_open_dir_picker,
+            cmds::show_save_file_picker,
+            cmds::show_share_file_dialog,
+            cmds::show_view_file_dialog,
+            cmds::show_view_dir_dialog
+        ])
         .build()
 }
 

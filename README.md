@@ -22,7 +22,6 @@ pub fn run() {
 ```
 
 # Usage
-This plugin only provides a Rust-side API. 
 If you need to use file data on frontend, consider using Tauri’s custom protocols for efficient transmission. Or convert `tauri_plugin_android_fs::FileUri` to `tauri_plugin_fs::FilePath` and use tauri_plugin_fs functions on frontend. 
 
 ### 1. Dialog
@@ -41,6 +40,7 @@ async fn file_picker_example(&app: tauri::AppHandle<impl tauri::Runtime>) -> Res
         .pick_files(
             None, // Initial location
             &["*/*"], // Target MIME types
+            false, // If true, only files on local device
         )
         .await?;
 
@@ -96,6 +96,7 @@ async fn file_saver_example(app: &tauri::AppHandle<impl tauri::Runtime>) -> Resu
             Some(&initial_location), // Initial location
             "my-image.jpg", // Initial file name
             Some("image/jpeg"), // MIME type
+            false, // If true, only files on local device
         )
         .await?;
 
@@ -126,6 +127,7 @@ async fn dir_picker_example(app: &tauri::AppHandle<impl tauri::Runtime>) -> Resu
         .file_picker()
         .pick_dir(
             None, // Initial location
+            false, // If true, only directory on local device
         )
         .await?;
 
@@ -284,4 +286,9 @@ async fn example(app: tauri::AppHandle<impl tauri::Runtime>) -> Result<()> {
 - [Changelog](https://github.com/aiueo13/tauri-plugin-android-fs/blob/main/CHANGES.md)
 
 # License
-MIT OR Apache-2.0
+This project is licensed under either of
+
+ * MIT license
+ * Apache License (Version 2.0)
+
+at your option.

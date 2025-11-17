@@ -52,6 +52,25 @@ class RawFileController: FileController {
         return buffer
     }
 
+    override fun getMetadata(uri: FileUri): JSObject {
+        val file = File(Uri.parse(uri.uri).path!!)
+        val obj = JSObject()
+        obj.put("uri", JSObject().apply {
+            put("uri", file.toURI())
+            put("documentTopTreeUri", null)
+        })
+        obj.put("name", file.name)
+        obj.put("lastModified", file.lastModified())
+
+        val mimeType = _getMimeType(file)
+        if (mimeType != null) {
+            obj.put("mimeType", mimeType)
+            obj.put("len", file.length())
+        }
+
+        return obj
+    }
+
     // この関数が返すUriは他のアプリに共有できない
     @Synchronized
     override fun createFile(dirUri: FileUri, relativePath: String, mimeType: String): JSObject {

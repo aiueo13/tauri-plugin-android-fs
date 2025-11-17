@@ -120,6 +120,49 @@ class DocumentFileController(private val activity: Activity): FileController {
         return buffer
     }
 
+    override fun getMetadata(uri: FileUri): JSObject {
+        val cursor = activity.contentResolver.query(
+            Uri.parse(uri.uri),
+            arrayOf(
+                DocumentsContract.Document.COLUMN_MIME_TYPE,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+                DocumentsContract.Document.COLUMN_SIZE
+            ),
+            null,
+            null,
+            null
+        )
+
+        cursor?.use {
+            val mimeTypeColumnIndex = it.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
+            val nameColumnIndex = it.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+            val lastModifiedColumnIndex = it.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+            val sizeColumnIndex = it.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
+
+            while (it.moveToNext()) {
+                val obj = JSObject()
+
+                obj.put("uri", JSObject().apply {
+                    put("uri", uri.uri)
+                    put("documentTopTreeUri", uri.documentTopTreeUri)
+                })
+                obj.put("name", it.getString(nameColumnIndex))
+                obj.put("lastModified", it.getLongOrNull(lastModifiedColumnIndex) ?: 0)
+
+                val mimeType = it.getString(mimeTypeColumnIndex)
+                if (mimeType != DocumentsContract.Document.MIME_TYPE_DIR) {
+                    obj.put("mimeType", mimeType)
+                    obj.put("len", it.getLong(sizeColumnIndex))
+                }
+
+                return obj
+            }
+        }
+
+        throw Exception("No permission or entry: $uri")
+    }
+
     @Synchronized
     override fun createFile(dirUri: FileUri, relativePath: String, mimeType: String): JSObject {
         if (relativePath.endsWith('/')) {

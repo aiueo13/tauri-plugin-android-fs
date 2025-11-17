@@ -1,13 +1,15 @@
 use serde::{Deserialize, Serialize};
 use crate::*;
 
-
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(tag = "type")]
 pub enum EntryType {
+
     File {
-        mime_type: String
+        #[serde(rename = "mimeType")]
+        mime_type: String,
     },
+
     Dir,
 }
 
