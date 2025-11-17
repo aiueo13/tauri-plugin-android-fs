@@ -22,7 +22,7 @@ pub fn run() {
 ```
 
 # Usage
-If you need to use file data on frontend, consider using Tauri’s custom protocols for efficient transmission. Or convert `tauri_plugin_android_fs::FileUri` to `tauri_plugin_fs::FilePath` and use tauri_plugin_fs functions on frontend. 
+This section explains how to use this plugin on the Rust side. If you need JavaScript bindings on the frontend, please see [this link](https://www.npmjs.com/package/tauri-plugin-android-fs-api?activeTab=readme).
 
 ### 1. Dialog
 
@@ -49,6 +49,8 @@ async fn file_picker_example(&app: tauri::AppHandle<impl tauri::Runtime>) -> Res
     }
     else {
         for uri in selected_files {
+            // Converts a URI into a path usable by Tauri's official FS plugin.
+            // 
             // This is FilePath::Url(..)
             // Not FilePath::Path(..)
             let file_path: tauri_plugin_fs::FilePath = uri.clone().into();

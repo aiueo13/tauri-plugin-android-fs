@@ -71,6 +71,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             cmds::request_public_files_permission,
             cmds::has_public_files_permission,
             cmds::create_new_file,
+            cmds::create_dir_all,
             cmds::copy_file,
             cmds::truncate_file,
             cmds::read_dir,

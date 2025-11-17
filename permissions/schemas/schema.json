@@ -331,6 +331,18 @@
           "markdownDescription": "Denies the copy_file command without any pre-configured scope."
         },
         {
+          "description": "Enables the create_dir_all command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-create-dir-all",
+          "markdownDescription": "Enables the create_dir_all command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the create_dir_all command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-create-dir-all",
+          "markdownDescription": "Denies the create_dir_all command without any pre-configured scope."
+        },
+        {
           "description": "Enables the create_new_file command without any pre-configured scope.",
           "type": "string",
           "const": "allow-create-new-file",

@@ -21,6 +21,7 @@ commands.allow = [
     "request_public_files_permission",
     "has_public_files_permission",
     "create_new_file",
+    "create_dir_all",
     "read_dir",
     "persist_uri_permission",
     "check_persisted_uri_permission",

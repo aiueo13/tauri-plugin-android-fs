@@ -741,7 +741,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         }
     }
 
-    /// Recursively create a directory and all of its parent components if they are missing,
+    /// Creates a directory and it's parents at the specified location if they are missing,
     /// then return the URI.  
     /// If it already exists, do nothing and just return the direcotry uri.
     /// 

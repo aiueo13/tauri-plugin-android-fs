@@ -1,8 +1,10 @@
 # Version 22.0.0
+- Remove feature `tauri-plugin-fs`
 - Chage `PersistedUriPermission` to `PersistedUriPermissionState`
 - Chage `PersistableAccessMode` to `UriPermission`
 - Deprecate `FilePicker::pick_content`
 - Deprecate `FilePicker::pick_contents`
+- Add Javascript bindings and publish [it's library](https://www.npmjs.com/package/tauri-plugin-android-fs-api?activeTab=readme)
 - Add `UriPermission::ReadOrWrite`
 - Add args `local_only` for `FilePicker::pick_files`, `FilePicker::pick_file`,  `FilePicker::pick_visual_medias`, `FilePicker::pick_visual_media`, `FilePicker::pick_dir`, `FilePicker::save_file`
 - Update documentation.

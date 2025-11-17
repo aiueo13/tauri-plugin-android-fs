@@ -26,6 +26,7 @@ const COMMANDS: &'static [&'static str] = &[
     "request_public_files_permission",
     "has_public_files_permission",
     "create_new_file",
+    "create_dir_all",
     "truncate_file",
     "copy_file",
     "read_dir",

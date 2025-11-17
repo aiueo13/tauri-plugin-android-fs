@@ -283,6 +283,17 @@ pub async fn has_public_files_permission<R: tauri::Runtime>(
 }
 
 #[tauri::command]
+pub async fn create_dir_all<R: tauri::Runtime>(
+    parent_dir_uri: FileUri,
+    relative_path: String,
+    app: tauri::AppHandle<R>
+) -> Result<FileUri> {
+
+    let api = app.android_fs_async();
+    api.create_dir_all(&parent_dir_uri, relative_path).await
+}
+
+#[tauri::command]
 pub async fn create_new_file<R: tauri::Runtime>(
     parent_dir_uri: FileUri,
     relative_path: String,
@@ -328,11 +339,10 @@ pub async fn truncate_file<R: tauri::Runtime>(
 
 #[tauri::command]
 pub async fn read_dir<R: tauri::Runtime>(
-    uri: AfsUriOrFsPath,
+    uri: FileUri,
     app: tauri::AppHandle<R>
 ) -> Result<Vec<EntryMetadataWithUri>> {
 
-    let uri = uri.into();
     let api = app.android_fs_async();
     let entries = api.read_dir(&uri).await?;
     let mut buffer = Vec::new();

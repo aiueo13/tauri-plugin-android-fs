@@ -96,6 +96,32 @@ Denies the copy_file command without any pre-configured scope.
 <tr>
 <td>
 
+`android-fs:allow-create-dir-all`
+
+</td>
+<td>
+
+Enables the create_dir_all command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-create-dir-all`
+
+</td>
+<td>
+
+Denies the create_dir_all command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `android-fs:allow-create-new-file`
 
 </td>
