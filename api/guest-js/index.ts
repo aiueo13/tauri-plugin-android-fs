@@ -32,6 +32,10 @@ export function isAndroid(): boolean {
  */
 export type FsPath = string | URL;
 
+function mapFsPathForInput(uri: FsPath | AndroidFsUri): string | AndroidFsUri {
+	return uri instanceof URL ? uri.toString() : uri
+}
+
 /**
  * URI of the file or directory on Android.
  * 
@@ -272,7 +276,9 @@ export class AndroidFs {
 	 * @since 22.0.0
 	 */
 	public static async getName(uri: AndroidFsUri | FsPath): Promise<string> {
-		return await invoke('plugin:android-fs|get_name', { uri })
+		return await invoke('plugin:android-fs|get_name', {
+			uri: mapFsPathForInput(uri)
+		})
 	}
 
 	/**
@@ -287,7 +293,9 @@ export class AndroidFs {
 	 * @since 22.2.0
 	 */
 	public static async getByteLength(uri: AndroidFsUri | FsPath): Promise<number> {
-		return await invoke('plugin:android-fs|get_byte_length', { uri })
+		return await invoke('plugin:android-fs|get_byte_length', {
+			uri: mapFsPathForInput(uri)
+		})
 	}
 
 	/**
@@ -301,7 +309,9 @@ export class AndroidFs {
 	 * @since 22.0.0
 	 */
 	public static async getType(uri: AndroidFsUri | FsPath): Promise<AndroidEntryType> {
-		return await invoke('plugin:android-fs|get_type', { uri })
+		return await invoke('plugin:android-fs|get_type', {
+			uri: mapFsPathForInput(uri)
+		})
 	}
 
 	/**
@@ -316,7 +326,9 @@ export class AndroidFs {
 	 * @since 22.0.0
 	 */
 	public static async getMimeType(uri: AndroidFsUri | FsPath): Promise<string> {
-		return await invoke('plugin:android-fs|get_mime_type', { uri })
+		return await invoke('plugin:android-fs|get_mime_type', {
+			uri: mapFsPathForInput(uri)
+		})
 	}
 
 	/**
@@ -331,7 +343,9 @@ export class AndroidFs {
 	 * @since 22.0.0
 	 */
 	public static async getMetadata(uri: AndroidFsUri | FsPath): Promise<AndroidEntryMetadata> {
-		let md = await invoke<AndroidEntryMetadataInner>('plugin:android-fs|get_metadata', { uri })
+		let md = await invoke<AndroidEntryMetadataInner>('plugin:android-fs|get_metadata', {
+			uri: mapFsPathForInput(uri)
+		})
 		const lastModified = new Date(md.lastModified)
 
 		return md.type === "Dir"
@@ -362,7 +376,7 @@ export class AndroidFs {
 	): Promise<string | null> {
 
 		return await invoke('plugin:android-fs|get_thumbnail_data_url', {
-			uri,
+			uri: mapFsPathForInput(uri),
 			width,
 			height,
 			format
@@ -392,7 +406,7 @@ export class AndroidFs {
 	): Promise<string | null> {
 
 		return await invoke('plugin:android-fs|get_thumbnail_base64', {
-			uri,
+			uri: mapFsPathForInput(uri),
 			width,
 			height,
 			format
@@ -422,7 +436,7 @@ export class AndroidFs {
 	): Promise<ArrayBuffer | null> {
 
 		const thumbnail = await invoke<ArrayBuffer>('plugin:android-fs|get_thumbnail', {
-			uri,
+			uri: mapFsPathForInput(uri),
 			width,
 			height,
 			format
@@ -442,7 +456,9 @@ export class AndroidFs {
 	 * @since 22.0.0
 	 */
 	public static async getFsPath(uri: AndroidFsUri | FsPath): Promise<FsPath> {
-		return await invoke<string>('plugin:android-fs|get_fs_path', { uri })
+		return await invoke<string>('plugin:android-fs|get_fs_path', { 
+			uri: mapFsPathForInput(uri)
+		})
 	}
 
 	/**
@@ -827,7 +843,10 @@ export class AndroidFs {
 		destUri: AndroidFsUri | FsPath,
 	): Promise<void> {
 
-		return await invoke('plugin:android-fs|copy_file', { srcUri, destUri })
+		return await invoke('plugin:android-fs|copy_file', {
+			srcUri: mapFsPathForInput(srcUri),
+			destUri: mapFsPathForInput(destUri)
+		})
 	}
 
 	/**
@@ -845,7 +864,9 @@ export class AndroidFs {
 		uri: AndroidFsUri | FsPath,
 	): Promise<void> {
 
-		return await invoke('plugin:android-fs|truncate_file', { uri })
+		return await invoke('plugin:android-fs|truncate_file', {
+			uri: mapFsPathForInput(uri)
+		})
 	}
 
 	/**
@@ -860,7 +881,9 @@ export class AndroidFs {
 	 * @since 22.0.0
 	 */
 	public static async removeFile(uri: AndroidFsUri | FsPath): Promise<void> {
-		return await invoke('plugin:android-fs|remove_file', { uri })
+		return await invoke('plugin:android-fs|remove_file', {
+			uri: mapFsPathForInput(uri)
+		})
 	}
 
 	/**
@@ -875,7 +898,9 @@ export class AndroidFs {
 	 * @since 22.0.0
 	 */
 	public static async removeDirAll(uri: AndroidFsUri | FsPath): Promise<void> {
-		return await invoke('plugin:android-fs|remove_dir_all', { uri })
+		return await invoke('plugin:android-fs|remove_dir_all', {
+			uri: mapFsPathForInput(uri)
+		})
 	}
 
 	/**
@@ -890,7 +915,9 @@ export class AndroidFs {
 	 * @since 22.0.0
 	 */
 	public static async removeEmptyDir(uri: AndroidFsUri | FsPath): Promise<void> {
-		return await invoke('plugin:android-fs|remove_empty_dir', { uri })
+		return await invoke('plugin:android-fs|remove_empty_dir', {
+			uri: mapFsPathForInput(uri)
+		})
 	}
 
 	/**
