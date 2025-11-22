@@ -20,6 +20,14 @@ class RawFileController: FileController {
         return File(Uri.parse(uri.uri).path!!).name
     }
 
+    override fun getLen(uri: FileUri): Long {
+        val entry = File(Uri.parse(uri.uri).path!!)
+        if (!entry.isFile) {
+            throw Exception("This is not a file: ${entry.path}")
+        }
+        return entry.length()
+    }
+
     override fun readDir(dirUri: FileUri, options: ReadDirEntryOptions): JSArray {
         val dir = File(Uri.parse(dirUri.uri).path!!)
         val buffer = JSArray()

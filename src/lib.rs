@@ -55,6 +55,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         ))
         .invoke_handler(tauri::generate_handler![
             cmds::get_name,
+            cmds::get_byte_length,
             cmds::get_mime_type,
             cmds::get_type,
             cmds::get_metadata,
@@ -63,6 +64,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             cmds::get_thumbnail_base64,
             cmds::get_thumbnail_data_url,
             cmds::get_volumes,
+            cmds::list_volumes,
             cmds::create_new_public_file,
             cmds::create_new_public_image_file,
             cmds::create_new_public_video_file,

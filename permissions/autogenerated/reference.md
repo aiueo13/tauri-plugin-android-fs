@@ -252,6 +252,32 @@ Denies the create_new_public_video_file command without any pre-configured scope
 <tr>
 <td>
 
+`android-fs:allow-get-byte-length`
+
+</td>
+<td>
+
+Enables the get_byte_length command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-get-byte-length`
+
+</td>
+<td>
+
+Denies the get_byte_length command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `android-fs:allow-get-fs-path`
 
 </td>
@@ -505,6 +531,32 @@ Enables the has_public_files_permission command without any pre-configured scope
 <td>
 
 Denies the has_public_files_permission command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-list-volumes`
+
+</td>
+<td>
+
+Enables the list_volumes command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-list-volumes`
+
+</td>
+<td>
+
+Denies the list_volumes command without any pre-configured scope.
 
 </td>
 </tr>

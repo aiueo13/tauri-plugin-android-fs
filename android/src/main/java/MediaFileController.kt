@@ -25,6 +25,26 @@ class MediaFileController(private val activity: Activity): FileController {
         return AFMediaStore.getDisplayName(uri, activity)
     }
 
+    override fun getLen(uri: FileUri): Long {
+        val cursor = activity.contentResolver.query(
+            Uri.parse(uri.uri),
+            arrayOf(MediaStore.MediaColumns.SIZE),
+            null,
+            null,
+            null
+        )
+
+        cursor?.use {
+            val sizeColumnIndex = it.getColumnIndex(MediaStore.MediaColumns.SIZE)
+
+            while (it.moveToNext()) {
+                return it.getLong(sizeColumnIndex)
+            }
+        }
+
+        throw Exception("No permission or entry: $uri")
+    }
+
     override fun deleteFile(uri: FileUri) {
         AFMediaStore.delete(uri, activity)
     }

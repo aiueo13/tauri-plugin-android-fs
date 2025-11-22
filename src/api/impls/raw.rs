@@ -64,6 +64,16 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
+    pub fn get_file_len(&self, uri: &FileUri) -> Result<u64> {
+        impl_se!(struct Req<'a> { uri: &'a FileUri });
+        impl_de!(struct Res { len: i64 });
+
+        self.invoke::<Res>("getLen", Req { uri })
+            .await
+            .map(|v| i64::max(0, v.len) as u64)
+    }
+
+    #[maybe_async]
     pub fn open_file(&self, uri: &FileUri, mode: FileAccessMode) -> Result<std::fs::File> {
         impl_se!(struct Req<'a> { uri: &'a FileUri, mode: &'a str });
         impl_de!(struct Res { fd: std::os::fd::RawFd });

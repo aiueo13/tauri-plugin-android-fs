@@ -10,6 +10,8 @@ interface FileController {
 
     fun getName(uri: FileUri): String
 
+    fun getLen(uri: FileUri): Long
+
     fun readDir(dirUri: FileUri, options: ReadDirEntryOptions): JSArray
 
     fun getMetadata(uri: FileUri): JSObject

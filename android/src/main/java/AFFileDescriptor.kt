@@ -52,7 +52,7 @@ class AFFileDescriptor private constructor() {
 
                 return sm.openProxyFileDescriptor(
                     ParcelFileDescriptor.MODE_WRITE_ONLY,
-                    FromZeroPositionUnseekableWriteonlyFileBehavior(output, outputInitLen) {
+                    FromZeroPositionUnseekableWriteonlyFileBehaviorWithOutputStream(output, outputInitLen) {
                         HandlerManager.notifyTaskEnd()
                     },
                     HandlerManager.getHandlerAndNotifyTaskAdd()
@@ -101,44 +101,8 @@ private fun needWriteViaOutputStream(uri: Uri): Boolean {
     return targetUriPrefixes.any { uriString.startsWith(it) }
 }
 
-
-class HandlerManager {
-    companion object {
-        private var handlerThread: HandlerThread? = null
-        private var handler: Handler? = null
-        private var taskCount = 0
-
-        @Synchronized
-        fun getHandlerAndNotifyTaskAdd(): Handler {
-            taskCount++
-
-            // 既に存在していて動作中なら再利用
-            handlerThread?.let { thread ->
-                val currentHandler = handler
-                if (thread.isAlive && currentHandler != null) return currentHandler
-            }
-
-            // 新規起動
-            handlerThread = HandlerThread("ProxyFDThread").apply { start() }
-            handler = Handler(handlerThread!!.looper)
-            return handler!!
-        }
-
-        @Synchronized
-        fun notifyTaskEnd() {
-            taskCount--
-            if (taskCount <= 0) {
-                handlerThread?.quitSafely()
-                handlerThread = null
-                handler = null
-                taskCount = 0
-            }
-        }
-    }
-}
-
 @RequiresApi(Build.VERSION_CODES.O)
-private class FromZeroPositionUnseekableWriteonlyFileBehavior(
+private class FromZeroPositionUnseekableWriteonlyFileBehaviorWithOutputStream(
     private val dest: OutputStream,
     private val destInitLen: Long,
     private val onRelease: (() -> Unit)?
@@ -177,6 +141,9 @@ private class FromZeroPositionUnseekableWriteonlyFileBehavior(
         try {
             dest.flush()
         }
+        catch (e: ErrnoException) {
+            throw e
+        }
         catch (e: Exception) {
             throw ErrnoException("fsync", OsConstants.EIO, e)
         }
@@ -209,5 +176,40 @@ private class FromZeroPositionUnseekableWriteonlyFileBehavior(
         // 書き込んだバイト数が既存コンテンツのそれを超えるまで dest のサイズは変わらない。
         // (dest が truncate されているなら destInitLen は 0)
         return max(destInitLen, writtenLen)
+    }
+}
+
+private class HandlerManager {
+    companion object {
+        private var handlerThread: HandlerThread? = null
+        private var handler: Handler? = null
+        private var taskCount = 0
+
+        @Synchronized
+        fun getHandlerAndNotifyTaskAdd(): Handler {
+            taskCount++
+
+            // 既に存在していて動作中なら再利用
+            handlerThread?.let { thread ->
+                val currentHandler = handler
+                if (thread.isAlive && currentHandler != null) return currentHandler
+            }
+
+            // 新規起動
+            handlerThread = HandlerThread("ProxyFDThread").apply { start() }
+            handler = Handler(handlerThread!!.looper)
+            return handler!!
+        }
+
+        @Synchronized
+        fun notifyTaskEnd() {
+            taskCount--
+            if (taskCount <= 0) {
+                handlerThread?.quitSafely()
+                handlerThread = null
+                handler = null
+                taskCount = 0
+            }
+        }
     }
 }

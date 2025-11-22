@@ -7,7 +7,7 @@ First, install this plugin to your Tauri project:
 
 ```toml
 [dependencies]
-tauri-plugin-android-fs = { version = "22.1", features = ["legacy_storage_permission"] }
+tauri-plugin-android-fs = { version = "22.2", features = ["legacy_storage_permission"] }
 ```
 
 Next, register this plugin in your Tauri project:
@@ -50,7 +50,7 @@ yarn add tauri-plugin-android-fs-api
 # Usage
 This plugin operates on files and directories via URIs rather than paths.  
 
-By using `AndroidFs.getFsPath`, you can obtain a path from a URI and use it with the functions provided by Tauri's official file system plugin, `@tauri-apps/plugin-fs`, to read and write files.
+By using `AndroidFs.getFsPath`, you can obtain a path from a URI and use it with the functions provided by Tauri's official file system plugin, [`@tauri-apps/plugin-fs`](https://v2.tauri.app/ja/plugin/file-system/), to read and write files. For those paths, there is no need for you to set [the scope configuration](https://v2.tauri.app/reference/javascript/fs/#security) of Tauri's file system.
 
 ```typescript
 import { AndroidFs } from 'tauri-plugin-android-fs-api'
@@ -97,6 +97,7 @@ And this plugin provides following APIs:
 - `AndroidFs.getThumbnailDataUrl` 
 - `AndroidFs.getFsPath` 
 - `AndroidFs.getName` 
+- `AndroidFs.getByteLength` 
 - `AndroidFs.getType` 
 - `AndroidFs.getMimeType` 
 - `AndroidFs.getMetadata` 

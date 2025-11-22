@@ -10,6 +10,7 @@ const PERMISSIONS_FOR_ANDROID_10_OR_LOWER: &'static str = r#"
 
 const COMMANDS: &'static [&'static str] = &[
     "get_name",
+    "get_byte_length",
     "get_type",
     "get_mime_type",
     "get_metadata",
@@ -18,6 +19,7 @@ const COMMANDS: &'static [&'static str] = &[
     "get_thumbnail_data_url",
     "get_fs_path",
     "get_volumes",
+    "list_volumes",
     "create_new_public_file",
     "create_new_public_image_file",
     "create_new_public_video_file",

@@ -60,6 +60,11 @@ class GetNameArgs {
 }
 
 @InvokeArg
+class GetLenArgs {
+    lateinit var uri: FileUri
+}
+
+@InvokeArg
 class GetThumbnailToFileArgs {
     lateinit var src: FileUri
     lateinit var dest: FileUri
@@ -1297,13 +1302,49 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun getName(invoke: Invoke) {
         try {
-            val args = invoke.parseArgs(GetNameArgs::class.java)
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val args = invoke.parseArgs(GetNameArgs::class.java)
+                    val res = JSObject()
+                    res.put("name", getFileController(args.uri).getName(args.uri))
 
-            val res = JSObject()
-            res.put("name", getFileController(args.uri).getName(args.uri))
-            invoke.resolve(res)
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve(res)
+                    }
+                }
+                catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(e.message ?: "Unknown exception")
+                    }
+                }
+            }
         } catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke getFileName."
+            val message = ex.message ?: "Failed to invoke getName."
+            invoke.reject(message)
+        }
+    }
+
+    @Command
+    fun getLen(invoke: Invoke) {
+        try {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val args = invoke.parseArgs(GetLenArgs::class.java)
+                    val res = JSObject()
+                    res.put("len", getFileController(args.uri).getLen(args.uri))
+
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve(res)
+                    }
+                }
+                catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(e.message ?: "Unknown exception")
+                    }
+                }
+            }
+        } catch (ex: Exception) {
+            val message = ex.message ?: "Failed to invoke getLen."
             invoke.reject(message)
         }
     }
@@ -1415,9 +1456,21 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun deleteFile(invoke: Invoke) {
         try {
-            val args = invoke.parseArgs(DeleteArgs::class.java)
-            getFileController(args.uri).deleteFile(args.uri)
-            invoke.resolve()
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val args = invoke.parseArgs(DeleteArgs::class.java)
+                    getFileController(args.uri).deleteFile(args.uri)
+
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve()
+                    }
+                }
+                catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(e.message ?: "Unknown exception")
+                    }
+                }
+            }
         } catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke deleteFile."
             invoke.reject(message)
@@ -1427,9 +1480,21 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun deleteEmptyDir(invoke: Invoke) {
         try {
-            val args = invoke.parseArgs(DeleteArgs::class.java)
-            getFileController(args.uri).deleteEmptyDir(args.uri)
-            invoke.resolve()
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val args = invoke.parseArgs(DeleteArgs::class.java)
+                    getFileController(args.uri).deleteEmptyDir(args.uri)
+
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve()
+                    }
+                }
+                catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(e.message ?: "Unknown exception")
+                    }
+                }
+            }
         } catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke deleteEmptyDir."
             invoke.reject(message)
@@ -1439,9 +1504,21 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun deleteDirAll(invoke: Invoke) {
         try {
-            val args = invoke.parseArgs(DeleteArgs::class.java)
-            getFileController(args.uri).deleteDirAll(args.uri)
-            invoke.resolve()
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val args = invoke.parseArgs(DeleteArgs::class.java)
+                    getFileController(args.uri).deleteDirAll(args.uri)
+
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve()
+                    }
+                }
+                catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(e.message ?: "Unknown exception")
+                    }
+                }
+            }
         } catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke deleteDirAll."
             invoke.reject(message)
@@ -1451,9 +1528,21 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun rename(invoke: Invoke) {
         try {
-            val args = invoke.parseArgs(RenameArgs::class.java)
-            val uri = getFileController(args.uri).rename(args.uri, args.newName)
-            invoke.resolve(uri)
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val args = invoke.parseArgs(RenameArgs::class.java)
+                    val uri = getFileController(args.uri).rename(args.uri, args.newName)
+
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve(uri)
+                    }
+                }
+                catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(e.message ?: "Unknown exception")
+                    }
+                }
+            }
         } catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke rename."
             invoke.reject(message)
@@ -1530,35 +1619,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
-    fun canShareFiles(invoke: Invoke) {
-        try {
-            val args = invoke.parseArgs(CanShareFilesArgs::class.java)
-            val uris = args.uris.map { Uri.parse(it.uri) }
-
-            var ok = true
-            for (uri in uris) {
-                if (uri.scheme == "file") {
-                    ok = false
-                    break
-                }
-            }
-
-            if (ok) {
-                val intent = createShareFilesIntent(uris, args.commonMimeType)
-                ok = intent.resolveActivity(activity.packageManager) != null
-            }
-
-            val res = JSObject()
-            res.put("value", ok)
-            invoke.resolve(res)
-        }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke canShareFiles."
-            invoke.reject(message)
-        }
-    }
-
-    @Command
     fun viewDir(invoke: Invoke) {
         try {
             val args = invoke.parseArgs(ViewDirArgs::class.java)
@@ -1614,29 +1674,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
-    fun canViewFile(invoke: Invoke) {
-        try {
-            val args = invoke.parseArgs(CanViewFileArgs::class.java)
-            val uri = Uri.parse(args.uri.uri)
-            val ok = when {
-                uri.scheme == "file" -> false
-                else -> {
-                    val intent = createViewFileIntent(uri, args.mimeType)
-                    intent.resolveActivity(activity.packageManager) != null
-                }
-            }
-
-            val res = JSObject()
-            res.put("value", ok)
-            invoke.resolve(res)
-        }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke cabViewFile."
-            invoke.reject(message)
-        }
-    }
-
-    @Command
     fun editFile(invoke: Invoke) {
         try {
             val args = invoke.parseArgs(EditFileArgs::class.java)
@@ -1660,29 +1697,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         }
         catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke editFile."
-            invoke.reject(message)
-        }
-    }
-
-    @Command
-    fun canEditFile(invoke: Invoke) {
-        try {
-            val args = invoke.parseArgs(CanEditFileArgs::class.java)
-            val uri = Uri.parse(args.uri.uri)
-            val ok = when {
-                uri.scheme == "file" -> false
-                else -> {
-                    val intent = createEditFileIntent(uri, args.mimeType)
-                    intent.resolveActivity(activity.packageManager) != null
-                }
-            }
-
-            val res = JSObject()
-            res.put("value", ok)
-            invoke.resolve(res)
-        }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke canEditFile."
             invoke.reject(message)
         }
     }
@@ -1782,12 +1796,24 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun getMimeType(invoke: Invoke) {
         try {
-            val args = invoke.parseArgs(GetMimeTypeArgs::class.java)
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val args = invoke.parseArgs(GetMimeTypeArgs::class.java)
+                    val res = JSObject()
+                    res.put("value", getFileController(args.uri).getMimeType(args.uri))
 
-            val res = JSObject()
-            res.put("value", getFileController(args.uri).getMimeType(args.uri))
-            invoke.resolve(res)
-        } catch (ex: Exception) {
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve(res)
+                    }
+                }
+                catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(e.message ?: "Unknown exception")
+                    }
+                }
+            }
+        }
+        catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke getMimeType."
             invoke.reject(message)
         }

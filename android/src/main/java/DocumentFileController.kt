@@ -47,7 +47,33 @@ class DocumentFileController(private val activity: Activity): FileController {
             }
         }
 
-        throw Exception("Failed to get name from ${uri.uri}")
+        throw Exception("No permission or entry: ${uri.uri}")
+    }
+
+    override fun getLen(uri: FileUri): Long {
+        activity.contentResolver.query(
+            Uri.parse(uri.uri),
+            arrayOf(
+                DocumentsContract.Document.COLUMN_SIZE,
+                DocumentsContract.Document.COLUMN_MIME_TYPE
+            ),
+            null,
+            null,
+            null
+        )?.use {
+
+            if (it.moveToFirst()) {
+                val mimeType = it.getStringOrNull(it.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE))
+
+                if (mimeType == DocumentsContract.Document.MIME_TYPE_DIR) {
+                    throw Exception("This is a directory: ${uri.uri}")
+                }
+                
+                return it.getLongOrNull(it.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_SIZE)) ?: 0
+            }
+        }
+
+        throw Exception("No permission or file: ${uri.uri}")
     }
 
     override fun readDir(dirUri: FileUri, options: ReadDirEntryOptions): JSArray {
@@ -105,11 +131,11 @@ class DocumentFileController(private val activity: Activity): FileController {
                     obj.put("lastModified", it.getLongOrNull(lastModifiedColumnIndex) ?: 0)
                 }
 
-                val mimeType = it.getString(mimeTypeColumnIndex)
+                val mimeType = it.getStringOrNull(mimeTypeColumnIndex) ?: "application/octet-stream"
                 if (mimeType != DocumentsContract.Document.MIME_TYPE_DIR) {
                     obj.put("mimeType", mimeType)
                     if (options.len) {
-                        obj.put("len", it.getLong(sizeColumnIndex))
+                        obj.put("len", it.getLongOrNull(sizeColumnIndex) ?: 0)
                     }
                 }
 
@@ -150,10 +176,10 @@ class DocumentFileController(private val activity: Activity): FileController {
                 obj.put("name", it.getString(nameColumnIndex))
                 obj.put("lastModified", it.getLongOrNull(lastModifiedColumnIndex) ?: 0)
 
-                val mimeType = it.getString(mimeTypeColumnIndex)
+                val mimeType = it.getStringOrNull(mimeTypeColumnIndex) ?: "application/octet-stream"
                 if (mimeType != DocumentsContract.Document.MIME_TYPE_DIR) {
                     obj.put("mimeType", mimeType)
-                    obj.put("len", it.getLong(sizeColumnIndex))
+                    obj.put("len", it.getLongOrNull(sizeColumnIndex) ?: 0)
                 }
 
                 return obj

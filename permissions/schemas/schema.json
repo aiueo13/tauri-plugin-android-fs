@@ -403,6 +403,18 @@
           "markdownDescription": "Denies the create_new_public_video_file command without any pre-configured scope."
         },
         {
+          "description": "Enables the get_byte_length command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-byte-length",
+          "markdownDescription": "Enables the get_byte_length command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_byte_length command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-byte-length",
+          "markdownDescription": "Denies the get_byte_length command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_fs_path command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-fs-path",
@@ -521,6 +533,18 @@
           "type": "string",
           "const": "deny-has-public-files-permission",
           "markdownDescription": "Denies the has_public_files_permission command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the list_volumes command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-list-volumes",
+          "markdownDescription": "Enables the list_volumes command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the list_volumes command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-list-volumes",
+          "markdownDescription": "Denies the list_volumes command without any pre-configured scope."
         },
         {
           "description": "Enables the persist_uri_permission command without any pre-configured scope.",

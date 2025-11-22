@@ -163,6 +163,25 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         }
     }
 
+    /// Gets the file length in bytes.
+    ///
+    /// # Args
+    /// - ***uri*** :  
+    /// Target URI.  
+    /// Must be **readable**.
+    /// 
+    /// # Support
+    /// All Android version.
+    #[maybe_async]
+    pub fn get_len(&self, uri: &FileUri) -> Result<u64> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().get_file_len(uri).await
+        }
+    }
+
     /// Queries the file system to get information about a file, directory.
     /// 
     /// # Args

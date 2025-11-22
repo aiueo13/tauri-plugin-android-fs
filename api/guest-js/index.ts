@@ -21,13 +21,13 @@ export function isAndroid(): boolean {
 		return isAndroid
 	}
 
-	throw Error("tauri-plugin-android-fs is not set up")
+	throw Error("tauri-plugin-android-fs is not set up. See https://github.com/aiueo13/tauri-plugin-android-fs/blob/main/api/README.md")
 }
 
 /**
  * URI or path of the file or directory.
  *
- * Corresponds to the path type used by `@tauri-apps/plugin-fs` on the frontend
+ * Corresponds to the path type used by [`@tauri-apps/plugin-fs`](https://v2.tauri.app/ja/plugin/file-system/) on the frontend
  * and [tauri_plugin_fs::FilePath](https://docs.rs/tauri-plugin-fs/2/tauri_plugin_fs/enum.FilePath.html) in Rust.
  */
 export type FsPath = string | URL;
@@ -123,14 +123,14 @@ export type AndroidOpenFilePickerOptions = {
 	multiple?: boolean,
 
 	/**
-	 * Preferable picker type. 
+	 * Preferable picker type.  
+	 * This is not necessarily guaranteed to be used.  
 	 * By default, the appropriate option will be selected according to the `mimeTypes`. 
-	 * This is not necessarily guaranteed to be used.
 	 */
 	pickerType?: "FilePicker" | "Gallery",
 
 	/**
-	 * Indicates whether write access to the picked files is needed.  
+	 * Indicates whether write access to the picked files is required.  
 	 * Defaults to `false`.
 	 */
 	needWritePermission?: boolean,
@@ -178,7 +178,7 @@ export type AndroidCreateNewPublicFileOptions = {
 	requestPermission?: boolean,
 
 	/**
-	 * ID of the storage volume where the file should be created.  
+	 * ID of the storage volume where the file will be created.  
 	 * Defaults to the primary storage volume.
 	 */
 	volumeId?: AndroidStorageVolumeId
@@ -273,6 +273,21 @@ export class AndroidFs {
 	 */
 	public static async getName(uri: AndroidFsUri | FsPath): Promise<string> {
 		return await invoke('plugin:android-fs|get_name', { uri })
+	}
+
+	/**
+	 * Gets a length in bytes of the specified file.  
+	 *
+	 * @param uri - The URI or path of the target file.
+	 * 
+	 * @returns A Promise that resolves to a non-negative integer representing the length in bytes.
+	 * 
+	 * @throws If the specified entry does not exist, if the entry is a directory, or if the read permission is missing, the Promise will be rejected with an error.
+	 * @see [AndroidFs::get_len](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_len)
+	 * @since 22.2.0
+	 */
+	public static async getByteLength(uri: AndroidFsUri | FsPath): Promise<number> {
+		return await invoke('plugin:android-fs|get_byte_length', { uri })
 	}
 
 	/**
@@ -417,7 +432,10 @@ export class AndroidFs {
 	}
 
 	/**
-	 * Gets a path that can be used for Tauri's official FileSystem plugin.
+	 * Gets a path usable with Tauri's official FileSystem plugin ([`@tauri-apps/plugin-fs`](https://v2.tauri.app/ja/plugin/file-system/)).
+	 * 
+	 * Paths derived from a URI of this plugin are not restricted by [the scope configuration](https://v2.tauri.app/reference/javascript/fs/#security) of `@tauri-apps/plugin-fs`.
+	 * The security depends entirely on this plugin's behavior in providing only APIs that access user-approved files or directories and their descendants, or public files created by the app itself.
 	 *
 	 * @param uri - The URI or path of the target file or directory.
 	 * @returns A Promise that resolves to the path.
@@ -428,16 +446,23 @@ export class AndroidFs {
 	}
 
 	/**
+	 * @deprecated Because the name is confusing, please use `AndroidFs.listVolumes` instead.
+	 */
+	public static async getVolumes(): Promise<AndroidStorageVolumeInfo[]> {
+		return await invoke('plugin:android-fs|get_volumes')
+	}
+
+	/**
 	 * Retrieves information about available Android storage volumes.   
 	 * e.g. `Internal storage`, `SD card`, and etc.
 	 *
 	 * @returns A Promise that resolves to an array of `AndroidStorageVolumeInfo`.
 	 * 
 	 * @see [PublicStorage::get_volumes](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.get_volumes)
-	 * @since 22.0.0
+	 * @since 22.2.0
 	 */
-	public static async getVolumes(): Promise<AndroidStorageVolumeInfo[]> {
-		return await invoke('plugin:android-fs|get_volumes')
+	public static async listVolumes(): Promise<AndroidStorageVolumeInfo[]> {
+		return await invoke('plugin:android-fs|list_volumes')
 	}
 
 	/**
@@ -520,7 +545,7 @@ export class AndroidFs {
 	 * @param mimeType - The MIME type of the file to create. If `null`, this is inferred from the extension of `relativePath`.
 	 * @param options - Optional settings.
 	 *   - `requestPermission` (boolean) - Indicates whether to prompt the user for permission if it has not already been granted. Defaults to `true`.
-	 *   - `volumeId` (AndroidStorageVolumeId) - ID of the storage volume where the file should be created. Defaults to the primary storage volume.
+	 *   - `volumeId` (AndroidStorageVolumeId) - ID of the storage volume where the file will be created. Defaults to the primary storage volume.
 	 *
 	 * @return A Promise that resolves to the URI of the created file, with persisted read and write permissions that depends on `AndroidFs.hasPublicFilesPermission`.
 	 * @throws If the storage is currently unavailable or the required permission is missing, the Promise will be rejected with an error.
@@ -582,7 +607,7 @@ export class AndroidFs {
 	 * @param mimeType - The MIME type of the file to create. If `null`, this is inferred from the extension of `relativePath`.
 	 * @param options - Optional settings.
 	 *   - `requestPermission` (boolean) - Indicates whether to prompt the user for permission if it has not already been granted. Defaults to `true`.
-	 *   - `volumeId` (AndroidStorageVolumeId) - ID of the storage volume where the file should be created. Defaults to the primary storage volume.
+	 *   - `volumeId` (AndroidStorageVolumeId) - ID of the storage volume where the file will be created. Defaults to the primary storage volume.
 	 *
 	 * @return A Promise that resolves to the URI of the created file, with persisted read and write permissions that depends on `AndroidFs.hasPublicFilesPermission`.
 	 * @throws If the `mimeType` is not a image type, if the storage is currently unavailable or the required permission is missing, the Promise will be rejected with an error.
@@ -646,7 +671,7 @@ export class AndroidFs {
 	 * @param mimeType - The MIME type of the file to create. If `null`, this is inferred from the extension of `relativePath`.
 	 * @param options - Optional settings.
 	 *   - `requestPermission` (boolean) - Indicates whether to prompt the user for permission if it has not already been granted. Defaults to `true`.
-	 *   - `volumeId` (AndroidStorageVolumeId) - ID of the storage volume where the file should be created. Defaults to the primary storage volume.
+	 *   - `volumeId` (AndroidStorageVolumeId) - ID of the storage volume where the file will be created. Defaults to the primary storage volume.
 	 *
 	 * @return A Promise that resolves to the URI of the created file, with persisted read and write permissions that depends on `AndroidFs.hasPublicFilesPermission`.
 	 * @throws If the `mimeType` is not a video type, if the storage is currently unavailable or the required permission is missing, the Promise will be rejected with an error.
@@ -708,7 +733,7 @@ export class AndroidFs {
 	 * @param mimeType - The MIME type of the file to create. If `null`, this is inferred from the extension of `relativePath`.
 	 * @param options - Optional settings.
 	 *   - `requestPermission` (boolean) - Indicates whether to prompt the user for permission if it has not already been granted. Defaults to `true`.
-	 *   - `volumeId` (AndroidStorageVolumeId) - ID of the storage volume where the file should be created. Defaults to the primary storage volume.
+	 *   - `volumeId` (AndroidStorageVolumeId) - ID of the storage volume where the file will be created. Defaults to the primary storage volume.
 	 *
 	 * @return A Promise that resolves to the URI of the created file, with persisted read and write permissions that depends on `AndroidFs.hasPublicFilesPermission`.
 	 * @throws If the `mimeType` is not a audio type, if the storage is currently unavailable or the required permission is missing, the Promise will be rejected with an error.
@@ -786,7 +811,7 @@ export class AndroidFs {
 
 	/**
 	 * Copies the contents of the source file to the destination file.  
-	 * Contents of the destination are truncated before writing.  
+	 * Existing contents of the destination are truncated before writing.  
 	 * 
 	 * @param srcUri - The URI or path of the source file to copy.
 	 * @param destUri - The URI or path of the destination file.
@@ -901,8 +926,8 @@ export class AndroidFs {
 	 * @param options - Optional configuration for the file picker.
 	 *   - `mimeTypes` (string[] | string) - The MIME types of the files to pick. If empty, any file can be selected.
 	 *   - `multiple` (boolean) - Indicates whether multiple files can be picked. Defaults to `false`.
-	 *   - `pickerType` ("FilePicker" | "Gallery") - Preferable picker type. By default, the appropriate option will be selected according to the `mimeTypes`. This is not necessarily guaranteed to be used.
-	 *   - `needWritePermission` (boolean) - Indicates whether write access to the picked files is needed. Defaults to `false`.
+	 *   - `pickerType` ("FilePicker" | "Gallery") - Preferable picker type. This is not necessarily guaranteed to be used. By default, the appropriate option will be selected according to the `mimeTypes`.
+	 *   - `needWritePermission` (boolean) - Indicates whether write access to the picked files is required. Defaults to `false`.
 	 *   - `localOnly` (boolean) - Indicates whether only files located on the local device should be pickable. Defaults to `false`.
 	 * 
 	 * @returns A Promise that resolves to an array of URI representing the picked files, or an empty array if unpicked. By default, the app has read access to the URIs, and this permission remains valid until the app or device is terminated. The app will be able to gain persistent access to the files by using `AndroidFs.persistUriPermission`.

@@ -14,6 +14,17 @@ pub async fn get_name<R: tauri::Runtime>(
 }
 
 #[tauri::command]
+pub async fn get_byte_length<R: tauri::Runtime>(
+    uri: AfsUriOrFsPath,
+    app: tauri::AppHandle<R>
+) -> Result<u64> {
+
+    let uri = uri.into();
+    let api = app.android_fs_async();
+    api.get_len(&uri).await
+}
+
+#[tauri::command]
 pub async fn get_mime_type<R: tauri::Runtime>(
     uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>
@@ -128,6 +139,14 @@ pub async fn get_thumbnail_data_url<R: tauri::Runtime>(
 
 #[tauri::command]
 pub async fn get_volumes<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>
+) -> Result<Vec<impl Serialize>> {
+
+    list_volumes(app).await
+}
+
+#[tauri::command]
+pub async fn list_volumes<R: tauri::Runtime>(
     app: tauri::AppHandle<R>
 ) -> Result<Vec<impl Serialize>> {
 
@@ -630,16 +649,16 @@ impl From<PublicAudioOrGeneralPurposeDir> for PublicDir {
 #[derive(Deserialize)]
 #[serde(untagged)]
 pub enum AfsUriOrFsPath {
-    FileUri(FileUri),
-    Path(tauri_plugin_fs::FilePath),
+    AfsUri(FileUri),
+    FsPath(tauri_plugin_fs::FilePath),
 }
 
 impl From<AfsUriOrFsPath> for FileUri {
 
     fn from(value: AfsUriOrFsPath) -> Self {
         match value {
-            AfsUriOrFsPath::FileUri(uri) => uri,
-            AfsUriOrFsPath::Path(path) => path.into(),
+            AfsUriOrFsPath::AfsUri(uri) => uri,
+            AfsUriOrFsPath::FsPath(path) => path.into(),
         }
     }
 }
@@ -648,8 +667,8 @@ impl From<AfsUriOrFsPath> for tauri_plugin_fs::FilePath {
 
     fn from(value: AfsUriOrFsPath) -> Self {
         match value {
-            AfsUriOrFsPath::FileUri(uri) => uri.into(),
-            AfsUriOrFsPath::Path(path) => path,
+            AfsUriOrFsPath::AfsUri(uri) => uri.into(),
+            AfsUriOrFsPath::FsPath(path) => path,
         }
     }
 }
@@ -694,7 +713,6 @@ pub enum EntryMetadataWithUri {
         #[serde(rename = "mimeType")]
         mime_type: String,
     },
-    #[serde(rename_all = "camelCase")]
     Dir {
         name: String,
         uri: FileUri,
