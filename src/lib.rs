@@ -63,7 +63,6 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             cmds::get_thumbnail,
             cmds::get_thumbnail_base64,
             cmds::get_thumbnail_data_url,
-            cmds::get_volumes,
             cmds::list_volumes,
             cmds::create_new_public_file,
             cmds::create_new_public_image_file,

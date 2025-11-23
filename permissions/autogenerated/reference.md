@@ -486,32 +486,6 @@ Denies the get_type command without any pre-configured scope.
 <tr>
 <td>
 
-`android-fs:allow-get-volumes`
-
-</td>
-<td>
-
-Enables the get_volumes command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-fs:deny-get-volumes`
-
-</td>
-<td>
-
-Denies the get_volumes command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
 `android-fs:allow-has-public-files-permission`
 
 </td>

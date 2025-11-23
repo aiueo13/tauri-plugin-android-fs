@@ -18,7 +18,6 @@ const COMMANDS: &'static [&'static str] = &[
     "get_thumbnail_base64",
     "get_thumbnail_data_url",
     "get_fs_path",
-    "get_volumes",
     "list_volumes",
     "create_new_public_file",
     "create_new_public_image_file",

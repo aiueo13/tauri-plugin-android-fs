@@ -351,6 +351,47 @@ class DocumentFileController(private val activity: Activity): FileController {
         return res
     }
 
+    private fun findDirIdFromName(
+        activity: Context,
+        dir_topTreeUri: Uri,
+        dir_id: String,
+        name: String,
+    ): String? {
+
+        val cursor = activity.contentResolver.query(
+            DocumentsContract.buildChildDocumentsUriUsingTree(
+                dir_topTreeUri,
+                dir_id
+            ),
+            arrayOf(
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_MIME_TYPE
+            ),
+            null,
+            null,
+            null
+        )
+
+        cursor?.use {
+            val nameColumnIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+            val idColumnIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+            val mimeTypeColumnIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
+
+            while (cursor.moveToNext()) {
+                if (name == cursor.getString(nameColumnIndex)) {
+                    if (DocumentsContract.Document.MIME_TYPE_DIR != cursor.getStringOrNull(mimeTypeColumnIndex)) {
+                        return null
+                    }
+
+                    return cursor.getString(idColumnIndex)
+                }
+            }
+        }
+
+        return null
+    }
+
     private fun findIdFromName(
         activity: Context,
         dir_topTreeUri: Uri,
@@ -392,7 +433,7 @@ class DocumentFileController(private val activity: Activity): FileController {
 
         // フォルダが存在しなければ再帰的に作成する
         for (dirName in relativePath.split("/").filter { it.isNotEmpty() }) {
-            parentId = findIdFromName(activity, topTreeUri, parentId, dirName) ?: DocumentsContract.getDocumentId(
+            parentId = findDirIdFromName(activity, topTreeUri, parentId, dirName) ?: DocumentsContract.getDocumentId(
                 DocumentsContract.createDocument(
                     activity.contentResolver,
                     DocumentsContract.buildDocumentUriUsingTree(topTreeUri, parentId),
@@ -412,7 +453,7 @@ class DocumentFileController(private val activity: Activity): FileController {
 
         // フォルダが存在しなければ再帰的に作成する
         for (dirName in relativePath.split("/").filter { it.isNotEmpty() }) {
-            val id = findIdFromName(activity, topTreeUri, parentId, dirName)
+            val id = findDirIdFromName(activity, topTreeUri, parentId, dirName)
             if (id != null) {
                 parentId = id
                 actualRelativePath += dirName

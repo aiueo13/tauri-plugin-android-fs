@@ -462,15 +462,7 @@ export class AndroidFs {
 	}
 
 	/**
-	 * @deprecated Because the name is confusing, please use `AndroidFs.listVolumes` instead.
-	 */
-	public static async getVolumes(): Promise<AndroidStorageVolumeInfo[]> {
-		return await invoke('plugin:android-fs|get_volumes')
-	}
-
-	/**
-	 * Retrieves information about available Android storage volumes.   
-	 * e.g. `Internal storage`, `SD card`, and etc.
+	 * Retrieves information about the available Android storage volumes (e.g., `Internal storage`, `SD card` and `USV drive`).
 	 *
 	 * @returns A Promise that resolves to an array of `AndroidStorageVolumeInfo`.
 	 * 
@@ -557,7 +549,7 @@ export class AndroidFs {
 	 * ```
 	 * 
 	 * @param baseDir - The base directory in which to create the new file. One of: `"Documents"`, `"Download"`.
-	 * @param relativePath - The file's relative path from the base directory. If a file with the same name already exists, a sequential number is appended to ensure uniqueness.
+	 * @param relativePath - The file's relative path from the base directory. If a file with the same name already exists, a sequential number is appended to ensure uniqueness. If the directories in this path do not exist, they will be created recursively.
 	 * @param mimeType - The MIME type of the file to create. If `null`, this is inferred from the extension of `relativePath`.
 	 * @param options - Optional settings.
 	 *   - `requestPermission` (boolean) - Indicates whether to prompt the user for permission if it has not already been granted. Defaults to `true`.
@@ -619,7 +611,7 @@ export class AndroidFs {
 	 * ```
 	 * 
 	 * @param baseDir - The base directory in which to create the new file. One of: `"Pictures"`, `"DCIM"`, `"Documents"`, `"Download"`.
-	 * @param relativePath - The file's relative path from the base directory. If a file with the same name already exists, a sequential number is appended to ensure uniqueness.
+	 * @param relativePath - The file's relative path from the base directory. If a file with the same name already exists, a sequential number is appended to ensure uniqueness. If the directories in this path do not exist, they will be created recursively.
 	 * @param mimeType - The MIME type of the file to create. If `null`, this is inferred from the extension of `relativePath`.
 	 * @param options - Optional settings.
 	 *   - `requestPermission` (boolean) - Indicates whether to prompt the user for permission if it has not already been granted. Defaults to `true`.
@@ -683,7 +675,7 @@ export class AndroidFs {
 	 * ```
 	 * 
 	 * @param baseDir - The base directory in which to create the new file. One of: `"Movies"`, `"DCIM"`, `"Documents"`, `"Download"`.
-	 * @param relativePath - The file's relative path from the base directory. If a file with the same name already exists, a sequential number is appended to ensure uniqueness.
+	 * @param relativePath - The file's relative path from the base directory. If a file with the same name already exists, a sequential number is appended to ensure uniqueness. If the directories in this path do not exist, they will be created recursively.
 	 * @param mimeType - The MIME type of the file to create. If `null`, this is inferred from the extension of `relativePath`.
 	 * @param options - Optional settings.
 	 *   - `requestPermission` (boolean) - Indicates whether to prompt the user for permission if it has not already been granted. Defaults to `true`.
@@ -745,7 +737,7 @@ export class AndroidFs {
 	 * ```
 	 * 
 	 * @param baseDir - The base directory in which to create the new file. One of: `"Music"`, `"Alarms"`, `"Audiobooks"`, `"Notifications"`, `"Podcasts"`, `"Ringtones"`, `"Recordings"`, `"Documents"`, `"Download"`.
-	 * @param relativePath - The file's relative path from the base directory. If a file with the same name already exists, a sequential number is appended to ensure uniqueness.
+	 * @param relativePath - The file's relative path from the base directory. If a file with the same name already exists, a sequential number is appended to ensure uniqueness. If the directories in this path do not exist, they will be created recursively.
 	 * @param mimeType - The MIME type of the file to create. If `null`, this is inferred from the extension of `relativePath`.
 	 * @param options - Optional settings.
 	 *   - `requestPermission` (boolean) - Indicates whether to prompt the user for permission if it has not already been granted. Defaults to `true`.
@@ -777,13 +769,13 @@ export class AndroidFs {
 	}
 
 	/**
-	 * Creates a new empty file at the specified location.
+	 * Creates a new empty file at the specified location.  
 	 * 
 	 * @param parentDirUri - The URI of the parent directory in which to create the new file. 
-	 * @param relativePath - The file's relative path from the parent directory. If a file with the same name already exists, a sequential number is appended to ensure uniqueness.
+	 * @param relativePath - The file's relative path from the parent directory. If a file with the same name already exists, a sequential number is appended to ensure uniqueness. If the directories in this path do not exist, they will be created recursively.
 	 * @param mimeType - The MIME type of the file to create. If `null`, this is inferred from the extension of `relativePath`.
 	 * 
-	 * @returns A Promise that resolves to the URI of the created file, with permissions that depends on `parentDirUri`.
+	 * @returns A Promise that resolves to the URI of the created file, with permissions that depend on `parentDirUri`.
 	 * @throws If the parent directory does not exist, is not a directory, lacks read/write permissions, or if the file provider does not support creating files or directories, the Promise will be rejected with an error.
 	 * 
 	 * @see [AndroidFs::create_new_file](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.create_new_file)
@@ -808,7 +800,7 @@ export class AndroidFs {
 	 * @param parentDirUri - The URI of the parent directory in which to create the directory. 
 	 * @param relativePath - The directory's relative path from the parent directory. 
 	 * 
-	 * @returns A Promise that resolves to the URI of the directory, with permissions that depends on `parentDirUri`.
+	 * @returns A Promise that resolves to the URI of the created directory, or the existing directory if one already exists at the specified location. The permissions depend on `parentDirUri`.
 	 * @throws If the parent directory does not exist, is not a directory, lacks read/write permissions, or if the file provider does not support creating directories, the Promise will be rejected with an error.
 	 * 
 	 * @see [AndroidFs::create_dir_all](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.create_dir_all)
@@ -850,9 +842,9 @@ export class AndroidFs {
 	}
 
 	/**
-	 * Truncates the specified file, and clearing its contents.
+	 * Deletes the existing content and sets the file size to zero.
 	 * 
-	 * @param uri - The URI or path of the file to truncate.
+	 * @param uri - The URI of the file to truncate.
 	 * 
 	 * @returns A Promise that resolves when the truncation is complete.
 	 * @throws If the entry does not exist, if the entry is not a file, if write permission is missing, or if the file provider does not support truncation, the Promise will be rejected with an error.
@@ -860,19 +852,14 @@ export class AndroidFs {
 	 * @see [AndroidFs::open_file_writable](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_writable)
 	 * @since 22.0.0
 	 */
-	public static async truncateFile(
-		uri: AndroidFsUri | FsPath,
-	): Promise<void> {
-
-		return await invoke('plugin:android-fs|truncate_file', {
-			uri: mapFsPathForInput(uri)
-		})
+	public static async truncateFile(uri: AndroidFsUri): Promise<void> {
+		return await invoke('plugin:android-fs|truncate_file', { uri })
 	}
 
 	/**
-	 * Remove the file.
+	 * Removes the specified file.
 	 * 
-	 * @param uri - The URI or path of the file to remove.
+	 * @param uri - The URI of the file to remove.
 	 * 
 	 * @returns A Promise that resolves when the removing is complete.
 	 * @throws If the entry does not exist, if the entry is not a file, if write permission is missing, or if the file provider does not support removing, the Promise will be rejected with an error.
@@ -880,16 +867,14 @@ export class AndroidFs {
 	 * @see [AndroidFs::remove_file](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.remove_file)
 	 * @since 22.0.0
 	 */
-	public static async removeFile(uri: AndroidFsUri | FsPath): Promise<void> {
-		return await invoke('plugin:android-fs|remove_file', {
-			uri: mapFsPathForInput(uri)
-		})
+	public static async removeFile(uri: AndroidFsUri): Promise<void> {
+		return await invoke('plugin:android-fs|remove_file', { uri })
 	}
 
 	/**
-	 * Removes the directory and all of its contents recursively.
+	 * Removes the specified directory and all of its contents recursively.
 	 * 
-	 * @param uri - The URI or path of the directory to remove.
+	 * @param uri - The URI of the directory to remove.
 	 * 
 	 * @returns A Promise that resolves when the removing is complete.
 	 * @throws If the entry does not exist, if the entry is not a directory, if write permission is missing, or if the file provider does not support removing, the Promise will be rejected with an error.
@@ -897,16 +882,14 @@ export class AndroidFs {
 	 * @see [AndroidFs::remove_dir_all](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.remove_dir_all)
 	 * @since 22.0.0
 	 */
-	public static async removeDirAll(uri: AndroidFsUri | FsPath): Promise<void> {
-		return await invoke('plugin:android-fs|remove_dir_all', {
-			uri: mapFsPathForInput(uri)
-		})
+	public static async removeDirAll(uri: AndroidFsUri): Promise<void> {
+		return await invoke('plugin:android-fs|remove_dir_all', { uri })
 	}
 
 	/**
-	 * Remove the empty directory.
+	 * Removes the specified directory if empty.
 	 * 
-	 * @param uri - The URI or path of the direcotry to remove.
+	 * @param uri - The URI of the direcotry to remove.
 	 * 
 	 * @returns A Promise that resolves when the removing is complete.
 	 * @throws If the entry does not exist, if the entry is not an empty directory, if write permission is missing, or if the file provider does not support removing, the Promise will be rejected with an error.
@@ -914,14 +897,12 @@ export class AndroidFs {
 	 * @see [AndroidFs::remove_dir](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.remove_dir)
 	 * @since 22.0.0
 	 */
-	public static async removeEmptyDir(uri: AndroidFsUri | FsPath): Promise<void> {
-		return await invoke('plugin:android-fs|remove_empty_dir', {
-			uri: mapFsPathForInput(uri)
-		})
+	public static async removeEmptyDir(uri: AndroidFsUri): Promise<void> {
+		return await invoke('plugin:android-fs|remove_empty_dir', { uri })
 	}
 
 	/**
-	 * Gets metadata and URIs of the child files and directories of the specified directory.
+	 * Retrieves metadata and URIs for the child files and subdirectories of the specified directory.
 	 * 
 	 * @param uri - The URI of the direcotry to read.
 	 * 

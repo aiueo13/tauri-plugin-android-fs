@@ -511,18 +511,6 @@
           "markdownDescription": "Denies the get_type command without any pre-configured scope."
         },
         {
-          "description": "Enables the get_volumes command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-get-volumes",
-          "markdownDescription": "Enables the get_volumes command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the get_volumes command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-get-volumes",
-          "markdownDescription": "Denies the get_volumes command without any pre-configured scope."
-        },
-        {
           "description": "Enables the has_public_files_permission command without any pre-configured scope.",
           "type": "string",
           "const": "allow-has-public-files-permission",

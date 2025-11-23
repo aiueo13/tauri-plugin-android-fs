@@ -7,7 +7,7 @@ First, install this plugin to your Tauri project:
 
 ```toml
 [dependencies]
-tauri-plugin-android-fs = { version = "22.2", features = ["legacy_storage_permission"] }
+tauri-plugin-android-fs = { version = "23", features = ["legacy_storage_permission"] }
 ```
 
 Next, register this plugin in your Tauri project:

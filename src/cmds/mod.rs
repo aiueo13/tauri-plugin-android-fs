@@ -138,14 +138,6 @@ pub async fn get_thumbnail_data_url<R: tauri::Runtime>(
 }
 
 #[tauri::command]
-pub async fn get_volumes<R: tauri::Runtime>(
-    app: tauri::AppHandle<R>
-) -> Result<Vec<impl Serialize>> {
-
-    list_volumes(app).await
-}
-
-#[tauri::command]
 pub async fn list_volumes<R: tauri::Runtime>(
     app: tauri::AppHandle<R>
 ) -> Result<Vec<impl Serialize>> {
@@ -346,11 +338,10 @@ pub async fn copy_file<R: tauri::Runtime>(
 
 #[tauri::command]
 pub async fn truncate_file<R: tauri::Runtime>(
-    uri: AfsUriOrFsPath,
+    uri: FileUri,
     app: tauri::AppHandle<R>
 ) -> Result<()> {
 
-    let uri = uri.into();
     let api = app.android_fs_async();
     api.open_file_writable(&uri).await?;
     Ok(())
@@ -385,33 +376,30 @@ pub async fn read_dir<R: tauri::Runtime>(
 
 #[tauri::command]
 pub async fn remove_file<R: tauri::Runtime>(
-    uri: AfsUriOrFsPath,
+    uri: FileUri,
     app: tauri::AppHandle<R>,
 ) -> Result<()> {
 
-    let uri = uri.into();
     let api = app.android_fs_async();
     api.remove_file(&uri).await
 }
 
 #[tauri::command]
 pub async fn remove_empty_dir<R: tauri::Runtime>(
-    uri: AfsUriOrFsPath,
+    uri: FileUri,
     app: tauri::AppHandle<R>,
 ) -> Result<()> {
 
-    let uri = uri.into();
     let api = app.android_fs_async();
     api.remove_dir(&uri).await
 }
 
 #[tauri::command]
 pub async fn remove_dir_all<R: tauri::Runtime>(
-    uri: AfsUriOrFsPath,
+    uri: FileUri,
     app: tauri::AppHandle<R>,
 ) -> Result<()> {
 
-    let uri = uri.into();
     let api = app.android_fs_async();
     api.remove_dir_all(&uri).await
 }
