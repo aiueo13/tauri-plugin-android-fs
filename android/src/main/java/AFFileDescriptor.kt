@@ -1,6 +1,8 @@
 package com.plugin.android_fs
 
+import android.content.ContentResolver
 import android.content.Context
+import android.content.res.AssetFileDescriptor.UNKNOWN_LENGTH
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
@@ -15,60 +17,85 @@ import java.io.FileOutputStream
 import java.io.OutputStream
 import kotlin.math.max
 
-class AFFileDescriptor private constructor() {
+class AFFileDescriptor {
 
     companion object {
-
         @Suppress("Recycle")
         fun getPfd(uri: Uri, mode: String, ctx: Context): ParcelFileDescriptor {
-            if (isWritableMode(mode) && needWriteViaOutputStream(uri)) {
-                // O は Android 8
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-                    throw Exception("Unsupported mode: $mode")
-                }
-
-                val output: FileOutputStream
-                val outputInitLen: Long
-                when (mode) {
-                    "wt" -> {
-                        val fd = ctx.contentResolver.openAssetFileDescriptor(uri, mode)
-                            ?: throw Exception("Failed to open file: $uri")
-
-                        outputInitLen = 0
-                        output = fd.createOutputStream()
-                    }
-                    "w" -> {
-                        val fd = ctx.contentResolver.openAssetFileDescriptor(uri, mode)
-                            ?: throw Exception("Failed to open file: $uri")
-
-                        // w モードは Android 10 以降、既存コンテンツの切り詰めを保証しない
-                        outputInitLen = try { fd.length } catch (_: Exception) { -1 }
-                        output = fd.createOutputStream()
-                    }
-                    else -> throw Exception("Unsupported mode: $mode")
-                }
-
-                val sm = ctx.getSystemService(Context.STORAGE_SERVICE) as StorageManager
-
-                return sm.openProxyFileDescriptor(
-                    ParcelFileDescriptor.MODE_WRITE_ONLY,
-                    FromZeroPositionUnseekableWriteonlyFileBehaviorWithOutputStream(output, outputInitLen) {
-                        HandlerManager.notifyTaskEnd()
-                    },
-                    HandlerManager.getHandlerAndNotifyTaskAdd()
-                )
-            }
-
-            return ctx.contentResolver
-                .openAssetFileDescriptor(uri, mode)
-                ?.parcelFileDescriptor ?: throw Exception("Failed to open file: $uri")
+            return openFd(uri, mode, ctx)
         }
     }
 }
 
 
+@Suppress("Recycle")
+private fun openFd(uri: Uri, mode: String, ctx: Context): ParcelFileDescriptor {
+    if (isWritableMode(mode) && needWriteViaOutputStream(uri)) {
+        return openWritableFdViaOutputStream(uri, mode, ctx)
+    }
+
+    return ctx.contentResolver
+        .openAssetFileDescriptor(uri, mode)
+        ?.parcelFileDescriptor
+        ?: throw IllegalArgumentException("Failed to open file: $uri")
+}
+
+private fun openWritableFdViaOutputStream(uri: Uri, mode: String, ctx: Context): ParcelFileDescriptor {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+        throw IllegalArgumentException("Unsupported URI: $uri")
+    }
+
+    val openAfd = {
+        ctx.contentResolver
+            .openAssetFileDescriptor(uri, mode)
+            ?: throw IllegalArgumentException("Failed to open file: $uri")
+    }
+
+    val output: FileOutputStream
+    val outputInitLen: Long
+    val appendMode: Boolean
+    when (mode) {
+        "w" -> {
+            // NOTE:
+            // Until Android 10, "w" mode will always truncate existing contents.
+            // Since Android 10, "w" mode will or will not truncate existing contents.
+            // - https://issuetracker.google.com/issues/180526528
+
+            val fd = openAfd()
+            val len = try { fd.length } catch (_: Exception) { UNKNOWN_LENGTH }
+            outputInitLen = len
+            appendMode = false
+            output = fd.createOutputStream()
+        }
+        "wt" -> {
+            val fd = openAfd()
+            outputInitLen = 0
+            appendMode = false
+            output = fd.createOutputStream()
+        }
+        "wa" -> {
+            val fd = openAfd()
+            val len = try { fd.length } catch (_: Exception) { UNKNOWN_LENGTH }
+            outputInitLen = len
+            appendMode = true
+            output = fd.createOutputStream()
+        }
+        else -> throw IllegalArgumentException("Unsupported mode: $mode")
+    }
+
+    val sm = ctx.getSystemService(Context.STORAGE_SERVICE) as StorageManager
+
+    return sm.openProxyFileDescriptor(
+        ParcelFileDescriptor.MODE_WRITE_ONLY,
+        UnseekableWriteOnlyFileBehaviorWithOutputStream(output, outputInitLen, appendMode) {
+            SingleThreadHandlerManager.notifyTaskEnd()
+        },
+        SingleThreadHandlerManager.getHandlerAndNotifyTaskAdd()
+    )
+}
+
 private fun isWritableMode(mode: String): Boolean {
-    // r, rw, w, wa, wt, rwt
+    // Mode is one of: r, rw, w, wa, wt, rwt
     return mode == "w" || mode == "wt" || mode == "wa" || mode == "rw" || mode == "rwt"
 }
 
@@ -92,19 +119,21 @@ private fun needWriteViaOutputStream(uri: Uri): Boolean {
     // それは仕様ではなく FileProvider 側のバグ？だと思うのでこちら側ではコストを考え
     // ホワイトリスト方式ではなくブラックリスト方式を用いて判定する。
 
-    val targetUriPrefixes = arrayOf(
-        "content://com.google.android.apps.docs" // Google Drive
-    )
-
-    val uriString = uri.toString()
-
-    return targetUriPrefixes.any { uriString.startsWith(it) }
+    return uri.scheme == ContentResolver.SCHEME_CONTENT
+            && uri.authority?.startsWith("com.google.android.apps.docs") == true
 }
 
+/**
+ * # Note
+ * Currently, a single-threaded SingleThreadHandlerManager is used with this,
+ * so no synchronization is needed.
+ * But it may be required if a multi-threaded handler is used. (Or not?)
+ */
 @RequiresApi(Build.VERSION_CODES.O)
-private class FromZeroPositionUnseekableWriteonlyFileBehaviorWithOutputStream(
-    private val dest: OutputStream,
-    private val destInitLen: Long,
+private class UnseekableWriteOnlyFileBehaviorWithOutputStream(
+    private val output: OutputStream,
+    private val outputInitLen: Long,
+    private val appendMode: Boolean,
     private val onRelease: (() -> Unit)?
 ) : ProxyFileDescriptorCallback() {
 
@@ -116,15 +145,30 @@ private class FromZeroPositionUnseekableWriteonlyFileBehaviorWithOutputStream(
 
     override fun onWrite(offset: Long, size: Int, data: ByteArray?): Int {
         try {
-            if (data == null) return 0
+            if (offset < 0 || size < 0) throw ErrnoException("write", OsConstants.EINVAL)
 
-            // シーク不可
-            if (offset != writtenLen) {
-                throw ErrnoException("write", OsConstants.ESPIPE)
+            // If `appendMode` is enabled, it behaves the same as the O_APPEND flag.
+            // That is, data is always written to the end of the file, regardless of the current seek-position.
+            // So, skip the seek check and ignore the offset in that case.
+            if (!appendMode) {
+                // Forbid file seeking.
+                //
+                // Since seeking is not possible,
+                // if not in append mode,
+                // the seek position start at 0 and advance by the just amount written.
+                // So the offset should match the number of bytes written.
+                // Otherwise, it implies that a seek operation has occurred.
+                if (offset != writtenLen) {
+                    throw ErrnoException("write", OsConstants.ESPIPE)
+                }
             }
 
+            if (data == null) return 0
+            if (data.isEmpty()) return 0
+            if (size == 0) return 0
+
             val writeSize = size.coerceAtMost(data.size)
-            dest.write(data, 0, writeSize)
+            output.write(data, 0, writeSize)
             writtenLen += writeSize
 
             return writeSize
@@ -139,7 +183,7 @@ private class FromZeroPositionUnseekableWriteonlyFileBehaviorWithOutputStream(
 
     override fun onFsync() {
         try {
-            dest.flush()
+            output.flush()
         }
         catch (e: ErrnoException) {
             throw e
@@ -151,12 +195,12 @@ private class FromZeroPositionUnseekableWriteonlyFileBehaviorWithOutputStream(
 
     override fun onRelease() {
         try {
-            dest.flush()
+            output.flush()
         }
         catch (_: Exception) {}
 
         try {
-            dest.close()
+            output.close()
         }
         catch (_: Exception) {}
 
@@ -167,19 +211,26 @@ private class FromZeroPositionUnseekableWriteonlyFileBehaviorWithOutputStream(
     }
 
     override fun onGetSize(): Long {
-        if (destInitLen < 0) {
-            return -1
+        if (outputInitLen < 0) {
+            return UNKNOWN_LENGTH
         }
 
-        // destInitLen が 0 より大きい場合はその分のバイト数の既存コンテンツが dest に存在する。
-        // その場合、このクラスは position が 0 から始まり seek はできないので
-        // 書き込んだバイト数が既存コンテンツのそれを超えるまで dest のサイズは変わらない。
-        // (dest が truncate されているなら destInitLen は 0)
-        return max(destInitLen, writtenLen)
+        return if (appendMode) {
+            // If `appendMode` is enabled, it behaves the same as the O_APPEND flag.
+            // That is, data is always written to the end of the file, regardless of the current seek position.
+            // So, the file size will always match the initial size plus the number of bytes written.
+            outputInitLen + writtenLen
+        } else {
+            // Since seeking is not possible,
+            // if not in append mode,
+            // the seek position start at 0 and advance by the just amount written.
+            // And, the file size will never be smaller than the initial size.
+            max(outputInitLen, writtenLen)
+        }
     }
 }
 
-private class HandlerManager {
+private class SingleThreadHandlerManager {
     companion object {
         private var handlerThread: HandlerThread? = null
         private var handler: Handler? = null
@@ -188,14 +239,11 @@ private class HandlerManager {
         @Synchronized
         fun getHandlerAndNotifyTaskAdd(): Handler {
             taskCount++
-
-            // 既に存在していて動作中なら再利用
             handlerThread?.let { thread ->
                 val currentHandler = handler
                 if (thread.isAlive && currentHandler != null) return currentHandler
             }
 
-            // 新規起動
             handlerThread = HandlerThread("ProxyFDThread").apply { start() }
             handler = Handler(handlerThread!!.looper)
             return handler!!

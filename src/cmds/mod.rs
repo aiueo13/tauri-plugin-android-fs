@@ -58,11 +58,11 @@ pub async fn get_metadata<R: tauri::Runtime>(
 
     match api.get_info(&uri).await? {
         Entry::File { name, last_modified, len, mime_type, .. } => {
-            let last_modified = convert_time_to_f64(last_modified)?;
+            let last_modified = convert_time_to_f64_millis(last_modified)?;
             Ok(EntryMetadata::File { name, last_modified, len, mime_type })
         },
         Entry::Dir { name, last_modified, .. } => {
-            let last_modified = convert_time_to_f64(last_modified)?;
+            let last_modified = convert_time_to_f64_millis(last_modified)?;
             Ok(EntryMetadata::Dir { name, last_modified })
         },
     }
@@ -194,7 +194,7 @@ async fn create_new_public_file_inner<R: tauri::Runtime>(
     api.public_storage().create_new_file(
         volume_id.as_ref(),
         base_dir,
-        relative_path,
+        relative_path.trim_start_matches('/'),
         mime_type.as_deref()
     ).await
 }
@@ -249,16 +249,16 @@ pub async fn create_new_public_audio_file<R: tauri::Runtime>(
 ) -> Result<FileUri> {
 
     let mut base_dir: PublicDir = base_dir.into();
-    let mut relative_path = relative_path;
+    let mut relative_path = relative_path.trim_start_matches('/').to_string();
 
     let ps = app.android_fs_async().public_storage();
     if base_dir == PublicAudioDir::Audiobooks.into() && !ps.is_audiobooks_dir_available()? {
         base_dir = PublicAudioDir::Music.into();
-        relative_path = format!("Audiobooks/{}", relative_path.trim_start_matches('/'))
+        relative_path = format!("Audiobooks/{}", relative_path)
     }
     if base_dir == PublicAudioDir::Recordings.into() && !ps.is_recordings_dir_available()? {
         base_dir = PublicAudioDir::Music.into();
-        relative_path = format!("Recordings/{}", relative_path.trim_start_matches('/'))
+        relative_path = format!("Recordings/{}", relative_path)
     }
 
     create_new_public_file_inner(volume_id, base_dir, relative_path, mime_type, request_permission, app).await
@@ -360,11 +360,11 @@ pub async fn read_dir<R: tauri::Runtime>(
     for entry in entries {
         let entry = match entry {
             Entry::File { uri, name, last_modified, len, mime_type } => {
-                let last_modified = convert_time_to_f64(last_modified)?;
+                let last_modified = convert_time_to_f64_millis(last_modified)?;
                 EntryMetadataWithUri::File { name, uri, len, mime_type, last_modified }
             },
             Entry::Dir { uri, name, last_modified } => {
-                let last_modified = convert_time_to_f64(last_modified)?;
+                let last_modified = convert_time_to_f64_millis(last_modified)?;
                 EntryMetadataWithUri::Dir { name, uri, last_modified }
             },
         };
@@ -676,7 +676,6 @@ pub enum EntryMetadata {
         #[serde(rename = "mimeType")]
         mime_type: String,
     },
-    #[serde(rename_all = "camelCase")]
     Dir {
         name: String,
 
@@ -739,7 +738,7 @@ fn convert_from_storage_volume_id(id: &StorageVolumeId) -> Result<String> {
     serde_json::to_string(id).map_err(Into::into)
 }
 
-fn convert_time_to_f64(time: std::time::SystemTime) -> Result<f64> {
+fn convert_time_to_f64_millis(time: std::time::SystemTime) -> Result<f64> {
     let duration = time
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or(std::time::Duration::ZERO);

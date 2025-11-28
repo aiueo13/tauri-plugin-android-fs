@@ -84,6 +84,7 @@ And this plugin provides following APIs:
 - `AndroidFs.showOpenFilePicker` 
 - `AndroidFs.showOpenDirPicker` 
 - `AndroidFs.showSaveFilePicker` 
+- `AndroidFs.readDir` 
 - `AndroidFs.createNewFile` 
 - `AndroidFs.createDirAll` 
 - `AndroidFs.createNewPublicFile` 
@@ -101,7 +102,6 @@ And this plugin provides following APIs:
 - `AndroidFs.getType` 
 - `AndroidFs.getMimeType` 
 - `AndroidFs.getMetadata` 
-- `AndroidFs.readDir` 
 
 ### 3. APIs to operate entries.
 - `AndroidFs.scanPublicFile`
