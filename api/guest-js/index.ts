@@ -905,6 +905,55 @@ export class AndroidFs {
 	}
 
 	/**
+	 * Renames a file or directory to a new name, and return new URI.
+	 * Even if the names conflict, the existing file will not be overwritten.
+	 *
+	 * Note that when files or folders (and their descendants) are renamed, their URIs will change, and any previously granted permissions will be lost.
+	 * In other words, this function returns a new URI without any permissions.
+	 * However, for files created in PublicStorage, the URI remains unchanged even after such operations, and all permissions are retained.
+	 * In this, this function returns the same URI as original URI.
+	 *
+	 * @param uri - The URI of the target file or directory.
+	 * @param newName - New name of target entry. This include extension if use.
+	 *
+	 * @returns A Promise that resolves to the new URI of the renamed entry.
+	 * @throws The Promise will be rejected with an error, if the entry does not exist, if write permission is missing, or if the file provider does not support renaming.
+	 *
+	 * @see [AndroidFs::rename](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.rename)
+	 * @since 22.0.0
+	 */
+	public static async rename(uri: AndroidFsUri, newName: string): Promise<AndroidFsUri> {
+		return await invoke('plugin:android-fs|rename', { uri, newName })
+	}
+
+	/**
+	 * Moves a file or directory to a new directory, and return new URI.
+	 *
+	 * Note that when files or folders (and their descendants) are moved, their URIs will change, and any previously granted permissions will be lost.
+	 * In other words, this function returns a new URI without any permissions.
+	 * However, for files created in PublicStorage, the URI remains unchanged even after such operations, and all permissions are retained.
+	 * In this, this function returns the same URI as original URI.
+	 *
+	 * @param uri - The URI of the target file or directory.
+	 * @param destDir - The URI of the destination directory.
+	 * @param newName - Optional. New name of target entry. This include extension if use. If not specified, the original name is used.
+	 *
+	 * @returns A Promise that resolves to the new URI of the moved entry.
+	 * @throws The Promise will be rejected with an error, if the entry does not exist, if write permission is missing, or if the file provider does not support moving.
+	 *
+	 * @see [AndroidFs::move_entry](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.move_entry)
+	 * @since 22.0.0
+	 */
+	public static async move(
+		uri: AndroidFsUri,
+		destDir: AndroidFsUri,
+		newName?: string
+	): Promise<AndroidFsUri> {
+
+		return await invoke('plugin:android-fs|move_entry', { uri, destDir, newName })
+	}
+
+	/**
 	 * Retrieves metadata and URIs for the child files and subdirectories of the specified directory.
 	 * 
 	 * @param uri - The URI of the direcotry to read.

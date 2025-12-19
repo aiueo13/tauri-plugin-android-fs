@@ -148,6 +148,22 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
+    pub fn move_entry(
+        &self,
+        uri: &FileUri,
+        dest_dir: &FileUri,
+        new_name: Option<impl AsRef<str>>
+    ) -> Result<FileUri> {
+
+        impl_se!(struct Req<'a> { uri: &'a FileUri, dest_dir: &'a FileUri, new_name: Option<&'a str> });
+
+        let new_name = new_name.as_ref().map(|s| s.as_ref());
+
+        self.invoke::<FileUri>("move", Req { uri, dest_dir, new_name })
+            .await
+    }
+
+    #[maybe_async]
     pub fn remove_file(&self, uri: &FileUri) -> Result<()> {
         impl_se!(struct Req<'a> { uri: &'a FileUri });
         impl_de!(struct Res;);

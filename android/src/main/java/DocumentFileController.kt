@@ -351,6 +351,105 @@ class DocumentFileController(private val activity: Activity): FileController {
         return res
     }
 
+    @Synchronized
+    override fun move(uri: FileUri, destDirUri: FileUri, newName: String?): JSObject {
+        val srcUri = Uri.parse(uri.uri)
+        val name = newName ?: _getName(srcUri)
+        val mimeType = getMimeType(uri) ?: "application/octet-stream"
+
+        // 1. Create destination document
+        val destUri = if (isDir(srcUri)) {
+            createDirAll(destDirUri, name).getString("uri")
+        } else {
+            createFile(destDirUri, name, mimeType).getString("uri")
+        }
+        val destFileUri = Uri.parse(destUri)
+
+        // 2. Copy content
+        try {
+            if (isDir(srcUri)) {
+                // Recursive copy for directory
+                _copyDirectory(srcUri, destFileUri, uri.documentTopTreeUri, destDirUri.documentTopTreeUri)
+            } else {
+                // Stream copy for file
+                activity.contentResolver.openInputStream(srcUri)?.use { input ->
+                    activity.contentResolver.openOutputStream(destFileUri)?.use { output ->
+                        input.copyTo(output)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // If copy fails, try to cleanup destination and rethrow
+            DocumentsContract.deleteDocument(activity.contentResolver, destFileUri)
+            throw e
+        }
+
+        // 3. Delete source
+        if (!DocumentsContract.deleteDocument(activity.contentResolver, srcUri)) {
+             // If delete fails, we have a problem (duplicates).
+             // But we return the new URI anyway.
+        }
+
+        val res = JSObject()
+        res.put("uri", destUri)
+        res.put("documentTopTreeUri", destDirUri.documentTopTreeUri)
+        return res
+    }
+
+    private fun _copyDirectory(srcUri: Uri, destUri: Uri, srcTopTree: String?, destTopTree: String?) {
+        // List children of srcUri
+        val srcChildrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
+            Uri.parse(srcTopTree!!),
+            DocumentsContract.getDocumentId(srcUri)
+        )
+
+        val cursor = activity.contentResolver.query(
+            srcChildrenUri,
+            arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_MIME_TYPE
+            ),
+            null, null, null
+        )
+
+        cursor?.use {
+            val idCol = it.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+            val nameCol = it.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+            val mimeCol = it.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
+
+            while (it.moveToNext()) {
+                val childId = it.getString(idCol)
+                val childName = it.getString(nameCol)
+                val childMime = it.getString(mimeCol)
+                val childUri = DocumentsContract.buildDocumentUriUsingTree(Uri.parse(srcTopTree), childId)
+
+                if (childMime == DocumentsContract.Document.MIME_TYPE_DIR) {
+                    val newDirUri = DocumentsContract.createDocument(
+                        activity.contentResolver,
+                        destUri,
+                        DocumentsContract.Document.MIME_TYPE_DIR,
+                        childName
+                    )!!
+                    _copyDirectory(childUri, newDirUri, srcTopTree, destTopTree)
+                } else {
+                    val newFileUri = DocumentsContract.createDocument(
+                        activity.contentResolver,
+                        destUri,
+                        childMime,
+                        childName
+                    )!!
+
+                    activity.contentResolver.openInputStream(childUri)?.use { input ->
+                        activity.contentResolver.openOutputStream(newFileUri)?.use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private fun findDirIdFromName(
         activity: Context,
         dir_topTreeUri: Uri,

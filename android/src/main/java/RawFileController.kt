@@ -226,6 +226,34 @@ class RawFileController: FileController {
         return res
     }
 
+    override fun move(uri: FileUri, destDirUri: FileUri, newName: String?): JSObject {
+        val file = File(Uri.parse(uri.uri).path!!)
+        val destDir = File(Uri.parse(destDirUri.uri).path!!)
+
+        if (!destDir.isDirectory) {
+            throw Exception("Destination is not a directory: ${destDir.path}")
+        }
+
+        val name = newName ?: file.name
+        val newFile = File(destDir, name)
+
+        if (newFile.exists()) {
+            throw Exception("File already exists: ${newFile.path}")
+        }
+
+        if (!file.renameTo(newFile)) {
+            // Fallback for cross-filesystem moves or other failures if necessary.
+            // But for RawFileController (local files), renameTo usually works for move.
+            // If it fails, we can throw error.
+            throw Exception("Failed to move file: ${uri.uri} to ${destDirUri.uri}")
+        }
+
+        val res = JSObject()
+        res.put("uri", Uri.fromFile(newFile).toString())
+        res.put("documentTopTreeUri", uri.documentTopTreeUri) // Usually null for Raw
+        return res
+    }
+
     private fun deleteRecursive(fileOrDirectory: File): Boolean {
         if (fileOrDirectory.isDirectory) {
             val children = fileOrDirectory.listFiles()

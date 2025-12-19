@@ -105,6 +105,17 @@ class MediaFileController(private val activity: Activity): FileController {
         return res
     }
 
+    override fun move(uri: FileUri, destDirUri: FileUri, newName: String?): JSObject {
+        // MediaStore files generally cannot be moved to arbitrary directories easily
+        // because they are indexed by content, not location in the same way.
+        // However, we could implement copy+delete if destination is a FileUri we can write to.
+        // But for now, let's mark it as unsupported or implement basic copy+delete if needed.
+        // Given the complexity of MediaStore "move" (which might involve changing RELATIVE_PATH),
+        // and that RELATIVE_PATH is read-only in some versions or tricky to update,
+        // we will throw for now unless we implement full copy+delete logic.
+        throw Exception("Move not supported for MediaStore URIs yet")
+    }
+
     override fun createFile(dirUri: FileUri, relativePath: String, mimeType: String): JSObject {
         throw Exception("Unsupported operation for ${dirUri.uri}")
     }

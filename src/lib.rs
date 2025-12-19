@@ -83,6 +83,8 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             cmds::remove_file,
             cmds::remove_empty_dir,
             cmds::remove_dir_all,
+            cmds::cmd_rename::rename,
+            cmds::cmd_move_entry::move_entry,
             cmds::persist_uri_permission,
             cmds::check_persisted_uri_permission,
             cmds::release_persisted_uri_permission,

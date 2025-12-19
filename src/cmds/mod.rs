@@ -1,11 +1,12 @@
 mod utils;
 mod scope;
+pub mod cmd_rename;
+pub mod cmd_move_entry;
 
 use scope::*;
 use utils::*;
 use serde::{Deserialize, Serialize};
 use crate::*;
-
 
 #[tauri::command]
 pub async fn get_name<R: tauri::Runtime>(
