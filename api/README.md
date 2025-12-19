@@ -88,10 +88,10 @@ In this case, you need to set [the scope configuration](https://v2.tauri.app/ref
         {
             "identifier": "android-fs:scope",
             "allow": [
-                "$APPDATA/**/*"
+                "$APPDATA/my-data/**/*"
             ],
             "deny": [
-                "$APPDATA/secret.txt"
+                "$APPDATA/my-data/secret.txt"
             ]
         }
     ]
@@ -107,17 +107,30 @@ And you can also assign a specific scope to a particular command.
         {
             "identifier": "android-fs:allow-copy-file",
             "allow": [
-                "$APPDATA/**/*"
+                "$APPDATA/my-data/**/*"
             ],
             "deny": [
-                "$APPDATA/secret.txt"
+                "$APPDATA/my-data/secret.txt"
             ]
         }
     ]
 }
 ```
 
-Then, this plugin provides following APIs:
+Please do not use glob patterns such as `"**/*"` that effectively allow access to all paths.
+In certain environments, this may enable your application to access and manage arbitrary files,
+which poses a serious security risk.
+
+Instead, you should normally restrict access to application-specific directories such as
+`$APPDATA/my-data/**/*` or `$APPCACHE/my-data/**/*`, which are intended for storing app data and cache.
+
+Note: The reason for specifying a `my-data` subdirectory is that directories such as
+`$APPDATA` or `$APPCACHE` may already contain files created by the WebView system
+or other Tauri plugins. Using a dedicated subdirectory helps avoid collisions
+with those files.
+
+# APIs
+This plugin provides following APIs:
 
 ### 1. APIs to obtain entries such as files and directories.
 - `AndroidFs.showOpenFilePicker` 
