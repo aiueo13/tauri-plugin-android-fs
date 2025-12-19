@@ -91,7 +91,7 @@ In this case, you need to set [the scope configuration](https://v2.tauri.app/ref
                 "$APPDATA/**/*"
             ],
             "deny": [
-                "$APPDATA/secret/**/*"
+                "$APPDATA/secret.txt"
             ]
         }
     ]
@@ -110,7 +110,7 @@ And you can also assign a specific scope to a particular command.
                 "$APPDATA/**/*"
             ],
             "deny": [
-                "$APPDATA/secret/**/*"
+                "$APPDATA/secret.txt"
             ]
         }
     ]
