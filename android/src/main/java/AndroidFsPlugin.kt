@@ -162,6 +162,13 @@ class RenameArgs {
 }
 
 @InvokeArg
+class MoveArgs {
+    lateinit var uri: FileUri
+    lateinit var destDir: FileUri
+    var newName: String? = null
+}
+
+@InvokeArg
 class ReadDirArgs {
     lateinit var uri: FileUri
     lateinit var options: ReadDirEntryOptions
@@ -1458,6 +1465,30 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             }
         } catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke rename."
+            invoke.reject(message)
+        }
+    }
+
+    @Command
+    fun move(invoke: Invoke) {
+        try {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val args = invoke.parseArgs(MoveArgs::class.java)
+                    val uri = getFileController(args.uri).move(args.uri, args.destDir, args.newName)
+
+                    withContext(Dispatchers.Main) {
+                        invoke.resolve(uri)
+                    }
+                }
+                catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        invoke.reject(e.message ?: "Unknown exception")
+                    }
+                }
+            }
+        } catch (ex: Exception) {
+            val message = ex.message ?: "Failed to invoke move."
             invoke.reject(message)
         }
     }

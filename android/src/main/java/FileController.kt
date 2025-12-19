@@ -31,4 +31,6 @@ interface FileController {
     fun deleteDirAll(uri: FileUri)
 
     fun rename(uri: FileUri, newName: String): JSObject
+
+    fun move(uri: FileUri, destDirUri: FileUri, newName: String?): JSObject
 }

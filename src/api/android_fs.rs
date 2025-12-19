@@ -429,6 +429,37 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         }
     }
 
+    /// Moves a file or directory to a new directory, and return new URI.
+    ///
+    /// # Args
+    /// - ***uri*** :
+    /// URI of target entry.
+    ///
+    /// - ***dest_dir*** :
+    /// URI of destination directory.
+    ///
+    /// - ***new_name*** :
+    /// New name of target entry.
+    /// This include extension if use.
+    ///
+    /// # Support
+    /// All Android version.
+    #[maybe_async]
+    pub fn move_entry(
+        &self,
+        uri: &FileUri,
+        dest_dir: &FileUri,
+        new_name: Option<impl AsRef<str>>
+    ) -> Result<FileUri> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().move_entry(uri, dest_dir, new_name).await
+        }
+    }
+
     /// Remove the file.
     /// 
     /// # Args
