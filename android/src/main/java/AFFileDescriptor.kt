@@ -41,6 +41,7 @@ private fun openFd(uri: Uri, mode: String, ctx: Context): ParcelFileDescriptor {
 }
 
 private fun openWritableFdViaOutputStream(uri: Uri, mode: String, ctx: Context): ParcelFileDescriptor {
+    // O は Android 8
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
         throw IllegalArgumentException("Unsupported URI: $uri")
     }

@@ -1,3 +1,6 @@
+#[path = "src/cmds/scope.rs"]
+mod scope;
+
 const PERMISSIONS_FOR_ANDROID_9_OR_LOWER: &'static str = r#"
 <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
@@ -49,6 +52,7 @@ const COMMANDS: &'static [&'static str] = &[
 fn main() {
     tauri_plugin::Builder::new(COMMANDS)
         .android_path("android")
+        .global_scope_schema(schemars::schema_for!(scope::ScopeSchema))
         .build();
 
     if std::env::var("CARGO_FEATURE_LEGACY_STORAGE_PERMISSION_INCLUDE_ANDROID_10").is_ok() {

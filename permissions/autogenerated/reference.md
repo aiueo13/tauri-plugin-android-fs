@@ -950,4 +950,37 @@ Denies the truncate_file command without any pre-configured scope.
 
 </td>
 </tr>
+
+<tr>
+<td>
+
+`android-fs:scope`
+
+</td>
+<td>
+
+An empty permission you can use to modify the global scope.
+
+## Example
+
+```json
+{
+  "permissions": [
+    "android-fs:all-without-delete",
+    {
+      "identifier": "android-fs:scope",
+      "allow": [
+        "$APPDATA/documents/**/*"
+      ],
+      "deny": [
+        "$APPDATA/documents/secret.txt"
+      ]
+    }
+  ]
+}
+```
+
+
+</td>
+</tr>
 </table>

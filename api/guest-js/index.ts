@@ -12,7 +12,8 @@ declare global {
 /**
  * Returns whether the current runtime environment is Android.
  *
- * @returns `true` if the application is running on Android; otherwise `false`.
+ * @returns `true` if the Tauri app is built for Android; otherwise, `false`.
+ * @throws An error if the Tauri backend does not exist or `tauri-plugin-android-fs` is not set up.
  * @since 22.0.0
  */
 export function isAndroid(): boolean {
@@ -21,7 +22,7 @@ export function isAndroid(): boolean {
 		return isAndroid
 	}
 
-	throw Error("tauri-plugin-android-fs is not set up. See https://github.com/aiueo13/tauri-plugin-android-fs/blob/main/api/README.md")
+	throw Error("tauri-plugin-android-fs may be not set up. See https://github.com/aiueo13/tauri-plugin-android-fs/blob/main/api/README.md")
 }
 
 /**
@@ -270,8 +271,8 @@ export class AndroidFs {
 	 * @param uri - The URI or path of the target file or directory.
 	 * 
 	 * @returns A Promise that resolves to the name of the target.
+	 * @throws The Promise will be rejected with an error, if the specified entry does not exist or if the read permission is missing.
 	 * 
-	 * @throws If the specified entry does not exist or if the read permission is missing, the Promise will be rejected with an error.
 	 * @see [AndroidFs::get_name](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_name)
 	 * @since 22.0.0
 	 */
@@ -287,8 +288,8 @@ export class AndroidFs {
 	 * @param uri - The URI or path of the target file.
 	 * 
 	 * @returns A Promise that resolves to a non-negative integer representing the length in bytes.
+	 * @throws The Promise will be rejected with an error, if the specified entry does not exist, if the entry is a directory, or if the read permission is missing.
 	 * 
-	 * @throws If the specified entry does not exist, if the entry is a directory, or if the read permission is missing, the Promise will be rejected with an error.
 	 * @see [AndroidFs::get_len](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_len)
 	 * @since 22.2.0
 	 */
@@ -302,9 +303,10 @@ export class AndroidFs {
 	 * Gets a type of the specified file or directory.
 	 *
 	 * @param uri - The URI or path of the target file or directory.
-	 * @returns A Promise that resolves to the type of the entry. The resolved value will be an object of type `AndroidEntryType`, which can be either `{ type: "Dir" }` for directories or `{ type: "File", mimeType: string }` for files.
 	 * 
-	 * @throws If the specified entry does not exist or if the read permission is missing, the Promise will be rejected with an error.
+	 * @returns A Promise that resolves to the type of the entry. The resolved value will be an object of type `AndroidEntryType`, which can be either `{ type: "Dir" }` for directories or `{ type: "File", mimeType: string }` for files.
+	 * @throws The Promise will be rejected with an error, if the specified entry does not exist or if the read permission is missing.
+	 * 
 	 * @see [AndroidFs::get_type](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_type)
 	 * @since 22.0.0
 	 */
@@ -320,7 +322,7 @@ export class AndroidFs {
 	 * @param uri - The URI or path of the target file.
 	 * 
 	 * @returns A Promise that resolves to the MIME type as a string.
-	 * @throws If the specified entry does not exist, if the entry is a directory, or if the read permission is missing, the Promise will be rejected with an error.
+	 * @throws The Promise will be rejected with an error, if the specified entry does not exist, if the entry is a directory, or if the read permission is missing.
 	 * 
 	 * @see [AndroidFs::get_mime_type](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_mime_type)
 	 * @since 22.0.0
@@ -337,7 +339,7 @@ export class AndroidFs {
 	 * @param uri - The URI or path of the target file or directory.
 	 * 
 	 * @returns A Promise that resolves to metadata of the target. It includes the type (`"Dir"` or `"File"`), name, last modified date, and for files also byte length and MIME type.
-	 * @throws If the specified entry does not exist or if the read permission is missing, the Promise will be rejected with an error.
+	 * @throws The Promise will be rejected with an error, if the specified entry does not exist or if the read permission is missing.
 	 * 
 	 * @see [AndroidFs::get_info](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_info)
 	 * @since 22.0.0
@@ -363,7 +365,7 @@ export class AndroidFs {
 	 * @param format - Optional. The image format of the thumbnail. Can be `"jpeg"`, `"png"`, or `"webp"`. Defaults to `"jpeg"`.
 	 * 
 	 * @returns A Promise that resolves to a string containing the thumbnail as a data URL, or `null` if the file does not have a thumbnail. The actual thumbnail dimensions will not exceed approximately twice the specified width or height, and the original aspect ratio of the file is always maintained.
-	 * @throws If the specified entry does not exist, if the entry is a directory, or if the read permission is missing, the Promise will be rejected with an error.
+	 * @throws The Promise will be rejected with an error, if the specified entry does not exist, if the entry is a directory, or if the read permission is missing.
 	 * 
 	 * @see [AndroidFs::get_thumbnail](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_thumbnail)
 	 * @since 22.0.0
@@ -393,7 +395,7 @@ export class AndroidFs {
 	 * @param format - Optional. The image format of the thumbnail. Can be `"jpeg"`, `"png"`, or `"webp"`. Defaults to `"jpeg"`.
 	 * 
 	 * @returns A Promise that resolves to the thumbnail as a base64-encoded string using "+" and "/" characters and containing no line breaks (a single line), or `null` if the file does not have a thumbnail. The actual thumbnail dimensions will not exceed approximately twice the specified width or height, and the original aspect ratio of the file is always maintained.
-	 * @throws If the specified entry does not exist, if the entry is a directory, or if the read permission is missing, the Promise will be rejected with an error.
+	 * @throws The Promise will be rejected with an error, if the specified entry does not exist, if the entry is a directory, or if the read permission is missing.
 	 * 
 	 * @see [AndroidFs::get_thumbnail](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_thumbnail)
 	 * @since 22.0.0
@@ -423,7 +425,7 @@ export class AndroidFs {
 	 * @param format - Optional. The image format of the thumbnail. Can be `"jpeg"`, `"png"`, or `"webp"`. Defaults to `"jpeg"`.
 	 *
 	 * @returns A Promise that resolves to a `ArrayBuffer` containing the thumbnail bytes, or `null` if the file does not have a thumbnail. The actual thumbnail dimensions will not exceed approximately twice the specified width or height, and the original aspect ratio of the file is always maintained.
-	 * @throws If the specified entry does not exist, if the entry is a directory, or if the read permission is missing, the Promise will be rejected with an error.
+	 * @throws The Promise will be rejected with an error, if the specified entry does not exist, if the entry is a directory, or if the read permission is missing.
 	 * 
 	 * @see [AndroidFs::get_thumbnail](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_thumbnail)
 	 * @since 22.0.0
@@ -446,13 +448,14 @@ export class AndroidFs {
 	}
 
 	/**
-	 * Gets a path usable with Tauri's official FileSystem plugin ([`@tauri-apps/plugin-fs`](https://v2.tauri.app/ja/plugin/file-system/)).
+	 * Gets a path usable with Tauri's file system ([`@tauri-apps/plugin-fs`](https://v2.tauri.app/ja/plugin/file-system/)).
 	 * 
-	 * Paths derived from a URI of this plugin are not restricted by [the scope configuration](https://v2.tauri.app/reference/javascript/fs/#security) of `@tauri-apps/plugin-fs`.
-	 * The security depends entirely on this plugin's behavior in providing only APIs that access user-approved files or directories and their descendants, or public files created by the app itself.
-	 *
+	 * Paths **derived from this plugin's URI** are supported only for reading and writing files.
+	 * No guarantees are provided for other operations or for directory handling.
+	 * And for those paths, there is no need for you to set [the scope configuration](https://v2.tauri.app/reference/javascript/fs/#security) of Tauri's file system.
+	 * 
 	 * @param uri - The URI or path of the target file or directory.
-	 * @returns A Promise that resolves to the path.
+	 * @returns A Promise that resolves to the path. Note that although it says "Path", it may actually be a URI that can be used with `@tauri-apps/plugin-fs`.
 	 * @since 22.0.0
 	 */
 	public static async getFsPath(uri: AndroidFsUri | FsPath): Promise<FsPath> {
@@ -508,7 +511,7 @@ export class AndroidFs {
 	 * @param uri - The URI of the file to be scanned.  
 	 *
 	 * @returns A Promise that resolves when the scan request has been initiated.
-	 * @throws If the specified entry does not exist, if the required permission is missing, or if the entry is not public files, the Promise will be rejected with an error.  
+	 * @throws The Promise will be rejected with an error, if the specified entry does not exist, if the required permission is missing, or if the entry is not public files.  
 	 * 
 	 * @see [PublicStorage::scan](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.scan)
 	 * @since 22.0.0
@@ -556,7 +559,7 @@ export class AndroidFs {
 	 *   - `volumeId` (AndroidStorageVolumeId) - ID of the storage volume where the file will be created. Defaults to the primary storage volume.
 	 *
 	 * @return A Promise that resolves to the URI of the created file, with persisted read and write permissions that depends on `AndroidFs.hasPublicFilesPermission`.
-	 * @throws If the storage is currently unavailable or the required permission is missing, the Promise will be rejected with an error.
+	 * @throws The Promise will be rejected with an error, if the storage is currently unavailable or the required permission is missing.
 	 * 
 	 * @see [PublicStorage::create_new_file](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.create_new_file)
 	 * @since 22.0.0
@@ -618,7 +621,7 @@ export class AndroidFs {
 	 *   - `volumeId` (AndroidStorageVolumeId) - ID of the storage volume where the file will be created. Defaults to the primary storage volume.
 	 *
 	 * @return A Promise that resolves to the URI of the created file, with persisted read and write permissions that depends on `AndroidFs.hasPublicFilesPermission`.
-	 * @throws If the `mimeType` is not a image type, if the storage is currently unavailable or the required permission is missing, the Promise will be rejected with an error.
+	 * @throws The Promise will be rejected with an error, if the `mimeType` is not a image type, if the storage is currently unavailable or the required permission is missing.
 	 * 
 	 * @see [PublicStorage::create_new_file](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.create_new_file)
 	 * @since 22.0.0
@@ -682,7 +685,7 @@ export class AndroidFs {
 	 *   - `volumeId` (AndroidStorageVolumeId) - ID of the storage volume where the file will be created. Defaults to the primary storage volume.
 	 *
 	 * @return A Promise that resolves to the URI of the created file, with persisted read and write permissions that depends on `AndroidFs.hasPublicFilesPermission`.
-	 * @throws If the `mimeType` is not a video type, if the storage is currently unavailable or the required permission is missing, the Promise will be rejected with an error.
+	 * @throws The Promise will be rejected with an error, if the `mimeType` is not a video type, if the storage is currently unavailable or the required permission is missing.
 	 * 
 	 * @see [PublicStorage::create_new_file](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.create_new_file)
 	 * @since 22.0.0
@@ -714,7 +717,7 @@ export class AndroidFs {
 	 * import { writeFile } from '@tauri-apps/plugin-fs';
 	 * import { AndroidFs } from 'tauri-plugin-android-fs-api';
 	 *
-	 * async function saveVideo(
+	 * async function saveAudio(
 	 *   fileName: string,
 	 *   data: Uint8Array | ReadableStream<Uint8Array>,
 	 *   mimeType: string
@@ -744,7 +747,7 @@ export class AndroidFs {
 	 *   - `volumeId` (AndroidStorageVolumeId) - ID of the storage volume where the file will be created. Defaults to the primary storage volume.
 	 *
 	 * @return A Promise that resolves to the URI of the created file, with persisted read and write permissions that depends on `AndroidFs.hasPublicFilesPermission`.
-	 * @throws If the `mimeType` is not a audio type, if the storage is currently unavailable or the required permission is missing, the Promise will be rejected with an error.
+	 * @throws The Promise will be rejected with an error, if the `mimeType` is not a audio type, if the storage is currently unavailable or the required permission is missing.
 	 * 
 	 * @see [PublicStorage::create_new_file](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.create_new_file)
 	 * @since 22.0.0
@@ -771,24 +774,24 @@ export class AndroidFs {
 	/**
 	 * Creates a new empty file at the specified location.  
 	 * 
-	 * @param parentDirUri - The URI of the parent directory in which to create the new file. 
-	 * @param relativePath - The file's relative path from the parent directory. If a file with the same name already exists, a sequential number is appended to ensure uniqueness. If the directories in this path do not exist, they will be created recursively.
+	 * @param baseDirUri - The URI of the base directory in which to create the new file. 
+	 * @param relativePath - The file's relative path from the base directory. If a file with the same name already exists, a sequential number is appended to ensure uniqueness. If the directories in this path do not exist, they will be created recursively.
 	 * @param mimeType - The MIME type of the file to create. If `null`, this is inferred from the extension of `relativePath`.
 	 * 
-	 * @returns A Promise that resolves to the URI of the created file, with permissions that depend on `parentDirUri`.
-	 * @throws If the parent directory does not exist, is not a directory, lacks read/write permissions, or if the file provider does not support creating files or directories, the Promise will be rejected with an error.
+	 * @returns A Promise that resolves to the URI of the created file, with permissions that depend on the base direcotry.
+	 * @throws The Promise will be rejected with an error, if the base directory does not exist, is not a directory, lacks read/write permissions, or if the file provider does not support creating files or directories.
 	 * 
 	 * @see [AndroidFs::create_new_file](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.create_new_file)
 	 * @since 22.0.0
 	 */
 	public static async createNewFile(
-		parentDirUri: AndroidFsUri,
+		baseDirUri: AndroidFsUri,
 		relativePath: string,
 		mimeType: string | null
 	): Promise<AndroidFsUri> {
 
 		return await invoke('plugin:android-fs|create_new_file', {
-			parentDirUri,
+			baseDirUri,
 			relativePath,
 			mimeType,
 		})
@@ -797,22 +800,22 @@ export class AndroidFs {
 	/**
 	 * Creates a directory and it's parents at the specified location if they are missing.
 	 * 
-	 * @param parentDirUri - The URI of the parent directory in which to create the directory. 
-	 * @param relativePath - The directory's relative path from the parent directory. 
+	 * @param baseDirUri - The URI of the base directory in which to create the directory. 
+	 * @param relativePath - The directory's relative path from the base directory. 
 	 * 
-	 * @returns A Promise that resolves to the URI of the created directory, or the existing directory if one already exists at the specified location. The permissions depend on `parentDirUri`.
-	 * @throws If the parent directory does not exist, is not a directory, lacks read/write permissions, or if the file provider does not support creating directories, the Promise will be rejected with an error.
+	 * @returns A Promise that resolves to the URI of the created directory, or the existing directory if one already exists at the specified location. The permissions depend on the base directory.
+	 * @throws The Promise will be rejected with an error, if the base directory does not exist, is not a directory, lacks read/write permissions, or if the file provider does not support creating directories.
 	 * 
 	 * @see [AndroidFs::create_dir_all](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.create_dir_all)
 	 * @since 22.1.0
 	 */
 	public static async createDirAll(
-		parentDirUri: AndroidFsUri,
+		baseDirUri: AndroidFsUri,
 		relativePath: string,
 	): Promise<AndroidFsUri> {
 
 		return await invoke('plugin:android-fs|create_dir_all', {
-			parentDirUri,
+			baseDirUri,
 			relativePath,
 		})
 	}
@@ -825,7 +828,7 @@ export class AndroidFs {
 	 * @param destUri - The URI or path of the destination file.
 	 * 
 	 * @returns A Promise that resolves when the copying is complete.
-	 * @throws If the input file does not exist or is not a file, if read permission for the input file is missing, or if write permission for the output file is missing, the Promise is rejected with an error.
+	 * @throws The Promise will be rejected with an error, if the input file does not exist or is not a file, if read permission for the input file is missing, or if write permission for the output file is missing.
 	 * 
 	 * @see [AndroidFs::copy_file](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.copy_file)
 	 * @since 22.0.0
@@ -847,7 +850,7 @@ export class AndroidFs {
 	 * @param uri - The URI of the file to truncate.
 	 * 
 	 * @returns A Promise that resolves when the truncation is complete.
-	 * @throws If the entry does not exist, if the entry is not a file, if write permission is missing, or if the file provider does not support truncation, the Promise will be rejected with an error.
+	 * @throws The Promise will be rejected with an error, if the entry does not exist, if the entry is not a file, if write permission is missing, or if the file provider does not support truncation.
 	 * 
 	 * @see [AndroidFs::open_file_writable](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_writable)
 	 * @since 22.0.0
@@ -862,7 +865,7 @@ export class AndroidFs {
 	 * @param uri - The URI of the file to remove.
 	 * 
 	 * @returns A Promise that resolves when the removing is complete.
-	 * @throws If the entry does not exist, if the entry is not a file, if write permission is missing, or if the file provider does not support removing, the Promise will be rejected with an error.
+	 * @throws The Promise will be rejected with an error, if the entry does not exist, if the entry is not a file, if write permission is missing, or if the file provider does not support removing.
 	 * 
 	 * @see [AndroidFs::remove_file](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.remove_file)
 	 * @since 22.0.0
@@ -877,7 +880,7 @@ export class AndroidFs {
 	 * @param uri - The URI of the directory to remove.
 	 * 
 	 * @returns A Promise that resolves when the removing is complete.
-	 * @throws If the entry does not exist, if the entry is not a directory, if write permission is missing, or if the file provider does not support removing, the Promise will be rejected with an error.
+	 * @throws The Promise will be rejected with an error, if the entry does not exist, if the entry is not a directory, if write permission is missing, or if the file provider does not support removing.
 	 * 
 	 * @see [AndroidFs::remove_dir_all](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.remove_dir_all)
 	 * @since 22.0.0
@@ -892,7 +895,7 @@ export class AndroidFs {
 	 * @param uri - The URI of the direcotry to remove.
 	 * 
 	 * @returns A Promise that resolves when the removing is complete.
-	 * @throws If the entry does not exist, if the entry is not an empty directory, if write permission is missing, or if the file provider does not support removing, the Promise will be rejected with an error.
+	 * @throws The Promise will be rejected with an error, if the entry does not exist, if the entry is not an empty directory, if write permission is missing, or if the file provider does not support removing.
 	 * 
 	 * @see [AndroidFs::remove_dir](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.remove_dir)
 	 * @since 22.0.0
@@ -907,7 +910,7 @@ export class AndroidFs {
 	 * @param uri - The URI of the direcotry to read.
 	 * 
 	 * @returns A Promise that resolves to an array of entries, each containing metadata and the URI of a file or directory.
-	 * @throws If the entry does not exist, if the entry is not a directory, if read permission is missing, the Promise will be rejected with an error.
+	 * @throws The Promise will be rejected with an error, if the entry does not exist, if the entry is not a directory, if read permission is missing.
 	 * 
 	 * @see [AndroidFs::read_dir](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.read_dir)
 	 * @since 22.0.0
@@ -1025,7 +1028,7 @@ export class AndroidFs {
 	 * @param uris - The URIs of the target files.
 	 * 
 	 * @returns A promise that resolves after the app chooser is launched.
-	 * @throws If the app does not have read permission for the files, the promise will be rejected with an error.
+	 * @throws The Promise will be rejected with an error, if the app does not have read permission for the files.
 	 * 
 	 * @see [FileOpener::share_files](https://docs.rs/tauri-plugin-android-fs/21.0.0/tauri_plugin_android_fs/api/api_async/struct.FileOpener.html#method.share_files)
 	 * @since 22.0.0
@@ -1049,7 +1052,7 @@ export class AndroidFs {
 	 * @param uri - The URI of the target file.
 	 * 
 	 * @returns A promise that resolves after the app chooser is launched.
-	 * @throws If the app does not have read permission for the file, the promise will be rejected with an error.
+	 * @throws The Promise will be rejected with an error, if the app does not have read permission for the file.
 	 * 
 	 * @see [FileOpener::open_file](https://docs.rs/tauri-plugin-android-fs/21.0.0/tauri_plugin_android_fs/api/api_async/struct.FileOpener.html#method.open_file) 
 	 * @since 22.0.0
@@ -1067,7 +1070,7 @@ export class AndroidFs {
 	 * @param uri - The URI of the target directory.
 	 * 
 	 * @returns A promise that resolves after the app chooser is launched.
-	 * @throws If the app does not have read permission for the directory, the promise will be rejected with an error.
+	 * @throws The Promise will be rejected with an error, if the app does not have read permission for the directory.
 	 * 
 	 * @see [FileOpener::open_dir](https://docs.rs/tauri-plugin-android-fs/21.0.0/tauri_plugin_android_fs/api/api_async/struct.FileOpener.html#method.open_dir)
 	 * @since 22.0.0

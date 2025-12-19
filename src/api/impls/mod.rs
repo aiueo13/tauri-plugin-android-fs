@@ -144,14 +144,20 @@ fn validate_relative_path(path: &std::path::Path) -> Result<&std::path::Path> {
     Ok(path)
 }
 
-// Tokio crate ver. 1.47.1 (MIT License) の src/tokio/util/as_ref.rs を元にしたコード
-// Code: https://docs.rs/tokio/1.47.1/src/tokio/util/as_ref.rs.html
-// MIT License: https://spdx.org/licenses/MIT
+// Based on code from Tokio crate ver. 1.47.1
+//
+// Source:
+// - https://docs.rs/tokio/1.47.1/src/tokio/util/as_ref.rs.html
+// - Copyright (c) Tokio Contributors
+// - Licensed under the MIT License
 fn upgrade_bytes_ref<B: AsRef<[u8]>>(buf: B) -> Vec<u8> {
 
-    // Tokio crate ver. 1.47.1 (MIT License) の src/tokio/util/typeid.rs を元にしたコード
-    // Code: https://docs.rs/tokio/1.47.1/src/tokio/util/typeid.rs.html
-    // MIT License: https://spdx.org/licenses/MIT
+    // Based on code from Tokio crate ver. 1.47.1
+    //
+    // Source:
+    // - https://docs.rs/tokio/1.47.1/src/tokio/util/typeid.rs.html
+    // - Copyright (c) Tokio Contributors
+    // - Licensed under the MIT License
     fn nonstatic_typeid<T>() -> std::any::TypeId
         where
             T: ?Sized,
@@ -178,12 +184,12 @@ fn upgrade_bytes_ref<B: AsRef<[u8]>>(buf: B) -> Vec<u8> {
         })
     }
 
-    // Tokio crate ver. 1.47.1 (MIT License) の src/tokio/util/typeid.rs を元にしたコード
-    // Code: https://docs.rs/tokio/1.47.1/src/tokio/util/typeid.rs.html
-    // MIT License: https://spdx.org/licenses/MIT
-    // 
-    // SAFETY: this function does not compare lifetimes. Values returned as `Ok`
-    // may have their lifetimes extended.
+    // Based on code from Tokio crate ver. 1.47.1
+    //
+    // Source:
+    // - https://docs.rs/tokio/1.47.1/src/tokio/util/typeid.rs.html
+    // - Copyright (c) Tokio Contributors
+    // - Licensed under the MIT License
     unsafe fn try_transmute<Src, Target: 'static>(x: Src) -> std::result::Result<Target, Src> {
         if nonstatic_typeid::<Src>() == std::any::TypeId::of::<Target>() {
             let x = std::mem::ManuallyDrop::new(x);

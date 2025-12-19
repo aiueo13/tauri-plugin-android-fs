@@ -47,7 +47,7 @@ impl FileUri {
     /// 
     /// # Note
     /// There are a few points to note regarding this.
-    /// - This URI cannot be passed to functions of [`FileOpener`](crate::api::api_async::FileOpener).
+    /// - This URI cannot be passed to functions of [`FileOpener`](crate::api::api_async::FileOpener) for sending to other apps.
     /// - Operations using this URI may fall back to [`std::fs`] instead of Kotlin API.
     pub fn from_path(path: impl AsRef<std::path::Path>) -> Self {
         Self { uri: format!("file://{}", path.as_ref().to_string_lossy()), document_top_tree_uri: None }
@@ -62,6 +62,15 @@ impl FileUri {
 
     pub(crate) fn is_content_scheme(&self) -> bool {
         self.uri.starts_with("content://")
+    }
+
+    pub(crate) fn require_content_scheme(&self) -> Result<()> {
+        if self.is_content_scheme() {
+            Ok(())
+        }
+        else {
+            Err(Error::with(format!("illegal URI: {}", self.uri)))
+        }
     }
 }
 

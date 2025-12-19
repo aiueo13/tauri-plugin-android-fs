@@ -7,17 +7,14 @@ import android.os.Environment
 import android.os.storage.StorageManager
 import android.os.storage.StorageVolume
 import android.provider.MediaStore
-import androidx.annotation.RequiresApi
 import java.io.File
 import java.util.Locale
 import java.util.UUID
 
 
-// N は Android 7
-@RequiresApi(Build.VERSION_CODES.N)
 class AFStorageVolume private constructor() {
 
-    data class StorageVolume(
+    data class Metadata(
         val mediaStoreVolumeName: String?,
         val topDir: File?,
         val externalFilesDir: File?,
@@ -30,46 +27,48 @@ class AFStorageVolume private constructor() {
         val isRemovable: Boolean,
         val isEmulated: Boolean,
         val state: String
-    );
+    )
 
     companion object {
 
-        fun getAvailableStorageVolumes(ctx: Context): List<StorageVolume> {
+        fun getAvailableStorageVolumes(ctx: Context): List<Metadata> {
             val svc = StorageVolumeContext(ctx)
             val externalDirs = getExternalFilesCacheMediaDirsWithStorageVolume(svc)
-            val buf = mutableListOf<StorageVolume>()
+            val buf = mutableListOf<Metadata>()
 
             for (sv in svc.storageVolumes) {
                 if (!svc.checkAvailable(sv)) continue
 
                 val externalDirEntry = externalDirs[sv]
 
-                buf.add(StorageVolume(
-                    mediaStoreVolumeName = svc.getMediaStoreVolumeName(sv),
-                    topDir = svc.getTopDir(sv),
-                    externalFilesDir = externalDirEntry?.first,
-                    externalCacheDir = externalDirEntry?.second,
-                    externalMediaDir = externalDirEntry?.third,
-                    storageUuid = svc.getStorageUuid(sv),
-                    uuid = sv.uuid,
-                    description = svc.getDescription(sv),
-                    isPrimary = sv.isPrimary,
-                    isRemovable = sv.isRemovable,
-                    isEmulated = sv.isEmulated,
-                    state = sv.state
-                ))
+                buf.add(
+                    Metadata(
+                        mediaStoreVolumeName = svc.getMediaStoreVolumeName(sv),
+                        topDir = svc.getTopDir(sv),
+                        externalFilesDir = externalDirEntry?.first,
+                        externalCacheDir = externalDirEntry?.second,
+                        externalMediaDir = externalDirEntry?.third,
+                        storageUuid = svc.getStorageUuid(sv),
+                        uuid = sv.uuid,
+                        description = svc.getDescription(sv),
+                        isPrimary = sv.isPrimary,
+                        isRemovable = sv.isRemovable,
+                        isEmulated = sv.isEmulated,
+                        state = sv.state
+                    )
+                )
             }
 
             return buf
         }
 
-        fun getPrimaryStorageVolumeIfAvailable(ctx: Context): StorageVolume? {
+        fun getPrimaryStorageVolumeIfAvailable(ctx: Context): Metadata? {
             val svc = StorageVolumeContext(ctx)
             val sv = svc.storageVolumes.find { it.isPrimary } ?: return null
             return createStorageVolumeFromRawIfAvailable(sv, svc)
         }
 
-        fun getStorageVolumeByFileIfAvailable(file: File, ctx: Context): StorageVolume? {
+        fun getStorageVolumeByFileIfAvailable(file: File, ctx: Context): Metadata? {
             val svc = StorageVolumeContext(ctx)
             val sv = svc.storageManager.getStorageVolume(file) ?: return null
             return createStorageVolumeFromRawIfAvailable(sv, svc)
@@ -100,20 +99,28 @@ class AFStorageVolume private constructor() {
             val sv = svc.storageManager.getStorageVolume(file)
             return sv != null && svc.checkAvailable(sv)
         }
+
+        fun getStorageVolumeTopDirsAndMediaStoreVolumeNames(ctx: Context): List<Pair<File, String>> {
+            val svc = StorageVolumeContext(ctx)
+            val buf = mutableListOf<Pair<File, String>>()
+            for (vol in svc.storageVolumes) {
+                val topDir = svc.getTopDir(vol) ?: continue
+                val volumeName = svc.getMediaStoreVolumeName(vol) ?: continue
+                buf.add(Pair(topDir, volumeName))
+            }
+            return buf.toList()
+        }
     }
 }
 
-
-// N は Android 7
-@RequiresApi(Build.VERSION_CODES.N)
 private fun createStorageVolumeFromRawIfAvailable(
     sv: StorageVolume,
     svc: StorageVolumeContext
-): AFStorageVolume.StorageVolume? {
+): AFStorageVolume.Metadata? {
 
     if (!svc.checkAvailable(sv)) return null
 
-    return AFStorageVolume.StorageVolume(
+    return AFStorageVolume.Metadata(
         mediaStoreVolumeName = svc.getMediaStoreVolumeName(sv),
         topDir = svc.getTopDir(sv),
         externalFilesDir = svc.getExternalFilesDir(sv),
@@ -129,9 +136,6 @@ private fun createStorageVolumeFromRawIfAvailable(
     )
 }
 
-
-// N は Android 7
-@RequiresApi(Build.VERSION_CODES.N)
 private fun getExternalFilesCacheMediaDirsWithStorageVolume(
     svc: StorageVolumeContext
 ): Map<StorageVolume, Triple<File?, File?, File?>> {
@@ -160,9 +164,6 @@ private fun getExternalFilesCacheMediaDirsWithStorageVolume(
     return entries
 }
 
-
-// N は Android 7
-@RequiresApi(Build.VERSION_CODES.N)
 private class StorageVolumeContext(val ctx: Context) {
 
     val storageManager: StorageManager by lazy {

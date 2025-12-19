@@ -44,6 +44,7 @@ pub enum ImageFormat {
     }
 }
 
+#[allow(unused)]
 impl ImageFormat {
 
     pub(crate) fn mime_type(&self) -> &'static str {

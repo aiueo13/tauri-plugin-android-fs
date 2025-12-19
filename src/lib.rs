@@ -33,12 +33,16 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
                 let handle = api.register_android_plugin("com.plugin.android_fs", "AndroidFsPlugin")?;
                 let afs_sync = crate::api::api_sync::AndroidFs { handle: handle.clone() };
                 let afs_async = crate::api::api_async::AndroidFs { handle: handle.clone() };
-
-                // 一時ファイルを全て削除
-                afs_sync.impls().remove_all_temp_files().ok();
-
                 app.manage(afs_sync);
                 app.manage(afs_async);
+
+                let app_handle = app.app_handle().clone();
+                std::thread::spawn(move || {
+                    let afs = app_handle.android_fs();
+
+                    // 前回作成した一時ファイルを全て削除
+                    afs.impls().remove_all_temp_files().ok();
+                });
             }
             #[cfg(not(target_os = "android"))] {
                 let afs_sync = crate::api::api_sync::AndroidFs::<R> { handle: Default::default() };

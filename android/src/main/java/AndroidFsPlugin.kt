@@ -3,7 +3,6 @@ package com.plugin.android_fs
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -230,56 +229,6 @@ class CopyFileArgs {
     lateinit var dest: FileUri
     var bufferSize: Int? = null
 }
-
-@InvokeArg
-class ShareFilesArgs {
-    lateinit var uris: Array<FileUri>
-    var commonMimeType: String? = null
-    var useAppChooser: Boolean = true
-    var excludeSelfFromAppChooser: Boolean = true
-}
-
-@InvokeArg
-class CanShareFilesArgs {
-    lateinit var uris: Array<FileUri>
-    var commonMimeType: String? = null
-}
-
-@InvokeArg
-class ViewFileArgs {
-    lateinit var uri: FileUri
-    var mimeType: String? = null
-    var useAppChooser: Boolean = true
-    var excludeSelfFromAppChooser: Boolean = true
-}
-
-@InvokeArg
-class CanViewFileArgs {
-    lateinit var uri: FileUri
-    var mimeType: String? = null
-}
-
-@InvokeArg
-class ViewDirArgs {
-    lateinit var uri: FileUri
-    var useAppChooser: Boolean = true
-    var excludeSelfFromAppChooser: Boolean = true
-}
-
-@InvokeArg
-class EditFileArgs {
-    lateinit var uri: FileUri
-    var mimeType: String? = null
-    var useAppChooser: Boolean = true
-    var excludeSelfFromAppChooser: Boolean = true
-}
-
-@InvokeArg
-class CanEditFileArgs {
-    lateinit var uri: FileUri
-    var mimeType: String? = null
-}
-
 @InvokeArg
 class CreateNewMediaStoreFileArgs {
     var volumeName: String? = null
@@ -341,7 +290,6 @@ private const val ALIAS_LEGACY_READ_STORAGE_PERMISSION = "READ_EXTERNAL_STORAGE_
     ]
 )
 class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
-    private val isVisualMediaPickerAvailable = PickVisualMedia.isPhotoPickerAvailable()
     private val documentFileController = DocumentFileController(activity)
     private val mediaFileController = MediaFileController(activity)
     private val rawFileController = RawFileController()
@@ -485,11 +433,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun requestLegacyStoragePermission(invoke: Invoke) {
         try {
-            // Tauri は Android7 未満をサポートしていないので本来これはいらないが、警告を消すために書く
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-                throw Exception("requires API level 24 or higher")
-            }
-
             val writeGranted = when (getPermissionState(ALIAS_LEGACY_WRITE_STORAGE_PERMISSION)) {
                 PermissionState.GRANTED -> true
                 else -> false
@@ -804,11 +747,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun getStorageVolumeByPath(invoke: Invoke) {
         try {
-            // Tauri は Android7 未満をサポートしていないので本来これはいらないが、警告を消すために書く
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-                throw Exception("requires API level 24 or higher")
-            }
-
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val args = invoke.parseArgs(GetStorageVolumeByPathArgs::class.java)
@@ -839,11 +777,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun getPrimaryStorageVolumeIfAvailable(invoke: Invoke) {
         try {
-            // Tauri は Android7 未満をサポートしていないので本来これはいらないが、警告を消すために書く
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-                throw Exception("requires API level 24 or higher")
-            }
-
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val res = JSObject().apply {
@@ -873,11 +806,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun getAvailableStorageVolumes(invoke: Invoke) {
         try {
-            // Tauri は Android7 未満をサポートしていないので本来これはいらないが、警告を消すために書く
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-                throw Exception("requires API level 24 or higher")
-            }
-
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val res = JSObject().apply {
@@ -912,11 +840,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun checkStorageVolumeAvailableByPath(invoke: Invoke) {
         try {
-            // Tauri は Android7 未満をサポートしていないので本来これはいらないが、警告を消すために書く
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-                throw Exception("requires API level 24 or higher")
-            }
-
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val args = invoke.parseArgs(CheckStorageVolumeAvailableByPathArgs::class.java)
@@ -947,11 +870,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun checkMediaStoreVolumeNameAvailable(invoke: Invoke) {
         try {
-            // Tauri は Android7 未満をサポートしていないので本来これはいらないが、警告を消すために書く
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-                throw Exception("requires API level 24 or higher")
-            }
-
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val args = invoke.parseArgs(CheckMediaStoreVolumeNameAvailableArgs::class.java)
@@ -982,11 +900,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun getAllPersistedUriPermissions(invoke: Invoke) {
         try {
-            // Tauri は Android7 未満をサポートしていないので本来これはいらないが、警告を消すために書く
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-                throw Exception("requires API level 24 or higher")
-            }
-
             val items = JSArray()
 
             activity.contentResolver.persistedUriPermissions.forEach {
@@ -1318,9 +1231,9 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     }
                 }
             }
-        } catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke getName."
-            invoke.reject(message)
+        }
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "Unknown exception")
         }
     }
 
@@ -1550,154 +1463,141 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
-    fun copyFile(invoke: Invoke) {
-        try {
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val args = invoke.parseArgs(CopyFileArgs::class.java)
-
-                    // グーグルドライブなどの場合、
-                    // OutputStream を介して書き込まないと正しく反映されないことがある。
-                    // ( 正確にはOutputStream.flush()が必要 )
-                    //
-                    // https://community.latenode.com/t/csv-export-to-google-drive-results-in-empty-file-but-local-storage-works-fine/10822/3
-                    // https://community.latenode.com/t/csv-file-exports-to-local-storage-but-appears-empty-when-saved-to-google-drive-using-action-create-document/29264/4
-                    // https://stackoverflow.com/questions/51490194/file-written-using-action-create-document-is-empty-on-google-drive-but-not-local
-                    // https://issuetracker.google.com/issues/126362828
-
-                    activity.contentResolver.openInputStream(Uri.parse(args.src.uri))?.use { input ->
-                        openFileWt(Uri.parse(args.dest.uri)).use { output ->
-                            input.copyTo(output, args.bufferSize ?: DEFAULT_BUFFER_SIZE)
-                            output.flush()
-                        }
-                    }
-
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve() 
-                    }
-                }
-                catch (ex: Exception) {
-                    withContext(Dispatchers.Main) {
-                        val message = ex.message ?: "Failed to invoke copyFile."
-                        invoke.reject(message)
-                    }
-                }
-            }
-        } 
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke copyFile."
-            invoke.reject(message)
-        }
-    }
-
-    @Command
     fun shareFiles(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var uris: Array<FileUri>
+        }
+
         try {
-            val args = invoke.parseArgs(ShareFilesArgs::class.java)
-            var intent = createShareFilesIntent(
-                args.uris.map { Uri.parse(it.uri) },
-                args.commonMimeType
-            )
+            val args = invoke.parseArgs(Args::class.java)
+            val uris = args.uris.map { Uri.parse(it.uri) }
 
-            if (args.useAppChooser) {
-                intent = createShareFilesIntentChooser(intent, args.excludeSelfFromAppChooser)
+            if (uris.isEmpty()) throw IllegalArgumentException("uris must not be empty")
+
+            val mimeTypes = uris.map { activity.contentResolver.getType(it) ?: "*/*" }
+            val commonMimeType = getCommonMimeType(mimeTypes)
+            val builder = ShareCompat.IntentBuilder(activity)
+                .setType(commonMimeType)
+
+            for (uri in uris) {
+                builder.addStream(uri)
             }
 
-            // 対応できるアプリがないときExceptionになる。
-            // resolveActivityやqueryIntentActivitiesなどによる判定はAndroid11以降特別な権限が必要。
-            try {
-                activity.applicationContext.startActivity(intent)
+            val intentChooser = Intent.createChooser(
+                builder.intent
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                ""
+            ).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(activity.componentName))
             }
-            catch (_: ActivityNotFoundException) {}
 
+            activity.applicationContext.startActivity(intentChooser)
             invoke.resolve()
         }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke shareFiles."
-            invoke.reject(message)
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "Unknown")
         }
     }
 
     @Command
     fun viewDir(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var uri: FileUri
+        }
+
         try {
-            val args = invoke.parseArgs(ViewDirArgs::class.java)
-            var intent = createViewDirIntent(
-                Uri.parse(args.uri.uri)
-            )
+            val args = invoke.parseArgs(Args::class.java)
+            val uri = Uri.parse(args.uri.uri)
+            val mimeType = DocumentsContract.Document.MIME_TYPE_DIR
 
-            if (args.useAppChooser) {
-                intent = createViewDirIntentChooser(intent, args.excludeSelfFromAppChooser)
+            val intentChooser = Intent.createChooser(
+                Intent(Intent.ACTION_VIEW)
+                    .setDataAndType(uri, mimeType)
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                ""
+            ).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(activity.componentName))
             }
 
-            // 対応できるアプリがないときExceptionになる。
-            // resolveActivityやqueryIntentActivitiesなどによる判定はAndroid11以降特別な権限が必要。
-            try {
-                activity.applicationContext.startActivity(intent)
-            }
-            catch (_: ActivityNotFoundException) {}
-
+            activity.applicationContext.startActivity(intentChooser)
             invoke.resolve()
         }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke viewDir."
-            invoke.reject(message)
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "Unknown")
         }
     }
 
     @Command
     fun viewFile(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var uri: FileUri
+        }
+
         try {
-            val args = invoke.parseArgs(ViewFileArgs::class.java)
-            var intent = createViewFileIntent(
-                Uri.parse(args.uri.uri),
-                args.mimeType
-            ) 
+            val args = invoke.parseArgs(Args::class.java)
+            val uri = Uri.parse(args.uri.uri)
+            val mimeType = activity.contentResolver.getType(uri)
 
-            if (args.useAppChooser) {
-                intent = createViewFileIntentChooser(intent, args.excludeSelfFromAppChooser)
+            val intentChooser =  Intent.createChooser(
+                Intent(Intent.ACTION_VIEW)
+                    .setDataAndType(uri, mimeType)
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                ""
+            ).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(activity.componentName))
             }
 
-            // 対応できるアプリがないときExceptionになる。
-            // resolveActivityやqueryIntentActivitiesなどによる判定はAndroid11以降特別な権限が必要。
-            try {
-                activity.applicationContext.startActivity(intent)
-            }
-            catch (_: ActivityNotFoundException) {}
-
+            activity.applicationContext.startActivity(intentChooser)
             invoke.resolve()
         }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke viewFile."
-            invoke.reject(message)
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "Unknown")
         }
     }
 
     @Command
     fun editFile(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var uri: FileUri
+        }
+
         try {
-            val args = invoke.parseArgs(EditFileArgs::class.java)
-            var intent = createEditFileIntent(
-                Uri.parse(args.uri.uri),
-                args.mimeType
-            ) 
+            val args = invoke.parseArgs(Args::class.java)
+            val uri = Uri.parse(args.uri.uri)
+            val mimeType = activity.contentResolver.getType(uri)
 
-            if (args.useAppChooser) {
-                intent = createEditFileIntentChooser(intent, args.excludeSelfFromAppChooser)
+            val intentChooser = Intent.createChooser(
+                Intent(Intent.ACTION_EDIT)
+                    .setDataAndType(uri, mimeType)
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                ""
+            ).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(activity.componentName))
             }
 
-            // 対応できるアプリがないときExceptionになる。
-            // resolveActivityやqueryIntentActivitiesなどによる判定はAndroid11以降特別な権限が必要。
-            try {
-                activity.applicationContext.startActivity(intent)
-            }
-            catch (_: ActivityNotFoundException) {}
-
+            activity.applicationContext.startActivity(intentChooser)
             invoke.resolve()
         }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke editFile."
-            invoke.reject(message)
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "Unknown")
         }
     }
 
@@ -1711,8 +1611,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
 
             var intent: Intent? = null
 
-            // Rust 側の resolve_initial_location_in_public_storage による RootUri が指定された場合は
-            // StorageVolume.createOpenDocumentTreeIntent を用いる。
+            // RootUri が指定された場合は StorageVolume.createOpenDocumentTreeIntent を用いる。
             // これは DocumentsContract.EXTRA_INITIAL_URI で指定するよりもアクセシビリティの最適化が行われる。
             if (initialLocation != null && Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT && initialLocationIsStorageVolumeRoot) {
                 val id = initialLocationStr!!.removePrefix("content://com.android.externalstorage.documents/root/")
@@ -1944,11 +1843,11 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun isVisualMediaDialogAvailable(invoke: Invoke) {
         try {
             val res = JSObject()
-            res.put("value", isVisualMediaPickerAvailable)
+            res.put("value", PickVisualMedia.isPhotoPickerAvailable())
             invoke.resolve(res)
-        } catch (ex: java.lang.Exception) {
-            val message = ex.message ?: "Failed to invoke isVisualMediaDialogAvailable."
-            invoke.reject(message)
+        }
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "Unknown")
         }
     }
 
@@ -2009,7 +1908,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     }
                     
                     val res = JSObject()
-                    res.put("fd", fd ?: throw Exception("Failed to get FileDescriptor with ${args.modes}"))
+                    res.put("fd", fd ?: throw Exception("No file or permission, or unavailable"))
                     res.put("mode", mode!!)
 
                     withContext(Dispatchers.Main) {
@@ -2139,139 +2038,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             false -> PickVisualMedia().createIntent(activity, req)
         }
     }
-
-    private fun createViewDirIntent(
-        uri: Uri,
-    ): Intent {
-
-        val mimeType = DocumentsContract.Document.MIME_TYPE_DIR
-        var isAvailable = DocumentsContract.isDocumentUri(activity, uri)
-        if (!isAvailable && Build.VERSION_CODES.N <= Build.VERSION.SDK_INT) {
-            isAvailable = DocumentsContract.isTreeUri(uri)
-        }
-
-        if (!isAvailable) {
-            throw Exception("This is not a available type: $uri")
-        }
-
-        return Intent(Intent.ACTION_VIEW)
-            .setDataAndType(uri, mimeType)
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-
-    private fun createViewDirIntentChooser(
-        viewDirIntent: Intent,
-        excludeSelfFromAppChooser: Boolean
-    ): Intent {
-
-        val chooser = Intent.createChooser(viewDirIntent, "")
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-
-        if (excludeSelfFromAppChooser && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            chooser.putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(activity.componentName))
-        }
-
-        return chooser
-    }
-
-    private fun createViewFileIntent(
-        uri: Uri,
-        mimeType: String?
-    ): Intent {
-
-        return Intent(Intent.ACTION_VIEW)
-            .setDataAndType(uri, mimeType ?: activity.contentResolver.getType(uri))
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-
-    private fun createViewFileIntentChooser(
-        viewFileIntent: Intent,
-        excludeSelfFromAppChooser: Boolean
-    ): Intent {
-
-        val chooser = Intent.createChooser(viewFileIntent, "")
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-
-        if (excludeSelfFromAppChooser && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            chooser.putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(activity.componentName))
-        }
-
-        return chooser
-    }
-
-    private fun createShareFilesIntent(
-        uris: List<Uri>,
-        commonMimeType: String? = null
-    ): Intent {
-
-        if (uris.isEmpty()) throw IllegalArgumentException("uris must not be empty")
-
-        val mimeType = commonMimeType ?: run {
-            val types = uris.map { activity.contentResolver.getType(it) ?: "*/*" }
-            getCommonMimeType(types)
-        }
-
-        val builder = ShareCompat.IntentBuilder(activity)
-            .setType(mimeType)
-
-        for (uri in uris) {
-            builder.addStream(uri)
-        }
-
-        return builder.intent
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-
-    private fun createShareFilesIntentChooser(
-        shareFileIntent: Intent,
-        excludeSelfFromAppChooser: Boolean
-    ): Intent {
-
-        val chooser = Intent.createChooser(shareFileIntent, "")
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-
-        if (excludeSelfFromAppChooser && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            chooser.putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(activity.componentName))
-        }
-
-        return chooser
-    }
-
-    private fun createEditFileIntent(
-        uri: Uri,
-        mimeType: String?
-    ): Intent {
-
-        return Intent(Intent.ACTION_EDIT)
-            .setDataAndType(uri, mimeType ?: activity.contentResolver.getType(uri))
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-
-    private fun createEditFileIntentChooser(
-        editFileIntent: Intent,
-        excludeSelfFromAppChooser: Boolean
-    ): Intent {
-
-        val chooser = Intent.createChooser(editFileIntent, "")
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-
-        if (excludeSelfFromAppChooser && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            chooser.putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(activity.componentName))
-        }
-
-        return chooser
-    }
-
+    
     private fun getCommonMimeType(mimeTypes: List<String>): String {
         if (mimeTypes.isEmpty()) return "*/*"
 

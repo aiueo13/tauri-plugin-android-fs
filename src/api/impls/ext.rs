@@ -35,6 +35,8 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         let path = self.temp_dir_path()?;
 
         run_blocking(move || {
+            let _g = LOCK_FOR_REMOVE_TEMP_FILE.lock();
+
             match std::fs::remove_dir_all(path) {
                 Ok(_) => Ok(()),
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
@@ -48,6 +50,8 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         let temp_dir_path = self.temp_dir_path()?;
 
         run_blocking(move || {
+            std::mem::drop(LOCK_FOR_REMOVE_TEMP_FILE.lock());
+
             std::fs::create_dir_all(&temp_dir_path).ok();
 
             let uid = next_uid_for_temp_file();
@@ -619,11 +623,14 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 }
 
+// Tokio の Mutex は async context 内の blocking lock でパニックになるので使わない
+static LOCK_FOR_REMOVE_TEMP_FILE: std::sync::LazyLock<std::sync::Mutex<()>> = std::sync::LazyLock::new(|| std::sync::Mutex::new(()));
 
 fn_get_or_init!(get_or_init_temp_dir_path, std::path::PathBuf);
 
 fn next_uid_for_temp_file() -> usize {
-    // temp file の寿命はアプリ起動中までなので 0 から始まる単調増加の ID でいい
+    // temp file の寿命はアプリ終了までで、アプリ起動時に全て消される。
+    // よって 0 から始まる単調増加の ID でいい。
 
     use std::sync::atomic::{AtomicUsize, Ordering};
     static COUNTER: AtomicUsize = AtomicUsize::new(0);

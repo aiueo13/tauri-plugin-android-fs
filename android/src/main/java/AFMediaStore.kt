@@ -2,7 +2,7 @@
 
 package com.plugin.android_fs
 
-import android.content.ContentUris
+import android.content.ContentResolver
 import android.content.ContentValues
 import android.content.Context
 import android.media.MediaScannerConnection
@@ -191,7 +191,7 @@ class AFMediaStore private constructor() { companion object {
             }
         }
 
-        throw Exception("No file or permission: ${uri}")
+        throw Exception("No file or permission: $uri")
     }
 
     fun scanFileWithIgnoringResult(
@@ -266,6 +266,11 @@ class AFMediaStore private constructor() { companion object {
         catch (e: Exception) {
             errCallback(e)
         }
+    }
+
+    fun isMediaStoreFile(uri: Uri): Boolean {
+        return uri.scheme == ContentResolver.SCHEME_CONTENT
+                && uri.authority == MediaStore.AUTHORITY
     }
 }}
 

@@ -1,11 +1,8 @@
 package com.plugin.android_fs
 
-import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
-import android.provider.DocumentsContract
-import androidx.annotation.RequiresApi
 import app.tauri.plugin.JSObject
 
 class AFJSObject private constructor() { companion object {
@@ -33,8 +30,7 @@ class AFJSObject private constructor() { companion object {
         return createFileUri(uri.toString(), documentTopTreeUri.toString())
     }
 
-    @RequiresApi(Build.VERSION_CODES.N)
-    fun createStorageVolumeJSObject(sv: AFStorageVolume.StorageVolume): JSObject {
+    fun createStorageVolumeJSObject(sv: AFStorageVolume.Metadata): JSObject {
         // アプリ専用フォルダはシステムに不安定と判断された StorageVolume に存在しない
         val isStable = sv.externalFilesDir != null || sv.externalCacheDir != null || sv.externalMediaDir != null
         

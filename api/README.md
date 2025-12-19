@@ -7,7 +7,7 @@ First, install this plugin to your Tauri project:
 
 ```toml
 [dependencies]
-tauri-plugin-android-fs = { version = "23", features = ["legacy_storage_permission"] }
+tauri-plugin-android-fs = { version = "24", features = ["legacy_storage_permission"] }
 ```
 
 Next, register this plugin in your Tauri project:
@@ -50,7 +50,7 @@ yarn add tauri-plugin-android-fs-api
 # Usage
 This plugin operates on files and directories via URIs rather than paths.  
 
-By using `AndroidFs.getFsPath`, you can obtain a path from a URI and use it with the functions provided by Tauri's official file system plugin, [`@tauri-apps/plugin-fs`](https://v2.tauri.app/ja/plugin/file-system/), to read and write files. For those paths, there is no need for you to set [the scope configuration](https://v2.tauri.app/reference/javascript/fs/#security) of Tauri's file system.
+By using `AndroidFs.getFsPath`, you can obtain a path from a URI and use it with the functions provided by Tauri's file system, [`@tauri-apps/plugin-fs`](https://v2.tauri.app/ja/plugin/file-system/), to read and write files. For those paths, there is no need for you to set [the scope configuration](https://v2.tauri.app/reference/javascript/fs/#security) of Tauri's file system.
 
 ```typescript
 import { AndroidFs } from 'tauri-plugin-android-fs-api'
@@ -78,7 +78,46 @@ async function saveText(fileName: string, data: string): Promise<void> {
 }
 ```
 
-And this plugin provides following APIs:
+Some functions accept not only URIs but also absolute paths. 
+In this case, you need to set [the scope configuration](https://v2.tauri.app/reference/javascript/fs/#security) in the same way as [`@tauri-apps/plugin-fs`](https://v2.tauri.app/ja/plugin/file-system/).
+
+`src-tauri/capabilities/*.json`
+```json
+{
+    "permissions": [
+        {
+            "identifier": "android-fs:scope",
+            "allow": [
+                "$APPDATA/**/*"
+            ],
+            "deny": [
+                "$APPDATA/secret/**/*"
+            ]
+        }
+    ]
+}
+```
+
+And you can also assign a specific scope to a particular command.
+
+`src-tauri/capabilities/*.json`
+```json
+{
+    "permissions": [
+        {
+            "identifier": "android-fs:allow-copy-file",
+            "allow": [
+                "$APPDATA/**/*"
+            ],
+            "deny": [
+                "$APPDATA/secret/**/*"
+            ]
+        }
+    ]
+}
+```
+
+Then, this plugin provides following APIs:
 
 ### 1. APIs to obtain entries such as files and directories.
 - `AndroidFs.showOpenFilePicker` 

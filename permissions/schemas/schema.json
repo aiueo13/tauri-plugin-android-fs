@@ -731,6 +731,12 @@
           "type": "string",
           "const": "default",
           "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `all-without-delete`"
+        },
+        {
+          "description": "An empty permission you can use to modify the global scope.\n\n## Example\n\n```json\n{\n  \"permissions\": [\n    \"android-fs:all-without-delete\",\n    {\n      \"identifier\": \"android-fs:scope\",\n      \"allow\": [\n        \"$APPDATA/documents/**/*\"\n      ],\n      \"deny\": [\n        \"$APPDATA/documents/secret.txt\"\n      ]\n    }\n  ]\n}\n```\n",
+          "type": "string",
+          "const": "scope",
+          "markdownDescription": "An empty permission you can use to modify the global scope.\n\n## Example\n\n```json\n{\n  \"permissions\": [\n    \"android-fs:all-without-delete\",\n    {\n      \"identifier\": \"android-fs:scope\",\n      \"allow\": [\n        \"$APPDATA/documents/**/*\"\n      ],\n      \"deny\": [\n        \"$APPDATA/documents/secret.txt\"\n      ]\n    }\n  ]\n}\n```\n"
         }
       ]
     }

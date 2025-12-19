@@ -718,15 +718,12 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         uris: impl IntoIterator<Item = &'b FileUri>, 
     ) -> Result<()> {
 
-        impl_se!(struct Req<'a> { uris: Vec<&'a FileUri>, common_mime_type: Option<&'a str>, use_app_chooser: bool, exclude_self_from_app_chooser: bool });
+        impl_se!(struct Req<'a> { uris: Vec<&'a FileUri> });
         impl_de!(struct Res;);
 
-        let use_app_chooser = true;
-        let exclude_self_from_app_chooser = true;
-        let common_mime_type = None;
         let uris = uris.into_iter().collect::<Vec<_>>();
 
-        let result = self.invoke::<Res>("shareFiles", Req { uris, common_mime_type, use_app_chooser, exclude_self_from_app_chooser })
+        let result = self.invoke::<Res>("shareFiles", Req { uris })
             .await
             .map(|_| ());
 
@@ -742,14 +739,10 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         uri: &FileUri,
     ) -> Result<()> {
 
-        impl_se!(struct Req<'a> { uri: &'a FileUri, mime_type: Option<&'a str>, use_app_chooser: bool, exclude_self_from_app_chooser: bool });
+        impl_se!(struct Req<'a> { uri: &'a FileUri });
         impl_de!(struct Res;);
-
-        let use_app_chooser = true;
-        let exclude_self_from_app_chooser = true;
-        let mime_type = None;
     
-        let result = self.invoke::<Res>("viewFile", Req { uri, mime_type, use_app_chooser, exclude_self_from_app_chooser })
+        let result = self.invoke::<Res>("viewFile", Req { uri })
             .await
             .map(|_| ());
 
@@ -765,13 +758,10 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         uri: &FileUri,
     ) -> Result<()> {
 
-        impl_se!(struct Req<'a> { uri: &'a FileUri, use_app_chooser: bool, exclude_self_from_app_chooser: bool });
+        impl_se!(struct Req<'a> { uri: &'a FileUri });
         impl_de!(struct Res;);
 
-        let use_app_chooser = true;
-        let exclude_self_from_app_chooser = true;
-    
-        let result = self.invoke::<Res>("viewDir", Req { uri, use_app_chooser, exclude_self_from_app_chooser })
+        let result = self.invoke::<Res>("viewDir", Req { uri })
             .await
             .map(|_| ());
 
@@ -787,14 +777,10 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         uri: &FileUri,
     ) -> Result<()> {
 
-        impl_se!(struct Req<'a> { uri: &'a FileUri, mime_type: Option<&'a str>, use_app_chooser: bool, exclude_self_from_app_chooser: bool });
+        impl_se!(struct Req<'a> { uri: &'a FileUri });
         impl_de!(struct Res;);
 
-        let use_app_chooser = true;
-        let exclude_self_from_app_chooser = true;
-        let mime_type = None;
-    
-        let result = self.invoke::<Res>("editFile", Req { uri, mime_type, use_app_chooser, exclude_self_from_app_chooser })
+        let result = self.invoke::<Res>("editFile", Req { uri })
             .await
             .map(|_| ());
 

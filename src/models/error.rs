@@ -10,12 +10,16 @@ pub struct Error {
 #[allow(unused)]
 impl crate::Error {
 
-    pub(crate) const NOT_ANDROID: Self = Self {
-        inner: InnerError::Raw(Cow::Borrowed("This plugin is only for Android"))
-    };
+    pub(crate) const NOT_ANDROID: Self = Self::from_static_str(
+        "unsupported platform; only Android is supported"
+    );
 
     pub(crate) fn missing_value(value_name: impl AsRef<str>) -> Self {
         Self::with(format!("missing value: {}", value_name.as_ref()))
+    }
+
+    pub(crate) const fn from_static_str(msg: &'static str) -> Self {
+        Self { inner: InnerError::Raw(Cow::Borrowed(msg)), }
     }
 
     pub fn with(msg: impl Into<Cow<'static, str>>) -> Self {
