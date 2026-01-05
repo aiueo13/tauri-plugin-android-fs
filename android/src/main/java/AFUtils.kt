@@ -15,6 +15,19 @@ sealed class EntryType {
 
 class AFUtils private constructor() { companion object {
 
+    fun getMimeTypeFromName(fileName: String): String {
+        val ext = fileName.substringAfterLast('.', "").lowercase()
+
+        if (ext.isEmpty()) {
+            return "application/octet-stream"
+        }
+
+        return MimeTypeMap
+            .getSingleton()
+            .getMimeTypeFromExtension(ext)
+            ?: "application/octet-stream"
+    }
+
     fun getExtensionFromMimeType(mimeType: String): String? {
         return MimeTypeMap
             .getSingleton()
@@ -44,7 +57,7 @@ class AFUtils private constructor() { companion object {
 
         return when (val entry = getEntryType(fileUri, ctx)) {
             is EntryType.File -> entry.mimeType
-            else -> throw Exception("This is not a file: ${fileUri.uri}")
+            else -> throw Exception("not a file: ${fileUri.uri}")
         }
     }
 

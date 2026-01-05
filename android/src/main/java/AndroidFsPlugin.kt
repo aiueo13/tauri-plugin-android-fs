@@ -5,9 +5,11 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.os.Process
 import android.os.storage.StorageManager
 import android.provider.DocumentsContract
 import android.provider.MediaStore
@@ -32,139 +34,19 @@ import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
-import kotlin.io.copyTo
 
 
 @InvokeArg
-class GetFileDescriptorArgs {
-    lateinit var mode: String
-    lateinit var uri: FileUri
-}
-
-@InvokeArg
-class GetFileDescriptorWithFallbackArgs {
-    lateinit var modes: Array<String>
-    lateinit var uri: FileUri
-}
-
-@InvokeArg
-class GetNameArgs {
-    lateinit var uri: FileUri
-}
-
-@InvokeArg
-class GetLenArgs {
-    lateinit var uri: FileUri
-}
-
-@InvokeArg
-class GetThumbnailToFileArgs {
-    lateinit var src: FileUri
-    lateinit var dest: FileUri
-    var width: Int = -1
-    var height: Int = -1
-    var quality: Int = -1
-    lateinit var format: String
-}
-
-@InvokeArg
-class GetThumbnailArgs {
-    lateinit var uri: FileUri
-    var width: Int = -1
-    var height: Int = -1
-    var quality: Int = -1
-    lateinit var format: String
-}
-
-@InvokeArg
-class ShowOpenFileDialogArgs {
-    lateinit var mimeTypes: Array<String>
-    var multiple: Boolean = false
-    var localOnly: Boolean = false
-    var initialLocation: FileUri? = null
-}
-
-@InvokeArg
-class ShowOpenContentDialogArgs {
-    lateinit var mimeTypes: Array<String>
-    var multiple: Boolean = false
-}
-
-@InvokeArg
-class ShowOpenVisualMediaDialogArgs {
-    lateinit var target: String
-    var localOnly: Boolean = false
-    var multiple: Boolean = false
-}
-
-@InvokeArg
-class ShowManageDirDialogArgs {
-    var initialLocation: FileUri? = null
-    var localOnly: Boolean = false
-}
-
-@InvokeArg
-class ShowSaveFileDialogArgs {
-    var initialLocation: FileUri? = null
-    lateinit var initialFileName: String
-    var localOnly: Boolean = false
-    var mimeType: String? = null
-}
-
-@InvokeArg
-enum class PersistableUriPermissionMode {
-    Read,
-    Write,
-    ReadAndWrite,
-    ReadOrWrite,
-}
-
-@InvokeArg
-class GetStorageVolumeByPathArgs {
-    var path: String? = null
-}
-
-@InvokeArg
-class CheckStorageVolumeAvailableByPathArgs {
-    var path: String? = null
-}
-
-@InvokeArg
-class CheckMediaStoreVolumeNameAvailableArgs {
-    var mediaStoreVolumeName: String? = null
-}
-
-@InvokeArg
-class GetMimeTypeArgs {
-    lateinit var uri: FileUri
-}
-
-@InvokeArg
-class GetMetadataArgs {
-    lateinit var uri: FileUri
-}
-
-@InvokeArg
-class DeleteArgs {
-    lateinit var uri: FileUri
-}
-
-@InvokeArg
-class RenameArgs {
-    lateinit var uri: FileUri
-    lateinit var newName: String
-}
-
-@InvokeArg
-class ReadDirArgs {
-    lateinit var uri: FileUri
-    lateinit var options: ReadDirEntryOptions
+class FileUri {
+    lateinit var uri: String
+    var documentTopTreeUri: String? = null
 }
 
 @InvokeArg
@@ -175,104 +57,8 @@ class ReadDirEntryOptions(
     val len: Boolean = false,
 )
 
-@InvokeArg
-class CreateFileArgs {
-    lateinit var dir: FileUri
-    lateinit var relativePath: String
-    var mimeType: String? = null
-}
 
-@InvokeArg
-class CreateFileAndReturnRelativePathArgs {
-    lateinit var dir: FileUri
-    lateinit var relativePath: String
-    var mimeType: String? = null
-}
-
-@InvokeArg
-class CreateDirAllArgs {
-    lateinit var dir: FileUri
-    lateinit var relativePath: String
-}
-
-@InvokeArg
-class CreateDirAllAndReturnRelativePathArgs {
-    lateinit var dir: FileUri
-    lateinit var relativePath: String
-}
-
-@InvokeArg
-class FileUri {
-    lateinit var uri: String
-    var documentTopTreeUri: String? = null
-}
-
-@InvokeArg
-class TakePersistableUriPermissionArgs {
-    lateinit var uri: FileUri
-}
-
-@InvokeArg
-class CheckPersistedUriPermissionArgs {
-    lateinit var uri: FileUri
-    lateinit var mode: PersistableUriPermissionMode
-}
-
-@InvokeArg
-class ReleasePersistedUriPermissionArgs {
-    lateinit var uri: FileUri
-}
-
-@InvokeArg
-class CopyFileArgs {
-    lateinit var src: FileUri
-    lateinit var dest: FileUri
-    var bufferSize: Int? = null
-}
-@InvokeArg
-class CreateNewMediaStoreFileArgs {
-    var volumeName: String? = null
-    lateinit var relativePath: String
-    var mimeType: String? = null
-    // isPending と命名するとなぜか常にnullになる
-    var pending: Boolean? = null
-}
-
-@InvokeArg
-class SetMediaStoreFilePending {
-    lateinit var uri: FileUri
-    // isPending と命名するとなぜか常にnullになる
-    var pending: Boolean? = null
-}
-
-@InvokeArg
-class ScanFileToMediaStoreByPathArgs {
-    lateinit var path: String
-    var mimeType: String? = null
-}
-
-@InvokeArg
-class ScanMediaStoreFileArgs {
-    lateinit var uri: FileUri
-}
-
-@InvokeArg
-class GetMediaStoreFileAbsolutePathArgs {
-    lateinit var uri: FileUri
-}
-
-@InvokeArg
-class FindFileUriArgs {
-    lateinit var parentUri: FileUri
-    lateinit var relativePath: String
-}
-
-@InvokeArg
-class FindDirUriArgs {
-    lateinit var parentUri: FileUri
-    lateinit var relativePath: String
-}
-
+val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
 private const val ALIAS_LEGACY_WRITE_STORAGE_PERMISSION = "WRITE_EXTERNAL_STORAGE_MAX"
 private const val ALIAS_LEGACY_READ_STORAGE_PERMISSION = "READ_EXTERNAL_STORAGE_MAX"
@@ -309,21 +95,8 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             (uri.scheme == "file") -> {
                 rawFileController
             }
-            else -> throw Exception("Unsupported uri: $uri")
+            else -> throw Exception("unsupported uri: $uri")
         }
-    }
-
-    private fun getMimeTypeFromName(fileName: String): String {
-        val ext = fileName.substringAfterLast('.', "").lowercase()
-
-        if (ext.isEmpty()) {
-            return "application/octet-stream"
-        }
-
-        return MimeTypeMap
-            .getSingleton()
-            .getMimeTypeFromExtension(ext)
-            ?: "application/octet-stream"
     }
 
     private fun openFileWt(uri: Uri): OutputStream {
@@ -347,19 +120,17 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                             try {
                                 o.channel.truncate(0)
                                 return o
-                            }
-                            catch (ignore: Exception) {
+                            } catch (ignore: Exception) {
                                 o.close()
                             }
                         }
                         o.close()
-                    }
-                    else {
+                    } else {
                         return o
                     }
                 }
+            } catch (ignore: Exception) {
             }
-            catch (ignore: Exception) { }
         }
 
         throw Exception("Failed to open file with truncate and write")
@@ -373,13 +144,40 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             documentTopTreeUri != null ||
             DocumentsContract.isDocumentUri(activity, uri) ||
             initialLocation.uri.startsWith("content://com.android.externalstorage.documents/root/")
-            ) {
+        ) {
 
             return uri
         }
 
         return null
     }
+
+/*
+    @Command
+    fun template(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+
+        }
+
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val res = JSObject()
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(res)
+                }
+            }
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error")
+                }
+            }
+        }
+    }
+*/
+
 
     @Command
     fun getConsts(invoke: Invoke) {
@@ -409,7 +207,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             invoke.resolve(res)
         }
         catch (e: Exception) {
-            invoke.reject(e.message ?: "unknown")
+            invoke.reject(e.message ?: "unknown error: $e")
         }
     }
 
@@ -426,7 +224,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             invoke.resolve(JSObject().apply { put("value", isLegacyStorage) })
         }
         catch (e: Exception) {
-            invoke.reject(e.message ?: "unknown")
+            invoke.reject(e.message ?: "unknown error: $e")
         }
     }
 
@@ -465,7 +263,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             }
         }
         catch (e: Exception) {
-            invoke.reject(e.message ?: "unknown")
+            invoke.reject(e.message ?: "unknown error: $e")
         }
     }
 
@@ -487,7 +285,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             })
         }
         catch (e: Exception) {
-            invoke.reject(e.message ?: "unknown")
+            invoke.reject(e.message ?: "unknown error: $e")
         }
     }
 
@@ -508,957 +306,1011 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             })
         }
         catch (e: Exception) {
-            invoke.reject(e.message ?: "unknown")
+            invoke.reject(e.message ?: "unknown error: $e")
         }
     }
 
     @Command
     fun findSafFileUri(invoke: Invoke) {
-        try {
-            val args = invoke.parseArgs(FindFileUriArgs::class.java)
+        @InvokeArg
+        class Args {
+            lateinit var parentUri: FileUri
+            lateinit var relativePath: String
+        }
 
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val uri = documentFileController.findFileUri(args.parentUri, args.relativePath)
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve(uri)
-                    }
-                }
-                catch (ex: Exception) {
-                    withContext(Dispatchers.Main) {
-                        invoke.reject(ex.message ?: "unknown")
-                    }
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val uri = documentFileController.findFileUri(args.parentUri, args.relativePath)
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(uri)
                 }
             }
-        }
-        catch (e: Exception) {
-            invoke.reject(e.message ?: "unknown")
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
     fun findSafDirUri(invoke: Invoke) {
-        try {
-            val args = invoke.parseArgs(FindDirUriArgs::class.java)
+        @InvokeArg
+        class Args {
+            lateinit var parentUri: FileUri
+            lateinit var relativePath: String
+        }
 
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val uri = documentFileController.findDirUri(args.parentUri, args.relativePath)
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve(uri)
-                    }
-                }
-                catch (ex: Exception) {
-                    withContext(Dispatchers.Main) {
-                        invoke.reject(ex.message ?: "unknown")
-                    }
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val uri = documentFileController.findDirUri(args.parentUri, args.relativePath)
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(uri)
                 }
             }
-        }
-        catch (e: Exception) {
-            invoke.reject(e.message ?: "unknown")
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
     fun scanFileToMediaStoreByPath(invoke: Invoke) {
-        try {
-            val args = invoke.parseArgs(ScanFileToMediaStoreByPathArgs::class.java)
+        @InvokeArg
+        class Args {
+            lateinit var path: String
+            var mimeType: String? = null
+        }
 
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
 
-                    AFMediaStore.scanFile(
-                        File(args.path),
-                        args.mimeType,
-                        { uri -> activity.runOnUiThread { invoke.resolve(JSObject().apply { put("uri", AFJSObject.createFileUri(uri)) }) } },
-                        { err -> activity.runOnUiThread { invoke.reject(err.message ?: "unknown") } },
-                        activity
-                    )
-                }
-                catch (ex: Exception) {
-                    withContext(Dispatchers.Main) {
-                        invoke.reject(ex.message ?: "unknown")
-                    }
+                AFMediaStore.scanFile(
+                    File(args.path),
+                    args.mimeType,
+                    { uri -> activity.runOnUiThread { invoke.resolve(JSObject().apply { put("uri", AFJSObject.createFileUri(uri)) }) } },
+                    { err -> activity.runOnUiThread { invoke.reject(err.message ?: "unknown error : $err") } },
+                    activity
+                )
+            }
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error : $e")
                 }
             }
-        }
-        catch (e: Exception) {
-            invoke.reject(e.message ?: "unknown")
         }
     }
 
     @Command
     fun scanMediaStoreFile(invoke: Invoke) {
-        try {
-            val args = invoke.parseArgs(ScanMediaStoreFileArgs::class.java)
+        @InvokeArg
+        class Args {
+            lateinit var uri: FileUri
+        }
 
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val e = AFMediaStore.getAbsolutePathAndMimeType(args.uri, activity)
-                    val path = e.first
-                    val mimeType = e.second
-                    
-                    AFMediaStore.scanFileWithIgnoringResult(
-                        File(path),
-                        mimeType,
-                        activity
-                    )
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
 
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve()
-                    }
-                }
-                catch (ex: Exception) {
-                    withContext(Dispatchers.Main) {
-                        invoke.reject(ex.message ?: "unknown")
-                    }
+                val e = AFMediaStore.getAbsolutePathAndMimeType(args.uri, activity)
+                val path = e.first
+                val mimeType = e.second
+
+                AFMediaStore.scanFileWithIgnoringResult(
+                    File(path),
+                    mimeType,
+                    activity
+                )
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve()
                 }
             }
-        }
-        catch (e: Exception) {
-            invoke.reject(e.message ?: "unknown")
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
     fun scanMediaStoreFileForResult(invoke: Invoke) {
-        try {
-            val args = invoke.parseArgs(ScanMediaStoreFileArgs::class.java)
+        @InvokeArg
+        class Args {
+            lateinit var uri: FileUri
+        }
 
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val e = AFMediaStore.getAbsolutePathAndMimeType(args.uri, activity)
-                    val path = e.first
-                    val mimeType = e.second
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val e = AFMediaStore.getAbsolutePathAndMimeType(args.uri, activity)
+                val path = e.first
+                val mimeType = e.second
 
-                    AFMediaStore.scanFile(
-                        File(path),
-                        mimeType,
-                        { activity.runOnUiThread { invoke.resolve() } },
-                        { err -> activity.runOnUiThread { invoke.reject(err.message ?: "unknown") } },
-                        activity
-                    )
-                }
-                catch (ex: Exception) {
-                    withContext(Dispatchers.Main) {
-                        invoke.reject(ex.message ?: "unknown")
-                    }
+                AFMediaStore.scanFile(
+                    File(path),
+                    mimeType,
+                    { activity.runOnUiThread { invoke.resolve() } },
+                    { err -> activity.runOnUiThread { invoke.reject(err.message ?: "unknown error: $err") } },
+                    activity
+                )
+            }
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
                 }
             }
-        }
-        catch (e: Exception) {
-            invoke.reject(e.message ?: "unknown")
         }
     }
 
     @Command
     fun getMediaStoreFileAbsolutePath(invoke: Invoke) {
-        try {
-            val args = invoke.parseArgs(GetMediaStoreFileAbsolutePathArgs::class.java)
+        @InvokeArg
+        class Args {
+            lateinit var uri: FileUri
+        }
 
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val path: String = AFMediaStore.getAbsolutePath(args.uri, activity)
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val path: String = AFMediaStore.getAbsolutePath(args.uri, activity)
 
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve(JSObject().apply {
-                            put("path", path)
-                        })
-                    }
-                }
-                catch (ex: Exception) {
-                    withContext(Dispatchers.Main) {
-                        invoke.reject(ex.message ?: "unknown")
-                    }
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(JSObject().apply {
+                        put("path", path)
+                    })
                 }
             }
-        }
-        catch (e: Exception) {
-            invoke.reject(e.message ?: "unknown")
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
     fun setMediaStoreFilePending(invoke: Invoke) {
-        try {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                throw Exception("requires Android 10 (API level 29) or higher")
-            }
-
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val args = invoke.parseArgs(SetMediaStoreFilePending::class.java)
-
-                    AFMediaStore.setPending(
-                        args.uri,
-                        args.pending ?: throw Exception("missing value: isPending"),
-                        activity
-                    )
-
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve()
-                    }
-                }
-                catch (ex: Exception) {
-                    withContext(Dispatchers.Main) {
-                        invoke.reject(ex.message ?: "unknown")
-                    }
-                }
-            }
+        @InvokeArg
+        class Args {
+            lateinit var uri: FileUri
+            // isPending と命名するとなぜか常にnullになる
+            var pending: Boolean? = null
         }
-        catch (e: Exception) {
-            invoke.reject(e.message ?: "unknown")
+
+        scope.launch {
+            try {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                    throw Exception("requires Android 10 (API level 29) or higher")
+                }
+
+                val args = invoke.parseArgs(Args::class.java)
+
+                AFMediaStore.setPending(
+                    args.uri,
+                    args.pending ?: throw Exception("missing value: isPending"),
+                    activity
+                )
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve()
+                }
+            }
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
     fun createNewMediaStoreFile(invoke: Invoke) {
-        try {
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val args = invoke.parseArgs(CreateNewMediaStoreFileArgs::class.java)
-                    val res = JSObject().apply {
-                        put("uri", AFMediaStore.createNewFile(
-                            args.volumeName,
-                            args.relativePath,
-                            args.mimeType,
-                            args.pending ?: throw Exception("missing value: pending"),
-                            activity
-                        ))
-                    }
+        @InvokeArg
+        class Args {
+            var volumeName: String? = null
+            lateinit var relativePath: String
+            var mimeType: String? = null
+            // isPending と命名するとなぜか常にnullになる
+            var pending: Boolean? = null
+        }
 
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve(res)
-                    }
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val res = JSObject().apply {
+                    put("uri", AFMediaStore.createNewFile(
+                        args.volumeName,
+                        args.relativePath,
+                        args.mimeType,
+                        args.pending ?: throw Exception("missing value: pending"),
+                        activity
+                    ))
                 }
-                catch (ex: Exception) {
-                    withContext(Dispatchers.Main) {
-                        invoke.reject(ex.message ?: "unknown")
-                    }
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(res)
                 }
             }
-        }
-        catch (e: Exception) {
-            invoke.reject(e.message ?: "unknown")
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
     fun getStorageVolumeByPath(invoke: Invoke) {
-        try {
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val args = invoke.parseArgs(GetStorageVolumeByPathArgs::class.java)
-                    val res = JSObject().apply {
-                        val sv = AFStorageVolume.getStorageVolumeByFileIfAvailable(File(args.path!!), activity)
-                        val svJsObj: JSObject? = sv?.let { AFJSObject.createStorageVolumeJSObject(it) }
-                        put("volume", svJsObj)
-                    }
+        @InvokeArg
+        class Args {
+            var path: String? = null
+        }
 
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve(res)
-                    }
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val res = JSObject().apply {
+                    val sv = AFStorageVolume.getStorageVolumeByFileIfAvailable(File(args.path!!), activity)
+                    val svJsObj: JSObject? = sv?.let { AFJSObject.createStorageVolumeJSObject(it) }
+                    put("volume", svJsObj)
                 }
-                catch (ex: Exception) {
-                    val message = ex.message ?: "unknown"
-                    withContext(Dispatchers.Main) {
-                        invoke.reject(message)
-                    }
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(res)
                 }
             }
-        }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke getStorageVolumeByPath."
-            invoke.reject(message)
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
     fun getPrimaryStorageVolumeIfAvailable(invoke: Invoke) {
-        try {
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val res = JSObject().apply {
-                        val sv = AFStorageVolume.getPrimaryStorageVolumeIfAvailable(activity)
-                        val svJsObj: JSObject? = sv?.let { AFJSObject.createStorageVolumeJSObject(it) }
-                        put("volume", svJsObj)
-                    }
-
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve(res)
-                    }
+        scope.launch {
+            try {
+                val res = JSObject().apply {
+                    val sv = AFStorageVolume.getPrimaryStorageVolumeIfAvailable(activity)
+                    val svJsObj: JSObject? = sv?.let { AFJSObject.createStorageVolumeJSObject(it) }
+                    put("volume", svJsObj)
                 }
-                catch (ex: Exception) {
-                    val message = ex.message ?: "Failed to invoke getPrimaryStorageVolumeIfAvailable"
-                    withContext(Dispatchers.Main) {
-                        invoke.reject(message)
-                    }
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(res)
                 }
             }
-        }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke getPrimaryStorageVolumeIfAvailable"
-            invoke.reject(message)
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
     fun getAvailableStorageVolumes(invoke: Invoke) {
-        try {
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val res = JSObject().apply {
-                        val svs = AFStorageVolume.getAvailableStorageVolumes(activity)
-                        val svsObj: JSArray = JSArray().apply {
-                            for (sv in svs) {
-                                put(AFJSObject.createStorageVolumeJSObject(sv))
-                            }
+        scope.launch {
+            try {
+                val res = JSObject().apply {
+                    val svs = AFStorageVolume.getAvailableStorageVolumes(activity)
+                    val svsObj: JSArray = JSArray().apply {
+                        for (sv in svs) {
+                            put(AFJSObject.createStorageVolumeJSObject(sv))
                         }
-                        put("volumes", svsObj)
                     }
-
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve(res)
-                    }
+                    put("volumes", svsObj)
                 }
-                catch (ex: Exception) {
-                    val message = ex.message ?: "Failed to invoke getAvailableStorageVolumes"
 
-                    withContext(Dispatchers.Main) {
-                        invoke.reject(message)
-                    }
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(res)
                 }
             }
-        }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke getAvailableStorageVolumes"
-            invoke.reject(message)
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
     fun checkStorageVolumeAvailableByPath(invoke: Invoke) {
-        try {
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val args = invoke.parseArgs(CheckStorageVolumeAvailableByPathArgs::class.java)
-                    val res = JSObject().apply {
-                        val ok: Boolean = AFStorageVolume.checkStorageVolumeAvailableByFile(File(args.path!!) ,activity)
-                        put("value", ok)
-                    }
+        @InvokeArg
+        class Args {
+            var path: String? = null
+        }
 
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve(res)
-                    }
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val res = JSObject().apply {
+                    val ok: Boolean = AFStorageVolume.checkStorageVolumeAvailableByFile(File(args.path!!) ,activity)
+                    put("value", ok)
                 }
-                catch (ex: Exception) {
-                    val message = ex.message ?: "Failed to invoke checkStorageVolumeAvailableByPath"
 
-                    withContext(Dispatchers.Main) {
-                        invoke.reject(message)
-                    }
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(res)
                 }
             }
-        }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke checkStorageVolumeAvailableByPath"
-            invoke.reject(message)
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
     fun checkMediaStoreVolumeNameAvailable(invoke: Invoke) {
-        try {
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val args = invoke.parseArgs(CheckMediaStoreVolumeNameAvailableArgs::class.java)
-                    val res = JSObject().apply {
-                        val ok: Boolean = AFStorageVolume.checkMediaStoreVolumeNameAvailable(args.mediaStoreVolumeName!! ,activity)
-                        put("value", ok)
-                    }
+        @InvokeArg
+        class Args {
+            var mediaStoreVolumeName: String? = null
+        }
 
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve(res)
-                    }
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val res = JSObject().apply {
+                    val ok: Boolean = AFStorageVolume.checkMediaStoreVolumeNameAvailable(args.mediaStoreVolumeName!! ,activity)
+                    put("value", ok)
                 }
-                catch (ex: Exception) {
-                    val message = ex.message ?: "Failed to invoke checkMediaStoreVolumeNameAvailable"
 
-                    withContext(Dispatchers.Main) {
-                        invoke.reject(message)
-                    }
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(res)
                 }
             }
-        }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke checkMediaStoreVolumeNameAvailable"
-            invoke.reject(message)
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
-    fun getAllPersistedUriPermissions(invoke: Invoke) {
-        try {
-            val items = JSArray()
+    fun getAllPersistedPickerUriPermissions(invoke: Invoke) {
+        scope.launch {
+            try {
+                val items = JSArray()
 
-            activity.contentResolver.persistedUriPermissions.forEach {
-                val uri = it.uri
-                val item = when {
-                    DocumentsContract.isTreeUri(uri) -> {
-                        val builtUri = DocumentsContract.buildDocumentUriUsingTree(
-                            uri,
-                            DocumentsContract.getTreeDocumentId(uri)
-                        )
+                activity.contentResolver.persistedUriPermissions.forEach {
+                    val isTreeUri = DocumentsContract.isTreeUri(it.uri)
+                    val isDir = isTreeUri
 
-                        JSObject().apply {
-                            put("uri", JSObject().apply {
-                                put("uri", builtUri.toString())
-                                put("documentTopTreeUri", uri.toString())
-                            })
-                            put("r", it.isReadPermission)
-                            put("w", it.isWritePermission)
-                            put("d", true)
+                    val uriObj = when (isTreeUri) {
+                        true -> JSObject().apply {
+                            val treeUri = it.uri
+                            val documentUri = DocumentsContract.buildDocumentUriUsingTree(
+                                treeUri,
+                                DocumentsContract.getTreeDocumentId(treeUri)
+                            )
+                            put("uri", documentUri.toString())
+                            put("documentTopTreeUri", treeUri.toString())
+                        }
+                        false -> JSObject().apply {
+                            put("uri", it.uri.toString())
+                            put("documentTopTreeUri", null)
                         }
                     }
-                    else -> {
-                        JSObject().apply {
-                            put("uri", JSObject().apply {
-                                put("uri", uri.toString())
-                                put("documentTopTreeUri", null)
-                            })
-                            put("r", it.isReadPermission)
-                            put("w", it.isWritePermission)
-                            put("d", false)
-                        }
+
+                    items.put(JSObject().apply {
+                        put("uri", uriObj)
+                        put("r", it.isReadPermission)
+                        put("w", it.isWritePermission)
+                        put("d", isDir)
+                    })
+                }
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(JSObject().apply {
+                        put("items", items)
+                    })
+                }
+            }
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
+        }
+    }
+
+    @Command
+    fun releaseAllPersistedPickerUriPermissions(invoke: Invoke) {
+        scope.launch {
+            try {
+                activity.contentResolver.persistedUriPermissions.forEach {
+                    val flag = when {
+                        it.isReadPermission && it.isWritePermission -> Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                        it.isReadPermission -> Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        it.isWritePermission -> Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                        else -> 0
                     }
-                };
-                items.put(item)
-            }
 
-            val res = JSObject().apply {
-                put("items", items)
-            }
-
-            invoke.resolve(res)
-        }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke getAllPersistedUriPermissions."
-            invoke.reject(message)
-        }
-    }
-
-    @Command
-    fun releaseAllPersistedUriPermissions(invoke: Invoke) {
-        try {
-            activity.contentResolver.persistedUriPermissions.forEach {
-                val flag = when {
-                    it.isReadPermission && it.isWritePermission -> Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                    it.isReadPermission -> Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    it.isWritePermission -> Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                    else -> null
-                }
-            
-                if (flag != null) {
                     activity.contentResolver.releasePersistableUriPermission(it.uri, flag)
                 }
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve()
+                }
             }
-            invoke.resolve()
-        }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke releaseAllPersistedUriPermissions."
-            invoke.reject(message)
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
-    fun releasePersistedUriPermission(invoke: Invoke) {
-        try {
-            val args = invoke.parseArgs(ReleasePersistedUriPermissionArgs::class.java)
-            val uri = if (args.uri.documentTopTreeUri != null) {
-                Uri.parse(args.uri.documentTopTreeUri)
-            }
-            else {
-                Uri.parse(args.uri.uri)
-            }
+    fun releasePersistedPickerUriPermission(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var uri: FileUri
+        }
 
-            activity.contentResolver.persistedUriPermissions.find { it.uri == uri }?.let {
-                val flag = when {
-                    it.isReadPermission && it.isWritePermission -> Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                    it.isReadPermission -> Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    it.isWritePermission -> Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                    else -> null
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val uri = when (args.uri.documentTopTreeUri) {
+                    // Intent.ACTION_OPEN_DOCUMENT や Intent.ACTION_CREATE_DOCUMENT、Photo Picker などの場合。
+                    null -> Uri.parse(args.uri.uri)
+
+                    // Intent.ACTION_OPEN_DOCUMENT_TREE の場合。
+                    // documentTopTreeUri はこの場合にのみ存在する。
+                    else -> Uri.parse(args.uri.documentTopTreeUri)
                 }
-            
-                if (flag != null) {
+
+                val target = activity.contentResolver.persistedUriPermissions.find { it.uri == uri }
+                target?.let {
+                    val flag = when {
+                        it.isReadPermission && it.isWritePermission -> Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                        it.isReadPermission -> Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        it.isWritePermission -> Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                        else -> 0
+                    }
+
                     activity.contentResolver.releasePersistableUriPermission(it.uri, flag)
                 }
-            }
 
-            invoke.resolve()
-        }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke releasePersistedUriPermission."
-            invoke.reject(message)
-        }
-    }
+                val isReleased: Boolean = target != null
 
-    @Command
-    fun takePersistableUriPermission(invoke: Invoke) {
-        try {
-            val args = invoke.parseArgs(TakePersistableUriPermissionArgs::class.java)
-
-            val uri = if (args.uri.documentTopTreeUri != null) {
-                Uri.parse(args.uri.documentTopTreeUri)
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(JSObject().apply {
+                        put("isReleased", isReleased)
+                    })
+                }
             }
-            else {
-                Uri.parse(args.uri.uri)
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
             }
-
-            try {
-                activity.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)    
-            }
-            catch (ignore: Exception) {}
-            try {
-                activity.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION)    
-            }
-            catch (ignore: Exception) {}
-
-            invoke.resolve()
-        }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke takePersistableUriPermission."
-            invoke.reject(message)
         }
     }
 
     @Command
-    fun checkPersistedUriPermission(invoke: Invoke) {
-        try {
-            val args = invoke.parseArgs(CheckPersistedUriPermissionArgs::class.java)
+    fun persistPickerUriPermission(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var uri: FileUri
+        }
 
-            val uri = if (args.uri.documentTopTreeUri != null) {
-                Uri.parse(args.uri.documentTopTreeUri)
-            }
-            else {
-                Uri.parse(args.uri.uri)
-            }
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val uri = when (args.uri.documentTopTreeUri) {
+                    // Intent.ACTION_OPEN_DOCUMENT や Intent.ACTION_CREATE_DOCUMENT、Photo Picker などの場合。
+                    null -> Uri.parse(args.uri.uri)
 
-            val p = activity.contentResolver.persistedUriPermissions.find { it.uri == uri }
-            if (p != null) {
-                 val value = when (args.mode) {
-                    PersistableUriPermissionMode.Read -> p.isReadPermission
-                    PersistableUriPermissionMode.Write -> p.isWritePermission
-                    PersistableUriPermissionMode.ReadAndWrite -> p.isReadPermission && p.isWritePermission
-                    PersistableUriPermissionMode.ReadOrWrite -> p.isReadPermission || p.isWritePermission
+                    // Intent.ACTION_OPEN_DOCUMENT_TREE の場合。
+                    // documentTopTreeUri はこの場合にのみ存在する。
+                    else -> Uri.parse(args.uri.documentTopTreeUri)
                 }
 
-                invoke.resolve(JSObject().apply {
-                    put("value", value)
-                })
+                val pid = Process.myPid()
+                val uid = Process.myUid()
+                val canRead: Boolean = activity.checkUriPermission(
+                    uri, pid, uid, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                ) == PackageManager.PERMISSION_GRANTED
+                val canWrite: Boolean = activity.checkUriPermission(
+                    uri, pid, uid, Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                ) == PackageManager.PERMISSION_GRANTED
+
+                if (!canRead && !canWrite) {
+                    throw Exception("no permission for: $uri")
+                }
+                if (canRead) {
+                    activity.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                if (canWrite) {
+                    activity.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                }
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve()
+                }
             }
-            else {
-                invoke.resolve(JSObject().apply {
-                    put("value", false)
-                })
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
             }
         }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke checkPersistedUriPermission."
-            invoke.reject(message)
+    }
+
+    @Command
+    fun getPersistedPickerUriPermission(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var uri: FileUri
+        }
+
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val uri = when (args.uri.documentTopTreeUri) {
+                    // Intent.ACTION_OPEN_DOCUMENT や Intent.ACTION_CREATE_DOCUMENT、Photo Picker などの場合。
+                    null -> Uri.parse(args.uri.uri)
+
+                    // Intent.ACTION_OPEN_DOCUMENT_TREE の場合。
+                    // documentTopTreeUri はこの場合にのみ存在する。
+                    else -> Uri.parse(args.uri.documentTopTreeUri)
+                }
+
+                val permission = activity.contentResolver.persistedUriPermissions.find { it.uri == uri }
+                val canRead: Boolean = permission?.isReadPermission ?: false
+                val canWrite: Boolean = permission?.isWritePermission ?: false
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(JSObject().apply {
+                        put("canRead", canRead)
+                        put("canWrite", canWrite)
+                    })
+                }
+            }
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
+        }
+    }
+
+    @Command
+    fun getPickerUriPermission(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var uri: FileUri
+        }
+
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val uri = Uri.parse(args.uri.uri)
+
+                val pid = Process.myPid()
+                val uid = Process.myUid()
+                val canRead: Boolean = activity.checkUriPermission(
+                    uri, pid, uid, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                ) == PackageManager.PERMISSION_GRANTED
+                val canWrite: Boolean = activity.checkUriPermission(
+                    uri, pid, uid, Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                ) == PackageManager.PERMISSION_GRANTED
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(JSObject().apply {
+                        put("canRead", canRead)
+                        put("canWrite", canWrite)
+                    })
+                }
+            }
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
     fun createFile(invoke: Invoke) {
-        try {
-            val args = invoke.parseArgs(CreateFileArgs::class.java)
+        @InvokeArg
+        class Args {
+            lateinit var dir: FileUri
+            lateinit var relativePath: String
+            var mimeType: String? = null
+        }
 
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val fileName = args.relativePath.substringAfterLast('/', args.relativePath)
-                    val mimeType = args.mimeType ?: getMimeTypeFromName(fileName)
-                    val res = getFileController(args.dir)
-                        .createFile(args.dir, args.relativePath, mimeType)
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val fileName = args.relativePath.substringAfterLast('/', args.relativePath)
+                val mimeType = args.mimeType ?: AFUtils.getMimeTypeFromName(fileName)
+                val res = getFileController(args.dir)
+                    .createFile(args.dir, args.relativePath, mimeType)
 
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve(res) 
-                    }
-                }
-                catch (ex: Exception) {
-                    withContext(Dispatchers.Main) {
-                        val message = ex.message ?: "Failed to invoke createFile."
-                        invoke.reject(message)
-                    }
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(res)
                 }
             }
-        }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke createFile."
-            invoke.reject(message)
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
     fun createFileAndReturnRelativePath(invoke: Invoke) {
-        try {
-            val args = invoke.parseArgs(CreateFileAndReturnRelativePathArgs::class.java)
+        @InvokeArg
+        class Args {
+            lateinit var dir: FileUri
+            lateinit var relativePath: String
+            var mimeType: String? = null
+        }
 
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val fileName = args.relativePath.substringAfterLast('/', args.relativePath)
-                    val mimeType = args.mimeType ?: getMimeTypeFromName(fileName)
-                    val res = getFileController(args.dir)
-                        .createFileAndReturnRelativePath(args.dir, args.relativePath, mimeType)
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
 
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve(res)
-                    }
-                }
-                catch (ex: Exception) {
-                    withContext(Dispatchers.Main) {
-                        val message = ex.message ?: "Failed to invoke createFile."
-                        invoke.reject(message)
-                    }
+                val fileName = args.relativePath.substringAfterLast('/', args.relativePath)
+                val mimeType = args.mimeType ?: AFUtils.getMimeTypeFromName(fileName)
+                val res = getFileController(args.dir)
+                    .createFileAndReturnRelativePath(args.dir, args.relativePath, mimeType)
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(res)
                 }
             }
-        }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke createFile."
-            invoke.reject(message)
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
     fun createDirAll(invoke: Invoke) {
-        try {
-            val args = invoke.parseArgs(CreateDirAllArgs::class.java)
+        @InvokeArg
+        class Args {
+            lateinit var dir: FileUri
+            lateinit var relativePath: String
+        }
 
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val res = getFileController(args.dir)
-                        .createDirAll(args.dir, args.relativePath)
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val res = getFileController(args.dir)
+                    .createDirAll(args.dir, args.relativePath)
 
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve(res)
-                    }
-                }
-                catch (ex: Exception) {
-                    withContext(Dispatchers.Main) {
-                        val message = ex.message ?: "Failed to invoke createDirAll."
-                        invoke.reject(message)
-                    }
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(res)
                 }
             }
-        }
-        catch(ex: Exception) {
-            val message = ex.message ?: "Failed to invoke createDirAll."
-            invoke.reject(message)
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
     fun createDirAllAndReturnRelativePath(invoke: Invoke) {
-        try {
-            val args = invoke.parseArgs(CreateDirAllAndReturnRelativePathArgs::class.java)
+        @InvokeArg
+        class Args {
+            lateinit var dir: FileUri
+            lateinit var relativePath: String
+        }
 
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val res = getFileController(args.dir)
-                        .createDirAllAndReturnRelativePath(args.dir, args.relativePath)
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val res = getFileController(args.dir)
+                    .createDirAllAndReturnRelativePath(args.dir, args.relativePath)
 
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve(res)
-                    }
-                }
-                catch (ex: Exception) {
-                    withContext(Dispatchers.Main) {
-                        val message = ex.message ?: "Failed to invoke createDirAll."
-                        invoke.reject(message)
-                    }
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(res)
                 }
             }
-        }
-        catch(ex: Exception) {
-            val message = ex.message ?: "Failed to invoke createDirAll."
-            invoke.reject(message)
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
     fun readDir(invoke: Invoke) {
-        try {
-            val args = invoke.parseArgs(ReadDirArgs::class.java)
-            
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val res = JSObject().apply {
-                        put("entries", getFileController(args.uri).readDir(args.uri, args.options))
-                    }
+        @InvokeArg
+        class Args {
+            lateinit var uri: FileUri
+            lateinit var options: ReadDirEntryOptions
+        }
 
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve(res)
-                    }
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val res = JSObject().apply {
+                    put("entries", getFileController(args.uri).readDir(args.uri, args.options))
                 }
-                catch (ex: Exception) {
-                    withContext(Dispatchers.Main) {
-                        invoke.reject(ex.message ?: "unknown")
-                    }
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(res)
                 }
             }
-        }
-        catch (ex: Exception) {
-            invoke.reject(ex.message ?: "unknown")
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
     fun getName(invoke: Invoke) {
-        try {
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val args = invoke.parseArgs(GetNameArgs::class.java)
-                    val res = JSObject()
-                    res.put("name", getFileController(args.uri).getName(args.uri))
+        @InvokeArg
+        class Args {
+            lateinit var uri: FileUri
+        }
 
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve(res)
-                    }
-                }
-                catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        invoke.reject(e.message ?: "Unknown exception")
-                    }
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val res = JSObject()
+                res.put("name", getFileController(args.uri).getName(args.uri))
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(res)
                 }
             }
-        }
-        catch (e: Exception) {
-            invoke.reject(e.message ?: "Unknown exception")
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
     fun getLen(invoke: Invoke) {
-        try {
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val args = invoke.parseArgs(GetLenArgs::class.java)
-                    val res = JSObject()
-                    res.put("len", getFileController(args.uri).getLen(args.uri))
+        @InvokeArg
+        class Args {
+            lateinit var uri: FileUri
+        }
 
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve(res)
-                    }
-                }
-                catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        invoke.reject(e.message ?: "Unknown exception")
-                    }
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val res = JSObject()
+                res.put("len", getFileController(args.uri).getLen(args.uri))
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(res)
                 }
             }
-        } catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke getLen."
-            invoke.reject(message)
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
     fun getMetadata(invoke: Invoke) {
-        try {
-            val args = invoke.parseArgs(GetMetadataArgs::class.java)
+        @InvokeArg
+        class Args {
+            lateinit var uri: FileUri
+        }
 
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val res = getFileController(args.uri).getMetadata(args.uri)
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val res = getFileController(args.uri).getMetadata(args.uri)
 
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve(res)
-                    }
-                }
-                catch (ex: Exception) {
-                    withContext(Dispatchers.Main) {
-                        val message = ex.message ?: "Failed to invoke getMetadata."
-                        invoke.reject(message)
-                    }
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(res)
                 }
             }
-        }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke getMetadata."
-            invoke.reject(message)
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
     fun getThumbnailToFile(invoke: Invoke) {
-        try {
-            CoroutineScope(Dispatchers.Default).launch {
-                try {
-                    val args = invoke.parseArgs(GetThumbnailToFileArgs::class.java)
+        @InvokeArg
+        class Args {
+            lateinit var src: FileUri
+            lateinit var dest: FileUri
+            var width: Int = -1
+            var height: Int = -1
+            var quality: Int = -1
+            lateinit var format: String
+        }
 
-                    val ok = AFThumbnails.loadThumbnail(
-                        fileUri = args.src,
-                        preferredSize = Size(args.width, args.height),
-                        format = args.format,
-                        quality = args.quality,
-                        output = { openFileWt(Uri.parse(args.dest.uri)) },
-                        useThumbnail = { true },
-                        ctx = activity
-                    ) ?: false
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
 
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve(JSObject().apply {
-                            put("value", ok)
-                        })
-                    }
-                }
-                catch (ex: Exception) {
-                    val message = ex.message ?: "Failed to invoke getThumbnail."
-                    withContext(Dispatchers.Main) {
-                        invoke.reject(message)
-                    }
+                val ok = AFThumbnails.loadThumbnail(
+                    fileUri = args.src,
+                    preferredSize = Size(args.width, args.height),
+                    format = args.format,
+                    quality = args.quality,
+                    output = { openFileWt(Uri.parse(args.dest.uri)) },
+                    useThumbnail = { true },
+                    ctx = activity
+                ) ?: false
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(JSObject().apply {
+                        put("value", ok)
+                    })
                 }
             }
-        }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke getThumbnail."
-            invoke.reject(message)
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
     fun getThumbnail(invoke: Invoke) {
-        try {
-            CoroutineScope(Dispatchers.Default).launch {
-                try {
-                    val args = invoke.parseArgs(GetThumbnailArgs::class.java)
+        @InvokeArg
+        class Args {
+            lateinit var uri: FileUri
+            var width: Int = -1
+            var height: Int = -1
+            var quality: Int = -1
+            lateinit var format: String
+        }
 
-                    val base64 = AFThumbnails.loadThumbnail(
-                        fileUri = args.uri,
-                        preferredSize = Size(args.width, args.height),
-                        format = args.format,
-                        quality = args.quality,
-                        output = { ByteArrayOutputStream() },
-                        useThumbnail = { Base64.encodeToString(it.toByteArray(), Base64.NO_WRAP) },
-                        ctx = activity
-                    )
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
 
-                    val res = JSObject().apply {
-                        put("bytes", base64)
-                    }
+                val base64 = AFThumbnails.loadThumbnail(
+                    fileUri = args.uri,
+                    preferredSize = Size(args.width, args.height),
+                    format = args.format,
+                    quality = args.quality,
+                    output = { ByteArrayOutputStream() },
+                    useThumbnail = { Base64.encodeToString(it.toByteArray(), Base64.NO_WRAP) },
+                    ctx = activity
+                )
 
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve(res)
-                    }
+                val res = JSObject().apply {
+                    put("bytes", base64)
                 }
-                catch (ex: Exception) {
-                    val message = ex.message ?: "Failed to invoke getThumbnail."
 
-                    withContext(Dispatchers.Main) {
-                        invoke.reject(message)
-                    }
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(res)
                 }
             }
-        }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke getThumbnail."
-            invoke.reject(message)
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
     fun deleteFile(invoke: Invoke) {
-        try {
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val args = invoke.parseArgs(DeleteArgs::class.java)
-                    getFileController(args.uri).deleteFile(args.uri)
+        @InvokeArg
+        class Args {
+            lateinit var uri: FileUri
+        }
 
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve()
-                    }
-                }
-                catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        invoke.reject(e.message ?: "Unknown exception")
-                    }
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                getFileController(args.uri).deleteFile(args.uri)
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve()
                 }
             }
-        } catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke deleteFile."
-            invoke.reject(message)
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
     fun deleteEmptyDir(invoke: Invoke) {
-        try {
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val args = invoke.parseArgs(DeleteArgs::class.java)
-                    getFileController(args.uri).deleteEmptyDir(args.uri)
+        @InvokeArg
+        class Args {
+            lateinit var uri: FileUri
+        }
 
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve()
-                    }
-                }
-                catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        invoke.reject(e.message ?: "Unknown exception")
-                    }
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                getFileController(args.uri).deleteEmptyDir(args.uri)
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve()
                 }
             }
-        } catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke deleteEmptyDir."
-            invoke.reject(message)
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
     fun deleteDirAll(invoke: Invoke) {
-        try {
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val args = invoke.parseArgs(DeleteArgs::class.java)
-                    getFileController(args.uri).deleteDirAll(args.uri)
+        @InvokeArg
+        class Args {
+            lateinit var uri: FileUri
+        }
 
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve()
-                    }
-                }
-                catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        invoke.reject(e.message ?: "Unknown exception")
-                    }
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                getFileController(args.uri).deleteDirAll(args.uri)
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve()
                 }
             }
-        } catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke deleteDirAll."
-            invoke.reject(message)
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
     fun rename(invoke: Invoke) {
-        try {
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val args = invoke.parseArgs(RenameArgs::class.java)
-                    val uri = getFileController(args.uri).rename(args.uri, args.newName)
+        @InvokeArg
+        class Args {
+            lateinit var uri: FileUri
+            lateinit var newName: String
+        }
 
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve(uri)
-                    }
-                }
-                catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        invoke.reject(e.message ?: "Unknown exception")
-                    }
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val uri = getFileController(args.uri).rename(args.uri, args.newName)
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(uri)
                 }
             }
-        } catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke rename."
-            invoke.reject(message)
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
@@ -1471,11 +1323,25 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
 
         try {
             val args = invoke.parseArgs(Args::class.java)
-            val uris = args.uris.map { Uri.parse(it.uri) }
 
-            if (uris.isEmpty()) throw IllegalArgumentException("uris must not be empty")
+            if (args.uris.isEmpty()) throw IllegalArgumentException("uris must not be empty")
 
-            val mimeTypes = uris.map { activity.contentResolver.getType(it) ?: "*/*" }
+            val uris = mutableListOf<Uri>();
+            val mimeTypes = mutableListOf<String>();
+            for (uri in args.uris) {
+                var mimeType = when (val entry = AFUtils.getEntryType(uri, activity)) {
+                    is EntryType.File -> entry.mimeType
+                    else -> throw Exception("not a file: ${uri}")
+                }
+
+                if (mimeType == "application/octet-stream") {
+                    mimeType = "*/*"
+                }
+
+                mimeTypes.add(mimeType)
+                uris.add(Uri.parse(uri.uri))
+            }
+
             val commonMimeType = getCommonMimeType(mimeTypes)
             val builder = ShareCompat.IntentBuilder(activity)
                 .setType(commonMimeType)
@@ -1499,7 +1365,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             invoke.resolve()
         }
         catch (e: Exception) {
-            invoke.reject(e.message ?: "Unknown")
+            invoke.reject(e.message ?: "unknown error: $e")
         }
     }
 
@@ -1513,7 +1379,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         try {
             val args = invoke.parseArgs(Args::class.java)
             val uri = Uri.parse(args.uri.uri)
-            val mimeType = DocumentsContract.Document.MIME_TYPE_DIR
+            val mimeType = when (AFUtils.getEntryType(args.uri, activity)) {
+                is EntryType.File -> throw Exception("not a directory: ${args.uri.uri}")
+                else -> DocumentsContract.Document.MIME_TYPE_DIR
+            }
 
             val intentChooser = Intent.createChooser(
                 Intent(Intent.ACTION_VIEW)
@@ -1531,7 +1400,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             invoke.resolve()
         }
         catch (e: Exception) {
-            invoke.reject(e.message ?: "Unknown")
+            invoke.reject(e.message ?: "unknown error: $e")
         }
     }
 
@@ -1544,8 +1413,11 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
 
         try {
             val args = invoke.parseArgs(Args::class.java)
+            val mimeType = when (val entry = AFUtils.getEntryType(args.uri, activity)) {
+                is EntryType.File -> entry.mimeType
+                else -> throw Exception("not a file: ${args.uri.uri}")
+            }
             val uri = Uri.parse(args.uri.uri)
-            val mimeType = activity.contentResolver.getType(uri)
 
             val intentChooser =  Intent.createChooser(
                 Intent(Intent.ACTION_VIEW)
@@ -1563,7 +1435,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             invoke.resolve()
         }
         catch (e: Exception) {
-            invoke.reject(e.message ?: "Unknown")
+            invoke.reject(e.message ?: "unknown error: $e")
         }
     }
 
@@ -1576,8 +1448,11 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
 
         try {
             val args = invoke.parseArgs(Args::class.java)
+            val mimeType = when (val entry = AFUtils.getEntryType(args.uri, activity)) {
+                is EntryType.File -> entry.mimeType
+                else -> throw Exception("not a file: ${args.uri.uri}")
+            }
             val uri = Uri.parse(args.uri.uri)
-            val mimeType = activity.contentResolver.getType(uri)
 
             val intentChooser = Intent.createChooser(
                 Intent(Intent.ACTION_EDIT)
@@ -1597,14 +1472,20 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             invoke.resolve()
         }
         catch (e: Exception) {
-            invoke.reject(e.message ?: "Unknown")
+            invoke.reject(e.message ?: "unknown error: $e")
         }
     }
 
     @Command
     fun showManageDirDialog(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            var initialLocation: FileUri? = null
+            var localOnly: Boolean = false
+        }
+
         try {
-            val args = invoke.parseArgs(ShowManageDirDialogArgs::class.java)
+            val args = invoke.parseArgs(Args::class.java)
             val initialLocation = args.initialLocation?.let { tryIntoSafInitialLocation(it) }
             val initialLocationStr = initialLocation?.toString()
             val initialLocationIsStorageVolumeRoot = initialLocationStr?.startsWith("content://com.android.externalstorage.documents/root/") ?: false
@@ -1644,9 +1525,8 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
 
             startActivityForResult(invoke, intent, "handleShowManageDirDialog")
         }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke showManageDirDialog."
-            invoke.reject(message)
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "unknown error: $e")
         }
     }
 
@@ -1672,9 +1552,9 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             }
 
             invoke.resolve(res)
-        } catch (ex: java.lang.Exception) {
-            val message = ex.message ?: "Failed to invoke dirDialogResult."
-            invoke.reject(message)
+        }
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "unknown error: $e")
         }
     }
 
@@ -1686,42 +1566,49 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             res.put("cache", activity.cacheDir.absolutePath)
             res.put("noBackupData", activity.noBackupFilesDir.absolutePath)
             invoke.resolve(res)
-        } catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke getPrivateBaseDirAbsolutePaths."
-            invoke.reject(message)
+        }
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "unknown error: $e")
         }
     }
 
     @Command
     fun getMimeType(invoke: Invoke) {
-        try {
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val args = invoke.parseArgs(GetMimeTypeArgs::class.java)
-                    val res = JSObject()
-                    res.put("value", getFileController(args.uri).getMimeType(args.uri))
+        @InvokeArg
+        class Args {
+            lateinit var uri: FileUri
+        }
 
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve(res)
-                    }
-                }
-                catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        invoke.reject(e.message ?: "Unknown exception")
-                    }
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val res = JSObject()
+                res.put("value", getFileController(args.uri).getMimeType(args.uri))
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(res)
                 }
             }
-        }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke getMimeType."
-            invoke.reject(message)
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @Command
     fun showOpenFileDialog(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var mimeTypes: Array<String>
+            var multiple: Boolean = false
+            var localOnly: Boolean = false
+            var initialLocation: FileUri? = null
+        }
+
         try {
-            val args = invoke.parseArgs(ShowOpenFileDialogArgs::class.java)
+            val args = invoke.parseArgs(Args::class.java)
             val intent = createFilePickerIntent(args.mimeTypes, args.multiple)
 
             args.initialLocation?.let { uri ->
@@ -1746,12 +1633,19 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun showOpenContentDialog(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var mimeTypes: Array<String>
+            var multiple: Boolean = false
+        }
+
         try {
-            val args = invoke.parseArgs(ShowOpenContentDialogArgs::class.java)
+            val args = invoke.parseArgs(Args::class.java)
             val intent = createContentPickerIntent(args.mimeTypes, args.multiple)
 
             startActivityForResult(invoke, intent, "handleShowOpenFileAndVisualMediaDialog")
-        } catch (ex: Exception) {
+        }
+        catch (ex: Exception) {
             val message = ex.message ?: "Failed to invoke showOpenContentDialog."
             invoke.reject(message)
         }
@@ -1759,8 +1653,15 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun showOpenVisualMediaDialog(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var target: String
+            var localOnly: Boolean = false
+            var multiple: Boolean = false
+        }
+
         try {
-            val args = invoke.parseArgs(ShowOpenVisualMediaDialogArgs::class.java)
+            val args = invoke.parseArgs(Args::class.java)
             val intent = createVisualMediaPickerIntent(args.multiple, args.target)
 
             if (args.localOnly) {
@@ -1776,12 +1677,20 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun showSaveFileDialog(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            var initialLocation: FileUri? = null
+            lateinit var initialFileName: String
+            var localOnly: Boolean = false
+            var mimeType: String? = null
+        }
+
         try {
-            val args = invoke.parseArgs(ShowSaveFileDialogArgs::class.java)
+            val args = invoke.parseArgs(Args::class.java)
 
             val intent = Intent(Intent.ACTION_CREATE_DOCUMENT)
 
-            intent.setType(args.mimeType ?: getMimeTypeFromName(args.initialFileName))
+            intent.setType(args.mimeType ?: AFUtils.getMimeTypeFromName(args.initialFileName))
             intent.addCategory(Intent.CATEGORY_OPENABLE)
             intent.putExtra(Intent.EXTRA_TITLE, args.initialFileName)
             
@@ -1847,85 +1756,82 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             invoke.resolve(res)
         }
         catch (e: Exception) {
-            invoke.reject(e.message ?: "Unknown")
+            invoke.reject(e.message ?: "unknown error: $e")
         }
     }
 
     @SuppressLint("Recycle")
     @Command
     fun getFileDescriptor(invoke: Invoke) {
-        try {
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val args = invoke.parseArgs(GetFileDescriptorArgs::class.java)
-                    val fd: Int = AFFileDescriptor
-                        .getPfd(Uri.parse(args.uri.uri), args.mode, activity)
-                        .detachFd()
+        @InvokeArg
+        class Args {
+            lateinit var mode: String
+            lateinit var uri: FileUri
+        }
 
-                    val res = JSObject()
-                    res.put("fd", fd)
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val fd: Int = AFFileDescriptor
+                    .getPfd(Uri.parse(args.uri.uri), args.mode, activity)
+                    .detachFd()
 
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve(res)
-                    }
-                }
-                catch (ex: Exception) {
-                    val message = ex.message ?: "Failed to invoke getFileDescriptor."
+                val res = JSObject()
+                res.put("fd", fd)
 
-                    withContext(Dispatchers.Main) {
-                        invoke.reject(message)
-                    }
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(res)
                 }
             }
-        }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke getFileDescriptor."
-            invoke.reject(message)
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 
     @SuppressLint("Recycle")
     @Command
     fun getFileDescriptorWithFallback(invoke: Invoke) {
-        try {
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val args = invoke.parseArgs(GetFileDescriptorWithFallbackArgs::class.java)
-                    val uri = Uri.parse(args.uri.uri)
+        @InvokeArg
+        class Args {
+            lateinit var modes: Array<String>
+            lateinit var uri: FileUri
+        }
 
-                    var fd: Int? = null
-                    var mode: String? = null
-                    for (m in args.modes) {
-                        try {
-                            mode = m
-                            fd = AFFileDescriptor
-                                .getPfd(uri, m, activity)
-                                .detachFd()
-                        }
-                        catch (ignore: Exception) {}
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val uri = Uri.parse(args.uri.uri)
 
-                        if (fd != null) break
+                var fd: Int? = null
+                var mode: String? = null
+                for (m in args.modes) {
+                    try {
+                        mode = m
+                        fd = AFFileDescriptor
+                            .getPfd(uri, m, activity)
+                            .detachFd()
+                    } catch (ignore: Exception) {
                     }
-                    
-                    val res = JSObject()
-                    res.put("fd", fd ?: throw Exception("No file or permission, or unavailable"))
-                    res.put("mode", mode!!)
 
-                    withContext(Dispatchers.Main) {
-                        invoke.resolve(res)
-                    }
+                    if (fd != null) break
                 }
-                catch (ex: Exception) {
-                    val message = ex.message ?: "Failed to invoke getFileDescriptor."
-                    withContext(Dispatchers.Main) {
-                        invoke.reject(message)
-                    }
+
+                val res = JSObject()
+                res.put("fd", fd ?: throw Exception("No file or permission, or unavailable: $uri"))
+                res.put("mode", mode!!)
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(res)
                 }
             }
-        }
-        catch (ex: Exception) {
-            val message = ex.message ?: "Failed to invoke getFileDescriptor."
-            invoke.reject(message)
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error: $e")
+                }
+            }
         }
     }
 

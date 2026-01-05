@@ -13,7 +13,7 @@ pub enum PrivateDir {
     /// The system prevents other apps and user from accessing these locations. 
     /// In cases where the device is rooted or the user has special permissions, the user may be able to access this.   
     ///  
-    /// These files will be deleted when the app is uninstalled and may also be deleted at the user’s request.  
+    /// This will be deleted when the app is uninstalled and may also be deleted at the user’s request.  
     /// 
     /// e.g. `/data/user/0/{app-package-name}/files`
     /// 
@@ -27,7 +27,7 @@ pub enum PrivateDir {
     /// The system prevents other apps and user from accessing these locations. 
     /// In cases where the device is rooted or the user has special permissions, the user may be able to access this.   
     /// 
-    /// These files will be deleted when the app is uninstalled and may also be deleted at the user’s request. 
+    /// This will be deleted when the app is uninstalled and may also be deleted at the user’s request. 
     ///
     /// In addition, the system will automatically delete files in this directory as disk space is needed elsewhere on the device. 
     /// But you should not rely on this. The cache should be explicitly cleared by yourself.
@@ -45,7 +45,7 @@ pub enum PrivateDir {
     /// The system prevents other apps and user from accessing these locations. 
     /// In cases where the device is rooted or the user has special permissions, the user may be able to access this.   
     ///  
-    /// These files will be deleted when the app is uninstalled and may also be deleted at the user’s request.  
+    /// This will be deleted when the app is uninstalled and may also be deleted at the user’s request.  
     /// 
     /// e.g. `/data/user/0/{app-package-name}/no_backup`
     /// 
@@ -60,9 +60,9 @@ pub enum AppDir {
 
     /// The directory for persistent-data files.  
     /// 
-    /// These files will be deleted when the app is uninstalled and may also be deleted at the user’s request.  
+    /// This will be deleted when the app is uninstalled and may also be deleted at the user’s request.  
     ///
-    /// Please note that, unlike [`PrivateDir::Data`], it may be accessible by other apps or user.
+    /// Please note that, unlike [`PrivateDir::Data`], it may be accessible by other apps.
     /// 
     /// e.g. 
     /// - `/storage/emulated/0/Android/data/{app-package-name}/files`
@@ -73,9 +73,9 @@ pub enum AppDir {
     
     /// The directory for cache files.  
     /// 
-    /// These files will be deleted when the app is uninstalled and may also be deleted at the user’s request. 
+    /// This will be deleted when the app is uninstalled and may also be deleted at the user’s request. 
     ///
-    /// Please note that, unlike [`PrivateDir::Cache`], it may be accessible by other apps or user.
+    /// Please note that, unlike [`PrivateDir::Cache`], it may be accessible by other apps.
     /// 
     /// e.g. 
     /// - `/storage/emulated/0/Android/data/{app-package-name}/cache`
@@ -86,7 +86,7 @@ pub enum AppDir {
 
     /// The directory for shared media files to other apps or user.  
     /// 
-    /// These files will be deleted when the app is uninstalled and may also be deleted at the user’s request. 
+    /// This will be deleted when the app is uninstalled and may also be deleted at the user’s request. 
     ///
     /// For Android 11 (API level 30) or higher, 
     /// this has been marked as deprecated. 

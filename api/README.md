@@ -7,7 +7,7 @@ First, install this plugin to your Tauri project:
 
 ```toml
 [dependencies]
-tauri-plugin-android-fs = { version = "24", features = ["legacy_storage_permission"] }
+tauri-plugin-android-fs = { version = "24.1", features = ["legacy_storage_permission"] }
 ```
 
 Next, register this plugin in your Tauri project:
@@ -50,7 +50,7 @@ yarn add tauri-plugin-android-fs-api
 # Usage
 This plugin operates on files and directories via URIs rather than paths.  
 
-By using `AndroidFs.getFsPath`, you can obtain a path from a URI and use it with the functions provided by Tauri's file system, [`@tauri-apps/plugin-fs`](https://v2.tauri.app/ja/plugin/file-system/), to read and write files. For those paths, there is no need for you to set [the scope configuration](https://v2.tauri.app/reference/javascript/fs/#security) of Tauri's file system.
+By using `AndroidFs.getFsPath`, you can obtain a path from a URI and use it with the functions provided by Tauri's file system, [`@tauri-apps/plugin-fs`](https://v2.tauri.app/ja/plugin/file-system/), to read and write files. For those paths, there is no need for you to set [the scope configuration of plugin-fs](https://v2.tauri.app/reference/javascript/fs/#security).
 
 ```typescript
 import { AndroidFs } from 'tauri-plugin-android-fs-api'
@@ -78,8 +78,9 @@ async function saveText(fileName: string, data: string): Promise<void> {
 }
 ```
 
-Some functions accept not only URIs but also absolute paths. 
-In this case, you need to set [the scope configuration](https://v2.tauri.app/reference/javascript/fs/#security) in the same way as [`@tauri-apps/plugin-fs`](https://v2.tauri.app/ja/plugin/file-system/).
+When passing URIs to this plugin's functions, no scope configuration is required.  
+Some functions accept not only URIs but also absolute paths. In this case, you need to set the scope configuration, [like in plugin-fs](https://v2.tauri.app/reference/javascript/fs/#security).
+
 
 `src-tauri/capabilities/*.json`
 ```json
@@ -117,17 +118,7 @@ And you can also assign a specific scope to a particular command.
 }
 ```
 
-Please do not use glob patterns such as `"**/*"` that effectively allow access to all paths.
-In certain environments, this may enable your application to access and manage arbitrary files,
-which poses a serious security risk.
-
-Instead, you should normally restrict access to application-specific directories such as
-`$APPDATA/my-data/**/*` or `$APPCACHE/my-data/**/*`, which are intended for storing app data and cache.
-
-Note: The reason for specifying a `my-data` subdirectory is that directories such as
-`$APPDATA` or `$APPCACHE` may already contain files created by the WebView system
-or other Tauri plugins. Using a dedicated subdirectory helps avoid collisions
-with those files.
+**Note**: A dedicated `my-data` subdirectory is used because resolved directories may already contain files created by the WebView system or other Tauri plugins. This helps prevent file name collisions and unintended access.
 
 # APIs
 This plugin provides following APIs:
@@ -164,10 +155,11 @@ This plugin provides following APIs:
 - `AndroidFs.removeDirAll`
 
 ### 4. APIs to manage entry permissions
-- `AndroidFs.persistUriPermission`
-- `AndroidFs.checkPersistedUriPermission`
-- `AndroidFs.releasePersistedUriPermission`
-- `AndroidFs.releaseAllPersistedUriPermissions`
+- `AndroidFs.checkPickerUriPermission`
+- `AndroidFs.persistPickerUriPermission`
+- `AndroidFs.checkPersistedPickerUriPermission`
+- `AndroidFs.releasePersistedPickerUriPermission`
+- `AndroidFs.releaseAllPersistedPickerUriPermissions`
 - `AndoridFs.hasPublicFilesPermission`
 - `AndroidFs.requestPublicFilesPermission`
 

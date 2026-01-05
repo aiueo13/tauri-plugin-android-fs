@@ -182,7 +182,7 @@ pub async fn get_thumbnail<R: tauri::Runtime>(
         }
 
         let format = convert_to_image_format(&format)?;
-        let size = convert_to_size(width, height)?;
+        let size = convert_to_thumbnail_preferred_size(width, height)?;
         let api = app.android_fs_async();
 
         let Some(bytes) = api.get_thumbnail(&uri, size, format).await? else {
@@ -214,7 +214,7 @@ pub async fn get_thumbnail_base64<R: tauri::Runtime>(
         }
 
         let format = convert_to_image_format(&format)?;
-        let size = convert_to_size(width, height)?;
+        let size = convert_to_thumbnail_preferred_size(width, height)?;
         let api = app.android_fs_async();
 
         api.get_thumbnail_base64(&uri, size, format).await
@@ -242,18 +242,18 @@ pub async fn get_thumbnail_data_url<R: tauri::Runtime>(
         }
 
         let format = convert_to_image_format(&format)?;
-        let size = convert_to_size(width, height)?;
+        let size = convert_to_thumbnail_preferred_size(width, height)?;
         let api = app.android_fs_async();
     
-        let Some(base64) = api.get_thumbnail_base64(&uri, size, format).await? else {
+        let Some(data) = api.get_thumbnail_base64(&uri, size, format).await? else {
             return Ok(None)
         };
     
         let mime_type = format.mime_type();
         let prefix = format!("data:{mime_type};base64,");
-        let mut data_url = String::with_capacity(prefix.len() + base64.len());
+        let mut data_url = String::with_capacity(prefix.len() + data.len());
         data_url.push_str(&prefix);
-        data_url.push_str(&base64);
+        data_url.push_str(&data);
         Ok(Some(data_url))
     }
 }
@@ -593,6 +593,52 @@ pub async fn read_dir<R: tauri::Runtime>(
 }
 
 #[tauri::command]
+pub async fn rename_file<R: tauri::Runtime>(
+    uri: FileUri,
+    name: String,
+    app: tauri::AppHandle<R>,
+) -> Result<FileUri> {
+
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        uri.require_content_scheme()?;
+
+        let api = app.android_fs_async();
+
+        if !api.get_type(&uri).await?.is_file() {
+            return Err(Error::with("not a file: {uri:?}"))
+        }
+
+        api.rename(&uri, name).await
+    }
+}
+
+#[tauri::command]
+pub async fn rename_dir<R: tauri::Runtime>(
+    uri: FileUri,
+    name: String,
+    app: tauri::AppHandle<R>,
+) -> Result<FileUri> {
+
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        uri.require_content_scheme()?;
+
+        let api = app.android_fs_async();
+
+        if !api.get_type(&uri).await?.is_dir() {
+            return Err(Error::with("not a directory: {uri:?}"))
+        }
+
+        api.rename(&uri, name).await
+    }
+}
+
+#[tauri::command]
 pub async fn remove_file<R: tauri::Runtime>(
     uri: FileUri,
     app: tauri::AppHandle<R>,
@@ -659,7 +705,7 @@ pub async fn persist_uri_permission<R: tauri::Runtime>(
         uri.require_content_scheme()?;
 
         let api = app.android_fs_async();
-        api.take_persistable_uri_permission(&uri).await?;
+        api.file_picker().persist_uri_permission(&uri).await?;
         Ok(())
     }
 }
@@ -678,7 +724,7 @@ pub async fn check_persisted_uri_permission<R: tauri::Runtime>(
         uri.require_content_scheme()?;
 
         let api = app.android_fs_async();
-        api.check_persisted_uri_permission(&uri, state).await
+        api.file_picker().check_persisted_uri_permission(&uri, state).await
     }
 }
 
@@ -695,7 +741,7 @@ pub async fn release_persisted_uri_permission<R: tauri::Runtime>(
         uri.require_content_scheme()?;
 
         let api = app.android_fs_async();
-        api.release_persisted_uri_permission(&uri).await?;
+        api.file_picker().release_persisted_uri_permission(&uri).await?;
         Ok(())
     }
 }
@@ -710,7 +756,93 @@ pub async fn release_all_persisted_uri_permissions<R: tauri::Runtime>(
     }
     #[cfg(target_os = "android")] {
         let api = app.android_fs_async();
-        api.release_all_persisted_uri_permissions().await?;
+        api.file_picker().release_all_persisted_uri_permissions().await?;
+        Ok(())
+    }
+}
+
+#[tauri::command]
+pub async fn check_picker_uri_permission<R: tauri::Runtime>(
+    uri: FileUri,
+    app: tauri::AppHandle<R>,
+    state: UriPermission
+) -> Result<bool> {
+
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        uri.require_content_scheme()?;
+
+        let api = app.android_fs_async();
+        api.file_picker().check_uri_permission(&uri, state).await
+    }
+}
+
+#[tauri::command]
+pub async fn persist_picker_uri_permission<R: tauri::Runtime>(
+    uri: FileUri,
+    app: tauri::AppHandle<R>,
+) -> Result<()> {
+
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        uri.require_content_scheme()?;
+
+        let api = app.android_fs_async();
+        api.file_picker().persist_uri_permission(&uri).await?;
+        Ok(())
+    }
+}
+
+#[tauri::command]
+pub async fn check_persisted_picker_uri_permission<R: tauri::Runtime>(
+    uri: FileUri,
+    app: tauri::AppHandle<R>,
+    state: UriPermission
+) -> Result<bool> {
+
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        uri.require_content_scheme()?;
+
+        let api = app.android_fs_async();
+        api.file_picker().check_persisted_uri_permission(&uri, state).await
+    }
+}
+
+#[tauri::command]
+pub async fn release_persisted_picker_uri_permission<R: tauri::Runtime>(
+    uri: FileUri,
+    app: tauri::AppHandle<R>,
+) -> Result<bool> {
+
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        uri.require_content_scheme()?;
+
+        let api = app.android_fs_async();
+        api.file_picker().release_persisted_uri_permission(&uri).await
+    }
+}
+
+#[tauri::command]
+pub async fn release_all_persisted_picker_uri_permissions<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<()> {
+
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        let api = app.android_fs_async();
+        api.file_picker().release_all_persisted_uri_permissions().await?;
         Ok(())
     }
 }

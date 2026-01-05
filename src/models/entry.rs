@@ -44,13 +44,13 @@ impl EntryType {
     /// If a file, this is no Err.  
     /// If a directory, this is Err.  
     pub fn file_mime_type_or_err(&self) -> Result<&str> {
-        self.file_mime_type().ok_or_else(|| Error::with("This is not a file"))
+        self.file_mime_type().ok_or_else(|| Error::with("not a file"))
     }
 
     /// If a file, this is no Err.  
     /// If a directory, this is Err.  
     pub fn into_file_mime_type_or_err(self) -> Result<String> {
-        self.into_file_mime_type().ok_or_else(|| Error::with("This is not a file"))
+        self.into_file_mime_type().ok_or_else(|| Error::with("not a file"))
     }
 }
 
@@ -127,13 +127,13 @@ impl Entry {
     /// If a file, this is no Err.  
     /// If a directory, this is Err.  
     pub fn file_mime_type_or_err(&self) -> Result<&str> {
-        self.file_mime_type().ok_or_else(|| Error::with("This is not a file"))
+        self.file_mime_type().ok_or_else(|| Error::with("not a file"))
     }
 
     /// If a file, this is no Err.  
     /// If a directory, this is Err.  
     pub fn file_len_or_err(&self) -> Result<u64> {
-        self.file_len().ok_or_else(|| Error::with("This is not a file"))
+        self.file_len().ok_or_else(|| Error::with("not a file"))
     }
  }
 
@@ -226,13 +226,13 @@ impl OptionalEntry {
     /// If a file and `EntryOptions { mime_type, .. }` is set to `true`, 
     /// this will never be error.
     pub fn file_mime_type_or_err(&self) -> Result<&str> {
-        self.file_mime_type().ok_or_else(|| Error::with("Not file or missing value: mime_type"))
+        self.file_mime_type().ok_or_else(|| Error::with("not a file or missing value: mime_type"))
     }
 
     /// If a file and `EntryOptions { len, .. }` is set to `true`, 
     /// this will never be error.
     pub fn file_len_or_err(&self) -> Result<u64> {
-        self.file_len().ok_or_else(|| Error::with("Not file or missing value: len"))
+        self.file_len().ok_or_else(|| Error::with("not a file or missing value: len"))
     }
 
     /// If `EntryOptions { uri, .. }` is set to `true`, 

@@ -4,18 +4,20 @@ use super::*;
 
 
 #[cfg(target_os = "android")]
-pub fn convert_to_size(w: f64, h: f64) -> Result<Size> {
+pub fn convert_to_thumbnail_preferred_size(w: f64, h: f64) -> Result<Size> {
+    if !w.is_finite() || !h.is_finite() {
+        return Err(Error::with("non-finite width or height"));
+    }
     if w <= 0.0 || h <= 0.0 {
         return Err(Error::with(format!("non-positive width or height: ({w}, {h})")));
     }
-    if w > u32::MAX as f64 || h > u32::MAX as f64 {
-        return Err(Error::with(format!("too large width or height: ({w}, {h})")));
-    }
 
-    Ok(Size {
-        width: w as u32,
-        height: h as u32,
-    })
+    const MAX: u32 = 1000;
+
+    let width = u32::clamp(w.round() as u32, 1, MAX);
+    let height = u32::clamp(h.round() as u32, 1, MAX);
+
+    Ok(Size { width, height })
 }
 
 #[cfg(target_os = "android")]

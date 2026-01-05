@@ -295,16 +295,28 @@
       "type": "string",
       "oneOf": [
         {
-          "description": "This enables all commands except those that delete existing entries (such as remove, copy or truncate).",
+          "description": "This enables all commands except those that delete/change existing entries (such as remove, rename, copy or truncate).",
           "type": "string",
           "const": "all-without-delete",
-          "markdownDescription": "This enables all commands except those that delete existing entries (such as remove, copy or truncate)."
+          "markdownDescription": "This enables all commands except those that delete/change existing entries (such as remove, rename, copy or truncate)."
         },
         {
           "description": "This enables all commands.",
           "type": "string",
           "const": "all",
           "markdownDescription": "This enables all commands."
+        },
+        {
+          "description": "Enables the check_persisted_picker_uri_permission command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-check-persisted-picker-uri-permission",
+          "markdownDescription": "Enables the check_persisted_picker_uri_permission command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the check_persisted_picker_uri_permission command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-check-persisted-picker-uri-permission",
+          "markdownDescription": "Denies the check_persisted_picker_uri_permission command without any pre-configured scope."
         },
         {
           "description": "Enables the check_persisted_uri_permission command without any pre-configured scope.",
@@ -317,6 +329,18 @@
           "type": "string",
           "const": "deny-check-persisted-uri-permission",
           "markdownDescription": "Denies the check_persisted_uri_permission command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the check_picker_uri_permission command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-check-picker-uri-permission",
+          "markdownDescription": "Enables the check_picker_uri_permission command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the check_picker_uri_permission command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-check-picker-uri-permission",
+          "markdownDescription": "Denies the check_picker_uri_permission command without any pre-configured scope."
         },
         {
           "description": "Enables the copy_file command without any pre-configured scope.",
@@ -535,6 +559,18 @@
           "markdownDescription": "Denies the list_volumes command without any pre-configured scope."
         },
         {
+          "description": "Enables the persist_picker_uri_permission command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-persist-picker-uri-permission",
+          "markdownDescription": "Enables the persist_picker_uri_permission command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the persist_picker_uri_permission command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-persist-picker-uri-permission",
+          "markdownDescription": "Denies the persist_picker_uri_permission command without any pre-configured scope."
+        },
+        {
           "description": "Enables the persist_uri_permission command without any pre-configured scope.",
           "type": "string",
           "const": "allow-persist-uri-permission",
@@ -559,6 +595,18 @@
           "markdownDescription": "Denies the read_dir command without any pre-configured scope."
         },
         {
+          "description": "Enables the release_all_persisted_picker_uri_permissions command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-release-all-persisted-picker-uri-permissions",
+          "markdownDescription": "Enables the release_all_persisted_picker_uri_permissions command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the release_all_persisted_picker_uri_permissions command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-release-all-persisted-picker-uri-permissions",
+          "markdownDescription": "Denies the release_all_persisted_picker_uri_permissions command without any pre-configured scope."
+        },
+        {
           "description": "Enables the release_all_persisted_uri_permissions command without any pre-configured scope.",
           "type": "string",
           "const": "allow-release-all-persisted-uri-permissions",
@@ -569,6 +617,18 @@
           "type": "string",
           "const": "deny-release-all-persisted-uri-permissions",
           "markdownDescription": "Denies the release_all_persisted_uri_permissions command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the release_persisted_picker_uri_permission command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-release-persisted-picker-uri-permission",
+          "markdownDescription": "Enables the release_persisted_picker_uri_permission command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the release_persisted_picker_uri_permission command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-release-persisted-picker-uri-permission",
+          "markdownDescription": "Denies the release_persisted_picker_uri_permission command without any pre-configured scope."
         },
         {
           "description": "Enables the release_persisted_uri_permission command without any pre-configured scope.",
@@ -617,6 +677,30 @@
           "type": "string",
           "const": "deny-remove-file",
           "markdownDescription": "Denies the remove_file command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the rename_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-rename-dir",
+          "markdownDescription": "Enables the rename_dir command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the rename_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-rename-dir",
+          "markdownDescription": "Denies the rename_dir command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the rename_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-rename-file",
+          "markdownDescription": "Enables the rename_file command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the rename_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-rename-file",
+          "markdownDescription": "Denies the rename_file command without any pre-configured scope."
         },
         {
           "description": "Enables the request_public_files_permission command without any pre-configured scope.",

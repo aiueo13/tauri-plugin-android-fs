@@ -69,7 +69,7 @@ impl FileUri {
             Ok(())
         }
         else {
-            Err(Error::with(format!("illegal URI: {}", self.uri)))
+            Err(Error::with(format!("invalid URI scheme: {}", self.uri)))
         }
     }
 }

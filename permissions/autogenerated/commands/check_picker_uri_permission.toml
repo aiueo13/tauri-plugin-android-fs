@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-check-picker-uri-permission"
+description = "Enables the check_picker_uri_permission command without any pre-configured scope."
+commands.allow = ["check_picker_uri_permission"]
+
+[[permission]]
+identifier = "deny-check-picker-uri-permission"
+description = "Denies the check_picker_uri_permission command without any pre-configured scope."
+commands.deny = ["check_picker_uri_permission"]

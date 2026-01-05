@@ -80,19 +80,28 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             cmds::copy_file,
             cmds::truncate_file,
             cmds::read_dir,
+            cmds::rename_file,
+            cmds::rename_dir,
             cmds::remove_file,
             cmds::remove_empty_dir,
             cmds::remove_dir_all,
-            cmds::persist_uri_permission,
-            cmds::check_persisted_uri_permission,
-            cmds::release_persisted_uri_permission,
-            cmds::release_all_persisted_uri_permissions,
+            cmds::check_picker_uri_permission,
+            cmds::persist_picker_uri_permission,
+            cmds::check_persisted_picker_uri_permission,
+            cmds::release_persisted_picker_uri_permission,
+            cmds::release_all_persisted_picker_uri_permissions,
             cmds::show_open_file_picker,
             cmds::show_open_dir_picker,
             cmds::show_save_file_picker,
             cmds::show_share_file_dialog,
             cmds::show_view_file_dialog,
-            cmds::show_view_dir_dialog
+            cmds::show_view_dir_dialog,
+
+            /* deprecacted */
+            cmds::persist_uri_permission,
+            cmds::check_persisted_uri_permission,
+            cmds::release_persisted_uri_permission,
+            cmds::release_all_persisted_uri_permissions,
         ])
         .build()
 }

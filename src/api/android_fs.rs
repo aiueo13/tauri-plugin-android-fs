@@ -900,126 +900,6 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         }
     }
 
-    /// Take persistent permission to access the file, directory and its descendants.  
-    /// This is a prolongation of an already acquired permission, not the acquisition of a new one.  
-    /// 
-    /// This works by just calling, without displaying any confirmation to the user.
-    /// 
-    /// Note that [there is a limit to the total number of URI that can be made persistent by this function.](https://stackoverflow.com/questions/71099575/should-i-release-persistableuripermission-when-a-new-storage-location-is-chosen/71100621#71100621)  
-    /// Therefore, it is recommended to relinquish the unnecessary persisted URI by [`AndroidFs::release_persisted_uri_permission`] or [`AndroidFs::release_all_persisted_uri_permissions`].  
-    /// Persisted permissions may be relinquished by other apps, user, or by moving/removing entries.
-    /// So check by [`AndroidFs::check_persisted_uri_permission`].  
-    /// And you can retrieve the list of persisted uris using [`AndroidFs::get_all_persisted_uri_permissions`].
-    /// 
-    /// # Args
-    /// - **uri** :  
-    /// URI of the target file or directory.   
-    /// This must be a URI taken from following :  
-    ///     - [`FilePicker::pick_files`]  
-    ///     - [`FilePicker::pick_file`]  
-    ///     - [`FilePicker::pick_visual_medias`]  
-    ///     - [`FilePicker::pick_visual_media`]  
-    ///     - [`FilePicker::pick_dir`]  
-    ///     - [`FilePicker::save_file`]  
-    ///     - [`AndroidFs::resolve_file_uri`], [`AndroidFs::resolve_dir_uri`], [`AndroidFs::read_dir`], [`AndroidFs::create_new_file`], [`AndroidFs::create_dir_all`] :  
-    ///     If use URI from thoese fucntions, the permissions of the origin directory URI is persisted, not a entry iteself by this function. 
-    ///     Because the permissions and validity period of the descendant entry URIs depend on the origin directory.   
-    /// 
-    /// # Support
-    /// All Android version. 
-    #[maybe_async]
-    pub fn take_persistable_uri_permission(&self, uri: &FileUri) -> Result<()> {
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().take_persistable_uri_permission(uri).await
-        }
-    }
-
-    /// Check a persisted URI permission grant by [`AndroidFs::take_persistable_uri_permission`].  
-    /// Returns false if there are only non-persistent permissions or no permissions.
-    /// 
-    /// # Args
-    /// - **uri** :  
-    /// URI of the target file or directory.  
-    /// This must be a URI taken from following :  
-    ///     - [`FilePicker::pick_files`]  
-    ///     - [`FilePicker::pick_file`]  
-    ///     - [`FilePicker::pick_visual_medias`]  
-    ///     - [`FilePicker::pick_visual_media`]  
-    ///     - [`FilePicker::pick_dir`]  
-    ///     - [`FilePicker::save_file`]  
-    ///     - [`AndroidFs::resolve_file_uri`], [`AndroidFs::resolve_dir_uri`], [`AndroidFs::read_dir`], [`AndroidFs::create_new_file`], [`AndroidFs::create_dir_all`] :  
-    ///     If use URI from thoese fucntions, the permissions of the origin directory URI is checked, not a entry iteself by this function. 
-    ///     Because the permissions and validity period of the descendant entry URIs depend on the origin directory.   
-    /// 
-    /// - **permission** :  
-    /// The permission you want to check.  
-    /// 
-    /// # Support
-    /// All Android version.
-    #[maybe_async]
-    pub fn check_persisted_uri_permission(
-        &self, 
-        uri: &FileUri, 
-        permission: UriPermission
-    ) -> Result<bool> {
-
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().check_persisted_uri_permission(uri, permission).await
-        }
-    }
-
-    /// Return list of all persisted URIs that have been persisted by [`AndroidFs::take_persistable_uri_permission`] and currently valid.   
-    /// 
-    /// # Support
-    /// All Android version.
-    #[maybe_async]
-    pub fn get_all_persisted_uri_permissions(&self) -> Result<impl Iterator<Item = PersistedUriPermissionState>> {
-        #[cfg(not(target_os = "android"))] {
-            Err::<std::iter::Empty<_>, _>(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().get_all_persisted_uri_permissions().await
-        }
-    }
-
-    /// Relinquish a persisted URI permission grant by [`AndroidFs::take_persistable_uri_permission`].   
-    /// 
-    /// # Args
-    /// - ***uri*** :  
-    /// URI of the target file or directory.  
-    ///
-    /// # Support
-    /// All Android version.
-    #[maybe_async]
-    pub fn release_persisted_uri_permission(&self, uri: &FileUri) -> Result<()> {
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().release_persisted_uri_permission(uri).await
-        }
-    }
-
-    /// Relinquish a all persisted uri permission grants by [`AndroidFs::take_persistable_uri_permission`].  
-    /// 
-    /// # Support
-    /// All Android version.
-    #[maybe_async]
-    pub fn release_all_persisted_uri_permissions(&self) -> Result<()> {
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().release_all_persisted_uri_permissions().await
-        }
-    }
-
     /// See [`AppStorage::get_volumes`] or [`PublicStorage::get_volumes`] for details.
     /// 
     /// The difference is that this does not perform any filtering.
@@ -1160,6 +1040,70 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         }
         #[cfg(target_os = "android")] {
             self.impls().resolve_dir_uri(dir, relative_path, true).await
+        }
+    }
+
+
+
+    
+    #[deprecated = "use `FilePicker::persist_uri_permission` instead"]
+    #[maybe_async]
+    pub fn take_persistable_uri_permission(&self, uri: &FileUri) -> Result<()> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().persist_picker_uri_permission(uri).await
+        }
+    }
+
+    #[deprecated = "use `FilePicker::check_persisted_uri_permission` instead"]
+    #[maybe_async]
+    pub fn check_persisted_uri_permission(
+        &self, 
+        uri: &FileUri, 
+        permission: UriPermission
+    ) -> Result<bool> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().check_persisted_picker_uri_permission(uri, permission).await
+        }
+    }
+
+    #[deprecated = "use `FilePicker::get_all_persisted_uri_permissions` instead"]
+    #[maybe_async]
+    pub fn get_all_persisted_uri_permissions(&self) -> Result<impl Iterator<Item = PersistedUriPermissionState>> {
+        #[cfg(not(target_os = "android"))] {
+            Err::<std::iter::Empty<_>, _>(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().get_all_persisted_picker_uri_permissions().await
+        }
+    }
+
+    #[deprecated = "use `FilePicker::release_persisted_uri_permission` instead"]
+    #[maybe_async]
+    pub fn release_persisted_uri_permission(&self, uri: &FileUri) -> Result<()> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().release_persisted_picker_uri_permission(uri).await?;
+            Ok(())
+        }
+    }
+
+    #[deprecated = "use `FilePicker::release_all_persisted_uri_permissions` instead"]
+    #[maybe_async]
+    pub fn release_all_persisted_uri_permissions(&self) -> Result<()> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().release_all_persisted_picker_uri_permissions().await
         }
     }
 }

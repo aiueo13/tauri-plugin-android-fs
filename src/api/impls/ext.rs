@@ -88,7 +88,9 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         if self.api_level()? <= api_level::ANDROID_9 {
             // Android 9 以下の場合、w は既存コンテンツを必ず切り捨てる
             #[allow(deprecated)]
-            self.open_file(uri, FileAccessMode::Write).await
+            const WRITE: FileAccessMode = FileAccessMode::Write;
+
+            self.open_file(uri, WRITE).await
         }
         else {
             // Android 10 以上の場合、w は既存コンテンツの切り捨てを保証しない。

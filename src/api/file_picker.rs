@@ -47,7 +47,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If no file is selected or the user cancels, an empty vec is returned.  
     /// 
     /// By default, returned URI is valid until the app or device is terminated. 
-    /// If you want to persist it across app or device restarts, use [`AndroidFs::take_persistable_uri_permission`].
+    /// If you want to persist it across app or device restarts, use [`FilePicker::persist_uri_permission`].
     /// 
     /// This provides a standardized file explorer-style interface, 
     /// and also allows file selection from part of third-party apps or cloud storage.
@@ -104,7 +104,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If no file is selected or the user cancels, None is returned.  
     /// 
     /// By default, returned URI is valid until the app or device is terminated. 
-    /// If you want to persist it across app or device restarts, use [`AndroidFs::take_persistable_uri_permission`].
+    /// If you want to persist it across app or device restarts, use [`FilePicker::persist_uri_permission`].
     /// 
     /// This provides a standardized file explorer-style interface, 
     /// and also allows file selection from part of third-party apps or cloud storage.
@@ -163,7 +163,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If no file is selected or the user cancels, an empty vec is returned.  
     ///  
     /// By default, returned URI is valid until the app or device is terminated. 
-    /// If you want to persist it across app or device restarts, use [`AndroidFs::take_persistable_uri_permission`].
+    /// If you want to persist it across app or device restarts, use [`FilePicker::persist_uri_permission`].
     ///  
     /// This media picker provides a gallery, 
     /// sorted by date from newest to oldest. 
@@ -211,7 +211,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If no file is selected or the user cancels, None is returned.  
     ///  
     /// By default, returned URI is valid until the app or device is terminated. 
-    /// If you want to persist it across app or device restarts, use [`AndroidFs::take_persistable_uri_permission`].
+    /// If you want to persist it across app or device restarts, use [`FilePicker::persist_uri_permission`].
     ///  
     /// This media picker provides a gallery, 
     /// sorted by date from newest to oldest. 
@@ -335,7 +335,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If no directory is selected or the user cancels, `None` is returned. 
     /// 
     /// By default, returned URI is valid until the app or device is terminated. 
-    /// If you want to persist it across app or device restarts, use [`AndroidFs::take_persistable_uri_permission`].
+    /// If you want to persist it across app or device restarts, use [`FilePicker::persist_uri_permission`].
     /// 
     /// This provides a standardized file explorer-style interface,
     /// and also allows directory selection from part of third-party apps or cloud storage.
@@ -385,7 +385,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If the user cancels, `None` is returned. 
     /// 
     /// By default, returned URI is valid until the app or device is terminated. 
-    /// If you want to persist it across app or device restarts, use [`AndroidFs::take_persistable_uri_permission`].
+    /// If you want to persist it across app or device restarts, use [`FilePicker::persist_uri_permission`].
     /// 
     /// This provides a standardized file explorer-style interface, 
     /// and also allows file selection from part of third-party apps or cloud storage.
@@ -457,6 +457,159 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
         }
         #[cfg(target_os = "android")] {
             self.impls().is_visual_media_picker_available().await
+        }
+    }
+
+    /// Check a URI permission granted by the file picker.  
+    /// Returns false if there are no permissions.
+    /// 
+    /// # Args
+    /// - **uri** :  
+    /// URI of the target file or directory.  
+    ///
+    /// - **permission** :  
+    /// The permission you want to check.  
+    /// 
+    /// 
+    /// # Support
+    /// All Android version.
+    #[maybe_async]
+    pub fn check_uri_permission(
+        &self, 
+        uri: &FileUri, 
+        permission: UriPermission
+    ) -> Result<bool> {
+        
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().check_picker_uri_permission(uri, permission).await
+        }
+    }
+
+    /// Take persistent permission to access the file, directory and its descendants.  
+    /// This is a prolongation of an already acquired permission, not the acquisition of a new one.  
+    /// 
+    /// This works by just calling, without displaying any confirmation to the user.
+    /// 
+    /// Note that [there is a limit to the total number of URI that can be made persistent by this function.](https://stackoverflow.com/questions/71099575/should-i-release-persistableuripermission-when-a-new-storage-location-is-chosen/71100621#71100621)  
+    /// Therefore, it is recommended to relinquish the unnecessary persisted URI by [`FilePicker::release_persisted_uri_permission`] or [`FilePicker::release_all_persisted_uri_permissions`].  
+    /// Persisted permissions may be relinquished by other apps, user, or by moving/removing entries.
+    /// So check by [`FilePicker::check_persisted_uri_permission`].  
+    /// And you can retrieve the list of persisted uris using [`FilePicker::get_all_persisted_uri_permissions`].
+    /// 
+    /// # Args
+    /// - **uri** :  
+    /// URI of the target file or directory.   
+    /// This must be a URI taken from following :  
+    ///     - [`FilePicker::pick_files`]  
+    ///     - [`FilePicker::pick_file`]  
+    ///     - [`FilePicker::pick_visual_medias`]  
+    ///     - [`FilePicker::pick_visual_media`]  
+    ///     - [`FilePicker::pick_dir`]  
+    ///     - [`FilePicker::save_file`]  
+    ///     - [`AndroidFs::resolve_file_uri`], [`AndroidFs::resolve_dir_uri`], [`AndroidFs::read_dir`], [`AndroidFs::create_new_file`], [`AndroidFs::create_dir_all`] :  
+    ///     If use URI from thoese fucntions, the permissions of the origin directory URI is persisted, not a entry iteself by this function. 
+    ///     Because the permissions and validity period of the descendant entry URIs depend on the origin directory.   
+    /// 
+    /// # Support
+    /// All Android version. 
+    #[maybe_async]
+    pub fn persist_uri_permission(&self, uri: &FileUri) -> Result<()> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().persist_picker_uri_permission(uri).await
+        }
+    }
+
+    /// Check a persisted URI permission grant by [`FilePicker::persist_uri_permission`].  
+    /// Returns false if there are only non-persistent permissions or no permissions.
+    /// 
+    /// # Args
+    /// - **uri** :  
+    /// URI of the target file or directory.  
+    /// This must be a URI taken from following :  
+    ///     - [`FilePicker::pick_files`]  
+    ///     - [`FilePicker::pick_file`]  
+    ///     - [`FilePicker::pick_visual_medias`]  
+    ///     - [`FilePicker::pick_visual_media`]  
+    ///     - [`FilePicker::pick_dir`]  
+    ///     - [`FilePicker::save_file`]  
+    ///     - [`AndroidFs::resolve_file_uri`], [`AndroidFs::resolve_dir_uri`], [`AndroidFs::read_dir`], [`AndroidFs::create_new_file`], [`AndroidFs::create_dir_all`] :  
+    ///     If use URI from those functions, the permissions of the origin directory URI is checked, not a entry iteself by this function. 
+    ///     Because the permissions and validity period of the descendant entry URIs depend on the origin directory.   
+    /// 
+    /// - **permission** :  
+    /// The permission you want to check.  
+    /// 
+    /// # Support
+    /// All Android version.
+    #[maybe_async]
+    pub fn check_persisted_uri_permission(
+        &self, 
+        uri: &FileUri, 
+        permission: UriPermission
+    ) -> Result<bool> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().check_persisted_picker_uri_permission(uri, permission).await
+        }
+    }
+
+    /// Return list of all persisted URIs that have been persisted by [`FilePicker::persist_uri_permission`] and currently valid.   
+    /// 
+    /// # Support
+    /// All Android version.
+    #[maybe_async]
+    pub fn get_all_persisted_uri_permissions(&self) -> Result<impl Iterator<Item = PersistedUriPermissionState>> {
+        #[cfg(not(target_os = "android"))] {
+            Err::<std::iter::Empty<_>, _>(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().get_all_persisted_picker_uri_permissions().await
+        }
+    }
+
+    /// Relinquish a persisted URI permission grant by [`FilePicker::persist_uri_permission`].   
+    /// Non-persistent permissions are not released.  
+    /// 
+    /// Returns true if a persisted permission exists for the specified URI and was successfully released; 
+    /// otherwise, returns false if no persisted permission existed in the first place.
+    /// 
+    /// # Args
+    /// - ***uri*** :  
+    /// URI of the target file or directory.  
+    ///
+    /// # Support
+    /// All Android version.
+    #[maybe_async]
+    pub fn release_persisted_uri_permission(&self, uri: &FileUri) -> Result<bool> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().release_persisted_picker_uri_permission(uri).await
+        }
+    }
+
+    /// Relinquish a all persisted uri permission grants by [`FilePicker::persist_uri_permission`].   
+    /// Non-persistent permissions are not released.   
+    /// 
+    /// # Support
+    /// All Android version.
+    #[maybe_async]
+    pub fn release_all_persisted_uri_permissions(&self) -> Result<()> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().release_all_persisted_picker_uri_permissions().await
         }
     }
 }

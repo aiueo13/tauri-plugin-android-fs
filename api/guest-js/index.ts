@@ -283,7 +283,7 @@ export class AndroidFs {
 	}
 
 	/**
-	 * Gets a length in bytes of the specified file.  
+	 * Gets a file size in bytes of the specified file.  
 	 *
 	 * @param uri - The URI or path of the target file.
 	 * 
@@ -653,8 +653,6 @@ export class AndroidFs {
 	 * import { writeFile } from '@tauri-apps/plugin-fs';
 	 * import { AndroidFs } from 'tauri-plugin-android-fs-api';
 	 *
-	 * // It’s better to handle large files, such as video files,
-	 * // on the Rust side rather than in the frontend
 	 * async function saveVideo(
 	 *   fileName: string,
 	 *   data: Uint8Array | ReadableStream<Uint8Array>,
@@ -762,7 +760,7 @@ export class AndroidFs {
 		const requestPermission: boolean = options?.requestPermission ?? true
 		const volumeId: AndroidStorageVolumeId | null = options?.volumeId ?? null
 
-		return await invoke('plugin:android-fs|create_new_public_video_file', {
+		return await invoke('plugin:android-fs|create_new_public_audio_file', {
 			volumeId,
 			baseDir,
 			relativePath,
@@ -860,6 +858,56 @@ export class AndroidFs {
 	}
 
 	/**
+	 * Renames the specified file and returns its new URI.
+	 * 
+	 * @deprecated For URIs from the file picker, all permissions are lost after this operation, including for the new URI.
+	 * 
+	 * @param uri - The URI of the file to rename.
+	 * @param name - New name, including the file extension if needed. If a entry with the same name already exists, a sequential number is appended to ensure uniqueness.
+	 * 
+	 * @returns A Promise that resolves to the new URI of the target file.
+	 * @throws The Promise will be rejected with an error, if the entry does not exist, if the entry is not a file, if write permission is missing, or if the file provider does not support rename.
+	 * 
+	 * @see [AndroidFs::rename](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.rename)
+	 * @since 24.1.0
+	 */
+	public static async renameFile(
+		uri: AndroidFsUri,
+		name: string
+	): Promise<AndroidFsUri> {
+
+		return await invoke('plugin:android-fs|rename_file', { 
+			uri,
+			name
+		})
+	}
+
+	/**
+	 * Renames the specified directory and returns its new URI.
+	 * 
+	 * @deprecated For URIs from the directory picker, all permissions are lost after this operation, including for the new URI.
+	 * 
+	 * @param uri - The URI of the directory to rename.
+	 * @param name- New name. If a entry with the same name already exists, a sequential number is appended to ensure uniqueness.
+	 * 
+	 * @returns A Promise that resolves to the new URI of the target directory.
+	 * @throws The Promise will be rejected with an error, if the entry does not exist, if the entry is not a directory, if write permission is missing, or if the file provider does not support rename.
+	 * 
+	 * @see [AndroidFs::rename](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.rename)
+	 * @since 24.1.0
+	 */
+	public static async renameDir(
+		uri: AndroidFsUri,
+		name: string
+	): Promise<AndroidFsUri> {
+
+		return await invoke('plugin:android-fs|rename_dir', { 
+			uri,
+			name
+		})
+	}
+
+	/**
 	 * Removes the specified file.
 	 * 
 	 * @param uri - The URI of the file to remove.
@@ -941,7 +989,7 @@ export class AndroidFs {
 	 *   - `needWritePermission` (boolean) - Indicates whether write access to the picked files is required. Defaults to `false`.
 	 *   - `localOnly` (boolean) - Indicates whether only files located on the local device should be pickable. Defaults to `false`.
 	 * 
-	 * @returns A Promise that resolves to an array of URI representing the picked files, or an empty array if unpicked. By default, the app has read access to the URIs, and this permission remains valid until the app or device is terminated. The app will be able to gain persistent access to the files by using `AndroidFs.persistUriPermission`.
+	 * @returns A Promise that resolves to an array of URI representing the picked files, or an empty array if unpicked. By default, the app has read access to the URIs, and this permission remains valid until the app or device is terminated. The app will be able to gain persistent access to the files by using `AndroidFs.persistPickerUriPermission`.
 	 * 
 	 * @see [FilePicker::pick_files](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FilePicker.html#method.pick_files)
 	 * @see [FilePicker::pick_visual_medias](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FilePicker.html#method.pick_visual_medias)
@@ -973,7 +1021,7 @@ export class AndroidFs {
 	 * @param options - Optional configuration for the directory picker.
 	 *   - `localOnly` (boolean) - Indicates whether only directories located on the local device should be pickable. Defaults to `false`.
 	 * 
-	 * @returns A Promise that resolves to a URI representing the picked directory, or `null` if unpicked. The directory may be a newly created directory, or it may be an existing directory. By default, the app has read-write access to the URI, and this permission remains valid until the app or device is terminated. The app will be able to gain persistent access to the directory by using `AndroidFs.persistUriPermission`.
+	 * @returns A Promise that resolves to a URI representing the picked directory, or `null` if unpicked. The directory may be a newly created directory, or it may be an existing directory. By default, the app has read-write access to the URI, and this permission remains valid until the app or device is terminated. The app will be able to gain persistent access to the directory by using `AndroidFs.persistPickerUriPermission`. Permissions for entries derived from this directory, such as `AndroidFs.readDir` and `AndroidFs.createNewFile`, depend on the permissions granted to this picked directory itself.
 	 * 
 	 * @see [FilePicker::pick_dir](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FilePicker.html#method.pick_dir)
 	 * @since 22.0.0
@@ -997,7 +1045,7 @@ export class AndroidFs {
 	 * @param options - Optional configuration for the file saver.
 	 *   - `localOnly` (boolean) - Indicates whether only files located on the local device should be pickable. Defaults to `false`.
 	 * 
-	 * @return  A Promise that resolves to a URI representing the picked file, or `null` if unpicked. The file may be a newly created file with no content, or it may be an existing file with the requested MIME type. By default, the app has write-only access to the URI, and this permission remains valid until the app or device is terminated. The app will be able to gain persistent access to the file by using `AndroidFs.persistUriPermission`.
+	 * @return  A Promise that resolves to a URI representing the picked file, or `null` if unpicked. The file may be a newly created file with no content, or it may be an existing file with the requested MIME type. By default, the app has write-only access to the URI, and this permission remains valid until the app or device is terminated. The app will be able to gain persistent access to the file by using `AndroidFs.persistPickerUriPermission`.
 	 * 
 	 * @see [FilePicker::save_file](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FilePicker.html#method.save_file)
 	 * @since 22.0.0
@@ -1080,37 +1128,102 @@ export class AndroidFs {
 	}
 
 	/**
-	 * Takes a persistent permission to access the file, directory, and its descendants.  
+	 * Check a URI permission state granted by the file/directory picker.
+	 * 
+	 * @param uri - The URI of the target file or directory.
+	 * @param state - Permission to check. One of `"Read"`, `"Write"`, `"ReadAndWrite"`, `"ReadOrWrite"`.
+	 * 
+	 * @returns A Promise that resolves to a boolean.
+	 * 
+	 * @see [FilePicker::check_uri_permission](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FilePicker.html#method.check_uri_permission)
+	 * @since 24.1.0
+	 */
+	public static async checkPickerUriPermission(
+		uri: AndroidFsUri,
+		state: AndroidUriPermissionState
+	): Promise<boolean> {
+
+		return await invoke("plugin:android-fs|check_picker_uri_permission", { uri, state })
+	}
+
+	/**
+	 * Takes a persistent permission to access the file or directory (and its descendants) selected via the file/directory picker.  
 	 * This prolongs an already acquired permission rather than acquiring a new one.
 	 * 
 	 * Note that there is [`a limit to the total number of URIs that can be made persistent`](https://stackoverflow.com/questions/71099575/should-i-release-persistableuripermission-when-a-new-storage-location-is-chosen/71100621#71100621) using this function. 
-	 * Therefore, it is recommended to release unnecessary persisted URIs via `AndroidFs.releasePersistedUriPermission` or `AndroidFs.releaseAllPersistedUriPermissions`.
+	 * Therefore, it is recommended to release unnecessary persisted URIs via `AndroidFs.releasePersistedPickerUriPermission` or `AndroidFs.releaseAllPersistedPickerUriPermissions`.
 	 * 
 	 * Persisted permissions may also be revoked by other apps or the user, 
 	 * by modifying the set permissions, or by moving/removing entries. 
-	 * To verify, use `AndroidFs.checkPersistedUriPermission`.
+	 * To verify, use `AndroidFs.checkPersistedPickerUriPermission` or `AndroidFs.checkPickerUriPermission`.
 	 * 
-	 * @param uri - The URI of the target file.
+	 * @param uri - The URI of the target file or directory.
 	 * 
 	 * @returns A Promise that resolves when the operation is complete.
 	 * 
-	 * @see [AndroidFs::take_persistable_uri_permission](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.take_persistable_uri_permission)
-	 * @since 22.0.0
+	 * @see [FilePicker::persist_picker_uri_permission](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FilePicker.html#method.persist_picker_uri_permission)
+	 * @since 24.1.0
+	 */
+	public static async persistPickerUriPermission(uri: AndroidFsUri): Promise<void> {
+		return await invoke("plugin:android-fs|persist_picker_uri_permission", { uri })
+	}
+
+	/**
+	 * Check a persisted permission state of the URI granted via `AndroidFs.persistPickerUriPermission`.
+	 * 
+	 * @param uri - The URI of the target file or directory.
+	 * @param state - Permission to check. One of `"Read"`, `"Write"`, `"ReadAndWrite"`, `"ReadOrWrite"`.
+	 * 
+	 * @returns A Promise that resolves to a boolean: `false` if only non-persistent permissions exist or if there are no permissions.
+	 * 
+	 * @see [FilePicker::check_persisted_picker_uri_permission](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FilePicker.html#method.check_persisted_picker_uri_permission)
+	 * @since 24.1.0
+	 */
+	public static async checkPersistedPickerUriPermission(
+		uri: AndroidFsUri,
+		state: AndroidUriPermissionState
+	): Promise<boolean> {
+
+		return await invoke("plugin:android-fs|check_persisted_picker_uri_permission", { uri, state })
+	}
+
+	/**
+	 * Relinquish a persisted permission of the URI granted via `AndroidFs.persistPickerUriPermission`.
+	 * 
+	 * @param uri - The URI of the target file or directory.
+	 * 
+	 * @returns A Promise that resolves to a boolean; `true` if a persisted permission exists for the specified URI and was successfully released. `false` if no persisted permission existed.
+	 *
+	 * @see [FilePicker::release_persisted_picker_uri_permission](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FilePicker.html#method.release_persisted_picker_uri_permission)
+	 * @since 24.1.0
+	 */
+	public static async releasePersistedPickerUriPermission(uri: AndroidFsUri): Promise<boolean> {
+		return await invoke("plugin:android-fs|release_persisted_picker_uri_permission", { uri })
+	}
+
+	/**
+	 * Relinquish a all persisted permission of the URI granted via `AndroidFs.persistPickerUriPermission`.
+	 * 
+	 * @returns A Promise that resolves when the operation is complete.
+	 * 
+	 * @see [FilePicker::release_all_persisted_picker_uri_permissions](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FilePicker.html#method.release_all_persisted_picker_uri_permissions)
+	 * @since 24.1.0
+	 */
+	public static async releaseAllPersistedPickerUriPermissions(): Promise<void> {
+		return await invoke("plugin:android-fs|release_all_persisted_picker_uri_permissions")
+	}
+
+	
+
+	/**
+	 * @deprecated Use `AndroidFs.persistPickerUriPermission` instead.
 	 */
 	public static async persistUriPermission(uri: AndroidFsUri): Promise<void> {
 		return await invoke("plugin:android-fs|persist_uri_permission", { uri })
 	}
 
 	/**
-	 * Check a persisted permission state of the URI granted via `AndroidFs.persistUriPermission`.
-	 * 
-	 * @param uri - The URI of the target file.
-	 * @param state - Permission to check. One of `"Read"`, `"Write"`, `"ReadAndWrite"`, `"ReadOrWrite"`.
-	 * 
-	 * @returns A Promise that resolves to a boolean: `false` if only non-persistent permissions exist or if there are no permissions.
-	 * 
-	 * @see [AndroidFs::check_persisted_uri_permission](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.check_persisted_uri_permission)
-	 * @since 22.0.0
+	 * @deprecated Use `AndroidFs.checkPersistedPickerUriPermission` instead.
 	 */
 	public static async checkPersistedUriPermission(
 		uri: AndroidFsUri,
@@ -1121,26 +1234,14 @@ export class AndroidFs {
 	}
 
 	/**
-	 * Relinquish a persisted permission of the URI granted via `AndroidFs.persistUriPermission`.
-	 * 
-	 * @param uri - The URI of the target file.
-	 * 
-	 * @returns A Promise that resolves when the operation is complete.
-	 *
-	 * @see [AndroidFs::release_persisted_uri_permission](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.release_persisted_uri_permission)
-	 * @since 22.0.0
+	 * @deprecated Use `AndroidFs.releasePersistedPickerUriPermission` instead.
 	 */
 	public static async releasePersistedUriPermission(uri: AndroidFsUri): Promise<void> {
 		return await invoke("plugin:android-fs|release_persisted_uri_permission", { uri })
 	}
 
 	/**
-	 * Relinquish a all persisted permission of the URI granted via `AndroidFs.persistUriPermission`.
-	 * 
-	 * @returns A Promise that resolves when the operation is complete.
-	 * 
-	 * @see [AndroidFs::release_all_persisted_uri_permission](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.release_all_persisted_uri_permissions)
-	 * @since 22.0.0
+	 * @deprecated Use `AndroidFs.releaseAllPersistedPickerUriPermissions` instead.
 	 */
 	public static async releaseAllPersistedUriPermissions(): Promise<void> {
 		return await invoke("plugin:android-fs|release_all_persisted_uri_permissions")

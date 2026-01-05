@@ -305,67 +305,6 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn take_persistable_uri_permission(&self, uri: &FileUri) -> Result<()> {
-        impl_se!(struct Req<'a> { uri: &'a FileUri });
-        impl_de!(struct Res;);
-
-        self.invoke::<Res>("takePersistableUriPermission", Req { uri })
-            .await
-            .map(|_| ())
-    }
-
-    #[maybe_async]
-    pub fn check_persisted_uri_permission(
-        &self, 
-        uri: &FileUri, 
-        permission: UriPermission
-    ) -> Result<bool> {
-        
-        impl_se!(struct Req<'a> { uri: &'a FileUri, mode: UriPermission });
-        impl_de!(struct Res { value: bool });
-
-        self.invoke::<Res>("checkPersistedUriPermission", Req { uri, mode: permission })
-            .await
-            .map(|v| v.value)
-    }
-
-    #[maybe_async]
-    pub fn get_all_persisted_uri_permissions(&self) -> Result<impl Iterator<Item = PersistedUriPermissionState>> {
-        impl_de!(struct Obj { uri: FileUri, r: bool, w: bool, d: bool });
-        impl_de!(struct Res { items: Vec<Obj> });
-    
-        self.invoke::<Res>("getAllPersistedUriPermissions", "")
-            .await
-            .map(|v| v.items.into_iter())
-            .map(|v| v.map(|v| {
-                let (uri, can_read, can_write) = (v.uri, v.r, v.w);
-                match v.d {
-                    true => PersistedUriPermissionState::Dir { uri, can_read, can_write },
-                    false => PersistedUriPermissionState::File { uri, can_read, can_write }
-                }
-            }))
-    }
-
-    #[maybe_async]
-    pub fn release_persisted_uri_permission(&self, uri: &FileUri) -> Result<()> {
-        impl_se!(struct Req<'a> { uri: &'a FileUri });
-        impl_de!(struct Res;);
-
-        self.invoke::<Res>("releasePersistedUriPermission", Req { uri })
-            .await
-            .map(|_| ())
-    }
-
-    #[maybe_async]
-    pub fn release_all_persisted_uri_permissions(&self) -> Result<()> {
-        impl_de!(struct Res;);
-
-        self.invoke::<Res>("releaseAllPersistedUriPermissions", "")
-            .await
-            .map(|_| ())
-    }
-
-    #[maybe_async]
     pub fn get_file_thumbnail_to_file(
         &self, 
         src: &FileUri,
@@ -903,6 +842,99 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         self.invoke::<Res>("getMediaStoreFileAbsolutePath", Req { uri })
             .await
             .map(|v| v.path)
+    }
+
+    #[maybe_async]
+    pub fn check_picker_uri_permission(
+        &self,
+        uri: &FileUri,
+        permission: UriPermission
+    ) -> Result<bool> {
+
+        impl_se!(struct Req<'a> { uri: &'a FileUri });
+        impl_de!(struct Res { can_write: bool, can_read: bool });
+
+        let p = self.invoke::<Res>("getPickerUriPermission", Req { uri }).await?;
+
+        Ok(match permission {
+            UriPermission::Read => p.can_read,
+            UriPermission::Write => p.can_write,
+            UriPermission::ReadAndWrite => p.can_read && p.can_write,
+            UriPermission::ReadOrWrite => p.can_read || p.can_write,
+        })
+    }
+
+    #[maybe_async]
+    pub fn check_persisted_picker_uri_permission(
+        &self,
+        uri: &FileUri,
+        permission: UriPermission
+    ) -> Result<bool> {
+
+        impl_se!(struct Req<'a> { uri: &'a FileUri });
+        impl_de!(struct Res { can_write: bool, can_read: bool });
+
+        let p = self.invoke::<Res>("getPersistedPickerUriPermission", Req { uri }).await?;
+
+        Ok(match permission {
+            UriPermission::Read => p.can_read,
+            UriPermission::Write => p.can_write,
+            UriPermission::ReadAndWrite => p.can_read && p.can_write,
+            UriPermission::ReadOrWrite => p.can_read || p.can_write,
+        })
+    }
+
+    #[maybe_async]
+    pub fn persist_picker_uri_permission(
+        &self,
+        uri: &FileUri,
+    ) -> Result<()> {
+
+        impl_se!(struct Req<'a> { uri: &'a FileUri });
+
+        self.invoke::<()>("persistPickerUriPermission", Req { uri }).await
+    }
+
+    #[maybe_async]
+    pub fn release_persisted_picker_uri_permission(
+        &self,
+        uri: &FileUri,
+    ) -> Result<bool> {
+
+        impl_se!(struct Req<'a> { uri: &'a FileUri });
+        impl_de!(struct Res { is_released: bool });
+
+        self.invoke::<Res>("releasePersistedPickerUriPermission", Req { uri })
+            .await
+            .map(|res| res.is_released)
+    }
+
+    #[maybe_async]
+    pub fn release_all_persisted_picker_uri_permissions(
+        &self,
+    ) -> Result<()> {
+
+        self.invoke::<()>("releaseAllPersistedPickerUriPermissions", ()).await
+    }
+
+    #[maybe_async]
+    pub fn get_all_persisted_picker_uri_permissions(
+        &self,
+    ) -> Result<impl Iterator<Item = PersistedUriPermissionState>> {
+
+        impl_de!(struct Obj { uri: FileUri, r: bool, w: bool, d: bool });
+        impl_de!(struct Res { items: Vec<Obj> });
+    
+        self.invoke::<Res>("getAllPersistedPickerUriPermissions", ())
+            .await
+            .map(|v| v.items.into_iter())
+            .map(|v| v.map(|v| {
+                let (uri, can_read, can_write) = (v.uri, v.r, v.w);
+                match v.d {
+                    true => PersistedUriPermissionState::Dir { uri, can_read, can_write },
+                    false => PersistedUriPermissionState::File { uri, can_read, can_write }
+                }
+            }))
     }
 }
 

@@ -23,7 +23,7 @@ Default permissions for the plugin
 </td>
 <td>
 
-This enables all commands except those that delete existing entries (such as remove, copy or truncate).
+This enables all commands except those that delete/change existing entries (such as remove, rename, copy or truncate).
 
 </td>
 </tr>
@@ -37,6 +37,32 @@ This enables all commands except those that delete existing entries (such as rem
 <td>
 
 This enables all commands.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-check-persisted-picker-uri-permission`
+
+</td>
+<td>
+
+Enables the check_persisted_picker_uri_permission command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-check-persisted-picker-uri-permission`
+
+</td>
+<td>
+
+Denies the check_persisted_picker_uri_permission command without any pre-configured scope.
 
 </td>
 </tr>
@@ -63,6 +89,32 @@ Enables the check_persisted_uri_permission command without any pre-configured sc
 <td>
 
 Denies the check_persisted_uri_permission command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-check-picker-uri-permission`
+
+</td>
+<td>
+
+Enables the check_picker_uri_permission command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-check-picker-uri-permission`
+
+</td>
+<td>
+
+Denies the check_picker_uri_permission command without any pre-configured scope.
 
 </td>
 </tr>
@@ -538,6 +590,32 @@ Denies the list_volumes command without any pre-configured scope.
 <tr>
 <td>
 
+`android-fs:allow-persist-picker-uri-permission`
+
+</td>
+<td>
+
+Enables the persist_picker_uri_permission command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-persist-picker-uri-permission`
+
+</td>
+<td>
+
+Denies the persist_picker_uri_permission command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `android-fs:allow-persist-uri-permission`
 
 </td>
@@ -590,6 +668,32 @@ Denies the read_dir command without any pre-configured scope.
 <tr>
 <td>
 
+`android-fs:allow-release-all-persisted-picker-uri-permissions`
+
+</td>
+<td>
+
+Enables the release_all_persisted_picker_uri_permissions command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-release-all-persisted-picker-uri-permissions`
+
+</td>
+<td>
+
+Denies the release_all_persisted_picker_uri_permissions command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `android-fs:allow-release-all-persisted-uri-permissions`
 
 </td>
@@ -609,6 +713,32 @@ Enables the release_all_persisted_uri_permissions command without any pre-config
 <td>
 
 Denies the release_all_persisted_uri_permissions command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-release-persisted-picker-uri-permission`
+
+</td>
+<td>
+
+Enables the release_persisted_picker_uri_permission command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-release-persisted-picker-uri-permission`
+
+</td>
+<td>
+
+Denies the release_persisted_picker_uri_permission command without any pre-configured scope.
 
 </td>
 </tr>
@@ -713,6 +843,58 @@ Enables the remove_file command without any pre-configured scope.
 <td>
 
 Denies the remove_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-rename-dir`
+
+</td>
+<td>
+
+Enables the rename_dir command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-rename-dir`
+
+</td>
+<td>
+
+Denies the rename_dir command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-rename-file`
+
+</td>
+<td>
+
+Enables the rename_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-rename-file`
+
+</td>
+<td>
+
+Denies the rename_file command without any pre-configured scope.
 
 </td>
 </tr>
