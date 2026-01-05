@@ -295,10 +295,10 @@
       "type": "string",
       "oneOf": [
         {
-          "description": "This enables all commands except those that delete/change existing entries (such as remove, rename, copy or truncate).",
+          "description": "This enables all commands except those that delete existing entries (such as remove, copy or truncate).",
           "type": "string",
           "const": "all-without-delete",
-          "markdownDescription": "This enables all commands except those that delete/change existing entries (such as remove, rename, copy or truncate)."
+          "markdownDescription": "This enables all commands except those that delete existing entries (such as remove, copy or truncate)."
         },
         {
           "description": "This enables all commands.",

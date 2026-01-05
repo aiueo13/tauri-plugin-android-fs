@@ -23,7 +23,7 @@ Default permissions for the plugin
 </td>
 <td>
 
-This enables all commands except those that delete/change existing entries (such as remove, rename, copy or truncate).
+This enables all commands except those that delete existing entries (such as remove, copy or truncate).
 
 </td>
 </tr>
