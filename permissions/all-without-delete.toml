@@ -4,6 +4,7 @@
 identifier = "all-without-delete"
 description = "This enables all commands except those that delete existing entries (such as remove, copy or truncate)."
 commands.allow = [
+    "get_android_api_level",
     "get_name",
     "get_byte_length",
     "get_type",

@@ -4,7 +4,42 @@ Default permissions for the plugin
 
 #### This default permission set includes the following:
 
-- `all-without-delete`
+- `get_android_api_level`
+- `allow-get-name`
+- `allow-get-byte-length`
+- `allow-get-type`
+- `allow-get-mime-type`
+- `allow-get-metadata`
+- `allow-get-thumbnail`
+- `allow-get-thumbnail-base64`
+- `allow-get-thumbnail-data-url`
+- `allow-get-fs-path`
+- `allow-list-volumes`
+- `allow-create-new-public-file`
+- `allow-create-new-public-image-file`
+- `allow-create-new-public-video-file`
+- `allow-create-new-public-audio-file`
+- `allow-scan-public-file`
+- `allow-request-public-files-permission`
+- `allow-has-public-files-permission`
+- `allow-create-new-file`
+- `allow-create-dir-all`
+- `allow-read-dir`
+- `allow-check-picker-uri-permission`
+- `allow-persist-picker-uri-permission`
+- `allow-check-persisted-picker-uri-permission`
+- `allow-release-persisted-picker-uri-permission`
+- `allow-release-all-persisted-picker-uri-permissions`
+- `allow-show-open-file-picker`
+- `allow-show-open-dir-picker`
+- `allow-show-save-file-picker`
+- `allow-show-share-file-dialog`
+- `allow-show-view-file-dialog`
+- `allow-show-view-dir-dialog`
+- `allow-persist-uri-permission`
+- `allow-check-persisted-uri-permission`
+- `allow-release-persisted-uri-permission`
+- `allow-release-all-persisted-uri-permissions`
 
 ## Permission Table
 
@@ -297,6 +332,32 @@ Enables the create_new_public_video_file command without any pre-configured scop
 <td>
 
 Denies the create_new_public_video_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-get-android-api-level`
+
+</td>
+<td>
+
+Enables the get_android_api_level command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-get-android-api-level`
+
+</td>
+<td>
+
+Denies the get_android_api_level command without any pre-configured scope.
 
 </td>
 </tr>

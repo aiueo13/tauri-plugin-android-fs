@@ -25,9 +25,61 @@ export function isAndroid(): boolean {
 	throw Error("tauri-plugin-android-fs may be not set up. See https://github.com/aiueo13/tauri-plugin-android-fs/blob/main/api/README.md")
 }
 
+let cachedApiLevel: Promise<number> | null = null
+
+/**
+ * Returns whether [the API level](https://developer.android.com/guide/topics/manifest/uses-sdk-element#ApiLevels) of the running Android devive.
+ * 
+ * @example
+ * ```ts
+ * import { getAndroidApiLevel, AndroidApiLevel } from 'tauri-plugin-android-fs-api';
+ * 
+ * async function isAndroid10orHigher(): Promise<boolean> {
+ * 	return AndroidApiLevel.ANDROID_10 <= await getAndroidApiLevel()
+ * }
+ * 
+ * ```
+ *
+ * @returns A Promise that resolves to the Android API level. This value does not change while the application is running, so it is cached on the JavaScript side.
+ * @throws The Promise will be rejected with an error, if the current runtime environment is not Android.
+ * @see [AndroidFs::api_level](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_sync/struct.AndroidFs.html#method.api_level)
+ * @since 24.2.0
+ */
+export async function getAndroidApiLevel(): Promise<number> {
+	if (!cachedApiLevel) {
+    cachedApiLevel = invoke('plugin:android-fs|get_android_api_level')
+  }
+
+  return cachedApiLevel
+}
+
+/**
+ * Android API level.
+ * 
+ * @see <https://developer.android.com/guide/topics/manifest/uses-sdk-element#api-level-table>
+ */
+export const AndroidApiLevel = Object.freeze({
+	ANDROID_7: 24,
+	ANDROID_7_1: 25,
+	ANDROID_8: 26,
+	ANDROID_8_1: 27,
+	ANDROID_9: 28,
+	ANDROID_10: 29,
+	ANDROID_11: 30,
+	ANDROID_12: 31,
+	ANDROID_12_L: 32,
+	ANDROID_13: 33,
+	ANDROID_14: 34,
+	ANDROID_15: 35,
+	ANDROID_16: 36,
+} as const);
+
 /**
  * URI or path of the file or directory.
  *
+ * The type can be `string` or `URL`; 
+ * `URL` values must be FS URIs, while `string` values accept both paths and FS URIs.
+ * 
  * Corresponds to the path type used by [`@tauri-apps/plugin-fs`](https://v2.tauri.app/ja/plugin/file-system/) on the frontend
  * and [tauri_plugin_fs::FilePath](https://docs.rs/tauri-plugin-fs/2/tauri_plugin_fs/enum.FilePath.html) in Rust.
  */
@@ -39,6 +91,9 @@ function mapFsPathForInput(uri: FsPath | AndroidFsUri): string | AndroidFsUri {
 
 /**
  * URI of the file or directory on Android.
+ * 
+ * Unlike a path, this must refer to an existing entry.  
+ * Additionally, there can be multiple URI representations for the same entry.  
  * 
  * Corresponds to [tauri_plugin_android_fs::FileUri](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/struct.FileUri.html) in Rust.
  */
@@ -172,7 +227,7 @@ export type AndroidSaveFilePickerOptions = {
 }
 
 /**
- * Options of creating public files on Android.
+ * Options of `AndroidFs.createNewPublicFile` and etc.
  */
 export type AndroidCreateNewPublicFileOptions = {
 
@@ -189,15 +244,188 @@ export type AndroidCreateNewPublicFileOptions = {
 	volumeId?: AndroidStorageVolumeId
 }
 
-export type AndroidPublicGeneralPuropseDir = "Documents" | "Download";
-export type AndroidPublicImageDir = "Pictures" | "DCIM"
-export type AndroidPublicVideoDir = "Movies" | "DCIM"
-export type AndroidPublicAudioDir = "Music" | "Alarms" | "Audiobooks" | "Notifications" | "Podcasts" | "Ringtones" | "Recordings";
+/**
+ * Android public directories for general-purpose files.
+ */
+export const AndroidPublicGeneralPurposeDir = Object.freeze({
+
+	/**
+	 * Resolves to the `~/Documents` folder.  
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
+	 *
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/Documents`
+	 * - `/storage/{sd-card-id}/Documents`
+	 */
+	Documents: "Documents",
+
+	/**
+	 * Resolves to the `~/Download` folder.  
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.  
+	 *
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/Download`
+	 * - `/storage/{sd-card-id}/Download`
+	 *
+	 * **NOTE** :   
+	 * This is not the plural `Downloads`, but the singular `Download`.
+	 * <https://developer.android.com/reference/android/os/Environment#DIRECTORY_DOWNLOADS>
+	 */
+	Download: "Download",
+} as const);
+
+/**
+ * Android public directories for image files.
+ */
+export const AndroidPublicImageDir = Object.freeze({
+	
+	/**
+	 * Resolves to the `~/Pictures` folder.  
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
+	 *
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/Pictures`
+	 * - `/storage/{sd-card-id}/Pictures`
+	 */
+	Pictures: "Pictures",
+
+	/**
+	 * Resolves to the `~/DCIM` folder.  
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
+	 *
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/DCIM`
+	 * - `/storage/{sd-card-id}/DCIM`
+	 */
+	DCIM: "DCIM",
+} as const);
+
+/**
+ * Android public directories for video files.
+ */
+export const AndroidPublicVideoDir = Object.freeze({
+
+	/**
+	 * Resolves to the `~/Movies` folder.  
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
+	 * 
+	 * 
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/Movies`
+	 * - `/storage/{sd-card-id}/Movies`
+	 */
+	Movies: "Movies",
+
+	/**
+	 * Resolves to the `~/DCIM` folder.  
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
+	 *
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/DCIM`
+	 * - `/storage/{sd-card-id}/DCIM`
+	 */
+	DCIM: "DCIM",
+} as const);
+
+/**
+ * Android public directories for audio files.
+ */
+export const AndroidPublicAudioDir = Object.freeze({
+
+	/**
+	 * Resolves to the `~/Music` folder.  
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
+	 * 
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/Music`
+	 * - `/storage/{sd-card-id}/Music`
+	 */
+	Music: "Music",
+
+	/**
+	 * Resolves to the `~/Alarms` folder.  
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
+	 * 
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/Alarms`
+	 * - `/storage/{sd-card-id}/Alarms`
+	 */
+	Alarms: "Alarms",
+
+	/**
+	 * Resolves to the `~/Audiobooks` folder.  
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
+	 *
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/Audiobooks`
+	 * - `/storage/{sd-card-id}/Audiobooks`
+	 *
+	 * **NOTE** :  
+	 * This is not available on Android 9 (API level 28) and lower.  
+	 * In that case, the `~/Music/Audiobooks` folder will be used instead.  
+	 */
+	Audiobooks: "Audiobooks",
+
+	/**
+	 * Resolves to the `~/Notifications` folder.  
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
+	 *
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/Notifications`
+	 * - `/storage/{sd-card-id}/Notifications`
+	 */
+	Notifications: "Notifications",
+
+	/**
+	 * Resolves to the `~/Podcasts` folder.  
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
+	 *
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/Podcasts`
+	 * - `/storage/{sd-card-id}/Podcasts`
+	 */
+	Podcasts: "Podcasts",
+
+	/**
+	 * Resolves to the `~/Ringtones` folder.  
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
+	 *
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/Ringtones`
+	 * - `/storage/{sd-card-id}/Ringtones`
+	 */
+	Ringtones: "Ringtones",
+
+	/**
+	 * Resolves to the `~/Recordings` folder.  
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
+	 *
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/Recordings`
+	 * - `/storage/{sd-card-id}/Recordings`
+	 *
+	 * **NOTE** :  
+	 * This is not available on Android 11 (API level 30) and lower.  
+	 * In that case, the `~/Music/Recordings` folder will be used instead.
+	 */
+	Recordings: "Recordings",
+} as const);
+
+export type AndroidPublicGeneralPurposeDir = typeof AndroidPublicGeneralPurposeDir[keyof typeof AndroidPublicGeneralPurposeDir]
+export type AndroidPublicImageDir = typeof AndroidPublicImageDir[keyof typeof AndroidPublicImageDir]
+export type AndroidPublicVideoDir = typeof AndroidPublicVideoDir[keyof typeof AndroidPublicVideoDir]
+export type AndroidPublicAudioDir = typeof AndroidPublicAudioDir[keyof typeof AndroidPublicAudioDir]
+
+/**
+ * @deprecated This is typo. Use `AndroidPublicGeneralPurposeDir` instead.
+ */
+export type AndroidPublicGeneralPuropseDir = AndroidPublicGeneralPurposeDir
 
 /**
  * Information about the storage volume on Android.
  */
 export type AndroidStorageVolumeInfo = {
+	
 	/**
 	 * A user-visible description of the volume.
 	 * This can be determined by the manufacturer and is often localized according to the user’s language.
@@ -214,7 +442,8 @@ export type AndroidStorageVolumeInfo = {
 	 * Indicates whether this is primary storage volume. 
 	 * A device always has one (and one only) primary storage volume.
 	 * 
-	 * Note primary volume may not be accessible if it has been mounted by the user on their computer, 
+	 * **NOTE** :  
+	 * The primary volume may not be accessible if it has been mounted by the user on their computer, 
 	 * has been removed from the device, or some other problem has happened.  
 	 * Therefore, the primary storage volume is not necessarily included.
 	 */
@@ -260,9 +489,22 @@ export type AndroidStorageVolumeId = string;
 /**
  * State of the URI permission on Android.
  */
-export type AndroidUriPermissionState = "Read" | "Write" | "ReadAndWrite" | "ReadOrWrite"
+export const AndroidUriPermissionState = Object.freeze({
+	Read: "Read",
+	Write: "Write",
+	ReadAndWrite: "ReadAndWrite",
+	ReadOrWrite: "ReadOrWrite"
+} as const)
+
+/**
+ * State of the URI permission on Android.
+ */
+export type AndroidUriPermissionState = typeof AndroidUriPermissionState[keyof typeof AndroidUriPermissionState]
 
 export class AndroidFs {
+
+	// TODO: 次のメジャーバージョンアップ時に以下を追加
+	//private constructor() {}
 
 	/**
 	 * Gets a name of the specified file or directory.  
@@ -459,7 +701,7 @@ export class AndroidFs {
 	 * @since 22.0.0
 	 */
 	public static async getFsPath(uri: AndroidFsUri | FsPath): Promise<FsPath> {
-		return await invoke<string>('plugin:android-fs|get_fs_path', { 
+		return await invoke<string>('plugin:android-fs|get_fs_path', {
 			uri: mapFsPathForInput(uri)
 		})
 	}
@@ -467,7 +709,7 @@ export class AndroidFs {
 	/**
 	 * Retrieves information about the available Android storage volumes (e.g., `Internal storage`, `SD card` and `USV drive`).
 	 *
-	 * @returns A Promise that resolves to an array of `AndroidStorageVolumeInfo`.
+	 * @returns A Promise that resolves to an array of `AndroidStorageVolumeInfo`. This is intended for `AndroidFs.createNewPublicFile` and its related functions. Therefore, this does not include volumes that are not writable (e.g., a read-only SD card), and, on Android 9 and below, it does not include volumes other than primary storage that are inaccessible to `AndroidFs.createNewPublicFile` due to Android platform restrictions.
 	 * 
 	 * @see [PublicStorage::get_volumes](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.get_volumes)
 	 * @since 22.2.0
@@ -479,7 +721,7 @@ export class AndroidFs {
 	/**
 	 * Requests permission from the user to create public files, if necessary.
 	 * 
-	 * This is intended for `AndroidFs.createPublicFile` and its related functions, 
+	 * This is intended for `AndroidFs.createNewPublicFile` and its related functions, 
 	 * but since those functions request permission automatically by default, 
 	 * this is not strictly necessary.
 	 * 
@@ -529,14 +771,15 @@ export class AndroidFs {
 	 * Creates a new empty file at the specified location.
 	 * 
 	 * @example
-	 * ```typescript
-	 * import { AndroidFs } from 'tauri-plugin-android-fs-api'
+	 * ```ts
+	 * import { AndroidFs, AndroidPublicGeneralPurposeDir } from 'tauri-plugin-android-fs-api';
 	 * import { writeTextFile } from '@tauri-apps/plugin-fs';
 	 *
 	 * async function saveText(fileName: string, data: string): Promise<void> {
-	 * 	const baseDir = "Download";
+	 * 	const baseDir = AndroidPublicGeneralPurposeDir.Download;
 	 * 	const relativePath = "MyApp/" + fileName;
 	 * 	const mimeType = "text/plain";
+	 * 
 	 * 	const uri = await AndroidFs.createNewPublicFile(baseDir, relativePath, mimeType);
 	 * 
 	 * 	try {
@@ -555,8 +798,8 @@ export class AndroidFs {
 	 * @param relativePath - The file's relative path from the base directory. If a file with the same name already exists, a sequential number is appended to ensure uniqueness. If the directories in this path do not exist, they will be created recursively.
 	 * @param mimeType - The MIME type of the file to create. If `null`, this is inferred from the extension of `relativePath`.
 	 * @param options - Optional settings.
-	 *   - `requestPermission` (boolean) - Indicates whether to prompt the user for permission if it has not already been granted. Defaults to `true`.
-	 *   - `volumeId` (AndroidStorageVolumeId) - ID of the storage volume where the file will be created. Defaults to the primary storage volume.
+	 * @param options.requestPermission - Indicates whether to prompt the user for permission if it has not already been granted. Defaults to `true`.
+	 * @param options.volumeId - ID of the storage volume where the file will be created. Defaults to the primary storage volume.
 	 *
 	 * @return A Promise that resolves to the URI of the created file, with persisted read and write permissions that depends on `AndroidFs.hasPublicFilesPermission`.
 	 * @throws The Promise will be rejected with an error, if the storage is currently unavailable or the required permission is missing.
@@ -565,7 +808,7 @@ export class AndroidFs {
 	 * @since 22.0.0
 	 */
 	public static async createNewPublicFile(
-		baseDir: AndroidPublicGeneralPuropseDir,
+		baseDir: AndroidPublicGeneralPurposeDir,
 		relativePath: string,
 		mimeType: string | null,
 		options?: AndroidCreateNewPublicFileOptions
@@ -588,8 +831,8 @@ export class AndroidFs {
 	 * 
 	 * @example
 	 * ```ts
+	 * import { AndroidFs, AndroidPublicImageDir } from 'tauri-plugin-android-fs-api';
 	 * import { writeFile } from '@tauri-apps/plugin-fs';
-	 * import { AndroidFs } from 'tauri-plugin-android-fs-api';
 	 *
 	 * async function saveImage(
 	 *   fileName: string,
@@ -597,8 +840,9 @@ export class AndroidFs {
 	 *   mimeType: string
 	 * ): Promise<void> {
 	 *
-	 *   const baseDir = "Pictures";
+	 *   const baseDir = AndroidPublicImageDir.Pictures;
 	 *   const relativePath = "MyApp/" + fileName;
+	 * 
 	 *   const uri = await AndroidFs.createNewPublicImageFile(baseDir, relativePath, mimeType);
 	 * 
 	 *   try {
@@ -617,8 +861,8 @@ export class AndroidFs {
 	 * @param relativePath - The file's relative path from the base directory. If a file with the same name already exists, a sequential number is appended to ensure uniqueness. If the directories in this path do not exist, they will be created recursively.
 	 * @param mimeType - The MIME type of the file to create. If `null`, this is inferred from the extension of `relativePath`.
 	 * @param options - Optional settings.
-	 *   - `requestPermission` (boolean) - Indicates whether to prompt the user for permission if it has not already been granted. Defaults to `true`.
-	 *   - `volumeId` (AndroidStorageVolumeId) - ID of the storage volume where the file will be created. Defaults to the primary storage volume.
+	 * @param options.requestPermission - Indicates whether to prompt the user for permission if it has not already been granted. Defaults to `true`.
+	 * @param options.volumeId - ID of the storage volume where the file will be created. Defaults to the primary storage volume.
 	 *
 	 * @return A Promise that resolves to the URI of the created file, with persisted read and write permissions that depends on `AndroidFs.hasPublicFilesPermission`.
 	 * @throws The Promise will be rejected with an error, if the `mimeType` is not a image type, if the storage is currently unavailable or the required permission is missing.
@@ -627,7 +871,7 @@ export class AndroidFs {
 	 * @since 22.0.0
 	 */
 	public static async createNewPublicImageFile(
-		baseDir: AndroidPublicImageDir | AndroidPublicGeneralPuropseDir,
+		baseDir: AndroidPublicImageDir | AndroidPublicGeneralPurposeDir,
 		relativePath: string,
 		mimeType: string | null,
 		options?: AndroidCreateNewPublicFileOptions
@@ -650,8 +894,8 @@ export class AndroidFs {
 	 * 
 	 * @example
 	 * ```ts
+	 * import { AndroidFs, AndroidPublicVideoDir } from 'tauri-plugin-android-fs-api';
 	 * import { writeFile } from '@tauri-apps/plugin-fs';
-	 * import { AndroidFs } from 'tauri-plugin-android-fs-api';
 	 *
 	 * async function saveVideo(
 	 *   fileName: string,
@@ -659,8 +903,9 @@ export class AndroidFs {
 	 *   mimeType: string
 	 * ): Promise<void> {
 	 *
-	 *   const baseDir = "Movies";
+	 *   const baseDir = AndroidPublicVideoDir.Movies;
 	 *   const relativePath = "MyApp/" + fileName;
+	 * 
 	 *   const uri = await AndroidFs.createNewPublicVideoFile(baseDir, relativePath, mimeType);
 	 *
 	 *   try {
@@ -679,8 +924,8 @@ export class AndroidFs {
 	 * @param relativePath - The file's relative path from the base directory. If a file with the same name already exists, a sequential number is appended to ensure uniqueness. If the directories in this path do not exist, they will be created recursively.
 	 * @param mimeType - The MIME type of the file to create. If `null`, this is inferred from the extension of `relativePath`.
 	 * @param options - Optional settings.
-	 *   - `requestPermission` (boolean) - Indicates whether to prompt the user for permission if it has not already been granted. Defaults to `true`.
-	 *   - `volumeId` (AndroidStorageVolumeId) - ID of the storage volume where the file will be created. Defaults to the primary storage volume.
+	 * @param options.requestPermission - Indicates whether to prompt the user for permission if it has not already been granted. Defaults to `true`.
+	 * @param options.volumeId - ID of the storage volume where the file will be created. Defaults to the primary storage volume.
 	 *
 	 * @return A Promise that resolves to the URI of the created file, with persisted read and write permissions that depends on `AndroidFs.hasPublicFilesPermission`.
 	 * @throws The Promise will be rejected with an error, if the `mimeType` is not a video type, if the storage is currently unavailable or the required permission is missing.
@@ -689,7 +934,7 @@ export class AndroidFs {
 	 * @since 22.0.0
 	 */
 	public static async createNewPublicVideoFile(
-		baseDir: AndroidPublicVideoDir | AndroidPublicGeneralPuropseDir,
+		baseDir: AndroidPublicVideoDir | AndroidPublicGeneralPurposeDir,
 		relativePath: string,
 		mimeType: string | null,
 		options?: AndroidCreateNewPublicFileOptions
@@ -712,8 +957,8 @@ export class AndroidFs {
 	 * 
 	 * @example
 	 * ```ts
+	 * import { AndroidFs, AndroidPublicAudioDir } from 'tauri-plugin-android-fs-api';
 	 * import { writeFile } from '@tauri-apps/plugin-fs';
-	 * import { AndroidFs } from 'tauri-plugin-android-fs-api';
 	 *
 	 * async function saveAudio(
 	 *   fileName: string,
@@ -721,8 +966,9 @@ export class AndroidFs {
 	 *   mimeType: string
 	 * ): Promise<void> {
 	 *
-	 *   const baseDir = "Music";
+	 *   const baseDir = AndroidPublicAudioDir.Music;
 	 *   const relativePath = "MyApp/" + fileName;
+	 * 
 	 *   const uri = await AndroidFs.createNewPublicAudioFile(baseDir, relativePath, mimeType);
 	 *
 	 *   try {
@@ -741,8 +987,8 @@ export class AndroidFs {
 	 * @param relativePath - The file's relative path from the base directory. If a file with the same name already exists, a sequential number is appended to ensure uniqueness. If the directories in this path do not exist, they will be created recursively.
 	 * @param mimeType - The MIME type of the file to create. If `null`, this is inferred from the extension of `relativePath`.
 	 * @param options - Optional settings.
-	 *   - `requestPermission` (boolean) - Indicates whether to prompt the user for permission if it has not already been granted. Defaults to `true`.
-	 *   - `volumeId` (AndroidStorageVolumeId) - ID of the storage volume where the file will be created. Defaults to the primary storage volume.
+	 * @param options.requestPermission - Indicates whether to prompt the user for permission if it has not already been granted. Defaults to `true`.
+	 * @param options.volumeId - ID of the storage volume where the file will be created. Defaults to the primary storage volume.
 	 *
 	 * @return A Promise that resolves to the URI of the created file, with persisted read and write permissions that depends on `AndroidFs.hasPublicFilesPermission`.
 	 * @throws The Promise will be rejected with an error, if the `mimeType` is not a audio type, if the storage is currently unavailable or the required permission is missing.
@@ -751,7 +997,7 @@ export class AndroidFs {
 	 * @since 22.0.0
 	 */
 	public static async createNewPublicAudioFile(
-		baseDir: AndroidPublicAudioDir | AndroidPublicGeneralPuropseDir,
+		baseDir: AndroidPublicAudioDir | AndroidPublicGeneralPurposeDir,
 		relativePath: string,
 		mimeType: string | null,
 		options?: AndroidCreateNewPublicFileOptions
@@ -826,9 +1072,9 @@ export class AndroidFs {
 	 * @param destUri - The URI or path of the destination file.
 	 * 
 	 * @returns A Promise that resolves when the copying is complete.
-	 * @throws The Promise will be rejected with an error, if the input file does not exist or is not a file, if read permission for the input file is missing, or if write permission for the output file is missing.
+	 * @throws The Promise will be rejected with an error, if the sorce URI/path does not refer to a existing file, if read permission for the input file is missing, if the destination URI/path refer to a existing directory, or if write permission for the output file is missing.
 	 * 
-	 * @see [AndroidFs::copy_file](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.copy_file)
+	 * @see [AndroidFs::copy](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.copy)
 	 * @since 22.0.0
 	 */
 	public static async copyFile(
@@ -876,7 +1122,7 @@ export class AndroidFs {
 		name: string
 	): Promise<AndroidFsUri> {
 
-		return await invoke('plugin:android-fs|rename_file', { 
+		return await invoke('plugin:android-fs|rename_file', {
 			uri,
 			name
 		})
@@ -901,7 +1147,7 @@ export class AndroidFs {
 		name: string
 	): Promise<AndroidFsUri> {
 
-		return await invoke('plugin:android-fs|rename_dir', { 
+		return await invoke('plugin:android-fs|rename_dir', {
 			uri,
 			name
 		})
@@ -983,11 +1229,11 @@ export class AndroidFs {
 	 * Opens a system file picker and allows the user to pick one or more files.
 	 * 
 	 * @param options - Optional configuration for the file picker.
-	 *   - `mimeTypes` (string[] | string) - The MIME types of the files to pick. If empty, any file can be selected.
-	 *   - `multiple` (boolean) - Indicates whether multiple files can be picked. Defaults to `false`.
-	 *   - `pickerType` ("FilePicker" | "Gallery") - Preferable picker type. This is not necessarily guaranteed to be used. By default, the appropriate option will be selected according to the `mimeTypes`.
-	 *   - `needWritePermission` (boolean) - Indicates whether write access to the picked files is required. Defaults to `false`.
-	 *   - `localOnly` (boolean) - Indicates whether only files located on the local device should be pickable. Defaults to `false`.
+	 * @param options.mimeTypes - The MIME types of the files to pick. If empty, any file can be selected.
+	 * @param options.multiple - Indicates whether multiple files can be picked. Defaults to `false`.
+	 * @param options.pickerType - Preferable picker type. This is not necessarily guaranteed to be used. By default, the appropriate option will be selected according to the `mimeTypes`.
+	 * @param options.needWritePermission - Indicates whether write access to the picked files is required. Defaults to `false`.
+	 * @param options.localOnly - Indicates whether only files located on the local device should be pickable. Defaults to `false`.
 	 * 
 	 * @returns A Promise that resolves to an array of URI representing the picked files, or an empty array if unpicked. By default, the app has read access to the URIs, and this permission remains valid until the app or device is terminated. The app will be able to gain persistent access to the files by using `AndroidFs.persistPickerUriPermission`.
 	 * 
@@ -1019,7 +1265,7 @@ export class AndroidFs {
 	 * Opens a system directory picker and allows the user to pick one directory.
 	 * 
 	 * @param options - Optional configuration for the directory picker.
-	 *   - `localOnly` (boolean) - Indicates whether only directories located on the local device should be pickable. Defaults to `false`.
+	 * @param options.localOnly - Indicates whether only directories located on the local device should be pickable. Defaults to `false`.
 	 * 
 	 * @returns A Promise that resolves to a URI representing the picked directory, or `null` if unpicked. The directory may be a newly created directory, or it may be an existing directory. By default, the app has read-write access to the URI, and this permission remains valid until the app or device is terminated. The app will be able to gain persistent access to the directory by using `AndroidFs.persistPickerUriPermission`. Permissions for entries derived from this directory, such as `AndroidFs.readDir` and `AndroidFs.createNewFile`, depend on the permissions granted to this picked directory itself.
 	 * 
@@ -1043,9 +1289,9 @@ export class AndroidFs {
 	 * @param defaultFileName - An initial file name. The user may change this value before picking the file.
 	 * @param mimeType - The MIME type of the file to pick. If `null`, this is inferred from the extension of `defaultFileName`.
 	 * @param options - Optional configuration for the file saver.
-	 *   - `localOnly` (boolean) - Indicates whether only files located on the local device should be pickable. Defaults to `false`.
+	 * @param options.localOnly - Indicates whether only files located on the local device should be pickable. Defaults to `false`.
 	 * 
-	 * @return  A Promise that resolves to a URI representing the picked file, or `null` if unpicked. The file may be a newly created file with no content, or it may be an existing file with the requested MIME type. By default, the app has write-only access to the URI, and this permission remains valid until the app or device is terminated. The app will be able to gain persistent access to the file by using `AndroidFs.persistPickerUriPermission`.
+	 * @return  A Promise that resolves to a URI representing the picked file, or `null` if unpicked. The file may be a newly created file with no content, or it may be an existing file with the requested MIME type. By default, the app has write access to the URI, and this permission remains valid until the app or device is terminated. The app will be able to gain persistent access to the file by using `AndroidFs.persistPickerUriPermission`.
 	 * 
 	 * @see [FilePicker::save_file](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FilePicker.html#method.save_file)
 	 * @since 22.0.0

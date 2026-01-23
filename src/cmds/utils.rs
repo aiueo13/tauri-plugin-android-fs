@@ -4,6 +4,32 @@ use super::*;
 
 
 #[cfg(target_os = "android")]
+pub async fn resolve_mime_type<'a, R: tauri::Runtime>(
+    mime_type: Option<&'a str>,
+    path: impl AsRef<str>,
+    app: &tauri::AppHandle<R>,
+) -> Result<std::borrow::Cow<'a, str>> {
+
+    if let Some(mime_type) = mime_type {
+        return Ok(mime_type.into())
+    }
+
+    let path = path.as_ref();
+    let file_name = path.rsplit_once('/')
+        .map(|(_, file_name)| file_name)
+        .unwrap_or(path);
+
+    if let Some((_, ext)) = file_name.rsplit_once('.') {
+        let api = app.android_fs_async();
+        if let Some(mime_type) = api.get_mime_type_from_extension(ext).await? {
+            return Ok(mime_type.into())
+        }
+    }
+    
+    Ok("application/octet-stream".into())
+}
+
+#[cfg(target_os = "android")]
 pub fn convert_to_thumbnail_preferred_size(w: f64, h: f64) -> Result<Size> {
     if !w.is_finite() || !h.is_finite() {
         return Err(Error::with("non-finite width or height"));

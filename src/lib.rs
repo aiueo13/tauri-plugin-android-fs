@@ -58,6 +58,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             cfg!(target_os = "android")
         ))
         .invoke_handler(tauri::generate_handler![
+            cmds::get_android_api_level,
             cmds::get_name,
             cmds::get_byte_length,
             cmds::get_mime_type,

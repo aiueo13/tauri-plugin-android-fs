@@ -231,7 +231,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             if allow_unchecked || self.is_file(&uri).await? {
                return Ok(uri) 
             }
-            return Err(Error::with(format!("This is not a file: {uri:?}")))
+            return Err(Error::with(format!("not a file: {uri:?}")))
         }
         
         self.find_saf_file_uri(dir, relative_path).await
@@ -257,7 +257,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             if allow_unchecked || self.is_dir(&uri).await? {
                return Ok(uri) 
             }
-            return Err(Error::with(format!("This is not a directory: {uri:?}")))
+            return Err(Error::with(format!("not a directory: {uri:?}")))
         }
         
         self.find_saf_dir_uri(dir, relative_path).await

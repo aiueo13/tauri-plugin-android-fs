@@ -8,6 +8,20 @@ use crate::*;
 
 
 #[tauri::command]
+pub async fn get_android_api_level<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<i32> {
+
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        let api = app.android_fs_async();
+        api.api_level()
+    }
+}
+
+#[tauri::command]
 pub async fn get_name<R: tauri::Runtime>(
     uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>,
@@ -298,36 +312,32 @@ pub async fn list_volumes<R: tauri::Runtime>(
     }
 }
 
+#[cfg(target_os = "android")]
 async fn create_new_public_file_inner<R: tauri::Runtime>(
     volume_id: Option<String>,
     base_dir: impl Into<PublicDir>,
     relative_path: String,
-    mime_type: Option<String>,
+    mime_type: Option<&str>,
     request_permission: bool,
     app: tauri::AppHandle<R>,
 ) -> Result<FileUri> {
 
-    #[cfg(not(target_os = "android"))] {
-        Err(Error::NOT_ANDROID)
-    }
-    #[cfg(target_os = "android")] {
-        let volume_id = match volume_id {
-            Some(volume_id) => Some(convert_to_storage_volume_id(&volume_id)?),
-            None => None,
-        };
-        let api = app.android_fs_async();
+    let volume_id = match volume_id {
+        Some(volume_id) => Some(convert_to_storage_volume_id(&volume_id)?),
+        None => None,
+    };
+    let api = app.android_fs_async();
 
-        if request_permission {
-            api.public_storage().request_permission().await?;
-        }
-    
-        api.public_storage().create_new_file(
-            volume_id.as_ref(),
-            base_dir,
-            relative_path.trim_start_matches('/'),
-            mime_type.as_deref()
-        ).await
+    if request_permission {
+        api.public_storage().request_permission().await?;
     }
+    
+    api.public_storage().create_new_file(
+        volume_id.as_ref(),
+        base_dir,
+        relative_path.trim_start_matches('/'),
+        mime_type
+    ).await
 }
 
 #[tauri::command]
@@ -340,7 +350,19 @@ pub async fn create_new_public_file<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<FileUri> {
 
-    create_new_public_file_inner(volume_id, base_dir, relative_path, mime_type, request_permission, app).await
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        create_new_public_file_inner(
+            volume_id,
+            base_dir,
+            relative_path,
+            mime_type.as_deref(),
+            request_permission,
+            app
+        ).await
+    }
 }
 
 #[tauri::command]
@@ -353,7 +375,25 @@ pub async fn create_new_public_image_file<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<FileUri> {
 
-    create_new_public_file_inner(volume_id, base_dir, relative_path, mime_type, request_permission, app).await
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        let mime_type = resolve_mime_type(mime_type.as_deref(), &relative_path, &app).await?;
+
+        if !mime_type.starts_with("image/") {
+            return Err(Error::with(format!("invalid image type: {mime_type}")))
+        }
+
+        create_new_public_file_inner(
+            volume_id,
+            base_dir,
+            relative_path,
+            Some(mime_type.as_ref()),
+            request_permission,
+            app
+        ).await
+    }
 }
 
 #[tauri::command]
@@ -366,7 +406,25 @@ pub async fn create_new_public_video_file<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<FileUri> {
 
-    create_new_public_file_inner(volume_id, base_dir, relative_path, mime_type, request_permission, app).await
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        let mime_type = resolve_mime_type(mime_type.as_deref(), &relative_path, &app).await?;
+
+        if !mime_type.starts_with("video/") {
+            return Err(Error::with(format!("invalid video type: {mime_type}")))
+        }
+
+        create_new_public_file_inner(
+            volume_id,
+            base_dir,
+            relative_path,
+            Some(mime_type.as_ref()),
+            request_permission,
+            app
+        ).await
+    }
 }
 
 #[tauri::command]
@@ -383,10 +441,17 @@ pub async fn create_new_public_audio_file<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
+        let mime_type = resolve_mime_type(mime_type.as_deref(), &relative_path, &app).await?;
+
+        if !mime_type.starts_with("audio/") {
+            return Err(Error::with(format!("invalid audio type: {mime_type}")))
+        }
+
         let mut base_dir: PublicDir = base_dir.into();
         let mut relative_path = relative_path.trim_start_matches('/').to_string();
 
-        let ps = app.android_fs_async().public_storage();
+        let api = app.android_fs_async();
+        let ps = api.public_storage();
         if base_dir == PublicAudioDir::Audiobooks.into() && !ps.is_audiobooks_dir_available()? {
             base_dir = PublicAudioDir::Music.into();
             relative_path = format!("Audiobooks/{}", relative_path)
@@ -396,7 +461,14 @@ pub async fn create_new_public_audio_file<R: tauri::Runtime>(
             relative_path = format!("Recordings/{}", relative_path)
         }
 
-        create_new_public_file_inner(volume_id, base_dir, relative_path, mime_type, request_permission, app).await
+        create_new_public_file_inner(
+            volume_id, 
+            base_dir, 
+            relative_path, 
+            Some(mime_type.as_ref()), 
+            request_permission, 
+            app
+        ).await
     }
 }
 

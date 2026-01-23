@@ -427,6 +427,18 @@
           "markdownDescription": "Denies the create_new_public_video_file command without any pre-configured scope."
         },
         {
+          "description": "Enables the get_android_api_level command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-android-api-level",
+          "markdownDescription": "Enables the get_android_api_level command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_android_api_level command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-android-api-level",
+          "markdownDescription": "Denies the get_android_api_level command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_byte_length command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-byte-length",
@@ -811,10 +823,10 @@
           "markdownDescription": "Denies the truncate_file command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `all-without-delete`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `get_android_api_level`\n- `allow-get-name`\n- `allow-get-byte-length`\n- `allow-get-type`\n- `allow-get-mime-type`\n- `allow-get-metadata`\n- `allow-get-thumbnail`\n- `allow-get-thumbnail-base64`\n- `allow-get-thumbnail-data-url`\n- `allow-get-fs-path`\n- `allow-list-volumes`\n- `allow-create-new-public-file`\n- `allow-create-new-public-image-file`\n- `allow-create-new-public-video-file`\n- `allow-create-new-public-audio-file`\n- `allow-scan-public-file`\n- `allow-request-public-files-permission`\n- `allow-has-public-files-permission`\n- `allow-create-new-file`\n- `allow-create-dir-all`\n- `allow-read-dir`\n- `allow-check-picker-uri-permission`\n- `allow-persist-picker-uri-permission`\n- `allow-check-persisted-picker-uri-permission`\n- `allow-release-persisted-picker-uri-permission`\n- `allow-release-all-persisted-picker-uri-permissions`\n- `allow-show-open-file-picker`\n- `allow-show-open-dir-picker`\n- `allow-show-save-file-picker`\n- `allow-show-share-file-dialog`\n- `allow-show-view-file-dialog`\n- `allow-show-view-dir-dialog`\n- `allow-persist-uri-permission`\n- `allow-check-persisted-uri-permission`\n- `allow-release-persisted-uri-permission`\n- `allow-release-all-persisted-uri-permissions`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `all-without-delete`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `get_android_api_level`\n- `allow-get-name`\n- `allow-get-byte-length`\n- `allow-get-type`\n- `allow-get-mime-type`\n- `allow-get-metadata`\n- `allow-get-thumbnail`\n- `allow-get-thumbnail-base64`\n- `allow-get-thumbnail-data-url`\n- `allow-get-fs-path`\n- `allow-list-volumes`\n- `allow-create-new-public-file`\n- `allow-create-new-public-image-file`\n- `allow-create-new-public-video-file`\n- `allow-create-new-public-audio-file`\n- `allow-scan-public-file`\n- `allow-request-public-files-permission`\n- `allow-has-public-files-permission`\n- `allow-create-new-file`\n- `allow-create-dir-all`\n- `allow-read-dir`\n- `allow-check-picker-uri-permission`\n- `allow-persist-picker-uri-permission`\n- `allow-check-persisted-picker-uri-permission`\n- `allow-release-persisted-picker-uri-permission`\n- `allow-release-all-persisted-picker-uri-permissions`\n- `allow-show-open-file-picker`\n- `allow-show-open-dir-picker`\n- `allow-show-save-file-picker`\n- `allow-show-share-file-dialog`\n- `allow-show-view-file-dialog`\n- `allow-show-view-dir-dialog`\n- `allow-persist-uri-permission`\n- `allow-check-persisted-uri-permission`\n- `allow-release-persisted-uri-permission`\n- `allow-release-all-persisted-uri-permissions`"
         },
         {
           "description": "An empty permission you can use to modify the global scope.\n\n## Example\n\n```json\n{\n  \"permissions\": [\n    \"android-fs:all-without-delete\",\n    {\n      \"identifier\": \"android-fs:scope\",\n      \"allow\": [\n        \"$APPDATA/documents/**/*\"\n      ],\n      \"deny\": [\n        \"$APPDATA/documents/secret.txt\"\n      ]\n    }\n  ]\n}\n```\n",

@@ -936,11 +936,50 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
                 }
             }))
     }
+
+    #[maybe_async]
+    pub fn get_mime_type_from_extension(
+        &self,
+        ext: impl AsRef<str>
+    ) -> Result<Option<String>> {
+
+        let ext = ext.as_ref()
+            .trim_start_matches('.')
+            .to_lowercase();
+
+        if let Some(mime_type) = MAP_OF_EXT_AND_MIME_TYPE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&ext) {
+
+            return Ok(mime_type.to_owned())
+        }
+
+        let mime_type = {
+            impl_se!(struct Req<'a> { extension: &'a str });
+            impl_de!(struct Res { mime_type: Option<String> });
+
+            self.invoke::<Res>("getMimeTypeFromExtension", Req { extension: &ext })
+                .await
+                .map(|res| res.mime_type)?
+        };
+
+        MAP_OF_EXT_AND_MIME_TYPE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(ext.to_string(), mime_type.to_owned());
+
+        Ok(mime_type)
+    }
 }
 
 fn_get_or_init!(get_or_init_is_legacy_storage, bool);
 fn_get_or_init!(get_or_init_const, Consts);
 fn_get_or_init!(get_or_init_private_dir_paths, PrivateDirPaths);
+
+static MAP_OF_EXT_AND_MIME_TYPE: std::sync::LazyLock<std::sync::Mutex<BoundedHashMap<String, Option<String>>>> = std::sync::LazyLock::new(
+    || std::sync::Mutex::new(BoundedHashMap::with_bound(1000))
+);
 
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]

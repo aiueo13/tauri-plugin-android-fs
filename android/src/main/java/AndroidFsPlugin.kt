@@ -212,6 +212,60 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
+    fun getMimeTypeFromExtension(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var extension: String
+        }
+
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val mimeType: String? = AFUtils.getMimeTypeOrNullFromExtension(args.extension)
+                val res = JSObject().apply {
+                    put("mimeType", mimeType)
+                }
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(res)
+                }
+            }
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error")
+                }
+            }
+        }
+    }
+
+    @Command
+    fun getExtensionFromMimeType(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var mimeType: String
+        }
+
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val extension: String? = AFUtils.getExtensionFromMimeType(args.mimeType)
+                val res = JSObject().apply {
+                    put("extension", extension)
+                }
+
+                withContext(Dispatchers.Main) {
+                    invoke.resolve(res)
+                }
+            }
+            catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    invoke.reject(e.message ?: "unknown error")
+                }
+            }
+        }
+    }
+
+    @Command
     fun isLegacyStorage(invoke: Invoke) {
         try {
             val isLegacyStorage = when {

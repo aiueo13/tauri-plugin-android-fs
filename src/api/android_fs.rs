@@ -953,6 +953,20 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         }
     }
 
+    /// Get a MIME type from the extension.
+    /// 
+    /// # Support
+    /// All Android version.
+    #[maybe_async]
+    pub fn get_mime_type_from_extension(&self, ext: impl AsRef<str>) -> Result<Option<String>> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().get_mime_type_from_extension(ext).await
+        }
+    }
+
     /// Verify whether this plugin is available.  
     /// 
     /// On Android, this returns true.  

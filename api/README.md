@@ -1,5 +1,8 @@
 Note: **I’m using a translation tool, so there may be some inappropriate expressions.**
 
+# Overview
+This plugin provides a unified file system API for all Android versions supported by Tauri.
+
 # Setup
 First, install this plugin to your Tauri project:
 
@@ -7,7 +10,7 @@ First, install this plugin to your Tauri project:
 
 ```toml
 [dependencies]
-tauri-plugin-android-fs = { version = "24.1", features = ["legacy_storage_permission"] }
+tauri-plugin-android-fs = { version = "24.2", features = ["legacy_storage_permission"] }
 ```
 
 Next, register this plugin in your Tauri project:
@@ -18,9 +21,7 @@ Next, register this plugin in your Tauri project:
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        // Add following
-        .plugin(tauri_plugin_android_fs::init())
-        //
+        .plugin(tauri_plugin_android_fs::init()) // This
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -32,7 +33,7 @@ Then, set the APIs that can be called from the Javascript:
 ```json
 {
     "permissions": [
-        "android-fs:all-without-delete"
+        "android-fs:default"
     ]
 }
 ```
@@ -47,21 +48,23 @@ npm add tauri-plugin-android-fs-api
 yarn add tauri-plugin-android-fs-api
 ```
 
+**NOTE**: Please make sure that the Rust-side `tauri-plugin-android-fs` and the JavaScript-side `tauri-plugin-android-fs-api` versions match.
+
 # Usage
 This plugin operates on files and directories via URIs rather than paths.  
 
 By using `AndroidFs.getFsPath`, you can obtain a path from a URI and use it with the functions provided by Tauri's file system, [`@tauri-apps/plugin-fs`](https://v2.tauri.app/ja/plugin/file-system/), to read and write files. For those paths, there is no need for you to set [the scope configuration of plugin-fs](https://v2.tauri.app/reference/javascript/fs/#security).
 
 ```typescript
-import { AndroidFs } from 'tauri-plugin-android-fs-api'
+import { AndroidFs, AndroidPublicGeneralPurposeDir } from 'tauri-plugin-android-fs-api';
 import { writeTextFile } from '@tauri-apps/plugin-fs';
 
 /**
  * Save the text to '~/Download/MyApp/{fileName}'
  */
 async function saveText(fileName: string, data: string): Promise<void> {
-    const baseDir = "Download";
-    const relativePath = "MyApp/" + fileName;
+    const baseDir = AndroidPublicGeneralPurposeDir.Download;
+    const relativePath = `MyApp/${fileName}`;
     const mimeType = "text/plain";
 
     const uri = await AndroidFs.createNewPublicFile(baseDir, relativePath, mimeType);
@@ -160,7 +163,7 @@ This plugin provides following APIs:
 - `AndroidFs.checkPersistedPickerUriPermission`
 - `AndroidFs.releasePersistedPickerUriPermission`
 - `AndroidFs.releaseAllPersistedPickerUriPermissions`
-- `AndoridFs.hasPublicFilesPermission`
+- `AndroidFs.hasPublicFilesPermission`
 - `AndroidFs.requestPublicFilesPermission`
 
 ### 5. APIs to send entries to other apps.
@@ -170,6 +173,7 @@ This plugin provides following APIs:
 
 ### 6. Helper
 - `isAndroid`
+- `getAndroidApiLevel`
 
 
 For simplicity, some features and detailed options of the API have been omitted. If you need them, please consider using the [`tauri-plugin-android-fs`](https://crates.io/crates/tauri-plugin-android-fs) on the Rust side.

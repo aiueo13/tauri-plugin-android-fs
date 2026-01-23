@@ -12,6 +12,7 @@ const PERMISSIONS_FOR_ANDROID_10_OR_LOWER: &'static str = r#"
 "#;
 
 const COMMANDS: &'static [&'static str] = &[
+    "get_android_api_level",
     "get_name",
     "get_byte_length",
     "get_type",

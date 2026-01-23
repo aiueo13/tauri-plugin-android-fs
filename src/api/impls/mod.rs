@@ -37,6 +37,9 @@ mod ext;
 mod raw;
 
 use serde::{de::DeserializeOwned, Serialize};
+use std::collections::{HashMap, VecDeque};
+use std::hash::Hash;
+use std::borrow::Borrow;
 use crate::*;
 use sync_async::sync_async;
 
@@ -211,4 +214,50 @@ fn upgrade_bytes_ref<B: AsRef<[u8]>>(buf: B) -> Vec<u8> {
     };
 
     buf.as_ref().to_owned()
+}
+
+struct BoundedHashMap<K, V> {
+    map: HashMap<K, V>,
+    order: VecDeque<K>,
+    bound: usize,
+}
+
+impl<K: Eq + Hash + Clone, V> BoundedHashMap<K, V> {
+
+    pub fn with_bound(bound: usize) -> Self {
+        Self {
+            map: HashMap::new(),
+            order: VecDeque::new(),
+            bound,
+        }
+    }
+
+    pub fn insert(&mut self, key: K, value: V) {
+        // キーが既にあるなら重複を避けるために一度削除
+        if self.map.contains_key(&key) {
+            self.order.retain(|k| k != &key);
+        }
+
+        self.map.insert(key.clone(), value);
+        self.order.push_back(key);
+
+        // 容量超過時、最古の要素を削除
+        if self.bound < self.map.len() {
+            if let Some(oldest_key) = self.order.pop_front() {
+                self.map.remove(&oldest_key);
+            }
+        }
+    }
+
+    pub fn get<Q>(&self, key: &Q) -> Option<&V> 
+    where 
+        Q: ?Sized + Hash + Eq,
+        K: Borrow<Q>
+    {
+        self.map.get(key)
+    }
+
+    pub fn len(&self) -> usize {
+        self.map.len()
+    }
 }
