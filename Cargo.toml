@@ -13,7 +13,7 @@ exclude = [
     "android/gradlew",
     "android/gradlew.bat",
     ".check_all_features.sh",
-    ".my-memo.md"
+    ".my_memo.md"
 ]
 build = "build.rs"
 license = "MIT OR Apache-2.0"
