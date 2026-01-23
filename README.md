@@ -13,9 +13,7 @@ Register this plugin in your Tauri project:
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        // Add following
-        .plugin(tauri_plugin_android_fs::init())
-        //
+        .plugin(tauri_plugin_android_fs::init()) // This
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -283,9 +281,6 @@ async fn example(app: tauri::AppHandle<impl tauri::Runtime>) -> Result<()> {
     Ok(())
 }
 ```
-
-# Link
-- [Changelog](https://github.com/aiueo13/tauri-plugin-android-fs/blob/main/CHANGES.md)
 
 # License
 This project is licensed under either of

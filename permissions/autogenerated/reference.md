@@ -4,7 +4,7 @@ Default permissions for the plugin
 
 #### This default permission set includes the following:
 
-- `get_android_api_level`
+- `allow-get-android-api-level`
 - `allow-get-name`
 - `allow-get-byte-length`
 - `allow-get-type`
