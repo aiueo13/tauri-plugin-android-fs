@@ -8,7 +8,7 @@ package-lock.json
 .vscode/settings.json
 yarn.lock
 .check_all_features.sh
-.my-memo.md
+.my_memo.md
 
 /.tauri
 /target
