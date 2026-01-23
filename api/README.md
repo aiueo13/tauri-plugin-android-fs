@@ -10,7 +10,7 @@ First, install this plugin to your Tauri project:
 
 ```toml
 [dependencies]
-tauri-plugin-android-fs = { version = "24.2.1", features = ["legacy_storage_permission"] }
+tauri-plugin-android-fs = { version = "=24.2.1", features = ["legacy_storage_permission"] }
 ```
 
 Next, register this plugin in your Tauri project:
@@ -40,15 +40,15 @@ Then, set the APIs that can be called from the Javascript:
 
 Finally, install the JavaScript Guest bindings using whichever JavaScript package manager you prefer:
 
-```
-pnpm add tauri-plugin-android-fs-api
+```bash
+pnpm add tauri-plugin-android-fs-api@24.2.1 -E
 # or
-npm add tauri-plugin-android-fs-api
+npm install tauri-plugin-android-fs-api@24.2.1 --save-exact
 # or
-yarn add tauri-plugin-android-fs-api
+yarn add tauri-plugin-android-fs-api@24.2.1 --exact
 ```
 
-**NOTE**: Please make sure that the Rust-side `tauri-plugin-android-fs` and the JavaScript-side `tauri-plugin-android-fs-api` versions match.
+**NOTE**: Please make sure that the Rust-side `tauri-plugin-android-fs` and the JavaScript-side `tauri-plugin-android-fs-api` versions match exactly.
 
 # Usage
 This plugin operates on files and directories via URIs rather than paths.  
