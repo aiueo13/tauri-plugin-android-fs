@@ -289,14 +289,23 @@ pub async fn list_volumes<R: tauri::Runtime>(
             is_removable: bool,
             is_stable: bool,
             is_emulated: bool,
+            is_read_only: bool,
+            is_available_for_public_files: bool,
             id: String,
         }
 
         let api = app.android_fs_async();
         let volumes = api.get_volumes().await?
             .into_iter()
-            .filter(|v| v.is_available_for_public_storage)
-            .filter(|v| !v.is_readonly)
+            .map(|mut v| {
+                v.id = StorageVolumeId { 
+                    app_data_dir_path: None, 
+                    app_cache_dir_path: None, 
+                    app_media_dir_path: None,
+                    ..v.id
+                };
+                v
+            })
             .filter_map(|v| convert_from_storage_volume_id(&v.id).map(|id| (v, id)).ok())
             .map(|(v, id)| StorageVolumeInfo {
                 description: v.description, 
@@ -304,6 +313,8 @@ pub async fn list_volumes<R: tauri::Runtime>(
                 is_removable: v.is_removable, 
                 is_stable: v.is_stable, 
                 is_emulated: v.is_emulated, 
+                is_read_only: v.is_readonly,
+                is_available_for_public_files: v.is_available_for_public_storage,
                 id
             })
         .   collect::<Vec<_>>();
@@ -319,6 +330,7 @@ async fn create_new_public_file_inner<R: tauri::Runtime>(
     relative_path: String,
     mime_type: Option<&str>,
     request_permission: bool,
+    is_pending: bool,
     app: tauri::AppHandle<R>,
 ) -> Result<FileUri> {
 
@@ -331,13 +343,23 @@ async fn create_new_public_file_inner<R: tauri::Runtime>(
     if request_permission {
         api.public_storage().request_permission().await?;
     }
-    
-    api.public_storage().create_new_file(
-        volume_id.as_ref(),
-        base_dir,
-        relative_path.trim_start_matches('/'),
-        mime_type
-    ).await
+
+    if is_pending {
+        api.public_storage().create_new_file_with_pending(
+            volume_id.as_ref(),
+            base_dir,
+            relative_path.trim_start_matches('/'),
+            mime_type,
+        ).await
+    }
+    else {
+        api.public_storage().create_new_file(
+            volume_id.as_ref(),
+            base_dir,
+            relative_path.trim_start_matches('/'),
+            mime_type,
+        ).await
+    }
 }
 
 #[tauri::command]
@@ -347,6 +369,7 @@ pub async fn create_new_public_file<R: tauri::Runtime>(
     relative_path: String,
     mime_type: Option<String>,
     request_permission: bool,
+    is_pending: bool,
     app: tauri::AppHandle<R>,
 ) -> Result<FileUri> {
 
@@ -360,6 +383,7 @@ pub async fn create_new_public_file<R: tauri::Runtime>(
             relative_path,
             mime_type.as_deref(),
             request_permission,
+            is_pending,
             app
         ).await
     }
@@ -372,6 +396,7 @@ pub async fn create_new_public_image_file<R: tauri::Runtime>(
     relative_path: String,
     mime_type: Option<String>,
     request_permission: bool,
+    is_pending: bool,
     app: tauri::AppHandle<R>,
 ) -> Result<FileUri> {
 
@@ -391,6 +416,7 @@ pub async fn create_new_public_image_file<R: tauri::Runtime>(
             relative_path,
             Some(mime_type.as_ref()),
             request_permission,
+            is_pending,
             app
         ).await
     }
@@ -403,6 +429,7 @@ pub async fn create_new_public_video_file<R: tauri::Runtime>(
     relative_path: String,
     mime_type: Option<String>,
     request_permission: bool,
+    is_pending: bool,
     app: tauri::AppHandle<R>,
 ) -> Result<FileUri> {
 
@@ -422,6 +449,7 @@ pub async fn create_new_public_video_file<R: tauri::Runtime>(
             relative_path,
             Some(mime_type.as_ref()),
             request_permission,
+            is_pending,
             app
         ).await
     }
@@ -434,6 +462,7 @@ pub async fn create_new_public_audio_file<R: tauri::Runtime>(
     relative_path: String,
     mime_type: Option<String>,
     request_permission: bool,
+    is_pending: bool,
     app: tauri::AppHandle<R>,
 ) -> Result<FileUri> {
 
@@ -467,6 +496,7 @@ pub async fn create_new_public_audio_file<R: tauri::Runtime>(
             relative_path, 
             Some(mime_type.as_ref()), 
             request_permission, 
+            is_pending,
             app
         ).await
     }
@@ -486,6 +516,25 @@ pub async fn scan_public_file<R: tauri::Runtime>(
 
         let api = app.android_fs_async();
         api.public_storage().scan(&uri).await?;
+        Ok(())
+    }
+}
+
+#[tauri::command]
+pub async fn set_public_file_pending<R: tauri::Runtime>(
+    uri: FileUri,
+    is_pending: bool,
+    app: tauri::AppHandle<R>,
+) -> Result<()> {
+
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        uri.require_content_scheme()?;
+
+        let api = app.android_fs_async();
+        api.public_storage().set_pending(&uri, is_pending).await?;
         Ok(())
     }
 }
@@ -765,75 +814,6 @@ pub async fn remove_dir_all<R: tauri::Runtime>(
 }
 
 #[tauri::command]
-pub async fn persist_uri_permission<R: tauri::Runtime>(
-    uri: FileUri,
-    app: tauri::AppHandle<R>,
-) -> Result<()> {
-
-    #[cfg(not(target_os = "android"))] {
-        Err(Error::NOT_ANDROID)
-    }
-    #[cfg(target_os = "android")] {
-        uri.require_content_scheme()?;
-
-        let api = app.android_fs_async();
-        api.file_picker().persist_uri_permission(&uri).await?;
-        Ok(())
-    }
-}
-
-#[tauri::command]
-pub async fn check_persisted_uri_permission<R: tauri::Runtime>(
-    uri: FileUri,
-    app: tauri::AppHandle<R>,
-    state: UriPermission
-) -> Result<bool> {
-
-    #[cfg(not(target_os = "android"))] {
-        Err(Error::NOT_ANDROID)
-    }
-    #[cfg(target_os = "android")] {
-        uri.require_content_scheme()?;
-
-        let api = app.android_fs_async();
-        api.file_picker().check_persisted_uri_permission(&uri, state).await
-    }
-}
-
-#[tauri::command]
-pub async fn release_persisted_uri_permission<R: tauri::Runtime>(
-    uri: FileUri,
-    app: tauri::AppHandle<R>,
-) -> Result<()> {
-
-    #[cfg(not(target_os = "android"))] {
-        Err(Error::NOT_ANDROID)
-    }
-    #[cfg(target_os = "android")] {
-        uri.require_content_scheme()?;
-
-        let api = app.android_fs_async();
-        api.file_picker().release_persisted_uri_permission(&uri).await?;
-        Ok(())
-    }
-}
-
-#[tauri::command]
-pub async fn release_all_persisted_uri_permissions<R: tauri::Runtime>(
-    app: tauri::AppHandle<R>,
-) -> Result<()> {
-
-    #[cfg(not(target_os = "android"))] {
-        Err(Error::NOT_ANDROID)
-    }
-    #[cfg(target_os = "android")] {
-        let api = app.android_fs_async();
-        api.file_picker().release_all_persisted_uri_permissions().await?;
-        Ok(())
-    }
-}
-
-#[tauri::command]
 pub async fn check_picker_uri_permission<R: tauri::Runtime>(
     uri: FileUri,
     app: tauri::AppHandle<R>,
@@ -982,6 +962,7 @@ pub async fn show_open_file_picker<R: tauri::Runtime>(
     mime_types: Vec<String>,
     need_write_permission: bool,
     local_only: bool,
+    initial_location: Option<PickerInitialLocation>,
     app: tauri::AppHandle<R>
 ) -> Result<Vec<FileUri>> {
 
@@ -989,6 +970,12 @@ pub async fn show_open_file_picker<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
+        let initial_location = match initial_location {
+            Some(initial_location) => Some(resolve_picker_initial_location(initial_location, &app).await?),
+            None => None
+        };
+        let initial_location = initial_location.filter(|i| i.is_content_scheme());
+
         let target_is_single = mime_types.len() == 1;
         let (
             target_is_only_image,
@@ -1009,6 +996,7 @@ pub async fn show_open_file_picker<R: tauri::Runtime>(
 
         let picker_type = match picker_type {
             _ if need_write_permission => FilePickerType::FilePicker,
+            _ if initial_location.is_some() => FilePickerType::FilePicker,
             Some(picker_type) => picker_type,
             _ if target_is_single && target_is_only_image_or_video => FilePickerType::Gallery,
             _ if target_is_only_image && target_include_all_image => FilePickerType::Gallery,
@@ -1027,7 +1015,11 @@ pub async fn show_open_file_picker<R: tauri::Runtime>(
                     api.file_picker().pick_files(None, &mime_types, local_only).await
                 }
                 else {
-                    let file = api.file_picker().pick_file(None, &mime_types, local_only).await?;
+                    let file = api.file_picker().pick_file(
+                        initial_location.as_ref(), 
+                        &mime_types, 
+                        local_only
+                    ).await?;
                     let files = file.map(|f| vec![f]).unwrap_or_else(|| Vec::new());
                     Ok(files)
                 }
@@ -1063,6 +1055,7 @@ pub async fn show_open_file_picker<R: tauri::Runtime>(
 #[tauri::command]
 pub async fn show_open_dir_picker<R: tauri::Runtime>(
     local_only: bool,
+    initial_location: Option<PickerInitialLocation>,
     app: tauri::AppHandle<R>
 ) -> Result<Option<FileUri>> {
 
@@ -1071,7 +1064,13 @@ pub async fn show_open_dir_picker<R: tauri::Runtime>(
     }
     #[cfg(target_os = "android")] {
         let api = app.android_fs_async();
-        api.file_picker().pick_dir(None, local_only).await
+        let initial_location = match initial_location {
+            Some(initial_location) => Some(resolve_picker_initial_location(initial_location, &app).await?),
+            None => None
+        };
+        let initial_location = initial_location.filter(|i| i.is_content_scheme());
+
+        api.file_picker().pick_dir(initial_location.as_ref(), local_only).await
     }
 }
 
@@ -1080,6 +1079,7 @@ pub async fn show_save_file_picker<R: tauri::Runtime>(
     default_file_name: String,
     mime_type: Option<String>,
     local_only: bool,
+    initial_location: Option<PickerInitialLocation>,
     app: tauri::AppHandle<R>
 ) -> Result<Option<FileUri>> {
 
@@ -1088,6 +1088,17 @@ pub async fn show_save_file_picker<R: tauri::Runtime>(
     }
     #[cfg(target_os = "android")] {
         let api = app.android_fs_async();
-        api.file_picker().save_file(None, &default_file_name, mime_type.as_deref(), local_only).await
+        let initial_location = match initial_location {
+            Some(initial_location) => Some(resolve_picker_initial_location(initial_location, &app).await?),
+            None => None
+        };
+        let initial_location = initial_location.filter(|i| i.is_content_scheme());
+
+        api.file_picker().save_file(
+            initial_location.as_ref(), 
+            &default_file_name, 
+            mime_type.as_deref(), 
+            local_only
+        ).await
     }
 }

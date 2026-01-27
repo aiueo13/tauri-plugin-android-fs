@@ -1,15 +1,8 @@
 package com.plugin.android_fs
 
 import android.app.Activity
-import android.content.ContentValues
 import android.net.Uri
 import android.provider.MediaStore
-import androidx.core.database.getStringOrNull
-import android.graphics.Bitmap
-import android.os.Build
-import android.provider.DocumentsContract
-import android.provider.MediaStore.PickerMediaColumns
-import android.util.Size
 import androidx.core.database.getLongOrNull
 import app.tauri.plugin.JSArray
 import app.tauri.plugin.JSObject
@@ -17,15 +10,15 @@ import app.tauri.plugin.JSObject
 class MediaFileController(private val activity: Activity): FileController {
 
     // フォルダが指定されることは想定していない
-    override fun getMimeType(uri: FileUri): String {
+    override fun getMimeType(uri: AFUri): String {
         return AFMediaStore.getMimeType(uri, activity)
     }
 
-    override fun getName(uri: FileUri): String {
+    override fun getName(uri: AFUri): String {
         return AFMediaStore.getDisplayName(uri, activity)
     }
 
-    override fun getLen(uri: FileUri): Long {
+    override fun getLen(uri: AFUri): Long {
         val cursor = activity.contentResolver.query(
             Uri.parse(uri.uri),
             arrayOf(MediaStore.MediaColumns.SIZE),
@@ -45,11 +38,11 @@ class MediaFileController(private val activity: Activity): FileController {
         throw Exception("No permission or entry: $uri")
     }
 
-    override fun deleteFile(uri: FileUri) {
+    override fun deleteFile(uri: AFUri) {
         AFMediaStore.delete(uri, activity)
     }
 
-    override fun getMetadata(uri: FileUri): JSObject {
+    override fun getMetadata(uri: AFUri): JSObject {
         val cursor = activity.contentResolver.query(
             Uri.parse(uri.uri),
             arrayOf(
@@ -96,7 +89,7 @@ class MediaFileController(private val activity: Activity): FileController {
         throw Exception("No permission or entry: $uri")
     }
 
-    override fun rename(uri: FileUri, newName: String): JSObject {
+    override fun rename(uri: AFUri, newName: String): JSObject {
         AFMediaStore.rename(uri, newName, activity)
 
         val res = JSObject()
@@ -105,31 +98,31 @@ class MediaFileController(private val activity: Activity): FileController {
         return res
     }
 
-    override fun createFile(dirUri: FileUri, relativePath: String, mimeType: String): JSObject {
+    override fun createFile(dirUri: AFUri, relativePath: String, mimeType: String): JSObject {
         throw Exception("Unsupported operation for ${dirUri.uri}")
     }
 
-    override fun createFileAndReturnRelativePath(dirUri: FileUri, relativePath: String, mimeType: String): JSObject {
+    override fun createFileAndReturnRelativePath(dirUri: AFUri, relativePath: String, mimeType: String): JSObject {
         throw Exception("Unsupported operation for ${dirUri.uri}")
     }
 
-    override fun createDirAll(dirUri: FileUri, relativePath: String): JSObject {
+    override fun createDirAll(dirUri: AFUri, relativePath: String): JSObject {
         throw Exception("Unsupported operation for ${dirUri.uri}")
     }
 
-    override fun createDirAllAndReturnRelativePath(dirUri: FileUri, relativePath: String): JSObject {
+    override fun createDirAllAndReturnRelativePath(dirUri: AFUri, relativePath: String): JSObject {
         throw Exception("Unsupported operation for ${dirUri.uri}")
     }
 
-    override fun deleteEmptyDir(uri: FileUri) {
+    override fun deleteEmptyDir(uri: AFUri) {
         throw Exception("Unsupported operation for ${uri.uri}")
     }
 
-    override fun deleteDirAll(uri: FileUri) {
+    override fun deleteDirAll(uri: AFUri) {
         throw Exception("Unsupported operation for ${uri.uri}")
     }
 
-    override fun readDir(dirUri: FileUri, options: ReadDirEntryOptions): JSArray {
+    override fun readDir(dirUri: AFUri, options: ReadDirEntryOptions): JSArray {
         throw Exception("Unsupported operation for ${dirUri.uri}")
     }
 }

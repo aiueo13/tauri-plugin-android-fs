@@ -30,6 +30,40 @@ pub async fn resolve_mime_type<'a, R: tauri::Runtime>(
 }
 
 #[cfg(target_os = "android")]
+pub async fn resolve_picker_initial_location<R: tauri::Runtime>(
+    initial_location: PickerInitialLocation,
+    app: &tauri::AppHandle<R>,
+) -> Result<FileUri> {
+
+    let api = app.android_fs_async();
+    let map_volume_id = |id: Option<&str>| -> Result<Option<StorageVolumeId>> {
+        match id {
+            Some(v) => Ok(Some(convert_to_storage_volume_id(v)?)),
+            None => Ok(None),
+        }
+    };
+
+    match initial_location {
+        PickerInitialLocation::Any { uri } => {
+            Ok(uri)
+        },
+        PickerInitialLocation::VolumeTop { volume_id } => {
+            api.resolve_root_initial_location(
+                map_volume_id(volume_id.as_deref())?.as_ref()
+            ).await
+        },
+        PickerInitialLocation::PublicDir { base_dir, relative_path, volume_id } => {
+            api.public_storage().resolve_initial_location(
+                map_volume_id(volume_id.as_deref())?.as_ref(), 
+                base_dir, 
+                relative_path.as_deref().unwrap_or(""), 
+                true,
+            ).await
+        },
+    }
+}
+
+#[cfg(target_os = "android")]
 pub fn convert_to_thumbnail_preferred_size(w: f64, h: f64) -> Result<Size> {
     if !w.is_finite() || !h.is_finite() {
         return Err(Error::with("non-finite width or height"));
@@ -73,6 +107,28 @@ pub fn convert_time_to_f64_millis(time: std::time::SystemTime) -> Result<f64> {
         .unwrap_or(std::time::Duration::ZERO);
 
     Ok(duration.as_millis() as f64)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum PickerInitialLocation {
+    Any {
+        uri: FileUri,
+    },
+    VolumeTop {
+        #[serde(rename = "volumeId")]
+        volume_id: Option<String>,
+    },
+    PublicDir {
+        #[serde(rename = "baseDir")]
+        base_dir: PublicDir,
+
+        #[serde(rename = "relativePath")]
+        relative_path: Option<String>,
+
+        #[serde(rename = "volumeId")]
+        volume_id: Option<String>,
+    },
 }
 
 #[derive(Deserialize, Serialize, PartialEq, Eq, Clone, Copy)]

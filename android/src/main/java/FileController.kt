@@ -1,34 +1,33 @@
 package com.plugin.android_fs
 
-import android.graphics.Bitmap
 import app.tauri.plugin.JSArray
 import app.tauri.plugin.JSObject
 
 interface FileController {
 
-    fun getMimeType(uri: FileUri): String?
+    fun getMimeType(uri: AFUri): String?
 
-    fun getName(uri: FileUri): String
+    fun getName(uri: AFUri): String
 
-    fun getLen(uri: FileUri): Long
+    fun getLen(uri: AFUri): Long
 
-    fun readDir(dirUri: FileUri, options: ReadDirEntryOptions): JSArray
+    fun readDir(dirUri: AFUri, options: ReadDirEntryOptions): JSArray
 
-    fun getMetadata(uri: FileUri): JSObject
+    fun getMetadata(uri: AFUri): JSObject
 
-    fun createFile(dirUri: FileUri, relativePath: String, mimeType: String): JSObject
+    fun createFile(dirUri: AFUri, relativePath: String, mimeType: String): JSObject
 
-    fun createFileAndReturnRelativePath(dirUri: FileUri, relativePath: String, mimeType: String): JSObject
+    fun createFileAndReturnRelativePath(dirUri: AFUri, relativePath: String, mimeType: String): JSObject
 
-    fun createDirAll(dirUri: FileUri, relativePath: String): JSObject
+    fun createDirAll(dirUri: AFUri, relativePath: String): JSObject
 
-    fun createDirAllAndReturnRelativePath(dirUri: FileUri, relativePath: String): JSObject
+    fun createDirAllAndReturnRelativePath(dirUri: AFUri, relativePath: String): JSObject
 
-    fun deleteFile(uri: FileUri)
+    fun deleteFile(uri: AFUri)
 
-    fun deleteEmptyDir(uri: FileUri)
+    fun deleteEmptyDir(uri: AFUri)
 
-    fun deleteDirAll(uri: FileUri)
+    fun deleteDirAll(uri: AFUri)
 
-    fun rename(uri: FileUri, newName: String): JSObject
+    fun rename(uri: AFUri, newName: String): JSObject
 }

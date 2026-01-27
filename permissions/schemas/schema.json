@@ -319,18 +319,6 @@
           "markdownDescription": "Denies the check_persisted_picker_uri_permission command without any pre-configured scope."
         },
         {
-          "description": "Enables the check_persisted_uri_permission command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-check-persisted-uri-permission",
-          "markdownDescription": "Enables the check_persisted_uri_permission command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the check_persisted_uri_permission command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-check-persisted-uri-permission",
-          "markdownDescription": "Denies the check_persisted_uri_permission command without any pre-configured scope."
-        },
-        {
           "description": "Enables the check_picker_uri_permission command without any pre-configured scope.",
           "type": "string",
           "const": "allow-check-picker-uri-permission",
@@ -583,18 +571,6 @@
           "markdownDescription": "Denies the persist_picker_uri_permission command without any pre-configured scope."
         },
         {
-          "description": "Enables the persist_uri_permission command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-persist-uri-permission",
-          "markdownDescription": "Enables the persist_uri_permission command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the persist_uri_permission command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-persist-uri-permission",
-          "markdownDescription": "Denies the persist_uri_permission command without any pre-configured scope."
-        },
-        {
           "description": "Enables the read_dir command without any pre-configured scope.",
           "type": "string",
           "const": "allow-read-dir",
@@ -619,18 +595,6 @@
           "markdownDescription": "Denies the release_all_persisted_picker_uri_permissions command without any pre-configured scope."
         },
         {
-          "description": "Enables the release_all_persisted_uri_permissions command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-release-all-persisted-uri-permissions",
-          "markdownDescription": "Enables the release_all_persisted_uri_permissions command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the release_all_persisted_uri_permissions command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-release-all-persisted-uri-permissions",
-          "markdownDescription": "Denies the release_all_persisted_uri_permissions command without any pre-configured scope."
-        },
-        {
           "description": "Enables the release_persisted_picker_uri_permission command without any pre-configured scope.",
           "type": "string",
           "const": "allow-release-persisted-picker-uri-permission",
@@ -641,18 +605,6 @@
           "type": "string",
           "const": "deny-release-persisted-picker-uri-permission",
           "markdownDescription": "Denies the release_persisted_picker_uri_permission command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the release_persisted_uri_permission command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-release-persisted-uri-permission",
-          "markdownDescription": "Enables the release_persisted_uri_permission command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the release_persisted_uri_permission command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-release-persisted-uri-permission",
-          "markdownDescription": "Denies the release_persisted_uri_permission command without any pre-configured scope."
         },
         {
           "description": "Enables the remove_dir_all command without any pre-configured scope.",
@@ -739,6 +691,18 @@
           "markdownDescription": "Denies the scan_public_file command without any pre-configured scope."
         },
         {
+          "description": "Enables the set_public_file_pending command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-public-file-pending",
+          "markdownDescription": "Enables the set_public_file_pending command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_public_file_pending command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-public-file-pending",
+          "markdownDescription": "Denies the set_public_file_pending command without any pre-configured scope."
+        },
+        {
           "description": "Enables the show_open_dir_picker command without any pre-configured scope.",
           "type": "string",
           "const": "allow-show-open-dir-picker",
@@ -823,10 +787,10 @@
           "markdownDescription": "Denies the truncate_file command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-android-api-level`\n- `allow-get-name`\n- `allow-get-byte-length`\n- `allow-get-type`\n- `allow-get-mime-type`\n- `allow-get-metadata`\n- `allow-get-thumbnail`\n- `allow-get-thumbnail-base64`\n- `allow-get-thumbnail-data-url`\n- `allow-get-fs-path`\n- `allow-list-volumes`\n- `allow-create-new-public-file`\n- `allow-create-new-public-image-file`\n- `allow-create-new-public-video-file`\n- `allow-create-new-public-audio-file`\n- `allow-scan-public-file`\n- `allow-request-public-files-permission`\n- `allow-has-public-files-permission`\n- `allow-create-new-file`\n- `allow-create-dir-all`\n- `allow-read-dir`\n- `allow-check-picker-uri-permission`\n- `allow-persist-picker-uri-permission`\n- `allow-check-persisted-picker-uri-permission`\n- `allow-release-persisted-picker-uri-permission`\n- `allow-release-all-persisted-picker-uri-permissions`\n- `allow-show-open-file-picker`\n- `allow-show-open-dir-picker`\n- `allow-show-save-file-picker`\n- `allow-show-share-file-dialog`\n- `allow-show-view-file-dialog`\n- `allow-show-view-dir-dialog`\n- `allow-persist-uri-permission`\n- `allow-check-persisted-uri-permission`\n- `allow-release-persisted-uri-permission`\n- `allow-release-all-persisted-uri-permissions`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-android-api-level`\n- `allow-get-name`\n- `allow-get-byte-length`\n- `allow-get-type`\n- `allow-get-mime-type`\n- `allow-get-metadata`\n- `allow-get-thumbnail`\n- `allow-get-thumbnail-base64`\n- `allow-get-thumbnail-data-url`\n- `allow-get-fs-path`\n- `allow-list-volumes`\n- `allow-create-new-public-file`\n- `allow-create-new-public-image-file`\n- `allow-create-new-public-video-file`\n- `allow-create-new-public-audio-file`\n- `allow-scan-public-file`\n- `allow-set-public-file-pending`\n- `allow-request-public-files-permission`\n- `allow-has-public-files-permission`\n- `allow-create-new-file`\n- `allow-create-dir-all`\n- `allow-read-dir`\n- `allow-check-picker-uri-permission`\n- `allow-persist-picker-uri-permission`\n- `allow-check-persisted-picker-uri-permission`\n- `allow-release-persisted-picker-uri-permission`\n- `allow-release-all-persisted-picker-uri-permissions`\n- `allow-show-open-file-picker`\n- `allow-show-open-dir-picker`\n- `allow-show-save-file-picker`\n- `allow-show-share-file-dialog`\n- `allow-show-view-file-dialog`\n- `allow-show-view-dir-dialog`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-android-api-level`\n- `allow-get-name`\n- `allow-get-byte-length`\n- `allow-get-type`\n- `allow-get-mime-type`\n- `allow-get-metadata`\n- `allow-get-thumbnail`\n- `allow-get-thumbnail-base64`\n- `allow-get-thumbnail-data-url`\n- `allow-get-fs-path`\n- `allow-list-volumes`\n- `allow-create-new-public-file`\n- `allow-create-new-public-image-file`\n- `allow-create-new-public-video-file`\n- `allow-create-new-public-audio-file`\n- `allow-scan-public-file`\n- `allow-request-public-files-permission`\n- `allow-has-public-files-permission`\n- `allow-create-new-file`\n- `allow-create-dir-all`\n- `allow-read-dir`\n- `allow-check-picker-uri-permission`\n- `allow-persist-picker-uri-permission`\n- `allow-check-persisted-picker-uri-permission`\n- `allow-release-persisted-picker-uri-permission`\n- `allow-release-all-persisted-picker-uri-permissions`\n- `allow-show-open-file-picker`\n- `allow-show-open-dir-picker`\n- `allow-show-save-file-picker`\n- `allow-show-share-file-dialog`\n- `allow-show-view-file-dialog`\n- `allow-show-view-dir-dialog`\n- `allow-persist-uri-permission`\n- `allow-check-persisted-uri-permission`\n- `allow-release-persisted-uri-permission`\n- `allow-release-all-persisted-uri-permissions`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-android-api-level`\n- `allow-get-name`\n- `allow-get-byte-length`\n- `allow-get-type`\n- `allow-get-mime-type`\n- `allow-get-metadata`\n- `allow-get-thumbnail`\n- `allow-get-thumbnail-base64`\n- `allow-get-thumbnail-data-url`\n- `allow-get-fs-path`\n- `allow-list-volumes`\n- `allow-create-new-public-file`\n- `allow-create-new-public-image-file`\n- `allow-create-new-public-video-file`\n- `allow-create-new-public-audio-file`\n- `allow-scan-public-file`\n- `allow-set-public-file-pending`\n- `allow-request-public-files-permission`\n- `allow-has-public-files-permission`\n- `allow-create-new-file`\n- `allow-create-dir-all`\n- `allow-read-dir`\n- `allow-check-picker-uri-permission`\n- `allow-persist-picker-uri-permission`\n- `allow-check-persisted-picker-uri-permission`\n- `allow-release-persisted-picker-uri-permission`\n- `allow-release-all-persisted-picker-uri-permissions`\n- `allow-show-open-file-picker`\n- `allow-show-open-dir-picker`\n- `allow-show-save-file-picker`\n- `allow-show-share-file-dialog`\n- `allow-show-view-file-dialog`\n- `allow-show-view-dir-dialog`"
         },
         {
           "description": "An empty permission you can use to modify the global scope.\n\n## Example\n\n```json\n{\n  \"permissions\": [\n    \"android-fs:all-without-delete\",\n    {\n      \"identifier\": \"android-fs:scope\",\n      \"allow\": [\n        \"$APPDATA/documents/**/*\"\n      ],\n      \"deny\": [\n        \"$APPDATA/documents/secret.txt\"\n      ]\n    }\n  ]\n}\n```\n",

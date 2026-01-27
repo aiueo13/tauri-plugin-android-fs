@@ -133,7 +133,7 @@ async fn dir_picker_example(app: &tauri::AppHandle<impl tauri::Runtime>) -> Resu
 
     if let Some(dir_uri) = selected {
         // Persist access permission across app/device restarts.
-        api.take_persistable_uri_permission(&dir_uri).await?;
+        api.file_picker().persist_uri_permission(&dir_uri).await?;
         
         // Read the directory
         for entry in api.read_dir(&dir_uri).await? {

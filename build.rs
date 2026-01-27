@@ -28,6 +28,7 @@ const COMMANDS: &'static [&'static str] = &[
     "create_new_public_video_file",
     "create_new_public_audio_file",
     "scan_public_file",
+    "set_public_file_pending",
     "request_public_files_permission",
     "has_public_files_permission",
     "create_new_file",
@@ -51,11 +52,6 @@ const COMMANDS: &'static [&'static str] = &[
     "show_share_file_dialog",
     "show_view_file_dialog",
     "show_view_dir_dialog",
-
-    "persist_uri_permission",
-    "check_persisted_uri_permission",
-    "release_persisted_uri_permission",
-    "release_all_persisted_uri_permissions",
 ];
 
 fn main() {

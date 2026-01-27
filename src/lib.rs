@@ -74,6 +74,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             cmds::create_new_public_video_file,
             cmds::create_new_public_audio_file,
             cmds::scan_public_file,
+            cmds::set_public_file_pending,
             cmds::request_public_files_permission,
             cmds::has_public_files_permission,
             cmds::create_new_file,
@@ -97,12 +98,6 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             cmds::show_share_file_dialog,
             cmds::show_view_file_dialog,
             cmds::show_view_dir_dialog,
-
-            /* deprecacted */
-            cmds::persist_uri_permission,
-            cmds::check_persisted_uri_permission,
-            cmds::release_persisted_uri_permission,
-            cmds::release_all_persisted_uri_permissions,
         ])
         .build()
 }

@@ -1,26 +1,22 @@
 package com.plugin.android_fs
 
 import android.net.Uri
-import android.graphics.Bitmap
 import android.webkit.MimeTypeMap
-import android.util.Size
-import android.media.ThumbnailUtils
-import android.os.Build
 import app.tauri.plugin.JSArray
 import app.tauri.plugin.JSObject
 import java.io.File
 
 class RawFileController: FileController {
 
-    override fun getMimeType(uri: FileUri): String? {
+    override fun getMimeType(uri: AFUri): String? {
         return _getMimeType(File(Uri.parse(uri.uri).path!!))
     }
 
-    override fun getName(uri: FileUri): String {
+    override fun getName(uri: AFUri): String {
         return File(Uri.parse(uri.uri).path!!).name
     }
 
-    override fun getLen(uri: FileUri): Long {
+    override fun getLen(uri: AFUri): Long {
         val entry = File(Uri.parse(uri.uri).path!!)
         if (!entry.isFile) {
             throw Exception("This is not a file: ${entry.path}")
@@ -28,7 +24,7 @@ class RawFileController: FileController {
         return entry.length()
     }
 
-    override fun readDir(dirUri: FileUri, options: ReadDirEntryOptions): JSArray {
+    override fun readDir(dirUri: AFUri, options: ReadDirEntryOptions): JSArray {
         val dir = File(Uri.parse(dirUri.uri).path!!)
         val buffer = JSArray()
 
@@ -60,7 +56,7 @@ class RawFileController: FileController {
         return buffer
     }
 
-    override fun getMetadata(uri: FileUri): JSObject {
+    override fun getMetadata(uri: AFUri): JSObject {
         val file = File(Uri.parse(uri.uri).path!!)
         val obj = JSObject()
         obj.put("uri", JSObject().apply {
@@ -81,7 +77,7 @@ class RawFileController: FileController {
 
     // この関数が返すUriは他のアプリに共有できない
     @Synchronized
-    override fun createFile(dirUri: FileUri, relativePath: String, mimeType: String): JSObject {
+    override fun createFile(dirUri: AFUri, relativePath: String, mimeType: String): JSObject {
         val dir = File(Uri.parse(dirUri.uri).path!!)
         val baseFile = File(dir.path + "/" + relativePath.trimStart('/'))
         val fileName = baseFile.nameWithoutExtension
@@ -112,7 +108,7 @@ class RawFileController: FileController {
 
     @Synchronized
     override fun createFileAndReturnRelativePath(
-        dirUri: FileUri,
+        dirUri: AFUri,
         relativePath: String,
         mimeType: String
     ): JSObject {
@@ -151,7 +147,7 @@ class RawFileController: FileController {
     }
 
     @Synchronized
-    override fun createDirAll(dirUri: FileUri, relativePath: String): JSObject {
+    override fun createDirAll(dirUri: AFUri, relativePath: String): JSObject {
         val parentPath = Uri.parse(dirUri.uri).path!!.trimEnd('/')
         val dir = File(parentPath + "/" + relativePath.trimStart('/'))
         dir.mkdirs()
@@ -163,7 +159,7 @@ class RawFileController: FileController {
     }
 
     @Synchronized
-    override fun createDirAllAndReturnRelativePath(dirUri: FileUri, relativePath: String): JSObject {
+    override fun createDirAllAndReturnRelativePath(dirUri: AFUri, relativePath: String): JSObject {
         val parentPath = Uri.parse(dirUri.uri).path!!.trimEnd('/')
         val dir = File(parentPath + "/" + relativePath.trimStart('/'))
         dir.mkdirs()
@@ -177,7 +173,7 @@ class RawFileController: FileController {
         }
     }
 
-    override fun deleteFile(uri: FileUri) {
+    override fun deleteFile(uri: AFUri) {
         val file = File(Uri.parse(uri.uri).path!!)
         if (!file.isFile) {
             throw Exception("This is not file: ${uri.uri}")
@@ -187,7 +183,7 @@ class RawFileController: FileController {
         }
     }
 
-    override fun deleteEmptyDir(uri: FileUri) {
+    override fun deleteEmptyDir(uri: AFUri) {
         val file = File(Uri.parse(uri.uri).path!!)
         if (!file.isDirectory) {
             throw Exception("This is not dir: ${uri.uri}")
@@ -197,7 +193,7 @@ class RawFileController: FileController {
         }
     }
 
-    override fun deleteDirAll(uri: FileUri) {
+    override fun deleteDirAll(uri: AFUri) {
         val file = File(Uri.parse(uri.uri).path!!)
         if (!file.isDirectory) {
             throw Exception("This is not dir: ${uri.uri}")
@@ -208,7 +204,7 @@ class RawFileController: FileController {
         }
     }
 
-    override fun rename(uri: FileUri, newName: String): JSObject {
+    override fun rename(uri: AFUri, newName: String): JSObject {
         val file = File(Uri.parse(uri.uri).path!!)
         val newFile = File(file.parentFile, newName)
 

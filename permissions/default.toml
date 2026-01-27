@@ -17,6 +17,7 @@ permissions = [
     "allow-create-new-public-video-file",
     "allow-create-new-public-audio-file",
     "allow-scan-public-file",
+    "allow-set-public-file-pending",
     "allow-request-public-files-permission",
     "allow-has-public-files-permission",
     "allow-create-new-file",
@@ -33,9 +34,4 @@ permissions = [
     "allow-show-share-file-dialog",
     "allow-show-view-file-dialog",
     "allow-show-view-dir-dialog",
-
-    "allow-persist-uri-permission",
-    "allow-check-persisted-uri-permission",
-    "allow-release-persisted-uri-permission",
-    "allow-release-all-persisted-uri-permissions",
 ]

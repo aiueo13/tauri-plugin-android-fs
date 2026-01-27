@@ -11,7 +11,7 @@ import app.tauri.plugin.JSObject
 
 class DocumentFileController(private val activity: Activity): FileController {
 
-    override fun getMimeType(uri: FileUri): String? {
+    override fun getMimeType(uri: AFUri): String? {
         activity.contentResolver.query(
             Uri.parse(uri.uri),
             arrayOf(DocumentsContract.Document.COLUMN_MIME_TYPE),
@@ -33,7 +33,7 @@ class DocumentFileController(private val activity: Activity): FileController {
         throw Exception("Failed to find entry: ${uri.uri}")
     }
 
-    override fun getName(uri: FileUri): String {
+    override fun getName(uri: AFUri): String {
         activity.contentResolver.query(
             Uri.parse(uri.uri),
             arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME),
@@ -50,7 +50,7 @@ class DocumentFileController(private val activity: Activity): FileController {
         throw Exception("No permission or entry: ${uri.uri}")
     }
 
-    override fun getLen(uri: FileUri): Long {
+    override fun getLen(uri: AFUri): Long {
         activity.contentResolver.query(
             Uri.parse(uri.uri),
             arrayOf(
@@ -76,7 +76,7 @@ class DocumentFileController(private val activity: Activity): FileController {
         throw Exception("No permission or file: ${uri.uri}")
     }
 
-    override fun readDir(dirUri: FileUri, options: ReadDirEntryOptions): JSArray {
+    override fun readDir(dirUri: AFUri, options: ReadDirEntryOptions): JSArray {
         val queryTarget = mutableListOf(DocumentsContract.Document.COLUMN_MIME_TYPE)
         if (options.uri) {
             queryTarget.add(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
@@ -146,7 +146,7 @@ class DocumentFileController(private val activity: Activity): FileController {
         return buffer
     }
 
-    override fun getMetadata(uri: FileUri): JSObject {
+    override fun getMetadata(uri: AFUri): JSObject {
         val cursor = activity.contentResolver.query(
             Uri.parse(uri.uri),
             arrayOf(
@@ -190,7 +190,7 @@ class DocumentFileController(private val activity: Activity): FileController {
     }
 
     @Synchronized
-    override fun createFile(dirUri: FileUri, relativePath: String, mimeType: String): JSObject {
+    override fun createFile(dirUri: AFUri, relativePath: String, mimeType: String): JSObject {
         if (relativePath.endsWith('/')) {
             throw Exception("Illegal file path format, ends with '/'. $relativePath")
         }
@@ -218,7 +218,7 @@ class DocumentFileController(private val activity: Activity): FileController {
     }
 
     @Synchronized
-    override fun createFileAndReturnRelativePath(dirUri: FileUri, relativePath: String, mimeType: String): JSObject {
+    override fun createFileAndReturnRelativePath(dirUri: AFUri, relativePath: String, mimeType: String): JSObject {
         if (relativePath.endsWith('/')) {
             throw Exception("Illegal file path format, ends with '/'. $relativePath")
         }
@@ -253,7 +253,7 @@ class DocumentFileController(private val activity: Activity): FileController {
     }
 
     @Synchronized
-    override fun createDirAll(dirUri: FileUri, relativePath: String): JSObject {
+    override fun createDirAll(dirUri: AFUri, relativePath: String): JSObject {
         if (relativePath.endsWith('/')) {
             throw Exception("Illegal file path format, ends with '/'. $relativePath")
         }
@@ -270,7 +270,7 @@ class DocumentFileController(private val activity: Activity): FileController {
     }
 
     @Synchronized
-    override fun createDirAllAndReturnRelativePath(dirUri: FileUri, relativePath: String): JSObject {
+    override fun createDirAllAndReturnRelativePath(dirUri: AFUri, relativePath: String): JSObject {
         if (relativePath.endsWith('/')) {
             throw Exception("Illegal file path format, ends with '/'. $relativePath")
         }
@@ -291,7 +291,7 @@ class DocumentFileController(private val activity: Activity): FileController {
         }
     }
 
-    override fun deleteFile(uri: FileUri) {
+    override fun deleteFile(uri: AFUri) {
         if (getMimeType(uri) == null) {
             throw Exception("This is dir, not file: ${uri.uri}")
         }
@@ -300,7 +300,7 @@ class DocumentFileController(private val activity: Activity): FileController {
         }
     }
 
-    override fun deleteDirAll(uri: FileUri) {
+    override fun deleteDirAll(uri: AFUri) {
         if (getMimeType(uri) != null) {
             throw Exception("This is file, not dir: ${uri.uri}")
         }
@@ -309,7 +309,7 @@ class DocumentFileController(private val activity: Activity): FileController {
         }
     }
 
-    override fun deleteEmptyDir(uri: FileUri) {
+    override fun deleteEmptyDir(uri: AFUri) {
         if (getMimeType(uri) != null) {
             throw Exception("This is file, not dir: ${uri.uri}")
         }
@@ -337,7 +337,7 @@ class DocumentFileController(private val activity: Activity): FileController {
         }
     }
 
-    override fun rename(uri: FileUri, newName: String): JSObject {
+    override fun rename(uri: AFUri, newName: String): JSObject {
         val documentUri = Uri.parse(uri.uri)
         val updatedUri = DocumentsContract.renameDocument(
             activity.contentResolver, 
@@ -427,7 +427,7 @@ class DocumentFileController(private val activity: Activity): FileController {
         return null
     }
 
-    private fun createOrGetDir(dirUri: FileUri, relativePath: String): Uri {
+    private fun createOrGetDir(dirUri: AFUri, relativePath: String): Uri {
         val topTreeUri = Uri.parse(dirUri.documentTopTreeUri!!)
         var parentId = DocumentsContract.getDocumentId(Uri.parse(dirUri.uri))
 
@@ -446,7 +446,7 @@ class DocumentFileController(private val activity: Activity): FileController {
         return DocumentsContract.buildDocumentUriUsingTree(topTreeUri, parentId)
     }
 
-    private fun createOrGetDirAndReturnRelativePath(dirUri: FileUri, relativePath: String): Pair<Uri, String> {
+    private fun createOrGetDirAndReturnRelativePath(dirUri: AFUri, relativePath: String): Pair<Uri, String> {
         val topTreeUri = Uri.parse(dirUri.documentTopTreeUri!!)
         var parentId = DocumentsContract.getDocumentId(Uri.parse(dirUri.uri))
         var actualRelativePath = ""
@@ -481,7 +481,7 @@ class DocumentFileController(private val activity: Activity): FileController {
         )
     }
 
-    private fun findUri(dirUri: FileUri, relativePath: String): Uri {
+    private fun findUri(dirUri: AFUri, relativePath: String): Uri {
         val topTreeUri = Uri.parse(dirUri.documentTopTreeUri!!)
         var id = DocumentsContract.getDocumentId(Uri.parse(dirUri.uri))
 
@@ -514,7 +514,7 @@ class DocumentFileController(private val activity: Activity): FileController {
         throw Exception("No file or permission: $uri")
     }
 
-    fun findFileUri(dirUri: FileUri, relativePath: String): JSObject {
+    fun findFileUri(dirUri: AFUri, relativePath: String): JSObject {
         if (relativePath.startsWith('/')) {
             throw Exception("Illegal file path format, starts with '/'.")
         }
@@ -533,7 +533,7 @@ class DocumentFileController(private val activity: Activity): FileController {
         return res
     }
 
-    fun findDirUri(dirUri: FileUri, relativePath: String): JSObject {
+    fun findDirUri(dirUri: AFUri, relativePath: String): JSObject {
         if (relativePath.startsWith('/')) {
             throw Exception("Illegal file path format, starts with '/'.")
         }

@@ -10,7 +10,7 @@ First, install this plugin to your Tauri project:
 
 ```toml
 [dependencies]
-tauri-plugin-android-fs = { version = "=24.2.2", features = ["legacy_storage_permission"] }
+tauri-plugin-android-fs = { version = "=25.0.0", features = ["legacy_storage_permission"] }
 ```
 
 Next, register this plugin in your Tauri project:
@@ -41,11 +41,11 @@ Then, set the APIs that can be called from the Javascript:
 Finally, install the JavaScript Guest bindings using whichever JavaScript package manager you prefer:
 
 ```bash
-pnpm add tauri-plugin-android-fs-api@24.2.2 -E
+pnpm add tauri-plugin-android-fs-api@25.0.0 -E
 # or
-npm install tauri-plugin-android-fs-api@24.2.2 --save-exact
+npm install tauri-plugin-android-fs-api@25.0.0 --save-exact
 # or
-yarn add tauri-plugin-android-fs-api@24.2.2 --exact
+yarn add tauri-plugin-android-fs-api@25.0.0 --exact
 ```
 
 **NOTE**: Please make sure that the Rust-side `tauri-plugin-android-fs` and the JavaScript-side `tauri-plugin-android-fs-api` versions match exactly.
@@ -126,7 +126,7 @@ And you can also assign a specific scope to a particular command.
 # APIs
 This plugin provides following APIs:
 
-### 1. APIs to obtain entries such as files and directories.
+### 1. APIs to obtain entries such as files and directories
 - `AndroidFs.showOpenFilePicker` 
 - `AndroidFs.showOpenDirPicker` 
 - `AndroidFs.showSaveFilePicker` 
@@ -138,7 +138,7 @@ This plugin provides following APIs:
 - `AndroidFs.createNewPublicVideoFile` 
 - `AndroidFs.createNewPublicAudioFile` 
 
-### 3. APIs to retrieve data from entries.
+### 3. APIs to retrieve data from entries
 - `AndroidFs.getThumbnail` 
 - `AndroidFs.getThumbnailBase64` 
 - `AndroidFs.getThumbnailDataUrl` 
@@ -149,8 +149,9 @@ This plugin provides following APIs:
 - `AndroidFs.getMimeType` 
 - `AndroidFs.getMetadata` 
 
-### 3. APIs to operate entries.
+### 3. APIs to operate entries
 - `AndroidFs.scanPublicFile`
+- `AndroidFs.setPublicFilePending`
 - `AndroidFs.copyFile`
 - `AndroidFs.truncateFile`
 - `AndroidFs.removeFile`
@@ -166,7 +167,7 @@ This plugin provides following APIs:
 - `AndroidFs.hasPublicFilesPermission`
 - `AndroidFs.requestPublicFilesPermission`
 
-### 5. APIs to send entries to other apps.
+### 5. APIs to send entries to other apps
 - `AndroidFs.showViewFileDialog`
 - `AndroidFs.showViewDirDialog`
 - `AndroidFs.showShareFileDialog`

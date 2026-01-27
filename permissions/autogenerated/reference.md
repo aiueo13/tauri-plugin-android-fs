@@ -20,6 +20,7 @@ Default permissions for the plugin
 - `allow-create-new-public-video-file`
 - `allow-create-new-public-audio-file`
 - `allow-scan-public-file`
+- `allow-set-public-file-pending`
 - `allow-request-public-files-permission`
 - `allow-has-public-files-permission`
 - `allow-create-new-file`
@@ -36,10 +37,6 @@ Default permissions for the plugin
 - `allow-show-share-file-dialog`
 - `allow-show-view-file-dialog`
 - `allow-show-view-dir-dialog`
-- `allow-persist-uri-permission`
-- `allow-check-persisted-uri-permission`
-- `allow-release-persisted-uri-permission`
-- `allow-release-all-persisted-uri-permissions`
 
 ## Permission Table
 
@@ -98,32 +95,6 @@ Enables the check_persisted_picker_uri_permission command without any pre-config
 <td>
 
 Denies the check_persisted_picker_uri_permission command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-fs:allow-check-persisted-uri-permission`
-
-</td>
-<td>
-
-Enables the check_persisted_uri_permission command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-fs:deny-check-persisted-uri-permission`
-
-</td>
-<td>
-
-Denies the check_persisted_uri_permission command without any pre-configured scope.
 
 </td>
 </tr>
@@ -677,32 +648,6 @@ Denies the persist_picker_uri_permission command without any pre-configured scop
 <tr>
 <td>
 
-`android-fs:allow-persist-uri-permission`
-
-</td>
-<td>
-
-Enables the persist_uri_permission command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-fs:deny-persist-uri-permission`
-
-</td>
-<td>
-
-Denies the persist_uri_permission command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
 `android-fs:allow-read-dir`
 
 </td>
@@ -755,32 +700,6 @@ Denies the release_all_persisted_picker_uri_permissions command without any pre-
 <tr>
 <td>
 
-`android-fs:allow-release-all-persisted-uri-permissions`
-
-</td>
-<td>
-
-Enables the release_all_persisted_uri_permissions command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-fs:deny-release-all-persisted-uri-permissions`
-
-</td>
-<td>
-
-Denies the release_all_persisted_uri_permissions command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
 `android-fs:allow-release-persisted-picker-uri-permission`
 
 </td>
@@ -800,32 +719,6 @@ Enables the release_persisted_picker_uri_permission command without any pre-conf
 <td>
 
 Denies the release_persisted_picker_uri_permission command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-fs:allow-release-persisted-uri-permission`
-
-</td>
-<td>
-
-Enables the release_persisted_uri_permission command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-fs:deny-release-persisted-uri-permission`
-
-</td>
-<td>
-
-Denies the release_persisted_uri_permission command without any pre-configured scope.
 
 </td>
 </tr>
@@ -1008,6 +901,32 @@ Enables the scan_public_file command without any pre-configured scope.
 <td>
 
 Denies the scan_public_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-set-public-file-pending`
+
+</td>
+<td>
+
+Enables the set_public_file_pending command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-set-public-file-pending`
+
+</td>
+<td>
+
+Denies the set_public_file_pending command without any pre-configured scope.
 
 </td>
 </tr>

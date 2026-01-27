@@ -37,6 +37,21 @@ impl From<crate::Error> for std::io::Error {
     }
 }
 
+impl From<crate::Error> for tauri::Error {
+
+    fn from(e: crate::Error) -> tauri::Error {
+        match e.inner {
+            InnerError::Tauri(e) => e,
+            InnerError::Io(e) => tauri::Error::Io(e),
+
+            #[cfg(target_os = "android")]
+            InnerError::PluginInvoke(e) => tauri::Error::PluginInvoke(e),
+
+            e => tauri::Error::Anyhow(e.into()),
+        }
+    }
+}
+
 
 #[derive(Debug, thiserror::Error)]
 enum InnerError {

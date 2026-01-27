@@ -28,7 +28,7 @@ export function isAndroid(): boolean {
 let cachedApiLevel: Promise<number> | null = null
 
 /**
- * Returns whether [the API level](https://developer.android.com/guide/topics/manifest/uses-sdk-element#ApiLevels) of the running Android devive.
+ * Returns [the API level](https://developer.android.com/guide/topics/manifest/uses-sdk-element#ApiLevels) of the running Android device.
  * 
  * @example
  * ```ts
@@ -55,6 +55,9 @@ export async function getAndroidApiLevel(): Promise<number> {
 
 /**
  * Android API level.
+ * 
+ * **NOTE** :  
+ * Tauri does not support Android 7 or lower.
  * 
  * @see <https://developer.android.com/guide/topics/manifest/uses-sdk-element#api-level-table>
  */
@@ -120,12 +123,30 @@ export type AndroidEntryType =
 	| { type: "File", mimeType: string }
 
 /**
+ * Image format of thumbnail.
+ */
+export type AndroidThumbnailFormat = "jpeg" | "png" | "webp"
+
+/**
+ * Options of `AndroidFs.getThumbnail` and its related functions.
+ */
+export type AndroidGetThumbnailOptions = {
+
+	/**
+	 * An image format of the thumbnail.  
+	 * One of `"jpeg"`, `"png"`, `"webp"`.  
+	 * Defaults to `"jpeg"`.  
+	 */
+	format?: AndroidThumbnailFormat
+}
+
+/**
  * Metadata of the file or directory on Android.
  */
 export type AndroidEntryMetadata = AndroidDirMetadata | AndroidFileMetadata
 
 /**
- * Metadata of the drectory on Android.
+ * Metadata of the directory on Android.
  */
 export type AndroidDirMetadata = {
 	type: "Dir",
@@ -200,6 +221,19 @@ export type AndroidOpenFilePickerOptions = {
 	 * Defaults to `false`.
 	 */
 	localOnly?: boolean,
+
+	/**
+	 * Initial directory when launching the file picker.  
+	 * 
+	 * If this option is omitted or the desired initial location cannot be resolved,
+	 * the initial location is system-specific.
+	 * 
+	 * One of: 
+	 * - `AndroidPickerInitialLocation.Any(...)` 
+	 * - `AndroidPickerInitialLocation.VolumeTop(...)`   
+	 * - `AndroidPickerInitialLocation.PublicDir(...)`
+	 */
+	initialLocation?: AndroidPickerInitialLocation
 }
 
 /**
@@ -212,6 +246,19 @@ export type AndroidOpenDirPickerOptions = {
 	 * Defaults to `false`.
 	 */
 	localOnly?: boolean,
+
+	/**
+	 * Initial directory when launching the directory picker.  
+	 * 
+	 * If this option is omitted or the desired initial location cannot be resolved,
+	 * the initial location is system-specific.
+	 * 
+	 * One of: 
+	 * - `AndroidPickerInitialLocation.Any(...)` 
+	 * - `AndroidPickerInitialLocation.VolumeTop(...)`   
+	 * - `AndroidPickerInitialLocation.PublicDir(...)`
+	 */
+	initialLocation?: AndroidPickerInitialLocation
 }
 
 /**
@@ -224,6 +271,19 @@ export type AndroidSaveFilePickerOptions = {
 	 * Defaults to `false`.
 	 */
 	localOnly?: boolean,
+
+	/**
+	 * Initial directory when launching the file picker.  
+	 * 
+	 * If this option is omitted or the desired initial location cannot be resolved,
+	 * the initial location is system-specific.
+	 * 
+	 * One of: 
+	 * - `AndroidPickerInitialLocation.Any(...)` 
+	 * - `AndroidPickerInitialLocation.VolumeTop(...)`   
+	 * - `AndroidPickerInitialLocation.PublicDir(...)`
+	 */
+	initialLocation?: AndroidPickerInitialLocation
 }
 
 /**
@@ -239,9 +299,25 @@ export type AndroidCreateNewPublicFileOptions = {
 
 	/**
 	 * ID of the storage volume where the file will be created.  
-	 * Defaults to the primary storage volume.
+	 * Defaults to primary storage volume.
 	 */
-	volumeId?: AndroidStorageVolumeId
+	volumeId?: AndroidStorageVolumeId,
+
+	/**
+	 * Indicates whether the file will be marked as pending.  
+	 * When set to `true`, the app has exclusive access to the file, 
+	 * and it becomes invisible to other apps until `AndroidFs.setPublicFilePending(..., false)` is called. 
+	 * 
+	 * If it remains `true` for more than 7 days, 
+	 * the system will automatically delete the file.  
+	 * 
+	 * Defaults to `false`.
+	 *
+	 * **NOTE** :  
+	 * This is available for Android 11 or higher.  
+	 * If unavailable, this will be ignored. 
+	 */
+	isPending?: boolean
 }
 
 /**
@@ -361,8 +437,8 @@ export const AndroidPublicAudioDir = Object.freeze({
 	 * - `/storage/{sd-card-id}/Audiobooks`
 	 *
 	 * **NOTE** :  
-	 * This is not available on Android 9 (API level 28) and lower.  
-	 * In that case, the `~/Music/Audiobooks` folder will be used instead.  
+	 * This is available for Android 10 (API level 29) and higher.  
+	 * If unavailable, the `~/Music/Audiobooks` folder will be used instead.  
 	 */
 	Audiobooks: "Audiobooks",
 
@@ -405,21 +481,156 @@ export const AndroidPublicAudioDir = Object.freeze({
 	 * - `/storage/{sd-card-id}/Recordings`
 	 *
 	 * **NOTE** :  
-	 * This is not available on Android 11 (API level 30) and lower.  
-	 * In that case, the `~/Music/Recordings` folder will be used instead.
+	 * This is available for Android 12 (API level 31) or higher.  
+	 * If unavailable, the `~/Music/Recordings` folder will be used instead.
 	 */
 	Recordings: "Recordings",
 } as const);
 
-export type AndroidPublicGeneralPurposeDir = typeof AndroidPublicGeneralPurposeDir[keyof typeof AndroidPublicGeneralPurposeDir]
-export type AndroidPublicImageDir = typeof AndroidPublicImageDir[keyof typeof AndroidPublicImageDir]
-export type AndroidPublicVideoDir = typeof AndroidPublicVideoDir[keyof typeof AndroidPublicVideoDir]
-export type AndroidPublicAudioDir = typeof AndroidPublicAudioDir[keyof typeof AndroidPublicAudioDir]
-
 /**
- * @deprecated This is typo. Use `AndroidPublicGeneralPurposeDir` instead.
+ * All Android public directories.
  */
-export type AndroidPublicGeneralPuropseDir = AndroidPublicGeneralPurposeDir
+export const AndroidPublicDir = Object.freeze({
+
+	/**
+	 * Resolves to the `~/Documents` folder.  
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
+	 *
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/Documents`
+	 * - `/storage/{sd-card-id}/Documents`
+	 */
+	Documents: "Documents",
+
+	/**
+	 * Resolves to the `~/Download` folder.  
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.  
+	 *
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/Download`
+	 * - `/storage/{sd-card-id}/Download`
+	 *
+	 * **NOTE** :   
+	 * This is not the plural `Downloads`, but the singular `Download`.
+	 * <https://developer.android.com/reference/android/os/Environment#DIRECTORY_DOWNLOADS>
+	 */
+	Download: "Download",
+
+	/**
+	 * Resolves to the `~/Pictures` folder.  
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
+	 *
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/Pictures`
+	 * - `/storage/{sd-card-id}/Pictures`
+	 */
+	Pictures: "Pictures",
+	
+	/**
+	 * Resolves to the `~/Movies` folder.  
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
+	 * 
+	 * 
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/Movies`
+	 * - `/storage/{sd-card-id}/Movies`
+	 */
+	Movies: "Movies",
+
+	/**
+	 * Resolves to the `~/DCIM` folder.  
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
+	 *
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/DCIM`
+	 * - `/storage/{sd-card-id}/DCIM`
+	 */
+	DCIM: "DCIM",
+
+	/**
+	 * Resolves to the `~/Music` folder.  
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
+	 * 
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/Music`
+	 * - `/storage/{sd-card-id}/Music`
+	 */
+	Music: "Music",
+
+	/**
+	 * Resolves to the `~/Alarms` folder.  
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
+	 * 
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/Alarms`
+	 * - `/storage/{sd-card-id}/Alarms`
+	 */
+	Alarms: "Alarms",
+
+	/**
+	 * Resolves to the `~/Audiobooks` folder.  
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
+	 *
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/Audiobooks`
+	 * - `/storage/{sd-card-id}/Audiobooks`
+	 *
+	 * **NOTE** :  
+	 * This is available for Android 10 (API level 29) and higher.  
+	 * If unavailable, the `~/Music/Audiobooks` folder will be used instead.  
+	 */
+	Audiobooks: "Audiobooks",
+
+	/**
+	 * Resolves to the `~/Notifications` folder.  
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
+	 *
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/Notifications`
+	 * - `/storage/{sd-card-id}/Notifications`
+	 */
+	Notifications: "Notifications",
+
+	/**
+	 * Resolves to the `~/Podcasts` folder.  
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
+	 *
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/Podcasts`
+	 * - `/storage/{sd-card-id}/Podcasts`
+	 */
+	Podcasts: "Podcasts",
+
+	/**
+	 * Resolves to the `~/Ringtones` folder.  
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
+	 *
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/Ringtones`
+	 * - `/storage/{sd-card-id}/Ringtones`
+	 */
+	Ringtones: "Ringtones",
+
+	/**
+	 * Resolves to the `~/Recordings` folder.  
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
+	 *
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/Recordings`
+	 * - `/storage/{sd-card-id}/Recordings`
+	 *
+	 * **NOTE** :  
+	 * This is available for Android 12 (API level 31) or higher.  
+	 * If unavailable, the `~/Music/Recordings` folder will be used instead.
+	 */
+	Recordings: "Recordings",
+} as const);
+
+export type AndroidPublicGeneralPurposeDir = (typeof AndroidPublicGeneralPurposeDir)[keyof typeof AndroidPublicGeneralPurposeDir]
+export type AndroidPublicImageDir = (typeof AndroidPublicImageDir)[keyof typeof AndroidPublicImageDir]
+export type AndroidPublicVideoDir = (typeof AndroidPublicVideoDir)[keyof typeof AndroidPublicVideoDir]
+export type AndroidPublicAudioDir = (typeof AndroidPublicAudioDir)[keyof typeof AndroidPublicAudioDir]
+export type AndroidPublicDir = (typeof AndroidPublicDir)[keyof typeof AndroidPublicDir];
 
 /**
  * Information about the storage volume on Android.
@@ -427,7 +638,7 @@ export type AndroidPublicGeneralPuropseDir = AndroidPublicGeneralPurposeDir
 export type AndroidStorageVolumeInfo = {
 	
 	/**
-	 * A user-visible description of the volume.
+	 * A user-visible description of this storage volume.  
 	 * This can be determined by the manufacturer and is often localized according to the user’s language.
 	 * 
 	 * e.g.
@@ -456,7 +667,7 @@ export type AndroidStorageVolumeInfo = {
 	isRemovable: boolean,
 
 	/**
-	 * Indicates whether thit is stable part of the device.
+	 * Indicates whether this is stable part of the device.
 	 * 
 	 * For example, a device's built-in storage and physical media slots under protective covers are considered stable,
 	 * while USB flash drives connected to handheld devices are not.
@@ -470,6 +681,23 @@ export type AndroidStorageVolumeInfo = {
 	 * On most recent devices, the primary storage volume will often have this set to true.
 	 */
 	isEmulated: boolean,
+
+	/**
+	 * Indicates whether this is read-only storage volume.
+	 * 
+	 * e.g. SD card with readonly mode.
+	 */
+	isReadOnly: boolean,
+
+	/**
+	 * Indicates whether public files can be placed on this storage volume.
+	 *
+	 * **Note** :  
+	 * This does not indicate whether the volume is writable
+	 * (that is, whether public files can actually be created on it).
+	 * For that information, refer to `isReadOnly`.
+	 */
+	isAvailableForPublicFiles: boolean,
 
 	/**
 	 * ID of this storage volume.
@@ -501,10 +729,152 @@ export const AndroidUriPermissionState = Object.freeze({
  */
 export type AndroidUriPermissionState = typeof AndroidUriPermissionState[keyof typeof AndroidUriPermissionState]
 
+/**
+ * Options of `AndroidFs.listVolumes`.
+ */
+export type AndroidListVolumesOptions = {
+
+	/**
+	 * Purpose for listing storage volumes.
+	 *
+	 * - `"CreatePublicFile"`:
+	 * Lists only volumes that are available for `AndroidFs.createNewPublicFile` and its related functions.
+	 * This does not include volumes that are not writable (e.g., a read-only SD card), 
+	 * and, on Android 9 and below, it does not include volumes other than primary storage that are inaccessible to `AndroidFs.createNewPublicFile` due to Android platform restrictions.
+	 * In other words, it returns only volumes whose `isReadOnly` and `isAvailableForPublicFiles` properties of `AndroidStorageVolumeInfo` are false and true respectively.
+	 * 
+	 * - `"PickerInitialLocation"`:
+	 * Lists only volumes that are available for use as a picker initial location.
+	 * This includes all volumes.
+	 *
+	 * By default, only volumes that are available for both purposes are listed.
+	 */
+	purpose?: "CreatePublicFile" | "PickerInitialLocation"
+}
+
+/**
+ * Initial location when launching file/directory picker.
+ */
+export type AndroidPickerInitialLocation =
+	| { type: "Any", uri: AndroidFsUri }
+	| { type: "VolumeTop", volumeId?: AndroidStorageVolumeId }
+	| {
+			type: "PublicDir"
+			baseDir: AndroidPublicDir
+			relativePath?: string
+			volumeId?: AndroidStorageVolumeId
+	  }
+
+type AndroidPickerInitialLocationInner =
+	| { type: "Any", uri: AndroidFsUri }
+	| { type: "VolumeTop", volumeId: AndroidStorageVolumeId | null }
+	| {
+			type: "PublicDir"
+			baseDir: AndroidPublicDir
+			relativePath: string | null
+			volumeId: AndroidStorageVolumeId | null
+	  }
+
+function mapPickerInitialLocationForInput(
+	i?: AndroidPickerInitialLocation | undefined | null
+): AndroidPickerInitialLocationInner | null {
+
+	if (i == null) {
+		return null
+	}
+	if (i.type === "PublicDir") {
+		return {
+			type: "PublicDir",
+			baseDir: i.baseDir,
+			relativePath: i.relativePath ?? null,
+			volumeId: i.volumeId ?? null
+		}
+	}
+	if (i.type === "VolumeTop") {
+		return {
+			type: "VolumeTop",
+			volumeId: i.volumeId ?? null
+		}
+	}
+	return i
+}
+
+/**
+ * Options of `AndroidPickerInitialLocation.PublicDir`.
+ */
+export type AndroidPickerInitialLocationPublicDirOptions = {
+
+	/**
+	 * Relative path from the target public directory.
+	 */
+	relativePath?: string
+
+	/**
+	 * ID of the storage volume that the target public directory belongs to.  
+	 * 
+	 * Defaults to primary storage volume.
+	 */
+	volumeId?: AndroidStorageVolumeId
+}
+
+/**
+ * Initial location when launching file/directory picker.
+ */
+export const AndroidPickerInitialLocation = Object.freeze({
+
+	/**
+	 * Builds an initial picker location at the specified directory, or in the directory containing the specified file.
+	 * 
+	 * @param uri - URI of the target entry.
+ 	 */
+	Any(uri: AndroidFsUri): AndroidPickerInitialLocation {
+		return {
+			type: "Any",
+			uri,
+		}
+	},
+
+	/**
+	 * Builds an initial picker location at the top of the storage volume.
+	 *
+	 * @param volumeId - ID of the target storage volume. Defaults to primary storage volume.
+	 */
+	VolumeTop(
+		volumeId?: AndroidStorageVolumeId
+	): AndroidPickerInitialLocation {
+
+		return {
+			type: "VolumeTop",
+			volumeId,
+		}
+	},
+
+	/**
+	 * Builds an initial picker location inside the public directory.
+	 *
+	 * @param baseDir - The target public directory. One of: `"Documents"`, `"Download"`, `"Pictures"`, `"DCIM"`, `"Movies"`, `"Music"`, `"Alarms"`, `"Audiobooks"`, `"Notifications"`, `"Podcasts"`, `"Ringtones"`, `"Recordings"`.
+	 * @param options - Additional options for the initial location.
+	 * @param options.relativePath - Relative path from the target public directory.
+	 * @param options.volumeId - ID of the storage volume that the target public directory belongs to. Defaults to primary storage volume.
+	 */
+	PublicDir(
+		baseDir: AndroidPublicDir,
+		options?: AndroidPickerInitialLocationPublicDirOptions
+	): AndroidPickerInitialLocation {
+
+		return {
+			type: "PublicDir",
+			baseDir,
+			relativePath: options?.relativePath,
+			volumeId: options?.volumeId
+		}
+	},
+} as const)
+
 export class AndroidFs {
 
-	// TODO: 次のメジャーバージョンアップ時に以下を追加
-	//private constructor() {}
+	private constructor() {}
+
 
 	/**
 	 * Gets a name of the specified file or directory.  
@@ -604,7 +974,8 @@ export class AndroidFs {
 	 * @param uri - The URI or path of the target file.
 	 * @param width - The preferred width of the thumbnail in pixels. 
 	 * @param height - The preferred height of the thumbnail in pixels.
-	 * @param format - Optional. The image format of the thumbnail. Can be `"jpeg"`, `"png"`, or `"webp"`. Defaults to `"jpeg"`.
+	 * @param options - Optional settings.
+	 * @param options.format - The image format of the thumbnail. One of: `"jpeg"`, `"png"`, `"webp"`. Defaults to `"jpeg"`.
 	 * 
 	 * @returns A Promise that resolves to a string containing the thumbnail as a data URL, or `null` if the file does not have a thumbnail. The actual thumbnail dimensions will not exceed approximately twice the specified width or height, and the original aspect ratio of the file is always maintained.
 	 * @throws The Promise will be rejected with an error, if the specified entry does not exist, if the entry is a directory, or if the read permission is missing.
@@ -616,8 +987,10 @@ export class AndroidFs {
 		uri: AndroidFsUri | FsPath,
 		width: number,
 		height: number,
-		format: "jpeg" | "png" | "webp" = "jpeg"
+		options?: AndroidGetThumbnailOptions
 	): Promise<string | null> {
+
+		const format: AndroidThumbnailFormat = options?.format ?? "jpeg"
 
 		return await invoke('plugin:android-fs|get_thumbnail_data_url', {
 			uri: mapFsPathForInput(uri),
@@ -628,13 +1001,14 @@ export class AndroidFs {
 	}
 
 	/**
-	 * Gets a base64-encoded strings representing a thumbnail of the specified file.   
+	 * Gets a base64-encoded string representing a thumbnail of the specified file.   
 	 * This does not perform caching.
 	 *
 	 * @param uri - The URI or path of the target file.
 	 * @param width - The preferred width of the thumbnail in pixels. 
 	 * @param height - The preferred height of the thumbnail in pixels.
-	 * @param format - Optional. The image format of the thumbnail. Can be `"jpeg"`, `"png"`, or `"webp"`. Defaults to `"jpeg"`.
+	 * @param options - Optional settings.
+	 * @param options.format - The image format of the thumbnail. One of: `"jpeg"`, `"png"`, `"webp"`. Defaults to `"jpeg"`.
 	 * 
 	 * @returns A Promise that resolves to the thumbnail as a base64-encoded string using "+" and "/" characters and containing no line breaks (a single line), or `null` if the file does not have a thumbnail. The actual thumbnail dimensions will not exceed approximately twice the specified width or height, and the original aspect ratio of the file is always maintained.
 	 * @throws The Promise will be rejected with an error, if the specified entry does not exist, if the entry is a directory, or if the read permission is missing.
@@ -646,8 +1020,10 @@ export class AndroidFs {
 		uri: AndroidFsUri | FsPath,
 		width: number,
 		height: number,
-		format: "jpeg" | "png" | "webp" = "jpeg"
+		options?: AndroidGetThumbnailOptions
 	): Promise<string | null> {
+
+		const format: AndroidThumbnailFormat = options?.format ?? "jpeg"
 
 		return await invoke('plugin:android-fs|get_thumbnail_base64', {
 			uri: mapFsPathForInput(uri),
@@ -664,7 +1040,8 @@ export class AndroidFs {
 	 * @param uri - The URI or path of the target file.
 	 * @param width - The preferred width of the thumbnail in pixels. 
 	 * @param height - The preferred height of the thumbnail in pixels.
-	 * @param format - Optional. The image format of the thumbnail. Can be `"jpeg"`, `"png"`, or `"webp"`. Defaults to `"jpeg"`.
+	 * @param options - Optional settings.
+	 * @param options.format - The image format of the thumbnail. One of: `"jpeg"`, `"png"`, `"webp"`. Defaults to `"jpeg"`.
 	 *
 	 * @returns A Promise that resolves to a `ArrayBuffer` containing the thumbnail bytes, or `null` if the file does not have a thumbnail. The actual thumbnail dimensions will not exceed approximately twice the specified width or height, and the original aspect ratio of the file is always maintained.
 	 * @throws The Promise will be rejected with an error, if the specified entry does not exist, if the entry is a directory, or if the read permission is missing.
@@ -676,8 +1053,10 @@ export class AndroidFs {
 		uri: AndroidFsUri | FsPath,
 		width: number,
 		height: number,
-		format: "jpeg" | "png" | "webp" = "jpeg"
+		options?: AndroidGetThumbnailOptions
 	): Promise<ArrayBuffer | null> {
+
+		const format: AndroidThumbnailFormat = options?.format ?? "jpeg"
 
 		const thumbnail = await invoke<ArrayBuffer>('plugin:android-fs|get_thumbnail', {
 			uri: mapFsPathForInput(uri),
@@ -707,15 +1086,31 @@ export class AndroidFs {
 	}
 
 	/**
-	 * Retrieves information about the available Android storage volumes (e.g., `Internal storage`, `SD card` and `USV drive`).
+	 * Retrieves information about the available Android storage volumes (e.g., `Internal storage`, `SD card` and `USB drive`).
 	 *
-	 * @returns A Promise that resolves to an array of `AndroidStorageVolumeInfo`. This is intended for `AndroidFs.createNewPublicFile` and its related functions. Therefore, this does not include volumes that are not writable (e.g., a read-only SD card), and, on Android 9 and below, it does not include volumes other than primary storage that are inaccessible to `AndroidFs.createNewPublicFile` due to Android platform restrictions.
+	 * @param options - Optional settings.
+	 * @param options.purpose - Purpose of storage volumes. One of: `"CreatePublicFile"`, `"PickerInitialLocation"`. By default, only volumes that are available for both purposes are listed.
+	 * @returns A Promise that resolves to an array of the storage volumes. 
 	 * 
 	 * @see [PublicStorage::get_volumes](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.get_volumes)
 	 * @since 22.2.0
 	 */
-	public static async listVolumes(): Promise<AndroidStorageVolumeInfo[]> {
-		return await invoke('plugin:android-fs|list_volumes')
+	public static async listVolumes(
+		options?: AndroidListVolumesOptions
+	): Promise<AndroidStorageVolumeInfo[]> {
+
+		const purpose = options?.purpose
+		const volumes = await invoke<AndroidStorageVolumeInfo[]>('plugin:android-fs|list_volumes')
+
+		if (purpose == null || purpose === "CreatePublicFile") {
+			return volumes
+				.filter(v => !v.isReadOnly)
+				.filter(v => v.isAvailableForPublicFiles)
+		}
+		else {
+			purpose satisfies "PickerInitialLocation"
+			return volumes
+		}
 	}
 
 	/**
@@ -736,7 +1131,7 @@ export class AndroidFs {
 	/**
 	 * Checks whether the app has permission to create public files.
 	 * 
-	 * The app can request it by `AndroidFs.requestPublicFilesPermissioin`.
+	 * The app can request it by `AndroidFs.requestPublicFilesPermission`.
 	 * 
 	 * @returns A Promise that resolves to a boolean indicating whether the app is allowed to create files in public storage and read/write the files it creates.
 	 * @see [PublicStorage::has_permission](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.request_permission)
@@ -764,6 +1159,33 @@ export class AndroidFs {
 
 		return await invoke('plugin:android-fs|scan_public_file', {
 			uri,
+		})
+	}
+
+	/**
+	 * Specifies whether the public file is marked as pending.  
+	 * 
+	 * **NOTE** :  
+	 * This is available for Android 11 or higher.  
+	 * If unavailable, this does nothing. 
+	 * 
+	 * @param uri - The URI of the target file.  
+	 * @param isPending - Indicates whether the file will be marked as pending. When set to `true`, the app has exclusive access to the file, and it becomes invisible to other apps. If it remains `true` for more than 7 days, the system will automatically delete the file.   
+	 * 
+	 * @returns A Promise that resolves when the operation is completed.
+	 * @throws The Promise will be rejected with an error, if the specified entry does not exist, if the required permission is missing, or if the entry is not public files.  
+	 * 
+	 * @see [PublicStorage::set_pending](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.set_pending)
+	 * @since 25.0.0
+	 */
+	public static async setPublicFilePending(
+		uri: AndroidFsUri,
+		isPending: boolean
+	): Promise<void> {
+
+		return await invoke('plugin:android-fs|set_public_file_pending', {
+			uri,
+			isPending
 		})
 	}
 
@@ -800,7 +1222,8 @@ export class AndroidFs {
 	 * @param options - Optional settings.
 	 * @param options.requestPermission - Indicates whether to prompt the user for permission if it has not already been granted. Defaults to `true`.
 	 * @param options.volumeId - ID of the storage volume where the file will be created. Defaults to the primary storage volume.
-	 *
+	 * @param options.isPending - Indicates whether the file will be marked as pending. When set to `true`, the app has exclusive access to the file, and it becomes invisible to other apps until `AndroidFs.setPublicFilePending(..., false)` is called. If it remains `true` for more than 7 days, the system will automatically delete the file. Note this is available for Android 11 or higher. If unavailable, this will be ignored. Defaults to `false`.
+	 * 
 	 * @return A Promise that resolves to the URI of the created file, with persisted read and write permissions that depends on `AndroidFs.hasPublicFilesPermission`.
 	 * @throws The Promise will be rejected with an error, if the storage is currently unavailable or the required permission is missing.
 	 * 
@@ -816,13 +1239,15 @@ export class AndroidFs {
 
 		const requestPermission: boolean = options?.requestPermission ?? true
 		const volumeId: AndroidStorageVolumeId | null = options?.volumeId ?? null
+		const isPending: boolean = options?.isPending ?? false
 
 		return await invoke('plugin:android-fs|create_new_public_file', {
 			volumeId,
 			baseDir,
 			relativePath,
 			mimeType,
-			requestPermission
+			requestPermission,
+			isPending
 		})
 	}
 
@@ -863,9 +1288,10 @@ export class AndroidFs {
 	 * @param options - Optional settings.
 	 * @param options.requestPermission - Indicates whether to prompt the user for permission if it has not already been granted. Defaults to `true`.
 	 * @param options.volumeId - ID of the storage volume where the file will be created. Defaults to the primary storage volume.
-	 *
+	 * @param options.isPending - Indicates whether the file will be marked as pending. When set to `true`, the app has exclusive access to the file, and it becomes invisible to other apps until `AndroidFs.setPublicFilePending(..., false)` is called. If it remains `true` for more than 7 days, the system will automatically delete the file. Note this is available for Android 11 or higher. If unavailable, this will be ignored. Defaults to `false`.
+	 * 
 	 * @return A Promise that resolves to the URI of the created file, with persisted read and write permissions that depends on `AndroidFs.hasPublicFilesPermission`.
-	 * @throws The Promise will be rejected with an error, if the `mimeType` is not a image type, if the storage is currently unavailable or the required permission is missing.
+	 * @throws The Promise will be rejected with an error, if the `mimeType` is not an image type, if the storage is currently unavailable or the required permission is missing.
 	 * 
 	 * @see [PublicStorage::create_new_file](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.create_new_file)
 	 * @since 22.0.0
@@ -879,13 +1305,15 @@ export class AndroidFs {
 
 		const requestPermission: boolean = options?.requestPermission ?? true
 		const volumeId: AndroidStorageVolumeId | null = options?.volumeId ?? null
+		const isPending: boolean = options?.isPending ?? false
 
 		return await invoke('plugin:android-fs|create_new_public_image_file', {
 			volumeId,
 			baseDir,
 			relativePath,
 			mimeType,
-			requestPermission
+			requestPermission,
+			isPending
 		})
 	}
 
@@ -926,7 +1354,8 @@ export class AndroidFs {
 	 * @param options - Optional settings.
 	 * @param options.requestPermission - Indicates whether to prompt the user for permission if it has not already been granted. Defaults to `true`.
 	 * @param options.volumeId - ID of the storage volume where the file will be created. Defaults to the primary storage volume.
-	 *
+	 * @param options.isPending - Indicates whether the file will be marked as pending. When set to `true`, the app has exclusive access to the file, and it becomes invisible to other apps until `AndroidFs.setPublicFilePending(..., false)` is called. If it remains `true` for more than 7 days, the system will automatically delete the file. Note this is available for Android 11 or higher. If unavailable, this will be ignored. Defaults to `false`.
+	 * 
 	 * @return A Promise that resolves to the URI of the created file, with persisted read and write permissions that depends on `AndroidFs.hasPublicFilesPermission`.
 	 * @throws The Promise will be rejected with an error, if the `mimeType` is not a video type, if the storage is currently unavailable or the required permission is missing.
 	 * 
@@ -942,13 +1371,15 @@ export class AndroidFs {
 
 		const requestPermission: boolean = options?.requestPermission ?? true
 		const volumeId: AndroidStorageVolumeId | null = options?.volumeId ?? null
+		const isPending: boolean = options?.isPending ?? false
 
 		return await invoke('plugin:android-fs|create_new_public_video_file', {
 			volumeId,
 			baseDir,
 			relativePath,
 			mimeType,
-			requestPermission
+			requestPermission,
+			isPending
 		})
 	}
 
@@ -989,7 +1420,8 @@ export class AndroidFs {
 	 * @param options - Optional settings.
 	 * @param options.requestPermission - Indicates whether to prompt the user for permission if it has not already been granted. Defaults to `true`.
 	 * @param options.volumeId - ID of the storage volume where the file will be created. Defaults to the primary storage volume.
-	 *
+	 * @param options.isPending - Indicates whether the file will be marked as pending. When set to `true`, the app has exclusive access to the file, and it becomes invisible to other apps until `AndroidFs.setPublicFilePending(..., false)` is called. If it remains `true` for more than 7 days, the system will automatically delete the file. Note this is available for Android 11 or higher. If unavailable, this will be ignored. Defaults to `false`.
+	 * 
 	 * @return A Promise that resolves to the URI of the created file, with persisted read and write permissions that depends on `AndroidFs.hasPublicFilesPermission`.
 	 * @throws The Promise will be rejected with an error, if the `mimeType` is not a audio type, if the storage is currently unavailable or the required permission is missing.
 	 * 
@@ -1005,13 +1437,15 @@ export class AndroidFs {
 
 		const requestPermission: boolean = options?.requestPermission ?? true
 		const volumeId: AndroidStorageVolumeId | null = options?.volumeId ?? null
+		const isPending: boolean = options?.isPending ?? false
 
 		return await invoke('plugin:android-fs|create_new_public_audio_file', {
 			volumeId,
 			baseDir,
 			relativePath,
 			mimeType,
-			requestPermission
+			requestPermission,
+			isPending
 		})
 	}
 
@@ -1234,6 +1668,7 @@ export class AndroidFs {
 	 * @param options.pickerType - Preferable picker type. This is not necessarily guaranteed to be used. By default, the appropriate option will be selected according to the `mimeTypes`.
 	 * @param options.needWritePermission - Indicates whether write access to the picked files is required. Defaults to `false`.
 	 * @param options.localOnly - Indicates whether only files located on the local device should be pickable. Defaults to `false`.
+	 * @param options.initialLocation - Initial directory when launching the file picker. If this option is omitted or the desired initial location cannot be resolved,the initial location is system-specific. One of: `AndroidPickerInitialLocation.Any(...)`, `AndroidPickerInitialLocation.VolumeTop(...)`, `AndroidPickerInitialLocation.PublicDir(...)`.
 	 * 
 	 * @returns A Promise that resolves to an array of URI representing the picked files, or an empty array if unpicked. By default, the app has read access to the URIs, and this permission remains valid until the app or device is terminated. The app will be able to gain persistent access to the files by using `AndroidFs.persistPickerUriPermission`.
 	 * 
@@ -1251,6 +1686,7 @@ export class AndroidFs {
 		const pickerType: "FilePicker" | "Gallery" | null = options?.pickerType ?? null
 		const needWritePermission: boolean = options?.needWritePermission ?? false
 		const localOnly = options?.localOnly ?? false
+		const initialLocation = mapPickerInitialLocationForInput(options?.initialLocation)
 
 		return await invoke("plugin:android-fs|show_open_file_picker", {
 			mimeTypes,
@@ -1258,6 +1694,7 @@ export class AndroidFs {
 			pickerType,
 			needWritePermission,
 			localOnly,
+			initialLocation,
 		})
 	}
 
@@ -1266,6 +1703,7 @@ export class AndroidFs {
 	 * 
 	 * @param options - Optional configuration for the directory picker.
 	 * @param options.localOnly - Indicates whether only directories located on the local device should be pickable. Defaults to `false`.
+	 * @param options.initialLocation - Initial directory when launching the directory picker. If this option is omitted or the desired initial location cannot be resolved,the initial location is system-specific. One of: `AndroidPickerInitialLocation.Any(...)`, `AndroidPickerInitialLocation.VolumeTop(...)`, `AndroidPickerInitialLocation.PublicDir(...)`.
 	 * 
 	 * @returns A Promise that resolves to a URI representing the picked directory, or `null` if unpicked. The directory may be a newly created directory, or it may be an existing directory. By default, the app has read-write access to the URI, and this permission remains valid until the app or device is terminated. The app will be able to gain persistent access to the directory by using `AndroidFs.persistPickerUriPermission`. Permissions for entries derived from this directory, such as `AndroidFs.readDir` and `AndroidFs.createNewFile`, depend on the permissions granted to this picked directory itself.
 	 * 
@@ -1277,9 +1715,11 @@ export class AndroidFs {
 	): Promise<AndroidFsUri | null> {
 
 		const localOnly = options?.localOnly ?? false
+		const initialLocation = mapPickerInitialLocationForInput(options?.initialLocation)
 
 		return await invoke("plugin:android-fs|show_open_dir_picker", {
-			localOnly
+			localOnly,
+			initialLocation
 		})
 	}
 
@@ -1290,8 +1730,9 @@ export class AndroidFs {
 	 * @param mimeType - The MIME type of the file to pick. If `null`, this is inferred from the extension of `defaultFileName`.
 	 * @param options - Optional configuration for the file saver.
 	 * @param options.localOnly - Indicates whether only files located on the local device should be pickable. Defaults to `false`.
+	 * @param options.initialLocation - Initial directory when launching the directory picker. If this option is omitted or the desired initial location cannot be resolved,the initial location is system-specific. One of: `AndroidPickerInitialLocation.Any(...)`, `AndroidPickerInitialLocation.VolumeTop(...)`, `AndroidPickerInitialLocation.PublicDir(...)`.
 	 * 
-	 * @return  A Promise that resolves to a URI representing the picked file, or `null` if unpicked. The file may be a newly created file with no content, or it may be an existing file with the requested MIME type. By default, the app has write access to the URI, and this permission remains valid until the app or device is terminated. The app will be able to gain persistent access to the file by using `AndroidFs.persistPickerUriPermission`.
+	 * @return A Promise that resolves to a URI representing the picked file, or `null` if unpicked. The file may be a newly created file with no content, or it may be an existing file with the requested MIME type. By default, the app has write access to the URI, and this permission remains valid until the app or device is terminated. The app will be able to gain persistent access to the file by using `AndroidFs.persistPickerUriPermission`.
 	 * 
 	 * @see [FilePicker::save_file](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FilePicker.html#method.save_file)
 	 * @since 22.0.0
@@ -1303,11 +1744,13 @@ export class AndroidFs {
 	): Promise<AndroidFsUri | null> {
 
 		const localOnly = options?.localOnly ?? false
+		const initialLocation = mapPickerInitialLocationForInput(options?.initialLocation)
 
 		return await invoke("plugin:android-fs|show_save_file_picker", {
 			defaultFileName,
 			mimeType,
-			localOnly
+			localOnly,
+			initialLocation
 		})
 	}
 
@@ -1457,39 +1900,5 @@ export class AndroidFs {
 	 */
 	public static async releaseAllPersistedPickerUriPermissions(): Promise<void> {
 		return await invoke("plugin:android-fs|release_all_persisted_picker_uri_permissions")
-	}
-
-	
-
-	/**
-	 * @deprecated Use `AndroidFs.persistPickerUriPermission` instead.
-	 */
-	public static async persistUriPermission(uri: AndroidFsUri): Promise<void> {
-		return await invoke("plugin:android-fs|persist_uri_permission", { uri })
-	}
-
-	/**
-	 * @deprecated Use `AndroidFs.checkPersistedPickerUriPermission` instead.
-	 */
-	public static async checkPersistedUriPermission(
-		uri: AndroidFsUri,
-		state: AndroidUriPermissionState
-	): Promise<boolean> {
-
-		return await invoke("plugin:android-fs|check_persisted_uri_permission", { uri, state })
-	}
-
-	/**
-	 * @deprecated Use `AndroidFs.releasePersistedPickerUriPermission` instead.
-	 */
-	public static async releasePersistedUriPermission(uri: AndroidFsUri): Promise<void> {
-		return await invoke("plugin:android-fs|release_persisted_uri_permission", { uri })
-	}
-
-	/**
-	 * @deprecated Use `AndroidFs.releaseAllPersistedPickerUriPermissions` instead.
-	 */
-	public static async releaseAllPersistedUriPermissions(): Promise<void> {
-		return await invoke("plugin:android-fs|release_all_persisted_uri_permissions")
 	}
 }

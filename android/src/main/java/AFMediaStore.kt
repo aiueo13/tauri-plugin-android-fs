@@ -52,7 +52,7 @@ class AFMediaStore private constructor() { companion object {
 
     @Synchronized
     fun delete(
-        uri: FileUri,
+        uri: AFUri,
         ctx: Context
     ) {
 
@@ -69,7 +69,7 @@ class AFMediaStore private constructor() { companion object {
 
     @Synchronized
     fun rename(
-        uri: FileUri,
+        uri: AFUri,
         newName: String,
         ctx: Context
     ) {
@@ -88,10 +88,19 @@ class AFMediaStore private constructor() { companion object {
     // Q は Android 10
     @RequiresApi(Build.VERSION_CODES.Q)
     fun setPending(
-        fileUri: FileUri,
+        fileUri: AFUri,
         isPending: Boolean,
         ctx: Context
     ) {
+
+        // Android 10 でも IS_PENDING は導入されているが、
+        // - pending 中のファイルが他アプリから参照可能な場合がある
+        // - pending のエントリが存在すると、同名ファイル作成時に 自動リネームされずエラーになる場合がある
+        // などという問題がある。
+        // そのため、IS_PENDING は挙動が安定している Android 11 (R) 以降でのみ使用する。
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            return
+        }
 
         val uri = Uri.parse(fileUri.uri)
         val pending = if (isPending) { 1 } else { 0 }
@@ -108,17 +117,19 @@ class AFMediaStore private constructor() { companion object {
         if (updated < 1) {
             val p = arrayOf(MediaStore.MediaColumns.IS_PENDING)
             ctx.contentResolver.query(uri, p, null, null)?.use {
-                val ci = it.getColumnIndexOrThrow(MediaStore.MediaColumns.IS_PENDING)
-                if (it.getInt(ci) == pending) {
-                    return
+                if (it.moveToFirst()) {
+                    val ci = it.getColumnIndexOrThrow(MediaStore.MediaColumns.IS_PENDING)
+                    if (it.getInt(ci) == pending) {
+                        return
+                    }
                 }
             }
 
-            throw Exception("No file or permission: ${fileUri.uri}")
+            throw Exception("no file or permission: ${fileUri.uri}")
         }
     }
 
-    fun getDisplayName(uri: FileUri, ctx: Context): String {
+    fun getDisplayName(uri: AFUri, ctx: Context): String {
         ctx.contentResolver.query(
             Uri.parse(uri.uri),
             arrayOf(MediaStore.MediaColumns.DISPLAY_NAME),
@@ -132,10 +143,10 @@ class AFMediaStore private constructor() { companion object {
             }
         }
 
-        throw Exception("No file or permission: ${uri.uri}")
+        throw Exception("no file or permission: ${uri.uri}")
     }
 
-    fun getMimeType(uri: FileUri, ctx: Context): String {
+    fun getMimeType(uri: AFUri, ctx: Context): String {
         ctx.contentResolver.query(
             Uri.parse(uri.uri),
             arrayOf(MediaStore.MediaColumns.MIME_TYPE),
@@ -149,11 +160,11 @@ class AFMediaStore private constructor() { companion object {
             }
         }
 
-        throw Exception("No file or permission: ${uri.uri}")
+        throw Exception("no file or permission: ${uri.uri}")
     }
 
     fun getAbsolutePath(
-        fileUri: FileUri,
+        fileUri: AFUri,
         ctx: Context
     ): String {
 
@@ -168,11 +179,11 @@ class AFMediaStore private constructor() { companion object {
             }
         }
 
-        throw Exception("No file or permission: $uri")
+        throw Exception("no file or permission: $uri")
     }
 
     fun getAbsolutePathAndMimeType(
-        fileUri: FileUri,
+        fileUri: AFUri,
         ctx: Context
     ): Pair<String, String> {
 
@@ -191,7 +202,7 @@ class AFMediaStore private constructor() { companion object {
             }
         }
 
-        throw Exception("No file or permission: $uri")
+        throw Exception("no file or permission: $uri")
     }
 
     fun scanFileWithIgnoringResult(
@@ -279,7 +290,7 @@ class AFMediaStore private constructor() { companion object {
  */
 @RequiresApi(Build.VERSION_CODES.Q)
 fun _delete(
-    uri: FileUri,
+    uri: AFUri,
     ctx: Context
 ) {
 
@@ -292,7 +303,7 @@ fun _delete(
  * Android 7 ~ 9
  */
 fun _deleteLegacy(
-    uri: FileUri,
+    uri: AFUri,
     ctx: Context
 ) {
 
@@ -311,7 +322,7 @@ fun _deleteLegacy(
  */
 @RequiresApi(Build.VERSION_CODES.Q)
 fun _rename(
-    uri: FileUri,
+    uri: AFUri,
     newName: String,
     ctx: Context
 ) {
@@ -336,7 +347,7 @@ fun _rename(
  * Android 7 ~ 9
  */
 fun _renameLegacy(
-    uri: FileUri,
+    uri: AFUri,
     newName: String,
     ctx: Context
 ) {
@@ -358,7 +369,7 @@ fun _renameLegacy(
                 }
             )
             if (!result.first) {
-                throw Exception("No file or permission: ${uri.uri}, $srcPath")
+                throw Exception("no file or permission: ${uri.uri}, $srcPath")
             }
             result.second
         }
@@ -419,7 +430,13 @@ private fun _createNewFile(
             put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
             put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
             put(MediaStore.MediaColumns.RELATIVE_PATH, "$parentRelativePath/")
-            if (isPending) {
+
+            // Android 10 でも IS_PENDING は導入されているが、
+            // - pending 中のファイルが他アプリから参照可能な場合がある
+            // - pending のエントリが存在すると、同名ファイル作成時に 自動リネームされずエラーになる場合がある
+            // などという問題がある。
+            // そのため、IS_PENDING は挙動が安定している Android 11 (R) 以降でのみ使用する。
+            if (isPending && Build.VERSION_CODES.R <= Build.VERSION.SDK_INT) {
                 put(MediaStore.MediaColumns.IS_PENDING, 1)
             }
         }

@@ -15,7 +15,6 @@ import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.util.Base64
 import android.util.Size
-import android.webkit.MimeTypeMap
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia
@@ -36,15 +35,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
-import java.io.FileOutputStream
-import java.io.OutputStream
 
 
 @InvokeArg
-class FileUri {
+class AFUri {
     lateinit var uri: String
     var documentTopTreeUri: String? = null
 }
@@ -81,7 +77,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     private val rawFileController = RawFileController()
 
     @Suppress("NAME_SHADOWING")
-    private fun getFileController(uri: FileUri): FileController {
+    private fun getFileController(uri: AFUri): FileController {
         val documentTopTreeUri = uri.documentTopTreeUri
         val uri = Uri.parse(uri.uri)
 
@@ -99,44 +95,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         }
     }
 
-    private fun openFileWt(uri: Uri): OutputStream {
-        // Android 9 以下の場合、w は既存の内容を必ず切り捨てる
-        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
-            return activity.contentResolver.openOutputStream(uri, "w")
-                ?: throw Exception("Failed to open file with w mode")
-        }
-
-        // Android 10 以上の場合、w は既存の内容を切り捨てるとは限らない
-        // しかし wt に対応していない file provider もあるため、
-        // フォールバックを用いてなるべく多くの状況に対応する。
-        // https://issuetracker.google.com/issues/180526528
-
-        for (mode in listOf("wt", "rwt", "w")) {
-            try {
-                val o = activity.contentResolver.openOutputStream(uri, mode)
-                if (o != null) {
-                    if (mode == "w") {
-                        if (o is FileOutputStream) {
-                            try {
-                                o.channel.truncate(0)
-                                return o
-                            } catch (ignore: Exception) {
-                                o.close()
-                            }
-                        }
-                        o.close()
-                    } else {
-                        return o
-                    }
-                }
-            } catch (ignore: Exception) {
-            }
-        }
-
-        throw Exception("Failed to open file with truncate and write")
-    }
-
-    private fun tryIntoSafInitialLocation(initialLocation: FileUri): Uri? {
+    private fun tryIntoSafInitialLocation(initialLocation: AFUri): Uri? {
         val documentTopTreeUri = initialLocation.documentTopTreeUri
         val uri = Uri.parse(initialLocation.uri)
 
@@ -165,14 +124,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 val args = invoke.parseArgs(Args::class.java)
                 val res = JSObject()
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(res)
-                }
+                invoke.resolve(res)
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error")
-                }
+                invoke.reject(e.message ?: "unknown error")
             }
         }
     }
@@ -226,14 +181,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     put("mimeType", mimeType)
                 }
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(res)
-                }
+                invoke.resolve(res)
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error")
-                }
+                invoke.reject(e.message ?: "unknown error")
             }
         }
     }
@@ -253,14 +204,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     put("extension", extension)
                 }
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(res)
-                }
+                invoke.resolve(res)
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error")
-                }
+                invoke.reject(e.message ?: "unknown error")
             }
         }
     }
@@ -368,7 +315,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun findSafFileUri(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var parentUri: FileUri
+            lateinit var parentUri: AFUri
             lateinit var relativePath: String
         }
 
@@ -377,14 +324,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 val args = invoke.parseArgs(Args::class.java)
                 val uri = documentFileController.findFileUri(args.parentUri, args.relativePath)
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(uri)
-                }
+                invoke.resolve(uri)
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -393,7 +336,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun findSafDirUri(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var parentUri: FileUri
+            lateinit var parentUri: AFUri
             lateinit var relativePath: String
         }
 
@@ -402,14 +345,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 val args = invoke.parseArgs(Args::class.java)
                 val uri = documentFileController.findDirUri(args.parentUri, args.relativePath)
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(uri)
-                }
+                invoke.resolve(uri)
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -429,15 +368,13 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 AFMediaStore.scanFile(
                     File(args.path),
                     args.mimeType,
-                    { uri -> activity.runOnUiThread { invoke.resolve(JSObject().apply { put("uri", AFJSObject.createFileUri(uri)) }) } },
-                    { err -> activity.runOnUiThread { invoke.reject(err.message ?: "unknown error : $err") } },
+                    { uri -> invoke.resolve(JSObject().apply { put("uri", AFJSObject.createFileUri(uri)) }) },
+                    { err -> invoke.reject(err.message ?: "unknown error : $err") },
                     activity
                 )
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error : $e")
-                }
+                invoke.reject(e.message ?: "unknown error : $e")
             }
         }
     }
@@ -446,7 +383,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun scanMediaStoreFile(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var uri: FileUri
+            lateinit var uri: AFUri
         }
 
         scope.launch {
@@ -463,14 +400,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     activity
                 )
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve()
-                }
+                invoke.resolve()
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -479,7 +412,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun scanMediaStoreFileForResult(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var uri: FileUri
+            lateinit var uri: AFUri
         }
 
         scope.launch {
@@ -492,15 +425,13 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 AFMediaStore.scanFile(
                     File(path),
                     mimeType,
-                    { activity.runOnUiThread { invoke.resolve() } },
-                    { err -> activity.runOnUiThread { invoke.reject(err.message ?: "unknown error: $err") } },
+                    { invoke.resolve() },
+                    { err -> invoke.reject(err.message ?: "unknown error: $err") },
                     activity
                 )
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -509,24 +440,21 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun getMediaStoreFileAbsolutePath(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var uri: FileUri
+            lateinit var uri: AFUri
         }
 
         scope.launch {
             try {
                 val args = invoke.parseArgs(Args::class.java)
                 val path: String = AFMediaStore.getAbsolutePath(args.uri, activity)
-
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(JSObject().apply {
-                        put("path", path)
-                    })
+                val res = JSObject().apply {
+                    put("path", path)
                 }
+
+                invoke.resolve(res)
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -535,7 +463,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun setMediaStoreFilePending(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var uri: FileUri
+            lateinit var uri: AFUri
             // isPending と命名するとなぜか常にnullになる
             var pending: Boolean? = null
         }
@@ -554,14 +482,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     activity
                 )
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve()
-                }
+                invoke.resolve()
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -590,14 +514,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     ))
                 }
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(res)
-                }
+                invoke.resolve(res)
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -618,14 +538,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     put("volume", svJsObj)
                 }
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(res)
-                }
+                invoke.resolve(res)
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -640,14 +556,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     put("volume", svJsObj)
                 }
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(res)
-                }
+                invoke.resolve(res)
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -666,14 +578,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     put("volumes", svsObj)
                 }
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(res)
-                }
+                invoke.resolve(res)
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -693,14 +601,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     put("value", ok)
                 }
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(res)
-                }
+                invoke.resolve(res)
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -720,14 +624,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     put("value", ok)
                 }
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(res)
-                }
+                invoke.resolve(res)
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -766,16 +666,12 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     })
                 }
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(JSObject().apply {
-                        put("items", items)
-                    })
-                }
+                invoke.resolve(JSObject().apply {
+                    put("items", items)
+                })
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -795,14 +691,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     activity.contentResolver.releasePersistableUriPermission(it.uri, flag)
                 }
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve()
-                }
+                invoke.resolve()
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -811,7 +703,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun releasePersistedPickerUriPermission(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var uri: FileUri
+            lateinit var uri: AFUri
         }
 
         scope.launch {
@@ -840,16 +732,12 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
 
                 val isReleased: Boolean = target != null
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(JSObject().apply {
-                        put("isReleased", isReleased)
-                    })
-                }
+                invoke.resolve(JSObject().apply {
+                    put("isReleased", isReleased)
+                })
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -858,7 +746,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun persistPickerUriPermission(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var uri: FileUri
+            lateinit var uri: AFUri
         }
 
         scope.launch {
@@ -892,14 +780,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     activity.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
                 }
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve()
-                }
+                invoke.resolve()
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -908,7 +792,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun getPersistedPickerUriPermission(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var uri: FileUri
+            lateinit var uri: AFUri
         }
 
         scope.launch {
@@ -927,17 +811,13 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 val canRead: Boolean = permission?.isReadPermission ?: false
                 val canWrite: Boolean = permission?.isWritePermission ?: false
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(JSObject().apply {
-                        put("canRead", canRead)
-                        put("canWrite", canWrite)
-                    })
-                }
+                invoke.resolve(JSObject().apply {
+                    put("canRead", canRead)
+                    put("canWrite", canWrite)
+                })
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -946,7 +826,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun getPickerUriPermission(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var uri: FileUri
+            lateinit var uri: AFUri
         }
 
         scope.launch {
@@ -963,17 +843,13 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     uri, pid, uid, Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 ) == PackageManager.PERMISSION_GRANTED
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(JSObject().apply {
-                        put("canRead", canRead)
-                        put("canWrite", canWrite)
-                    })
-                }
+                invoke.resolve(JSObject().apply {
+                    put("canRead", canRead)
+                    put("canWrite", canWrite)
+                })
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -982,7 +858,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun createFile(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var dir: FileUri
+            lateinit var dir: AFUri
             lateinit var relativePath: String
             var mimeType: String? = null
         }
@@ -995,14 +871,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 val res = getFileController(args.dir)
                     .createFile(args.dir, args.relativePath, mimeType)
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(res)
-                }
+                invoke.resolve(res)
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -1011,7 +883,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun createFileAndReturnRelativePath(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var dir: FileUri
+            lateinit var dir: AFUri
             lateinit var relativePath: String
             var mimeType: String? = null
         }
@@ -1025,14 +897,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 val res = getFileController(args.dir)
                     .createFileAndReturnRelativePath(args.dir, args.relativePath, mimeType)
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(res)
-                }
+                invoke.resolve(res)
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -1041,7 +909,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun createDirAll(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var dir: FileUri
+            lateinit var dir: AFUri
             lateinit var relativePath: String
         }
 
@@ -1051,14 +919,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 val res = getFileController(args.dir)
                     .createDirAll(args.dir, args.relativePath)
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(res)
-                }
+                invoke.resolve(res)
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -1067,7 +931,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun createDirAllAndReturnRelativePath(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var dir: FileUri
+            lateinit var dir: AFUri
             lateinit var relativePath: String
         }
 
@@ -1077,14 +941,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 val res = getFileController(args.dir)
                     .createDirAllAndReturnRelativePath(args.dir, args.relativePath)
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(res)
-                }
+                invoke.resolve(res)
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -1093,7 +953,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun readDir(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var uri: FileUri
+            lateinit var uri: AFUri
             lateinit var options: ReadDirEntryOptions
         }
 
@@ -1104,14 +964,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     put("entries", getFileController(args.uri).readDir(args.uri, args.options))
                 }
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(res)
-                }
+                invoke.resolve(res)
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -1120,7 +976,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun getName(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var uri: FileUri
+            lateinit var uri: AFUri
         }
 
         scope.launch {
@@ -1129,14 +985,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 val res = JSObject()
                 res.put("name", getFileController(args.uri).getName(args.uri))
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(res)
-                }
+                invoke.resolve(res)
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -1145,7 +997,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun getLen(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var uri: FileUri
+            lateinit var uri: AFUri
         }
 
         scope.launch {
@@ -1154,14 +1006,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 val res = JSObject()
                 res.put("len", getFileController(args.uri).getLen(args.uri))
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(res)
-                }
+                invoke.resolve(res)
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -1170,7 +1018,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun getMetadata(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var uri: FileUri
+            lateinit var uri: AFUri
         }
 
         scope.launch {
@@ -1178,14 +1026,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 val args = invoke.parseArgs(Args::class.java)
                 val res = getFileController(args.uri).getMetadata(args.uri)
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(res)
-                }
+                invoke.resolve(res)
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -1194,8 +1038,8 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun getThumbnailToFile(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var src: FileUri
-            lateinit var dest: FileUri
+            lateinit var src: AFUri
+            lateinit var dest: AFUri
             var width: Int = -1
             var height: Int = -1
             var quality: Int = -1
@@ -1211,21 +1055,17 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     preferredSize = Size(args.width, args.height),
                     format = args.format,
                     quality = args.quality,
-                    output = { openFileWt(Uri.parse(args.dest.uri)) },
+                    output = { AFUtils.openFileWt(Uri.parse(args.dest.uri), activity) },
                     useThumbnail = { true },
                     ctx = activity
                 ) ?: false
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(JSObject().apply {
-                        put("value", ok)
-                    })
-                }
+                invoke.resolve(JSObject().apply {
+                    put("value", ok)
+                })
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -1234,7 +1074,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun getThumbnail(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var uri: FileUri
+            lateinit var uri: AFUri
             var width: Int = -1
             var height: Int = -1
             var quality: Int = -1
@@ -1259,14 +1099,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     put("bytes", base64)
                 }
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(res)
-                }
+                invoke.resolve(res)
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -1275,7 +1111,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun deleteFile(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var uri: FileUri
+            lateinit var uri: AFUri
         }
 
         scope.launch {
@@ -1283,14 +1119,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 val args = invoke.parseArgs(Args::class.java)
                 getFileController(args.uri).deleteFile(args.uri)
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve()
-                }
+                invoke.resolve()
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -1299,7 +1131,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun deleteEmptyDir(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var uri: FileUri
+            lateinit var uri: AFUri
         }
 
         scope.launch {
@@ -1307,14 +1139,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 val args = invoke.parseArgs(Args::class.java)
                 getFileController(args.uri).deleteEmptyDir(args.uri)
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve()
-                }
+                invoke.resolve()
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -1323,7 +1151,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun deleteDirAll(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var uri: FileUri
+            lateinit var uri: AFUri
         }
 
         scope.launch {
@@ -1331,14 +1159,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 val args = invoke.parseArgs(Args::class.java)
                 getFileController(args.uri).deleteDirAll(args.uri)
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve()
-                }
+                invoke.resolve()
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -1347,7 +1171,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun rename(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var uri: FileUri
+            lateinit var uri: AFUri
             lateinit var newName: String
         }
 
@@ -1356,14 +1180,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 val args = invoke.parseArgs(Args::class.java)
                 val uri = getFileController(args.uri).rename(args.uri, args.newName)
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(uri)
-                }
+                invoke.resolve(uri)
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -1372,7 +1192,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun shareFiles(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var uris: Array<FileUri>
+            lateinit var uris: Array<AFUri>
         }
 
         try {
@@ -1427,7 +1247,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun viewDir(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var uri: FileUri
+            lateinit var uri: AFUri
         }
 
         try {
@@ -1462,7 +1282,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun viewFile(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var uri: FileUri
+            lateinit var uri: AFUri
         }
 
         try {
@@ -1497,7 +1317,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun editFile(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var uri: FileUri
+            lateinit var uri: AFUri
         }
 
         try {
@@ -1534,7 +1354,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun showManageDirDialog(invoke: Invoke) {
         @InvokeArg
         class Args {
-            var initialLocation: FileUri? = null
+            var initialLocation: AFUri? = null
             var localOnly: Boolean = false
         }
 
@@ -1630,7 +1450,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun getMimeType(invoke: Invoke) {
         @InvokeArg
         class Args {
-            lateinit var uri: FileUri
+            lateinit var uri: AFUri
         }
 
         scope.launch {
@@ -1639,14 +1459,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 val res = JSObject()
                 res.put("value", getFileController(args.uri).getMimeType(args.uri))
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(res)
-                }
+                invoke.resolve(res)
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -1658,7 +1474,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             lateinit var mimeTypes: Array<String>
             var multiple: Boolean = false
             var localOnly: Boolean = false
-            var initialLocation: FileUri? = null
+            var initialLocation: AFUri? = null
         }
 
         try {
@@ -1733,7 +1549,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun showSaveFileDialog(invoke: Invoke) {
         @InvokeArg
         class Args {
-            var initialLocation: FileUri? = null
+            var initialLocation: AFUri? = null
             lateinit var initialFileName: String
             var localOnly: Boolean = false
             var mimeType: String? = null
@@ -1820,7 +1636,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         @InvokeArg
         class Args {
             lateinit var mode: String
-            lateinit var uri: FileUri
+            lateinit var uri: AFUri
         }
 
         scope.launch {
@@ -1833,14 +1649,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 val res = JSObject()
                 res.put("fd", fd)
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(res)
-                }
+                invoke.resolve(res)
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }
@@ -1851,7 +1663,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         @InvokeArg
         class Args {
             lateinit var modes: Array<String>
-            lateinit var uri: FileUri
+            lateinit var uri: AFUri
         }
 
         scope.launch {
@@ -1877,14 +1689,10 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 res.put("fd", fd ?: throw Exception("No file or permission, or unavailable: $uri"))
                 res.put("mode", mode!!)
 
-                withContext(Dispatchers.Main) {
-                    invoke.resolve(res)
-                }
+                invoke.resolve(res)
             }
             catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    invoke.reject(e.message ?: "unknown error: $e")
-                }
+                invoke.reject(e.message ?: "unknown error: $e")
             }
         }
     }

@@ -25,7 +25,7 @@ class AFThumbnails private constructor() { companion object {
      * @param quality: 0 ~ 100
      */
     fun <T, O: OutputStream>loadThumbnail(
-        fileUri: FileUri,
+        fileUri: AFUri,
         preferredSize: Size,
         format: String,
         quality: Int,
@@ -94,7 +94,7 @@ class AFThumbnails private constructor() { companion object {
 
 
 private fun fetchThumbnail(
-    fileUri: FileUri,
+    fileUri: AFUri,
     preferredSize: Size,
     ctx: Context
 ): Bitmap? {

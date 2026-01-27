@@ -1,4 +1,4 @@
-use std::{borrow::Cow, io::{Read, Write}};
+use std::io::{Read, Write};
 use sync_async::sync_async;
 use crate::*;
 use super::*;
@@ -427,7 +427,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         force: bool,
     ) -> Result<()> {
         
-        if !force && api_level::ANDROID_10 <= self.api_level()? {
+        if !force && api_level::ANDROID_11 <= self.api_level()? {
             return Ok(())
         }
 
@@ -441,7 +441,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         force: bool,
     ) -> Result<()> {
         
-        if !force && api_level::ANDROID_10 <= self.api_level()? {
+        if !force && api_level::ANDROID_11 <= self.api_level()? {
             return Ok(())
         }
 
@@ -474,7 +474,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         is_pending: bool
     ) -> Result<()> {
 
-        if api_level::ANDROID_10 <= self.api_level()? {
+        if api_level::ANDROID_11 <= self.api_level()? {
             return self.set_media_store_file_pending(uri, is_pending).await
         }
         

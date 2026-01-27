@@ -117,27 +117,6 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn copy_file_via_kotlin(
-        &self, 
-        src: &FileUri, 
-        dest: &FileUri,
-        buffer_size: Option<u32>,
-    ) -> Result<()> {
-
-        impl_se!(struct Req<'a> { src: &'a FileUri, dest: &'a FileUri, buffer_size: Option<u32> });
-        impl_de!(struct Res;);
-
-        if buffer_size.is_some_and(|s| s <= 0) {
-            return Err(Error::with("buffer_size must be non zero"))
-        }
-
-        self.invoke::<Res>("copyFile", Req { src, dest, buffer_size })
-            .await
-            .map(|_| ())
-            .map_err(Into::into)
-    }
-
-    #[maybe_async]
     pub fn rename_entry(&self, uri: &FileUri, new_name: impl AsRef<str>) -> Result<FileUri> {
         impl_se!(struct Req<'a> { uri: &'a FileUri, new_name: &'a str });
 
