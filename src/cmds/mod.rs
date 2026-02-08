@@ -691,20 +691,24 @@ pub async fn open_read_text_file_lines_stream<R: tauri::Runtime>(
                 tauri::async_runtime::spawn_blocking(move || -> Result<_> {
                     let threshold = len as u64;
                     let max_line_len = std::num::NonZeroU64::new(max_line_byte_length);
-                    let max_line_byte_length = (); // 使わないようにする
+                    let max_line_byte_length = (); // 使えないようにする
 
                     let file = app.resources_table().get::<FileResource>(id)?.get();
                     let mut file = file.lock().unwrap_or_else(|e| e.into_inner());
                     let mut buf = Vec::new();
                     
-                    // | line len (u64, big endian) | line bytes |    
-		            // | line len (u64, big endian) | line bytes |    
-		            // | line len (u64, big endian) | line bytes |  
-                    // ...
+                    // | err flag | line len (u64, big endian) | line bytes |    
+		            // | err flag | line len (u64, big endian) | line bytes |    
+		            // | err flag | line len (u64, big endian) | line bytes | 
+                    // ... 
+                    // 
+                    // err flag が true/1 の場合、その行でエラーが起きたことを示し、
+                    // line bytes はエラーメッセージになる。またこの呼び出しでの最後の行となる。
+                    // エラーの後の呼び出しの振る舞いは未定義。
                     loop {
                         // header の場所を確保
                         let header_offset = buf.len();
-                        buf.extend_from_slice(&[0; 8]);
+                        buf.extend_from_slice(&[0; 9]);
                         
                         let offset = buf.len();
 
@@ -736,21 +740,40 @@ pub async fn open_read_text_file_lines_stream<R: tauri::Runtime>(
                             }
                         }
 
+                        // エラーとなるかの確認
+                        let mut err: Result<()> = Ok(());
                         if max_line_len.is_some_and(|i| i.get() < (n as u64)) {
-                            return Err(Error::with("Line too long"))
+                            err = Err(Error::with("line length limit exceeded"));
                         }
                         if fatal {
-                            if let Err(err) = str::from_utf8(&buf[offset..]) {
-                                return Err(err.into())
+                            if let Err(e) = str::from_utf8(&buf[offset..]) {
+                                err = Err(e.into());
                             }
                         }
 
-                        // header を設定
-                        buf[header_offset..header_offset + 8]
-                            .copy_from_slice(&(n as u64).to_be_bytes());
+                        if let Err(err) = err {
+                            let err_msg_bytes = err.to_string().into_bytes();
+                            let err_msg_len = err_msg_bytes.len();
 
-                        if threshold <= (buf.len() as u64) {
+                            // header を設定
+                            buf[header_offset] = true as u8;
+                            buf[(header_offset + 1)..(header_offset + 9)]
+                                .copy_from_slice(&(err_msg_len as u64).to_be_bytes());
+
+                            // データをエラーメッセージに差し替える
+                            buf.truncate(offset);
+                            buf.extend_from_slice(&err_msg_bytes);
                             break
+                        }
+                        else {
+                            // header を設定
+                            buf[header_offset] = false as u8;
+                            buf[(header_offset + 1)..(header_offset + 9)]
+                                .copy_from_slice(&(n as u64).to_be_bytes());
+
+                            if threshold <= (buf.len() as u64) {
+                                break
+                            }
                         }
                     }
                     

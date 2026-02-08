@@ -2498,10 +2498,14 @@ async function createTextLinesReadableStream(
 		 * 
 		 * bytes は以下の形式。
 		 * それぞれの行は分断されない。     
-		 * | line len (u64, big endian) | line bytes |    
-		 * | line len (u64, big endian) | line bytes |    
-		 * | line len (u64, big endian) | line bytes |    
+		 * | err flag | line len (u64, big endian) | line bytes |    
+		 * | err flag | line len (u64, big endian) | line bytes |    
+		 * | err flag | line len (u64, big endian) | line bytes |    
 		 * ...    
+		 * 
+		 * err flag が true/1 の場合、その行でエラーが起きたことを示し、
+		 * line bytes はエラーメッセージになる。またこの呼び出しでの最後の行となる。
+		 * エラーの後の呼び出しの振る舞いは未定義。
 		 */
 		read: () => Promise<Uint8Array<ArrayBuffer> | null>,
 		release?: () => Promise<void>
@@ -2521,61 +2525,68 @@ async function createTextLinesReadableStream(
 	}
 
 	let decoder: TextDecoder | null = null
+	let buffer: Uint8Array<ArrayBuffer> | null = null
 
 	return new ReadableStream({
 		async pull(controller) {
 			try {
+				if (buffer == null || buffer.byteLength === 0) {
+					buffer = await handler.read()
+				}
+				if (buffer == null || buffer.byteLength === 0) {
+					decoder = null
+					buffer = null
+					await releaseOnce()
+					controller.close()
+					return
+				}
+
+				if (buffer.byteLength < 9) {
+					throw new Error(`Invalid data: Chunk ended with partial header. (${buffer.byteLength} bytes remained)`)
+				}
+				const isErr = buffer[0] === 0 ? false : true
+				const lineSize = trySafeU64FromBytes(buffer.subarray(1, 9), "bigEndian")
+				if (buffer.byteLength < 9 + lineSize) {
+					throw new Error(`Invalid data: Line split detected. Expected ${lineSize} bytes body, but only ${buffer.byteLength - 9} bytes remained in chunk.`)
+				}
+				if (isErr) {
+					throw new Error((new TextDecoder()).decode(buffer.subarray(9, 9 + lineSize)))
+				}
+
 				if (decoder == null) {
 					decoder = new TextDecoder("utf-8", {
 						fatal: options?.fatal,
 						ignoreBOM: options?.ignoreBOM
 					})
 				}
-
-				let buffer = await handler.read()
-				if (buffer == null || buffer.byteLength === 0) {
-					decoder = null
-					await releaseOnce()
-					controller.close()
-					return
+				const text = decoder.decode(buffer.subarray(9, 9 + lineSize))
+				if (!decoder.ignoreBOM) {
+					decoder = new TextDecoder("utf-8", {
+						fatal: options?.fatal,
+						ignoreBOM: true
+					})
 				}
 
-				while (buffer != null && 0 < buffer.byteLength) {
-					if (buffer.byteLength < 8) {
-						throw new Error(`Invalid data: Chunk ended with partial header. (${buffer.byteLength} bytes remained)`)
-					}
-					const lineSize = trySafeU64FromBytes(buffer.subarray(0, 8), "bigEndian")
-					if (buffer.byteLength < 8 + lineSize) {
-						throw new Error(`Invalid data: Line split detected. Expected ${lineSize} bytes body, but only ${buffer.byteLength - 8} bytes remained in chunk.`)
-					}
+				controller.enqueue(text)
 
-					const text = decoder.decode(buffer.subarray(8, 8 + lineSize))
-					controller.enqueue(text)
-
-					if (buffer.byteLength === 8 + lineSize) {
-						buffer = null
-					}
-					else {
-						buffer = buffer.subarray(8 + lineSize)
-					}
-
-					if (!decoder.ignoreBOM) {
-						decoder = new TextDecoder("utf-8", {
-							fatal: options?.fatal,
-							ignoreBOM: true
-						})
-					}
+				if (buffer.byteLength === 9 + lineSize) {
+					buffer = null
+				}
+				else {
+					buffer = buffer.subarray(9 + lineSize)
 				}
 			}
 			catch (e) {
 				decoder = null
-				await releaseOnce()
+				buffer = null
+				await releaseOnce().catch(() => { })
 				throw e
 			}
 		},
 
 		async cancel() {
 			decoder = null
+			buffer = null
 			await releaseOnce()
 		}
 	})
