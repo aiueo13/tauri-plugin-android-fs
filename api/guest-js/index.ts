@@ -1682,12 +1682,12 @@ export class AndroidFs {
 		try {
 			await open()
 			return await createReadableStream({
-				read: () => read(bufferSize), 
+				read: () => read(bufferSize),
 				release: close
 			})
 		}
 		catch (e) {
-			await close().catch(() => {})
+			await close().catch(() => { })
 			throw e
 		}
 	}
@@ -1712,7 +1712,7 @@ export class AndroidFs {
 	 * @param options.maxLineByteLength - The maximum length of a line in bytes, excluding line breaks character. If a line exceeds this limit, an error is thrown. This prevents OOM errors when reading minified files or binaries. Defaults to `0` (unlimited).
 	 * @param options.fatal - Indicates whether an error is thrown when an invalid byte sequence is encountered. If `false`, invalid byte sequences are replaced with U+FFFD (`�`) and decoding continues. Defaults to `false`.
 	 * @param options.ignoreBOM - Indicates whether a leading BOM is preserved and treated as a normal character. Defaults to `false`.
-   * @param options.bufferByteLength - The buffer size, in bytes, used when sending data from the backend to the frontend. IPC calls are relatively expensive (several milliseconds to tens of milliseconds per no-op call), so larger buffer sizes are generally more efficient. But if it is too large, the UI may freeze or run out of memory. This value is not guaranteed to be strictly respected. If a single line exceeds this size, more bytes may be sent in a single IPC transmission. Defaults to `512000` (500 KiB).
+	 * @param options.bufferByteLength - The buffer size, in bytes, used when sending data from the backend to the frontend. IPC calls are relatively expensive (several milliseconds to tens of milliseconds per no-op call), so larger buffer sizes are generally more efficient. But if it is too large, the UI may freeze or run out of memory. This value is not guaranteed to be strictly respected. If a single line exceeds this size, more bytes may be sent in a single IPC transmission. Defaults to `512000` (500 KiB).
 	 *
 	 * @returns A Promise that resolves to a `ReadableStream<string>` backed by the file opened in read-only mode. This stream has a one-to-one correspondence with the file descriptor.
 	 * @throws The Promise will be rejected with an error, if the specified entry does not exist, if the entry is a directory, or if the read permission is missing.
@@ -1738,15 +1738,15 @@ export class AndroidFs {
 			await open()
 
 			return await createTextLinesReadableStream(
-				{ 
-					read: () => read(bufferSize, { fatal, maxLineByteLength }), 
+				{
+					read: () => read(bufferSize, { fatal, maxLineByteLength }),
 					release: close
 				},
 				{ fatal, ignoreBOM }
 			)
 		}
 		catch (e) {
-			await close().catch(() => {})
+			await close().catch(() => { })
 			throw e
 		}
 	}
@@ -1792,7 +1792,7 @@ export class AndroidFs {
 			})
 		}
 		catch (e) {
-			await close().catch(() => {})
+			await close().catch(() => { })
 			throw e
 		}
 	}
@@ -1847,9 +1847,9 @@ export class AndroidFs {
 			uri: mapFsPathForInput(uri),
 		})
 		const decoder = new TextDecoder(
-			options?.encoding ?? "utf-8", 
+			options?.encoding ?? "utf-8",
 			{
-				fatal: options?.fatal, 
+				fatal: options?.fatal,
 				ignoreBOM: options?.ignoreBOM
 			}
 		)
@@ -1878,11 +1878,13 @@ export class AndroidFs {
 	): Promise<void> {
 
 		if (data instanceof Uint8Array) {
-			await invoke("plugin:android-fs|write_file", { event: {
-				type: "WriteOnce",
-				uri: mapFsPathForInput(uri),
-				data: await mapBytesForInput(data)
-			}})
+			await invoke("plugin:android-fs|write_file", {
+				event: {
+					type: "WriteOnce",
+					uri: mapFsPathForInput(uri),
+					data: await mapBytesForInput(data)
+				}
+			})
 		}
 		else if (data instanceof ReadableStream) {
 			const bufferSize = tryMapBufferSizeForInput(options?.bufferByteLength)
@@ -1895,7 +1897,7 @@ export class AndroidFs {
 				await open()
 				const file = await createBufferedWritableStream(bufferSize, {
 					write,
-					release: async () => {}
+					release: async () => { }
 				})
 				await data.pipeTo(file)
 			}
@@ -1930,7 +1932,7 @@ export class AndroidFs {
 
 			// Android で body や ArrayBuffer, number などを送信すると
 			// 非常に非効率な文字列にシリアライズされ、著しく非効率になる。
- 			// よって plugin-fs のようにエンコードした後の ArrayBuffer を body として送ることはしない。
+			// よって plugin-fs のようにエンコードした後の ArrayBuffer を body として送ることはしない。
 			// https://github.com/tauri-apps/tauri/issues/10573
 			data
 		})
@@ -2393,17 +2395,17 @@ async function resolveReadFileStreamEvents(
 	type CmdEvents = {
 		// ridFromBytes で id にできる bytes を返す
 		// 呼び出すたびに新しくファイルを開く
-  	Open: { uri: AndroidFsUri | string },
+		Open: { uri: AndroidFsUri | string },
 		// 読み込んだ bytes を返す
-  	Read: { id: number, len: number },
+		Read: { id: number, len: number },
 		// 常に空の bytes を返す
 		// 何回呼び出してもいい
-  	Close: { id: number },
+		Close: { id: number },
 	}
 	type CmdType = keyof CmdEvents
 	type CmdInput<T extends CmdType> = CmdEvents[T]
 	function dispatch<T extends CmdType>(type: T, input: CmdInput<T>): Promise<ArrayBuffer> {
-  	return invoke(cmd, { event: { type, ...input } })
+		return invoke(cmd, { event: { type, ...input } })
 	}
 
 	let id: number | null = null
@@ -2438,21 +2440,21 @@ async function resolveWriteFileStreamEvents(
 
 	// Android で frontend から body や ArrayBuffer, number[] などを送信すると
 	// 非常に非効率な文字列にシリアライズされ、著しく非効率になる。
- 	// よってそれらは送信しない。
+	// よってそれらは送信しない。
 	// https://github.com/tauri-apps/tauri/issues/10573
 	type CmdEvents = {
 		// 呼び出すたびに新しくファイルを開く
-  	Open: { i: { uri: AndroidFsUri | string }, o: number }
+		Open: { i: { uri: AndroidFsUri | string }, o: number }
 		// 
-  	Write: { i: { id: number; data: string }, o: void }
+		Write: { i: { id: number; data: string }, o: void }
 		// 何回呼び出してもいい
-  	Close: { i: { id: number }, o: void }
+		Close: { i: { id: number }, o: void }
 	}
 	type CmdType = keyof CmdEvents
 	type CmdInput<T extends CmdType> = CmdEvents[T]["i"]
 	type CmdOutput<T extends CmdType> = CmdEvents[T]["o"]
 	function dispatch<T extends CmdType>(type: T, input: CmdInput<T>): Promise<CmdOutput<T>> {
-  	return invoke(cmd, { event: { type, ...input } })
+		return invoke(cmd, { event: { type, ...input } })
 	}
 
 
@@ -2478,7 +2480,7 @@ let _isReadableByteStreamAvailable: boolean | null = null
 function isReadableByteStreamAvailable() {
 	if (_isReadableByteStreamAvailable === null) {
 		try {
-  		new ReadableStream({ type: "bytes"})
+			new ReadableStream({ type: "bytes" })
 			_isReadableByteStreamAvailable = true
 		}
 		catch {
@@ -2502,7 +2504,7 @@ async function createTextLinesReadableStream(
 		 * ...    
 		 */
 		read: () => Promise<Uint8Array<ArrayBuffer> | null>,
-  	release?: () => Promise<void>
+		release?: () => Promise<void>
 	},
 	options?: {
 		fatal?: boolean,
@@ -2512,88 +2514,87 @@ async function createTextLinesReadableStream(
 
 	let releasePromise: Promise<void> | null = null
 	const releaseOnce = () => {
-  	if (!releasePromise) {
-    	releasePromise = (handler.release?? (async() => {}))()
-  	}
-  	return releasePromise
+		if (!releasePromise) {
+			releasePromise = (handler.release ?? (async () => { }))()
+		}
+		return releasePromise
 	}
 
 	let decoder: TextDecoder | null = null
-	let needUpdateDecoderToNonIgnoreBOM = false
-		
+
 	return new ReadableStream({
-    async pull(controller) {
-      try {
-				if (needUpdateDecoderToNonIgnoreBOM) {
+		async pull(controller) {
+			try {
+				if (decoder == null) {
 					decoder = new TextDecoder("utf-8", {
-						fatal: options?.fatal
+						fatal: options?.fatal,
+						ignoreBOM: options?.ignoreBOM
 					})
-					needUpdateDecoderToNonIgnoreBOM = false
 				}
-        else if (decoder == null) {
-          decoder = new TextDecoder("utf-8", {
-            fatal: options?.fatal,
-            ignoreBOM: options?.ignoreBOM
-          })
-					needUpdateDecoderToNonIgnoreBOM = options?.ignoreBOM === true
-        }
 
-       	let buffer = await handler.read()
-        if (buffer == null || buffer.byteLength === 0) {
-          decoder = null
-          await releaseOnce()
-          controller.close()
-          return
-        }
+				let buffer = await handler.read()
+				if (buffer == null || buffer.byteLength === 0) {
+					decoder = null
+					await releaseOnce()
+					controller.close()
+					return
+				}
 
-        while (buffer != null && 0 < buffer.byteLength) {
-          if (buffer.byteLength < 8) {
-            throw new Error(`Invalid data: Chunk ended with partial header. (${buffer.byteLength} bytes remained)`)
-          }
-          const lineSize = trySafeU64FromBytes(buffer.subarray(0, 8), "bigEndian")
-          if (buffer.byteLength < 8 + lineSize) {
-             throw new Error(`Invalid data: Line split detected. Expected ${lineSize} bytes body, but only ${buffer.byteLength - 8} bytes remained in chunk.`)
-          }
+				while (buffer != null && 0 < buffer.byteLength) {
+					if (buffer.byteLength < 8) {
+						throw new Error(`Invalid data: Chunk ended with partial header. (${buffer.byteLength} bytes remained)`)
+					}
+					const lineSize = trySafeU64FromBytes(buffer.subarray(0, 8), "bigEndian")
+					if (buffer.byteLength < 8 + lineSize) {
+						throw new Error(`Invalid data: Line split detected. Expected ${lineSize} bytes body, but only ${buffer.byteLength - 8} bytes remained in chunk.`)
+					}
 
-          const text = decoder.decode(buffer.subarray(8, 8 + lineSize))
-          controller.enqueue(text)
+					const text = decoder.decode(buffer.subarray(8, 8 + lineSize))
+					controller.enqueue(text)
 
-          if (buffer.byteLength === 8 + lineSize) {
-            buffer = null
-          }
+					if (buffer.byteLength === 8 + lineSize) {
+						buffer = null
+					}
 					else {
-            buffer = buffer.subarray(8 + lineSize)
-          }
-        }
-      }
-      catch (e) {
-        decoder = null
-        await releaseOnce()
-        throw e
-      }
-    },
-      
-    async cancel() {
-      decoder = null
-      await releaseOnce()
-    }
-  })
+						buffer = buffer.subarray(8 + lineSize)
+					}
+
+					if (!decoder.ignoreBOM) {
+						decoder = new TextDecoder("utf-8", {
+							fatal: options?.fatal,
+							ignoreBOM: true
+						})
+					}
+				}
+			}
+			catch (e) {
+				decoder = null
+				await releaseOnce()
+				throw e
+			}
+		},
+
+		async cancel() {
+			decoder = null
+			await releaseOnce()
+		}
+	})
 }
 
 async function createReadableStream(
 	handler: {
 		/** null または空配列で EOF */
 		read: () => Promise<Uint8Array<ArrayBuffer> | null>,
-  	release?: () => Promise<void>
+		release?: () => Promise<void>
 	},
 ): Promise<ReadableStream<Uint8Array<ArrayBuffer>>> {
 
 	let releasePromise: Promise<void> | null = null
 	const releaseOnce = () => {
-  	if (!releasePromise) {
-    	releasePromise = (handler.release?? (async() => {}))()
-  	}
-  	return releasePromise
+		if (!releasePromise) {
+			releasePromise = (handler.release ?? (async () => { }))()
+		}
+		return releasePromise
 	}
 
 	if (!isReadableByteStreamAvailable()) {
@@ -2610,11 +2611,11 @@ async function createReadableStream(
 					controller.enqueue(data)
 				}
 				catch (e) {
-					await releaseOnce().catch(() => {})
+					await releaseOnce().catch(() => { })
 					throw e
 				}
 			},
-			
+
 			async cancel() {
 				await releaseOnce()
 			}
@@ -2660,12 +2661,12 @@ async function createReadableStream(
 				}
 				else {
 					controller.enqueue(buffer)
-          buffer = null
+					buffer = null
 				}
 			}
 			catch (e) {
 				buffer = null
-				await releaseOnce().catch(() => {})
+				await releaseOnce().catch(() => { })
 
 				// byobRequest が存在する場合、controller.close() を呼んだだけでは
 				// Promise は解決されず、respond() も呼ぶ必要がある。
@@ -2687,71 +2688,71 @@ async function createReadableStream(
  * 必要な場合はコピーしてから用いる必要がある。
  */
 async function createBufferedWritableStream(
-  bufferSize: number,
+	bufferSize: number,
 	handler: {
 		write: (chunk: Uint8Array<ArrayBuffer>) => Promise<void>,
-  	release?: () => Promise<void>
+		release?: () => Promise<void>
 	},
 ): Promise<WritableStream<Uint8Array<ArrayBufferLike>>> {
-  
+
 	if (!Number.isSafeInteger(bufferSize) || bufferSize <= 0) {
-  	throw new Error("bufferSize must be a positive safe integer")
+		throw new Error("bufferSize must be a positive safe integer")
 	}
 
 	let releasePromise: Promise<void> | null = null
 	const releaseOnce = () => {
-  	if (!releasePromise) {
-    	releasePromise = (handler.release?? (async() => {}))()
-  	}
-  	return releasePromise
+		if (!releasePromise) {
+			releasePromise = (handler.release ?? (async () => { }))()
+		}
+		return releasePromise
 	}
 
-  let buffer: Uint8Array<ArrayBuffer> | null = new Uint8Array(bufferSize)
-  let bufferOffset = 0;
+	let buffer: Uint8Array<ArrayBuffer> | null = new Uint8Array(bufferSize)
+	let bufferOffset = 0;
 
-  return new WritableStream<Uint8Array<ArrayBufferLike>>({
-    async write(src) {
-      try {
+	return new WritableStream<Uint8Array<ArrayBufferLike>>({
+		async write(src) {
+			try {
 				if (buffer == null) throw new Error("Buffer missing")
 
 				let srcOffset = 0;
 
-      	while (srcOffset < src.byteLength) {
-        	const n = Math.min(bufferSize - bufferOffset, src.byteLength - srcOffset)
-        	buffer.set(src.subarray(srcOffset, srcOffset + n), bufferOffset)
-        	bufferOffset += n
-        	srcOffset += n
+				while (srcOffset < src.byteLength) {
+					const n = Math.min(bufferSize - bufferOffset, src.byteLength - srcOffset)
+					buffer.set(src.subarray(srcOffset, srcOffset + n), bufferOffset)
+					bufferOffset += n
+					srcOffset += n
 
-        	if (bufferOffset === bufferSize) {
-          	await handler.write(buffer)
-          	bufferOffset = 0
-        	}
-      	}
+					if (bufferOffset === bufferSize) {
+						await handler.write(buffer)
+						bufferOffset = 0
+					}
+				}
 			}
 			catch (e) {
 				buffer = null
-				await releaseOnce().catch(() => {})
+				await releaseOnce().catch(() => { })
 				throw e
 			}
-    },
+		},
 
-    async close() {
-      try {
-        if (0 < bufferOffset && buffer != null) {
-          await handler.write(buffer.subarray(0, bufferOffset))
-        }
-      } 
+		async close() {
+			try {
+				if (0 < bufferOffset && buffer != null) {
+					await handler.write(buffer.subarray(0, bufferOffset))
+				}
+			}
 			finally {
 				buffer = null
-        await releaseOnce()
-      }
-    },
-		
-    async abort() {
+				await releaseOnce()
+			}
+		},
+
+		async abort() {
 			buffer = null
-      await releaseOnce()
-    }
-  })
+			await releaseOnce()
+		}
+	})
 }
 
 async function blobToDataUrl(blob: Blob): Promise<string> {
@@ -2794,92 +2795,92 @@ async function blobToDataUrl(blob: Blob): Promise<string> {
 }
 
 function isNonzeroU32(num: number): boolean {
-    return isU32(num) && num !== 0
+	return isU32(num) && num !== 0
 }
 
 function isU32(num: number): boolean {
-    return Number.isInteger(num) && 0 <= num && num <= 0xFFFFFFFF
+	return Number.isInteger(num) && 0 <= num && num <= 0xFFFFFFFF
 }
 
 function ridFromBytes(bytes: ArrayBufferView | ArrayBuffer): number {
-  return u32FromBytes(bytes, "bigEndian")
+	return u32FromBytes(bytes, "bigEndian")
 }
 
 function u32FromBytes(
-  input: ArrayBufferView | ArrayBuffer, 
-  endian: "bigEndian" | "littleEndian"
+	input: ArrayBufferView | ArrayBuffer,
+	endian: "bigEndian" | "littleEndian"
 ): number {
 
-  const bytes = input instanceof Uint8Array
-    ? input
-    : input instanceof ArrayBuffer
-      ? new Uint8Array(input)
-      : new Uint8Array(input.buffer, input.byteOffset, input.byteLength);
+	const bytes = input instanceof Uint8Array
+		? input
+		: input instanceof ArrayBuffer
+			? new Uint8Array(input)
+			: new Uint8Array(input.buffer, input.byteOffset, input.byteLength);
 
-  if (bytes.length !== 4) {
-    throw new Error(`Expected 4 bytes for u32, got ${bytes.length}`);
-  }
+	if (bytes.length !== 4) {
+		throw new Error(`Expected 4 bytes for u32, got ${bytes.length}`);
+	}
 
-  if (endian === "bigEndian") {
-    // Big Endian: [0xAA, 0xBB, 0xCC, 0xDD] -> 0xAABBCCDD
-    return ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0;
-  } 
+	if (endian === "bigEndian") {
+		// Big Endian: [0xAA, 0xBB, 0xCC, 0xDD] -> 0xAABBCCDD
+		return ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0;
+	}
 	else {
-    // Little Endian: [0xDD, 0xCC, 0xBB, 0xAA] -> 0xAABBCCDD
-    return (bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24)) >>> 0;
-  }
+		// Little Endian: [0xDD, 0xCC, 0xBB, 0xAA] -> 0xAABBCCDD
+		return (bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24)) >>> 0;
+	}
 }
 
 function trySafeU64FromBytes(
-  input: ArrayBufferView | ArrayBuffer,
-  endian: "bigEndian" | "littleEndian"
+	input: ArrayBufferView | ArrayBuffer,
+	endian: "bigEndian" | "littleEndian"
 ): number {
 
-  const bytes = input instanceof Uint8Array
-    ? input
-    : input instanceof ArrayBuffer
-      ? new Uint8Array(input)
-      : new Uint8Array(input.buffer, input.byteOffset, input.byteLength);
+	const bytes = input instanceof Uint8Array
+		? input
+		: input instanceof ArrayBuffer
+			? new Uint8Array(input)
+			: new Uint8Array(input.buffer, input.byteOffset, input.byteLength);
 
-  if (bytes.length !== 8) {
-    throw new Error(`Expected 8 bytes for u64, got ${bytes.length}`);
-  }
+	if (bytes.length !== 8) {
+		throw new Error(`Expected 8 bytes for u64, got ${bytes.length}`);
+	}
 
-  if (endian === "bigEndian") {
-    // bytes[0]: bits 56-63 (全ビット禁止)
-    // bytes[1]: bits 48-55 (上位3ビット: 53, 54, 55 が禁止)
-    if (bytes[0] !== 0 || (bytes[1] & 0b1110_0000) !== 0) {
-      throw new Error("u64 exceeds Number.MAX_SAFE_INTEGER");
-    }
+	if (endian === "bigEndian") {
+		// bytes[0]: bits 56-63 (全ビット禁止)
+		// bytes[1]: bits 48-55 (上位3ビット: 53, 54, 55 が禁止)
+		if (bytes[0] !== 0 || (bytes[1] & 0b1110_0000) !== 0) {
+			throw new Error("u64 exceeds Number.MAX_SAFE_INTEGER");
+		}
 
 		return (
 			(bytes[0] * (2 ** 56)) +
-      (bytes[1] * (2 ** 48)) +
-      (bytes[2] * (2 ** 40)) +
-      (bytes[3] * (2 ** 32)) +
-      (bytes[4] * (2 ** 24)) +
-      (bytes[5] * (2 ** 16)) +
-      (bytes[6] * (2 ** 8)) +
-      (bytes[7])
+			(bytes[1] * (2 ** 48)) +
+			(bytes[2] * (2 ** 40)) +
+			(bytes[3] * (2 ** 32)) +
+			(bytes[4] * (2 ** 24)) +
+			(bytes[5] * (2 ** 16)) +
+			(bytes[6] * (2 ** 8)) +
+			(bytes[7])
 		)
-  }
+	}
 	else {
-    // little endian
-    // bytes[7]: bits 56-63 (全ビット禁止)
-    // bytes[6]: bits 48-55 (上位3ビット: 53, 54, 55 が禁止)
-    if (bytes[7] !== 0 || (bytes[6] & 0b1110_0000) !== 0) {
-      throw new Error("u64 exceeds Number.MAX_SAFE_INTEGER");
-    }
+		// little endian
+		// bytes[7]: bits 56-63 (全ビット禁止)
+		// bytes[6]: bits 48-55 (上位3ビット: 53, 54, 55 が禁止)
+		if (bytes[7] !== 0 || (bytes[6] & 0b1110_0000) !== 0) {
+			throw new Error("u64 exceeds Number.MAX_SAFE_INTEGER");
+		}
 
 		return (
 			(bytes[0]) +
-      (bytes[1] * (2 ** 8)) +
-      (bytes[2] * (2 ** 16)) +
-      (bytes[3] * (2 ** 24)) +
-      (bytes[4] * (2 ** 32)) +
-      (bytes[5] * (2 ** 40)) +
-      (bytes[6] * (2 ** 48)) +
-      (bytes[7] * (2 ** 56))
+			(bytes[1] * (2 ** 8)) +
+			(bytes[2] * (2 ** 16)) +
+			(bytes[3] * (2 ** 24)) +
+			(bytes[4] * (2 ** 32)) +
+			(bytes[5] * (2 ** 40)) +
+			(bytes[6] * (2 ** 48)) +
+			(bytes[7] * (2 ** 56))
 		)
-  }
+	}
 }
