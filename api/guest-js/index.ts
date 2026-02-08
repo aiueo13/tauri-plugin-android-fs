@@ -2494,18 +2494,19 @@ function isReadableByteStreamAvailable() {
 async function createTextLinesReadableStream(
 	handler: {
 		/**
-		 * null または空配列で EOF。
+		 * null か空で EOF
 		 * 
-		 * bytes は以下の形式。
-		 * それぞれの行は分断されない。     
-		 * | err flag | line len (u64, big endian) | line bytes |    
-		 * | err flag | line len (u64, big endian) | line bytes |    
-		 * | err flag | line len (u64, big endian) | line bytes |    
-		 * ...    
+		 * | u8 (0=ok, 1=err) | u64 (big endian) | variable   |
+		 * |------------------|------------------------------|
+		 * | err flag         | line len         | line bytes |
+		 * | err flag         | line len         | line bytes |
+		 * | err flag         | line len         | line bytes |
+		 * ...
 		 * 
-		 * err flag が true/1 の場合、その行でエラーが起きたことを示し、
-		 * line bytes はエラーメッセージになる。またこの呼び出しでの最後の行となる。
-		 * エラーの後の呼び出しの振る舞いは未定義。
+		 * err flag が 1 の場合、その行でエラーが発生したことを示す。
+		 * その場合、line bytes にはエラーメッセージが格納され、
+		 * この呼び出しでの最後の行となる。
+		 * エラー発生後の呼び出しの挙動は未定義。
 		 */
 		read: () => Promise<Uint8Array<ArrayBuffer> | null>,
 		release?: () => Promise<void>
@@ -2527,6 +2528,9 @@ async function createTextLinesReadableStream(
 	let decoder: TextDecoder | null = null
 	let buffer: Uint8Array<ArrayBuffer> | null = null
 
+	// エラーはその原因となった行を読み込んだ際に発生させたいため、
+	// 1回の pull では1回だけ enqueue　を行う。
+	// 複数回行うとエラーが発生した行ではない箇所で read してもエラーになってしまう。
 	return new ReadableStream({
 		async pull(controller) {
 			try {
@@ -2544,13 +2548,17 @@ async function createTextLinesReadableStream(
 				if (buffer.byteLength < 9) {
 					throw new Error(`Invalid data: Chunk ended with partial header. (${buffer.byteLength} bytes remained)`)
 				}
-				const isErr = buffer[0] === 0 ? false : true
+				const errFlag = buffer[0]
 				const lineSize = trySafeU64FromBytes(buffer.subarray(1, 9), "bigEndian")
 				if (buffer.byteLength < 9 + lineSize) {
 					throw new Error(`Invalid data: Line split detected. Expected ${lineSize} bytes body, but only ${buffer.byteLength - 9} bytes remained in chunk.`)
 				}
-				if (isErr) {
-					throw new Error((new TextDecoder()).decode(buffer.subarray(9, 9 + lineSize)))
+				const lineBytes = buffer.subarray(9, 9 + lineSize)
+				if (errFlag === 1) {
+					throw new Error((new TextDecoder()).decode(lineBytes))
+				}
+				if (errFlag !== 0) {
+					throw new Error(`Invalid err flag: Expected 0 or 1, got ${errFlag}.`)
 				}
 
 				if (decoder == null) {
@@ -2559,7 +2567,7 @@ async function createTextLinesReadableStream(
 						ignoreBOM: options?.ignoreBOM
 					})
 				}
-				const text = decoder.decode(buffer.subarray(9, 9 + lineSize))
+				const text = decoder.decode(lineBytes)
 				if (!decoder.ignoreBOM) {
 					decoder = new TextDecoder("utf-8", {
 						fatal: options?.fatal,

@@ -697,14 +697,23 @@ pub async fn open_read_text_file_lines_stream<R: tauri::Runtime>(
                     let mut file = file.lock().unwrap_or_else(|e| e.into_inner());
                     let mut buf = Vec::new();
                     
-                    // | err flag | line len (u64, big endian) | line bytes |    
-		            // | err flag | line len (u64, big endian) | line bytes |    
-		            // | err flag | line len (u64, big endian) | line bytes | 
-                    // ... 
+                    // この関数が返す bytes は以下となる。
                     // 
-                    // err flag が true/1 の場合、その行でエラーが起きたことを示し、
-                    // line bytes はエラーメッセージになる。またこの呼び出しでの最後の行となる。
-                    // エラーの後の呼び出しの振る舞いは未定義。
+                    // | u8 (0=ok, 1=err) | u64 (big endian) | variable   |
+		            // |------------------|-------------------------------|
+		            // | err flag         | line len         | line bytes |
+		            // | err flag         | line len         | line bytes |
+		            // | err flag         | line len         | line bytes |
+                    // ...
+                    //
+                    // err flag が 1 の場合、その行でエラーが発生したことを示す。
+                    // その場合、line bytes にはエラーメッセージが格納され、
+                    // この呼び出しでの最後の行となる。
+                    // エラー発生後の呼び出しの挙動は未定義。
+                    //
+                    // この関数は複数の行を先読みしてまとめて送信するため、
+                    // 関数内で直接エラーを返すのではなく、この形式でエラー情報を伝え、
+                    // ライブラリ使用者が対象行を読み込んだ際にエラーを検知できるようにする。
                     loop {
                         // header の場所を確保
                         let header_offset = buf.len();
@@ -717,6 +726,8 @@ pub async fn open_read_text_file_lines_stream<R: tauri::Runtime>(
                                 .by_ref()
                                 .read_until(b'\n', &mut buf)?,
 
+                            // 制限 + α のデータを読み込み、行が制限を超えているかを確認する。
+                            // α があるのは制限丁度だと EOF か制限で引っかかたのかわからないため。
                             Some(i) => file
                                 .by_ref()
                                 .take(i.get().saturating_add(b"\r\n".len() as u64))
@@ -753,12 +764,11 @@ pub async fn open_read_text_file_lines_stream<R: tauri::Runtime>(
 
                         if let Err(err) = err {
                             let err_msg_bytes = err.to_string().into_bytes();
-                            let err_msg_len = err_msg_bytes.len();
 
                             // header を設定
-                            buf[header_offset] = true as u8;
+                            buf[header_offset] = 1;
                             buf[(header_offset + 1)..(header_offset + 9)]
-                                .copy_from_slice(&(err_msg_len as u64).to_be_bytes());
+                                .copy_from_slice(&(err_msg_bytes.len() as u64).to_be_bytes());
 
                             // データをエラーメッセージに差し替える
                             buf.truncate(offset);
@@ -767,7 +777,7 @@ pub async fn open_read_text_file_lines_stream<R: tauri::Runtime>(
                         }
                         else {
                             // header を設定
-                            buf[header_offset] = false as u8;
+                            buf[header_offset] = 0;
                             buf[(header_offset + 1)..(header_offset + 9)]
                                 .copy_from_slice(&(n as u64).to_be_bytes());
 
