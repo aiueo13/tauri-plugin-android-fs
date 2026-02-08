@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-open-write-file-stream"
+description = "Enables the open_write_file_stream command without any pre-configured scope."
+commands.allow = ["open_write_file_stream"]
+
+[[permission]]
+identifier = "deny-open-write-file-stream"
+description = "Denies the open_write_file_stream command without any pre-configured scope."
+commands.deny = ["open_write_file_stream"]

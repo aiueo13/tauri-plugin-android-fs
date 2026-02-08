@@ -1,4 +1,6 @@
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
+use crate::*;
 
 
 /// The application specific directory.  
@@ -237,3 +239,107 @@ impl_into_pubdir!(PublicImageDir, Image);
 impl_into_pubdir!(PublicVideoDir, Video);
 impl_into_pubdir!(PublicAudioDir, Audio);
 impl_into_pubdir!(PublicGeneralPurposeDir, GeneralPurpose);
+
+impl FromStr for PublicImageDir {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        if s.eq_ignore_ascii_case("pictures") {
+            Ok(PublicImageDir::Pictures)
+        } 
+        else if s.eq_ignore_ascii_case("dcim") {
+            Ok(PublicImageDir::DCIM)
+        } 
+        else {
+            Err(Error::with(format!("invalid PublicImageDir: {s}")))
+        }
+    }
+}
+
+impl FromStr for PublicVideoDir {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        if s.eq_ignore_ascii_case("movies") {
+            Ok(PublicVideoDir::Movies)
+        }
+        else if s.eq_ignore_ascii_case("dcim") {
+            Ok(PublicVideoDir::DCIM)
+        }
+        else {
+            Err(Error::with(format!("invalid PublicVideoDir: {s}")))
+        }
+    }
+}
+
+impl FromStr for PublicAudioDir {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        if s.eq_ignore_ascii_case("music") {
+            Ok(PublicAudioDir::Music)
+        } 
+        else if s.eq_ignore_ascii_case("alarms") {
+            Ok(PublicAudioDir::Alarms)
+        }
+        else if s.eq_ignore_ascii_case("audiobooks") {
+            Ok(PublicAudioDir::Audiobooks)
+        }
+        else if s.eq_ignore_ascii_case("notifications") {
+            Ok(PublicAudioDir::Notifications)
+        } 
+        else if s.eq_ignore_ascii_case("podcasts") {
+            Ok(PublicAudioDir::Podcasts)
+        } 
+        else if s.eq_ignore_ascii_case("ringtones") {
+            Ok(PublicAudioDir::Ringtones)
+        } 
+        else if s.eq_ignore_ascii_case("recordings") {
+            Ok(PublicAudioDir::Recordings)
+        } 
+        else {
+            Err(Error::with(format!("invalid PublicAudioDir: {s}")))
+        }
+    }
+}
+
+impl FromStr for PublicGeneralPurposeDir {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        if s.eq_ignore_ascii_case("documents") {
+            Ok(PublicGeneralPurposeDir::Documents)
+        }
+        else if s.eq_ignore_ascii_case("download") {
+            Ok(PublicGeneralPurposeDir::Download)
+        } 
+        else if s.eq_ignore_ascii_case("downloads") {
+            Ok(PublicGeneralPurposeDir::Download)
+        } 
+        else {
+            Err(Error::with(format!("invalid PublicGeneralPurposeDir: {s}")))
+        }
+    }
+}
+
+impl FromStr for PublicDir {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        if let Ok(v) = PublicImageDir::from_str(s) {
+            Ok(PublicDir::Image(v))
+        }
+        else if let Ok(v) = PublicVideoDir::from_str(s) {
+            Ok(PublicDir::Video(v))
+        }
+        else if let Ok(v) = PublicAudioDir::from_str(s) {
+            Ok(PublicDir::Audio(v))
+        }
+        else if let Ok(v) = PublicGeneralPurposeDir::from_str(s) {
+            Ok(PublicDir::GeneralPurpose(v))
+        }
+        else {
+            Err(Error::with(format!("invalid PublicDir: {s}")))
+        }
+    }
+}

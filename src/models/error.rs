@@ -77,6 +77,9 @@ enum InnerError {
 
     #[error(transparent)]
     StdSystemTime(std::time::SystemTimeError),
+
+    #[error(transparent)]
+    Utf8Error(std::str::Utf8Error),
 }
 
 macro_rules! impl_into_err_from_inner {
@@ -99,6 +102,7 @@ impl_into_err_from_inner!(std::io::Error, e => crate::Error { inner: InnerError:
 impl_into_err_from_inner!(serde_json::Error, e => crate::Error { inner: InnerError::SerdeJson(e) });
 impl_into_err_from_inner!(tauri::Error, e => crate::Error { inner: InnerError::Tauri(e) });
 impl_into_err_from_inner!(std::time::SystemTimeError, e => crate::Error { inner: InnerError::StdSystemTime(e) });
+impl_into_err_from_inner!(std::str::Utf8Error, e => crate::Error { inner: InnerError::Utf8Error(e) });
 
 impl<W> From<std::io::IntoInnerError<W>> for crate::Error {
     fn from(e: std::io::IntoInnerError<W>) -> crate::Error {

@@ -10,7 +10,7 @@ First, install this plugin to your Tauri project:
 
 ```toml
 [dependencies]
-tauri-plugin-android-fs = { version = "=25.0.0", features = ["legacy_storage_permission"] }
+tauri-plugin-android-fs = { version = "=25.1.0", features = ["legacy_storage_permission"] }
 ```
 
 Next, register this plugin in your Tauri project:
@@ -41,11 +41,11 @@ Then, set the APIs that can be called from the Javascript:
 Finally, install the JavaScript Guest bindings using whichever JavaScript package manager you prefer:
 
 ```bash
-pnpm add tauri-plugin-android-fs-api@25.0.0 -E
+pnpm add tauri-plugin-android-fs-api@25.1.0 -E
 # or
-npm install tauri-plugin-android-fs-api@25.0.0 --save-exact
+npm install tauri-plugin-android-fs-api@25.1.0 --save-exact
 # or
-yarn add tauri-plugin-android-fs-api@25.0.0 --exact
+yarn add tauri-plugin-android-fs-api@25.1.0 --exact
 ```
 
 **NOTE**: Please make sure that the Rust-side `tauri-plugin-android-fs` and the JavaScript-side `tauri-plugin-android-fs-api` versions match exactly.
@@ -53,11 +53,8 @@ yarn add tauri-plugin-android-fs-api@25.0.0 --exact
 # Usage
 This plugin operates on files and directories via URIs rather than paths.  
 
-By using `AndroidFs.getFsPath`, you can obtain a path from a URI and use it with the functions provided by Tauri's file system, [`@tauri-apps/plugin-fs`](https://v2.tauri.app/ja/plugin/file-system/), to read and write files. For those paths, there is no need for you to set [the scope configuration of plugin-fs](https://v2.tauri.app/reference/javascript/fs/#security).
-
 ```typescript
 import { AndroidFs, AndroidPublicGeneralPurposeDir } from 'tauri-plugin-android-fs-api';
-import { writeTextFile } from '@tauri-apps/plugin-fs';
 
 /**
  * Save the text to '~/Download/MyApp/{fileName}'
@@ -70,8 +67,7 @@ async function saveText(fileName: string, data: string): Promise<void> {
     const uri = await AndroidFs.createNewPublicFile(baseDir, relativePath, mimeType);
 
     try {
-        const path = await AndroidFs.getFsPath(uri);
-        await writeTextFile(path, data);
+        await AndroidFs.writeTextFile(uri, data);
         await AndroidFs.scanPublicFile(uri);
     }
     catch (e) {
@@ -138,27 +134,38 @@ This plugin provides following APIs:
 - `AndroidFs.createNewPublicVideoFile` 
 - `AndroidFs.createNewPublicAudioFile` 
 
-### 3. APIs to retrieve data from entries
+### 2. APIs to retrieve data from entries
+- `AndroidFs.getFsPath` 
+- `AndroidFs.getMetadata` 
+- `AndroidFs.getName` 
+- `AndroidFs.getType` 
+- `AndroidFs.getMimeType` 
+- `AndroidFs.getByteLength` 
 - `AndroidFs.getThumbnail` 
 - `AndroidFs.getThumbnailBase64` 
 - `AndroidFs.getThumbnailDataUrl` 
-- `AndroidFs.getFsPath` 
-- `AndroidFs.getName` 
-- `AndroidFs.getByteLength` 
-- `AndroidFs.getType` 
-- `AndroidFs.getMimeType` 
-- `AndroidFs.getMetadata` 
 
-### 3. APIs to operate entries
-- `AndroidFs.scanPublicFile`
-- `AndroidFs.setPublicFilePending`
+### 3. APIs to read/write entries
+- `AndroidFs.openReadFileStream`
+- `AndroidFs.openReadTextFileLinesStream`
+- `AndroidFs.openWriteFileStream`
+- `AndroidFs.readFile`
+- `AndroidFs.readTextFile`
+- `AndroidFs.writeFile`
+- `AndroidFs.writeTextFile`
+
+### 4. APIs to operate entries
 - `AndroidFs.copyFile`
 - `AndroidFs.truncateFile`
+- `AndroidFs.renameFile`
+- `AndroidFs.renameDir`
 - `AndroidFs.removeFile`
 - `AndroidFs.removeEmptyDir`
 - `AndroidFs.removeDirAll`
+- `AndroidFs.scanPublicFile`
+- `AndroidFs.setPublicFilePending`
 
-### 4. APIs to manage entry permissions
+### 5. APIs to manage entry permissions
 - `AndroidFs.checkPickerUriPermission`
 - `AndroidFs.persistPickerUriPermission`
 - `AndroidFs.checkPersistedPickerUriPermission`
@@ -167,12 +174,12 @@ This plugin provides following APIs:
 - `AndroidFs.hasPublicFilesPermission`
 - `AndroidFs.requestPublicFilesPermission`
 
-### 5. APIs to send entries to other apps
+### 6. APIs to send entries to other apps
 - `AndroidFs.showViewFileDialog`
 - `AndroidFs.showViewDirDialog`
 - `AndroidFs.showShareFileDialog`
 
-### 6. Helper
+### 7. Helper
 - `isAndroid`
 - `getAndroidApiLevel`
 

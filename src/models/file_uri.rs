@@ -27,17 +27,19 @@ use crate::*;
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileUri {
-    pub(crate) uri: String,
-    pub(crate) document_top_tree_uri: Option<String>,
+    pub uri: String,
+    pub document_top_tree_uri: Option<String>,
 }
 
 #[allow(unused)]
 impl FileUri {
 
+    /// Same as `serde_json::to_string(...)`
     pub fn to_json_string(&self) -> Result<String> {
         serde_json::to_string(self).map_err(Into::into)
     }
 
+    /// Same as `serde_json::from_str(...)`
     pub fn from_json_str(json: impl AsRef<str>) -> Result<Self> {
         serde_json::from_str(json.as_ref()).map_err(Into::into)
     }

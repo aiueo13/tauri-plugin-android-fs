@@ -605,6 +605,366 @@ pub async fn create_new_file<R: tauri::Runtime>(
 }
 
 #[tauri::command]
+pub async fn open_read_file_stream<R: tauri::Runtime>(
+    event: OpenReadFileStreamEvent,
+    app: tauri::AppHandle<R>,
+    cmd_scope: tauri::ipc::CommandScope<Scope>,
+    global_scope: tauri::ipc::GlobalScope<Scope>,
+) -> Result<tauri::ipc::Response> {
+
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        use tauri::Manager as _;
+        use std::io::Read as _;
+        type FileResource = PluginResource<std::sync::Mutex<std::fs::File>>;
+
+        let api = app.android_fs_async();
+
+        match event {
+            OpenReadFileStreamEvent::Open { uri } => {
+                let uri = FileUri::from(uri);
+                if let Some(path) = uri.as_path() {
+                    validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
+                }
+
+                let file = api.open_file_readable(&uri).await?;
+                let file = FileResource::new(std::sync::Mutex::new(file));
+                let id = app.resources_table().add(file);
+                let id_bytes = convert_rid_to_bytes(id);
+                Ok(tauri::ipc::Response::new(id_bytes))
+            },
+            OpenReadFileStreamEvent::Read { id, len } => {
+                tauri::async_runtime::spawn_blocking(move || -> Result<_> {
+                    let file = app.resources_table().get::<FileResource>(id)?.get();
+                    let mut file = file.lock().unwrap_or_else(|e| e.into_inner());
+                    let mut buf = Vec::with_capacity(usize::min(len as usize, 10 * 1024 * 1024));
+                    file.by_ref().take(len as u64).read_to_end(&mut buf)?;
+                    Ok(tauri::ipc::Response::new(buf))
+                }).await?
+            },
+            OpenReadFileStreamEvent::Close { id } => {
+                let mut resources = app.resources_table();
+                if resources.has(id) {
+                    resources.close(id)?;
+                }
+                Ok(tauri::ipc::Response::new(Vec::new()))
+            },
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn open_read_text_file_lines_stream<R: tauri::Runtime>(
+    event: OpenReadTextFileLinesStreamEvent,
+    app: tauri::AppHandle<R>,
+    cmd_scope: tauri::ipc::CommandScope<Scope>,
+    global_scope: tauri::ipc::GlobalScope<Scope>,
+) -> Result<tauri::ipc::Response> {
+
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        use tauri::Manager as _;
+        use std::io::BufRead as _;
+        use std::io::Read as _;
+        type FileResource = PluginResource<std::sync::Mutex<std::io::BufReader<std::fs::File>>>;
+
+        let api = app.android_fs_async();
+
+        match event {
+            OpenReadTextFileLinesStreamEvent::Open { uri } => {
+                let uri = FileUri::from(uri);
+                if let Some(path) = uri.as_path() {
+                    validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
+                }
+
+                let file = api.open_file_readable(&uri).await?;
+                let file = FileResource::new(std::sync::Mutex::new(std::io::BufReader::new(file)));
+                let id = app.resources_table().add(file);
+                let id_bytes = convert_rid_to_bytes(id);
+                Ok(tauri::ipc::Response::new(id_bytes))
+            },
+            OpenReadTextFileLinesStreamEvent::Read { id, len, fatal, max_line_byte_length } => {
+                tauri::async_runtime::spawn_blocking(move || -> Result<_> {
+                    let threshold = len as u64;
+                    let max_line_len = std::num::NonZeroU64::new(max_line_byte_length);
+                    let max_line_byte_length = (); // 使わないようにする
+
+                    let file = app.resources_table().get::<FileResource>(id)?.get();
+                    let mut file = file.lock().unwrap_or_else(|e| e.into_inner());
+                    let mut buf = Vec::new();
+                    
+                    // | line len (u64, big endian) | line bytes |    
+		            // | line len (u64, big endian) | line bytes |    
+		            // | line len (u64, big endian) | line bytes |  
+                    // ...
+                    loop {
+                        // header の場所を確保
+                        let header_offset = buf.len();
+                        buf.extend_from_slice(&[0; 8]);
+                        
+                        let offset = buf.len();
+
+                        let mut n = match max_line_len {
+                            None => file
+                                .by_ref()
+                                .read_until(b'\n', &mut buf)?,
+
+                            Some(i) => file
+                                .by_ref()
+                                .take(i.get().saturating_add(b"\r\n".len() as u64))
+                                .read_until(b'\n', &mut buf)?
+                        };
+
+                        // EOF の場合
+                        if n == 0 {
+                            // header 用に確保した分をキャンセル
+                            buf.truncate(header_offset);
+                            break
+                        }
+
+                        // 最後が EOL ('\n', '\r\n') で終わっていれば削除する。
+                        if 1 <= n && buf.last() == Some(&b'\n') {
+                            buf.pop();
+                            n -= 1;
+                            if 1 <= n && buf.last() == Some(&b'\r') {
+                                buf.pop();
+                                n -= 1;
+                            }
+                        }
+
+                        if max_line_len.is_some_and(|i| i.get() < (n as u64)) {
+                            return Err(Error::with("Line too long"))
+                        }
+                        if fatal {
+                            if let Err(err) = str::from_utf8(&buf[offset..]) {
+                                return Err(err.into())
+                            }
+                        }
+
+                        // header を設定
+                        buf[header_offset..header_offset + 8]
+                            .copy_from_slice(&(n as u64).to_be_bytes());
+
+                        if threshold <= (buf.len() as u64) {
+                            break
+                        }
+                    }
+                    
+                    Ok(tauri::ipc::Response::new(buf))
+                }).await?
+            },
+            OpenReadTextFileLinesStreamEvent::Close { id } => {
+                let mut resources = app.resources_table();
+                if resources.has(id) {
+                    resources.close(id)?;
+                }
+                Ok(tauri::ipc::Response::new(Vec::new()))
+            },
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn open_write_file_stream<R: tauri::Runtime>(
+    event: OpenWriteFileStreamEvent,
+    app: tauri::AppHandle<R>,
+    cmd_scope: tauri::ipc::CommandScope<Scope>,
+    global_scope: tauri::ipc::GlobalScope<Scope>,
+) -> Result<OpenWriteFileStreamEventOutput> {
+
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        use tauri::Manager as _;
+        use std::io::Write as _;
+        type FileResource = PluginResource<std::sync::Mutex<std::fs::File>>;
+
+        let api = app.android_fs_async();
+
+        match event {
+            OpenWriteFileStreamEvent::Open { uri } => {
+                let uri = FileUri::from(uri);
+                if let Some(path) = uri.as_path() {
+                    validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
+
+                    if !std::fs::exists(path)? {
+                        std::fs::File::create(path)?;
+                    }
+                }
+
+                let file = api.open_file_writable(&uri).await?;
+                let file = FileResource::new(std::sync::Mutex::new(file));
+                let id = app.resources_table().add(file);
+                Ok(OpenWriteFileStreamEventOutput::Open(id))
+            },
+            OpenWriteFileStreamEvent::Write { id, data } => {
+                tauri::async_runtime::spawn_blocking(move || -> Result<_> {
+                    let file = app.resources_table().get::<FileResource>(id)?.get();
+                    let bytes = convert_to_bytes(&data)?;
+                    let mut file = file.lock().unwrap_or_else(|e| e.into_inner());
+                    file.write_all(&bytes)?;
+                    Ok(OpenWriteFileStreamEventOutput::Write(()))
+                }).await?
+            },
+            OpenWriteFileStreamEvent::Close { id } => {
+                let mut resources = app.resources_table();
+                if resources.has(id) {
+                    resources.close(id)?;
+                }
+                Ok(OpenWriteFileStreamEventOutput::Close(()))
+            },
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn write_file<R: tauri::Runtime>(
+    event: WriteFileEvent,
+    app: tauri::AppHandle<R>,
+    cmd_scope: tauri::ipc::CommandScope<Scope>,
+    global_scope: tauri::ipc::GlobalScope<Scope>,
+) -> Result<WriteFileEventOutput> {
+
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        use tauri::Manager as _;
+        use std::io::Write as _;
+        type FileResource = PluginResource<std::sync::Mutex<std::fs::File>>;
+
+        let api = app.android_fs_async();
+
+        match event {
+            WriteFileEvent::WriteOnce { uri, data } => {
+                let uri = FileUri::from(uri);
+                if let Some(path) = uri.as_path() {
+                    validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
+
+                    if !std::fs::exists(path)? {
+                        std::fs::File::create(path)?;
+                    }
+                }
+        
+                let mut file = api.open_file_writable(&uri).await?;
+                
+                tauri::async_runtime::spawn_blocking(move || -> Result<_> {
+                    file.write_all(&convert_to_bytes(&data)?)?;
+                    Ok(WriteFileEventOutput::WriteOnce(()))
+                }).await?
+            },
+            WriteFileEvent::Open { uri } => {
+                let uri = FileUri::from(uri);
+                if let Some(path) = uri.as_path() {
+                    validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
+
+                    if !std::fs::exists(path)? {
+                        std::fs::File::create(path)?;
+                    }
+                }
+
+                let file = api.open_file_writable(&uri).await?;
+                let file = FileResource::new(std::sync::Mutex::new(file));
+                let id = app.resources_table().add(file);
+                Ok(WriteFileEventOutput::Open(id))
+            },
+            WriteFileEvent::Write { id, data } => {
+                tauri::async_runtime::spawn_blocking(move || -> Result<_> {
+                    let file = app.resources_table().get::<FileResource>(id)?.get();
+                    let bytes = convert_to_bytes(&data)?;
+                    let mut file = file.lock().unwrap_or_else(|e| e.into_inner());
+                    file.write_all(&bytes)?;
+                    Ok(WriteFileEventOutput::Write(()))
+                }).await?
+            },
+            WriteFileEvent::Close { id } => {
+                let mut resources = app.resources_table();
+                if resources.has(id) {
+                    resources.close(id)?;
+                }
+                Ok(WriteFileEventOutput::Close(()))
+            },
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn write_text_file<R: tauri::Runtime>(
+    uri: AfsUriOrFsPath,
+    data: String,
+    app: tauri::AppHandle<R>,
+    cmd_scope: tauri::ipc::CommandScope<Scope>,
+    global_scope: tauri::ipc::GlobalScope<Scope>,
+) -> Result<()> {
+
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        let uri = FileUri::from(uri);
+        if let Some(path) = uri.as_path() {
+            validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
+
+            if !std::fs::exists(path)? {
+                std::fs::File::create(path)?;
+            }
+        }
+
+        app.android_fs_async().write(&uri, data.into_bytes()).await?;
+        Ok(())
+    }
+}
+
+#[tauri::command]
+pub async fn read_file<R: tauri::Runtime>(
+    uri: AfsUriOrFsPath,
+    app: tauri::AppHandle<R>,
+    cmd_scope: tauri::ipc::CommandScope<Scope>,
+    global_scope: tauri::ipc::GlobalScope<Scope>,
+) -> Result<tauri::ipc::Response> {
+
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        let uri = FileUri::from(uri);
+        if let Some(path) = uri.as_path() {
+            validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
+        }
+
+        let bytes = app.android_fs_async().read(&uri).await?;
+        Ok(tauri::ipc::Response::new(bytes))
+    }
+}
+
+#[tauri::command]
+pub async fn read_text_file<R: tauri::Runtime>(
+    uri: AfsUriOrFsPath,
+    app: tauri::AppHandle<R>,
+    cmd_scope: tauri::ipc::CommandScope<Scope>,
+    global_scope: tauri::ipc::GlobalScope<Scope>,
+) -> Result<tauri::ipc::Response> {
+
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        let uri = FileUri::from(uri);
+        if let Some(path) = uri.as_path() {
+            validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
+        }
+
+        let bytes = app.android_fs_async().read(&uri).await?;
+        Ok(tauri::ipc::Response::new(bytes))
+    }
+}
+
+#[tauri::command]
 pub async fn copy_file<R: tauri::Runtime>(
     src_uri: AfsUriOrFsPath,
     dest_uri: AfsUriOrFsPath,
@@ -971,7 +1331,7 @@ pub async fn show_open_file_picker<R: tauri::Runtime>(
     }
     #[cfg(target_os = "android")] {
         let initial_location = match initial_location {
-            Some(initial_location) => Some(resolve_picker_initial_location(initial_location, &app).await?),
+            Some(initial_location) => resolve_picker_initial_location(initial_location, &app).await.ok(),
             None => None
         };
         let initial_location = initial_location.filter(|i| i.is_content_scheme());
@@ -1065,7 +1425,7 @@ pub async fn show_open_dir_picker<R: tauri::Runtime>(
     #[cfg(target_os = "android")] {
         let api = app.android_fs_async();
         let initial_location = match initial_location {
-            Some(initial_location) => Some(resolve_picker_initial_location(initial_location, &app).await?),
+            Some(initial_location) => resolve_picker_initial_location(initial_location, &app).await.ok(),
             None => None
         };
         let initial_location = initial_location.filter(|i| i.is_content_scheme());
@@ -1089,7 +1449,7 @@ pub async fn show_save_file_picker<R: tauri::Runtime>(
     #[cfg(target_os = "android")] {
         let api = app.android_fs_async();
         let initial_location = match initial_location {
-            Some(initial_location) => Some(resolve_picker_initial_location(initial_location, &app).await?),
+            Some(initial_location) => resolve_picker_initial_location(initial_location, &app).await.ok(),
             None => None
         };
         let initial_location = initial_location.filter(|i| i.is_content_scheme());

@@ -26,6 +26,10 @@ Default permissions for the plugin
 - `allow-create-new-file`
 - `allow-create-dir-all`
 - `allow-read-dir`
+- `allow-open-read-file-stream`
+- `allow-open-read-text-file-lines-stream`
+- `allow-read-file`
+- `allow-read-text-file`
 - `allow-check-picker-uri-permission`
 - `allow-persist-picker-uri-permission`
 - `allow-check-persisted-picker-uri-permission`
@@ -622,6 +626,84 @@ Denies the list_volumes command without any pre-configured scope.
 <tr>
 <td>
 
+`android-fs:allow-open-read-file-stream`
+
+</td>
+<td>
+
+Enables the open_read_file_stream command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-open-read-file-stream`
+
+</td>
+<td>
+
+Denies the open_read_file_stream command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-open-read-text-file-lines-stream`
+
+</td>
+<td>
+
+Enables the open_read_text_file_lines_stream command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-open-read-text-file-lines-stream`
+
+</td>
+<td>
+
+Denies the open_read_text_file_lines_stream command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-open-write-file-stream`
+
+</td>
+<td>
+
+Enables the open_write_file_stream command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-open-write-file-stream`
+
+</td>
+<td>
+
+Denies the open_write_file_stream command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `android-fs:allow-persist-picker-uri-permission`
 
 </td>
@@ -667,6 +749,58 @@ Enables the read_dir command without any pre-configured scope.
 <td>
 
 Denies the read_dir command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-read-file`
+
+</td>
+<td>
+
+Enables the read_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-read-file`
+
+</td>
+<td>
+
+Denies the read_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-read-text-file`
+
+</td>
+<td>
+
+Enables the read_text_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-read-text-file`
+
+</td>
+<td>
+
+Denies the read_text_file command without any pre-configured scope.
 
 </td>
 </tr>
@@ -1109,6 +1243,58 @@ Enables the truncate_file command without any pre-configured scope.
 <td>
 
 Denies the truncate_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-write-file`
+
+</td>
+<td>
+
+Enables the write_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-write-file`
+
+</td>
+<td>
+
+Denies the write_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-write-text-file`
+
+</td>
+<td>
+
+Enables the write_text_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-write-text-file`
+
+</td>
+<td>
+
+Denies the write_text_file command without any pre-configured scope.
 
 </td>
 </tr>

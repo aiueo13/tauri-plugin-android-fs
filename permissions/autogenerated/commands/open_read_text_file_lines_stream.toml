@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-open-read-text-file-lines-stream"
+description = "Enables the open_read_text_file_lines_stream command without any pre-configured scope."
+commands.allow = ["open_read_text_file_lines_stream"]
+
+[[permission]]
+identifier = "deny-open-read-text-file-lines-stream"
+description = "Denies the open_read_text_file_lines_stream command without any pre-configured scope."
+commands.deny = ["open_read_text_file_lines_stream"]

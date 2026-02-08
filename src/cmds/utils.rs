@@ -109,6 +109,144 @@ pub fn convert_time_to_f64_millis(time: std::time::SystemTime) -> Result<f64> {
     Ok(duration.as_millis() as f64)
 }
 
+#[cfg(target_os = "android")]
+pub fn convert_rid_to_bytes(rid: tauri::ResourceId) -> Vec<u8> {
+    rid.to_be_bytes().to_vec()
+}
+
+/// DataURL/Base64 to bytes
+#[cfg(target_os = "android")]
+pub fn convert_to_bytes(data: &str) -> Result<Vec<u8>> {
+    let b64 = match data.starts_with("data:") {
+        // data URL
+        true => {
+            let comma = data
+                .find(',')
+                .ok_or_else(|| Error::with("invalid data URL: missing comma"))?;
+
+            let (_, b64) = data.split_at(comma + 1);
+            b64
+        },
+        // base64 encoded string
+        false => data,
+    };
+
+    use base64::engine::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(b64)?;
+    Ok(bytes)
+}
+
+#[cfg(target_os = "android")]
+pub struct PluginResource<T> {
+    resource: std::sync::Arc<T>
+}
+
+#[cfg(target_os = "android")]
+impl<T> PluginResource<T> {
+
+    pub fn new(resource: T) -> Self {
+        Self { resource: std::sync::Arc::new(resource) }
+    }
+
+    pub fn get(&self) -> std::sync::Arc<T> {
+        std::sync::Arc::clone(&self.resource)
+    }
+}
+
+#[cfg(target_os = "android")]
+impl<T: Sync + Send + 'static> tauri::Resource for PluginResource<T> {}
+
+#[derive(Deserialize)]
+#[serde(tag = "type")]
+#[cfg_attr(not(target_os = "android"), allow(unused))]
+pub enum WriteFileEvent {
+    Open {
+        uri: AfsUriOrFsPath
+    },
+    Write {
+        id: tauri::ResourceId,
+        data: String,
+    },
+    Close {
+        id: tauri::ResourceId,
+    },
+    WriteOnce {
+        uri: AfsUriOrFsPath,
+        data: String
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+#[cfg_attr(not(target_os = "android"), allow(unused))]
+pub enum WriteFileEventOutput {
+    Open(tauri::ResourceId),
+    Write(()),
+    Close(()),
+    WriteOnce(()),
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "type")]
+#[cfg_attr(not(target_os = "android"), allow(unused))]
+pub enum OpenWriteFileStreamEvent {
+    Open {
+        uri: AfsUriOrFsPath
+    },
+    Write {
+        id: tauri::ResourceId,
+        data: String,
+    },
+    Close {
+        id: tauri::ResourceId,
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+#[cfg_attr(not(target_os = "android"), allow(unused))]
+pub enum OpenWriteFileStreamEventOutput {
+    Open(tauri::ResourceId),
+    Write(()),
+    Close(()),
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "type")]
+#[cfg_attr(not(target_os = "android"), allow(unused))]
+pub enum OpenReadFileStreamEvent {
+    Open {
+        uri: AfsUriOrFsPath
+    },
+    Read {
+        id: tauri::ResourceId,
+        len: u32
+    },
+    Close {
+        id: tauri::ResourceId,
+    },
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "type")]
+#[cfg_attr(not(target_os = "android"), allow(unused))]
+pub enum OpenReadTextFileLinesStreamEvent {
+    Open {
+        uri: AfsUriOrFsPath,
+    },
+    Read {
+        id: tauri::ResourceId,
+        len: u32,
+        fatal: bool,
+
+        #[serde(rename = "maxLineByteLength")]
+        max_line_byte_length: u64
+    },
+    Close {
+        id: tauri::ResourceId,
+    },
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum PickerInitialLocation {
