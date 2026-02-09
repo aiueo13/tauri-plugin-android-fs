@@ -697,23 +697,25 @@ pub async fn open_read_text_file_lines_stream<R: tauri::Runtime>(
                     let mut file = file.lock().unwrap_or_else(|e| e.into_inner());
                     let mut buf = Vec::new();
                     
-                    // この関数が返す bytes は以下となる。
+                    // bytes は以下の形式のレコードが連続したものであり、
+                    // 各レコードが分断されることはない。
                     // 
-                    // | u8 (0=ok, 1=err) | u64 (big endian) | variable   |
-		            // |------------------|-------------------------------|
-		            // | err flag         | line len         | line bytes |
-		            // | err flag         | line len         | line bytes |
-		            // | err flag         | line len         | line bytes |
-                    // ...
-                    //
+                    // |-------------------------------------|
+                    // | err flag: u8  (0 = ok, 1 = err)     |
+                    // |-------------------------------------|
+                    // | line len: u64 (big-endian, 8 bytes) |
+                    // |-------------------------------------|
+                    // | line bytes: variable-length bytes   |
+                    // |-------------------------------------|
+                    // 
                     // err flag が 1 の場合、その行でエラーが発生したことを示す。
                     // その場合、line bytes にはエラーメッセージが格納され、
                     // この呼び出しでの最後の行となる。
                     // エラー発生後の呼び出しの挙動は未定義。
                     //
                     // この関数は複数の行を先読みしてまとめて送信するため、
-                    // 関数内で直接エラーを返すのではなく、この形式でエラー情報を伝え、
-                    // ライブラリ使用者が対象行を読み込んだ際にエラーを検知できるようにする。
+                    // 関数内で直接エラーを返すのではなく、行単位でエラー情報を伝え、
+                    // 対象行を明示的に読み込んだ際にエラーを発生できるようにする。
                     loop {
                         // header の場所を確保
                         let header_offset = buf.len();

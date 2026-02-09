@@ -2494,14 +2494,18 @@ function isReadableByteStreamAvailable() {
 async function createTextLinesReadableStream(
 	handler: {
 		/**
-		 * null か空で EOF
+		 * null か空で EOF。
 		 * 
-		 * | u8 (0=ok, 1=err) | u64 (big endian) | variable   |
-		 * |------------------|------------------------------|
-		 * | err flag         | line len         | line bytes |
-		 * | err flag         | line len         | line bytes |
-		 * | err flag         | line len         | line bytes |
-		 * ...
+		 * bytes は以下の形式のレコードが連続したものであり、
+		 * 各レコードが分断されることはない。
+		 * 
+		 * |-------------------------------------|
+		 * | err flag: u8  (0 = ok, 1 = err)     |
+		 * |-------------------------------------|
+		 * | line len: u64 (big-endian, 8 bytes) |
+		 * |-------------------------------------|
+		 * | line bytes: variable-length bytes   |
+		 * |-------------------------------------|
 		 * 
 		 * err flag が 1 の場合、その行でエラーが発生したことを示す。
 		 * その場合、line bytes にはエラーメッセージが格納され、
