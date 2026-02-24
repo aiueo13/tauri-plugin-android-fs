@@ -1,3 +1,5 @@
+#![cfg_attr(not(target_os = "android"), allow(unused))]
+
 use crate::*;
 use tauri::Manager as _;
 
