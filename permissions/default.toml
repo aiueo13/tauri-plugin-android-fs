@@ -23,6 +23,8 @@ permissions = [
     "allow-create-new-file",
     "allow-create-dir-all",
     "allow-read-dir",
+    "allow-count-all-file-streams",
+    "allow-close-all-file-streams",
     "allow-open-read-file-stream",
     "allow-open-read-text-file-lines-stream",
     "allow-read-file",

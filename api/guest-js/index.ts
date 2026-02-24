@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import { createReadableStream, createWritableStream } from 'create-web-stream'
 
 /** @ignore */
 declare global {
@@ -192,17 +193,12 @@ type AndroidEntryMetadataWithUriInner = AndroidEntryMetadataInner & { uri: Andro
 export type AndroidReadTextFileOptions = {
 
 	/**
-	 * Text encoding passed to `TextDecoder`.  
-	 * If the specified encoding is not supported by the runtime, a `RangeError` may be thrown by `TextDecoder`.
-	 *
-	 * Defaults to `"utf-8"`.
+	 * Text encoding for decoder, such as `"utf-8"`, `"shift_jis"`, `"iso-8859-2"`. 
+	 *  
+	 * This is passed to [`TextDecoder constructor`](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/TextDecoder).  
+	 * See: [the available encodings](https://developer.mozilla.org/ja/docs/Web/API/Encoding_API/Encodings).  
 	 * 
-	 * e.g.
-	 * - `"utf-8"`
-	 * - `"shift_jis"`
-	 * - `"iso-8859-2"`
-	 * - `"koi8-r"`
-	 * - `"gbk"`
+	 * Defaults to `"utf-8"`.
 	 */
 	encoding?: string,
 
@@ -212,7 +208,7 @@ export type AndroidReadTextFileOptions = {
 	 * - `false`: Invalid byte sequences are replaced with U+FFFD (`�`) and decoding continues.
 	 * - `true`: A `TypeError` is thrown when an invalid byte sequence is encountered.
 	 *
-	 * This option is forwarded to `TextDecoderOptions.fatal` of `TextDecoder` constructor.
+	 * This is passed to [`TextDecoder constructor`](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/TextDecoder).
 	 *
 	 * Defaults to `false`.
 	 */
@@ -224,7 +220,7 @@ export type AndroidReadTextFileOptions = {
 	 * - `false`: A leading BOM is automatically stripped from the decoded result.
 	 * - `true`: A leading BOM is preserved and treated as a normal character.
 	 *
-	 * This option is forwarded to `TextDecoderOptions.ignoreBOM` of `TextDecoder` constructor.
+	 * This is passed to [`TextDecoder constructor`](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/TextDecoder).
 	 *
 	 * Defaults to `false`.
 	 */
@@ -239,13 +235,49 @@ export type AndroidWriteFileOptions = {
 	/**
 	 * The buffer size, in bytes, used when sending data from the frontend to the backend while writing from a `ReadableStream`.
 	 * 
-	 * IPC calls are relatively expensive (several milliseconds to tens of milliseconds per no-op call), 
+	 * IPC calls are relatively expensive, 
 	 * so larger buffer sizes are generally more efficient. 
 	 * But if it is too large, the UI may freeze or run out of memory.
 	 * 
-	 * Defaults to `512000` (500 KiB).
+	 * Defaults to `524288` (512 KiB).
 	 */
 	bufferByteLength?: number,
+
+	/**
+	 * Indicates whether a new file should be created if it does not exist 
+	 * when a path is specified.
+	 *
+	 * Defaults to `true`.
+	 */
+	create?: boolean,
+}
+
+/**
+ * Options of `AndroidFs.writeTextFile`
+ */
+export type AndroidWriteTextFileOptions = {
+
+	/**
+	 * Indicates whether a new file should be created if it does not exist 
+	 * when a path is specified.
+	 *
+	 * Defaults to `true`.
+	 */
+	create?: boolean,
+}
+
+/**
+ * Options of `AndroidFs.copyFile`
+ */
+export type AndroidCopyFileOptions = {
+
+	/**
+	 * Indicates whether a new file should be created if it does not exist 
+	 * when a path is specified.
+	 *
+	 * Defaults to `true`.
+	 */
+	create?: boolean,
 }
 
 /**
@@ -256,13 +288,29 @@ export type AndroidOpenWriteFileStreamOptions = {
 	/**
 	 * The buffer size, in bytes, used when sending data from the frontend to the backend.
 	 * 
-	 * IPC calls are relatively expensive (several milliseconds to tens of milliseconds per no-op call), 
+	 * IPC calls are relatively expensive, 
 	 * so larger buffer sizes are generally more efficient. 
 	 * But if it is too large, the UI may freeze or run out of memory.
 	 * 
-	 * Defaults to `512000` (500 KiB).
+	 * Defaults to `524288` (512 KiB).
 	 */
 	bufferByteLength?: number,
+
+	/**
+	 * An `AbortSignal` that allows the write operation to be aborted.
+	 * 
+	 * When aborted, the stream enters an errored state, all subsequent write operations fail,
+	 * and the underlying file resources are released instantly.
+	 */
+	signal?: AbortSignal,
+
+	/**
+	 * Indicates whether a new file should be created if it does not exist 
+	 * when a path is specified.
+	 *
+	 * Defaults to `true`.
+	 */
+	create?: boolean,
 }
 
 /**
@@ -273,13 +321,40 @@ export type AndroidOpenReadFileStreamOptions = {
 	/**
 	 * The buffer size, in bytes, used when sending data from the backend to the frontend.
 	 * 
-	 * IPC calls are relatively expensive (several milliseconds to tens of milliseconds per no-op call), 
+	 * IPC calls are relatively expensive, 
 	 * so larger buffer sizes are generally more efficient. 
 	 * But if it is too large, the UI may freeze or run out of memory.
 	 * 
-	 * Defaults to `512000` (500 KiB).
+	 * Defaults to `524288` (512 KiB).
 	 */
 	bufferByteLength?: number,
+
+	/**
+	 * An `AbortSignal` that allows the read operation to be aborted.
+	 * 
+	 * When aborted, the stream enters an errored state, all subsequent read operations fail,
+	 * and the underlying file resources are released instantly.
+	 */
+	signal?: AbortSignal,
+}
+
+export type AndroidOpenReadTextFileLinesStreamItem = {
+
+	/**
+	 * A text of the current line, excluding line break characters.
+	 * 
+	 * If you need it, use `lineBreak`.
+	 */
+	line: string,
+
+	/**
+	 * Line break characters used at the end of the current line.  
+	 * One of: `"\n"`, `"\r\n"`, `null`.
+	 * 
+	 * This value is `null`
+	 * if the current line is last and the file does not end with a line break.
+	 */
+	lineBreak: "\n" | "\r\n" | null
 }
 
 /**
@@ -288,19 +363,14 @@ export type AndroidOpenReadFileStreamOptions = {
 export type AndroidOpenReadTextFileLinesStreamOptions = {
 
 	/**
-	 * The buffer size, in bytes, used when sending data from the backend to the frontend.
+	 * Text encoding label for decoder, such as `"utf-8"`, `"shift_jis"`, `"iso-8859-2"`. 
+	 *  
+	 * This is passed to [`TextDecoder constructor`](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/TextDecoder).
+	 * See: [the available encodings](https://developer.mozilla.org/ja/docs/Web/API/Encoding_API/Encodings).
 	 * 
-	 * IPC calls are relatively expensive (several milliseconds to tens of milliseconds per no-op call), 
-	 * so larger buffer sizes are generally more efficient. 
-	 * But if it is too large, the UI may freeze or run out of memory.
-	 * 
-	 * This value is not guaranteed to be strictly respected. 
-	 * If a single line exceeds this size, 
-	 * more bytes may be sent in a single IPC transmission.
-	 * 
-	 * Defaults to `512000` (500 KiB).
+	 * Defaults to `"utf-8"`.
 	 */
-	bufferByteLength?: number,
+	encoding?: string,
 
 	/**
 	 * Indicates whether decoding errors should be treated as fatal.
@@ -308,7 +378,7 @@ export type AndroidOpenReadTextFileLinesStreamOptions = {
 	 * - `false`: Invalid byte sequences are replaced with U+FFFD (`�`) and decoding continues.
 	 * - `true`: A `TypeError` is thrown when an invalid byte sequence is encountered.
 	 *
-	 * This option is forwarded to `TextDecoderOptions.fatal` of `TextDecoder` constructor.
+	 * This is passed to [`TextDecoder constructor`](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/TextDecoder).
 	 *
 	 * Defaults to `false`.
 	 */
@@ -320,20 +390,41 @@ export type AndroidOpenReadTextFileLinesStreamOptions = {
 	 * - `false`: A leading BOM is automatically stripped from the decoded result.
 	 * - `true`: A leading BOM is preserved and treated as a normal character.
 	 *
-	 * This option is forwarded to `TextDecoderOptions.ignoreBOM` of `TextDecoder` constructor.
-	 *
 	 * Defaults to `false`.
 	 */
 	ignoreBOM?: boolean,
 
 	/**
-	 * The maximum length of a line in bytes, excluding line breaks character. 
+	 * The buffer size, in bytes, used when sending data from the backend to the frontend.
+	 * 
+	 * IPC calls are relatively expensive, 
+	 * so larger buffer sizes are generally more efficient. 
+	 * But if it is too large, the UI may freeze or run out of memory.
+	 * 
+	 * This value is not guaranteed to be strictly respected. 
+	 * If a single line exceeds this size, 
+	 * more bytes may be sent in a single IPC transmission.
+	 * 
+	 * Defaults to `524288` (512 KiB).
+	 */
+	bufferByteLength?: number,
+
+	/**
+	 * The maximum byte length of a line before decoding, excluding line break characters and an initial BOM (if present). 
 	 * If a line exceeds this limit, an error is thrown. 
 	 * This prevents OOM errors when reading minified files or binaries.
 	 * 
 	 * Defaults to `0` (unlimited).
 	 */
-	maxLineByteLength?: number;
+	maxLineByteLength?: number,
+
+	/**
+	 * An `AbortSignal` that allows the read operation to be aborted.
+	 * 
+	 * When aborted, the stream enters an errored state, all subsequent read operations fail,
+	 * and the underlying file resources are released instantly.
+	 */
+	signal?: AbortSignal,
 }
 
 /**
@@ -1650,17 +1741,15 @@ export class AndroidFs {
 	 * Opens the file with read-only mode and resolves to a `ReadableStream`.  
 	 * 
 	 * The returned `ReadableStream` must always be released by the caller.
-	 * Failure to do so may cause file descriptor resource leaks.
+	 * Failure to do so may cause file resource leaks.
 	 * The returned ReadableStream is released in the following cases:
 	 * - When the ReadableStream or its Reader is canceled. 
 	 * - When the ReadableStream's Reader has been fully read. 
 	 * - When the ReadableStream's Reader's read operation ends with an error. 
-	 * 
-	 * These releases may be performed multiple times without issue.
+	 * - When the provided AbortSignal fires an abort event.
 	 * 
 	 * @param uri - The URI or path of the file to read. 
-	 * @param options - Optional settings.
-	 * @param options.bufferByteLength - The buffer size, in bytes, used when sending data from the backend to the frontend. IPC calls are relatively expensive (several milliseconds to tens of milliseconds per no-op call), so larger buffer sizes are generally more efficient. But if it is too large, the UI may freeze or run out of memory. Defaults to `512000` (500 KiB).
+	 * @param options - Optional settings: `bufferByteLength`, `signal`, `freezeSize`. See `AndroidOpenReadFileStreamOptions` for detailed descriptions of each item.
 	 * 
 	 * @returns A Promise that resolves to a `ReadableStream<Uint8Array<ArrayBuffer>>` backed by the file opened in read-only mode. This stream has a one-to-one correspondence with the file descriptor.
 	 * @throws The Promise will be rejected with an error, if the specified entry does not exist, if the entry is a directory, or if the read permission is missing.
@@ -1673,18 +1762,23 @@ export class AndroidFs {
 		options?: AndroidOpenReadFileStreamOptions
 	): Promise<ReadableStream<Uint8Array<ArrayBuffer>>> {
 
-		const bufferSize = tryMapBufferSizeForInput(options?.bufferByteLength)
+		throwIfAborted(options?.signal)
+		const bufferByteLength = mapBufferByteLengthForInput(options?.bufferByteLength)
 		const { open, read, close } = await resolveReadFileStreamEvents(
 			"plugin:android-fs|open_read_file_stream",
-			uri,
+			mapFsPathForInput(uri),
 		)
+		throwIfAborted(options?.signal)
 
 		try {
 			await open()
-			return await createReadableStream({
-				read: () => read(bufferSize),
-				release: close
-			})
+			return createReadableStream(
+				{
+					read: () => read(bufferByteLength),
+					release: () => close()
+				},
+				{ signal: options?.signal }
+			)
 		}
 		catch (e) {
 			await close().catch(() => { })
@@ -1695,26 +1789,21 @@ export class AndroidFs {
 	/**
 	 * Opens the file with read-only mode and resolves to a `ReadableStream` of text lines. 
 	 *  
-	 * The stream yields decoded text line by line as UTF-8. 
-	 * Line breaks are not included in the emitted strings. 
+	 * The stream yields decoded text line by line.   
+	 * See: `AndroidOpenReadTextFileLinesStreamItem`.
 	 * 
 	 * The returned `ReadableStream` must always be released by the caller.
-	 * Failure to do so may cause file descriptor resource leaks.
+	 * Failure to do so may cause file resource leaks.
 	 * The returned ReadableStream is released in the following cases:
 	 * - When the ReadableStream or its Reader is canceled. 
 	 * - When the ReadableStream's Reader has been fully read. 
 	 * - When the ReadableStream's Reader's read operation ends with an error. 
-	 * 
-	 * These releases may be performed multiple times without issue.
+	 * - When the provided AbortSignal fires an abort event.
 	 * 
 	 * @param uri - The URI or path of the file to read. 
-	 * @param options - Optional settings.
-	 * @param options.maxLineByteLength - The maximum length of a line in bytes, excluding line breaks character. If a line exceeds this limit, an error is thrown. This prevents OOM errors when reading minified files or binaries. Defaults to `0` (unlimited).
-	 * @param options.fatal - Indicates whether an error is thrown when an invalid byte sequence is encountered. If `false`, invalid byte sequences are replaced with U+FFFD (`�`) and decoding continues. Defaults to `false`.
-	 * @param options.ignoreBOM - Indicates whether a leading BOM is preserved and treated as a normal character. Defaults to `false`.
-	 * @param options.bufferByteLength - The buffer size, in bytes, used when sending data from the backend to the frontend. IPC calls are relatively expensive (several milliseconds to tens of milliseconds per no-op call), so larger buffer sizes are generally more efficient. But if it is too large, the UI may freeze or run out of memory. This value is not guaranteed to be strictly respected. If a single line exceeds this size, more bytes may be sent in a single IPC transmission. Defaults to `512000` (500 KiB).
-	 *
-	 * @returns A Promise that resolves to a `ReadableStream<string>` backed by the file opened in read-only mode. This stream has a one-to-one correspondence with the file descriptor.
+	 * @param options - Optional settings: `encoding`, `fatal`, `ignoreBOM`, `maxLineByteLength`, `bufferByteLength`, `signal`, `freezeSize`. See `AndroidOpenReadTextFileLinesStreamOptions` for detailed descriptions of each item.
+	 * 
+	 * @returns A Promise that resolves to a `ReadableStream<AndroidOpenReadTextFileLinesStreamItem>` backed by the file opened in read-only mode. This stream has a one-to-one correspondence with the file descriptor.
 	 * @throws The Promise will be rejected with an error, if the specified entry does not exist, if the entry is a directory, or if the read permission is missing.
 	 * 
 	 * @see [AndroidFs::open_file_readable](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_readable)
@@ -1723,26 +1812,29 @@ export class AndroidFs {
 	public static async openReadTextFileLinesStream(
 		uri: AndroidFsUri | FsPath,
 		options?: AndroidOpenReadTextFileLinesStreamOptions,
-	): Promise<ReadableStream<string>> {
+	): Promise<ReadableStream<AndroidOpenReadTextFileLinesStreamItem>> {
 
-		const maxLineByteLength = tryMapMaxLineByteLength(options?.maxLineByteLength)
-		const bufferSize = tryMapBufferSizeForInput(options?.bufferByteLength)
+		throwIfAborted(options?.signal)
+		const maxLineByteLength = mapMaxLineByteLength(options?.maxLineByteLength)
+		const bufferSize = mapBufferByteLengthForInput(options?.bufferByteLength)
+		const label = mapEncodingLabelForInput(options?.encoding)
 		const fatal = options?.fatal ?? false
 		const ignoreBOM = options?.ignoreBOM ?? false
 		const { open, read, close } = await resolveReadFileStreamEvents(
 			"plugin:android-fs|open_read_text_file_lines_stream",
-			uri,
+			mapFsPathForInput(uri),
 		)
+		throwIfAborted(options?.signal)
 
 		try {
-			await open()
-
-			return await createTextLinesReadableStream(
+			await open({ label, maxLineByteLength, ignoreBOM })
+			return createTextLinesReadableStream(
 				{
-					read: () => read(bufferSize, { fatal, maxLineByteLength }),
+					read: () => read(bufferSize),
 					release: close
 				},
-				{ fatal, ignoreBOM }
+				{ label, fatal },
+				options?.signal
 			)
 		}
 		catch (e) {
@@ -1752,24 +1844,22 @@ export class AndroidFs {
 	}
 
 	/**
-	 * Opens the file with write-only mode and resolves to a `WritableStream`.  
+	 * Opens the file with write mode and resolves to a `WritableStream`.  
 	 * Existing content of the file will be truncated.  
-	 * 
+		 * 
 	 * The returned `WritableStream` must always be released by the caller.
-	 * Failure to do so may cause file descriptor resource leaks.
+	 * Failure to do so may cause file resource leaks.
 	 * The returned WritableStream is released in the following cases:
 	 * - When the WritableStream or its Writer is closed. 
 	 * - When the WritableStream or its Writer is aborted. 
 	 * - When the WritableStream's Writer's write operation ends with an error. 
+	 * - When the provided AbortSignal fires an abort event.
 	 * 
-	 * These releases may be performed multiple times without issue.
+	 * @param uri - The URI or path of the file to write to.
+	 * @param options - Optional settings: `bufferByteLength`, `signal`, `create`. See `AndroidOpenWriteFileStreamOptions` for detailed descriptions of each item.
 	 * 
-	 * @param uri - The URI or path of the file to write to. If the path is specified and the entry does not exist, it will be created.
-	 * @param options - Optional settings.
-	 * @param options.bufferByteLength - The buffer size, in bytes, used when sending data from the frontend to the backend. IPC calls are relatively expensive (several milliseconds to tens of milliseconds per no-op call), so larger buffer sizes are generally more efficient. But if it is too large, the UI may freeze or run out of memory. Defaults to `512000` (500 KiB).
-	 * 
-	 * @returns A Promise that resolves to a `WritableStream<Uint8Array<ArrayBufferLike>>` backed by the file opened in write-able mode. This stream has a one-to-one correspondence with the file descriptor.
-	 * 
+	 * @returns A Promise that resolves to a `WritableStream<Uint8Array<ArrayBufferLike>>` backed by the file opened in write mode. This stream has a one-to-one correspondence with the file descriptor.
+	 *
 	 * @see [AndroidFs::open_file_writable](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_writable)
 	 * @since 25.1.0
 	 */
@@ -1778,23 +1868,62 @@ export class AndroidFs {
 		options?: AndroidOpenWriteFileStreamOptions
 	): Promise<WritableStream<Uint8Array<ArrayBufferLike>>> {
 
-		const bufferSize = tryMapBufferSizeForInput(options?.bufferByteLength)
+		throwIfAborted(options?.signal)
+		const create = options?.create ?? true
+		const bufferByteLength = mapBufferByteLengthForInput(options?.bufferByteLength)
 		const { open, write, close } = await resolveWriteFileStreamEvents(
 			"plugin:android-fs|open_write_file_stream",
-			uri,
+			mapFsPathForInput(uri),
+			{ create }
 		)
+		throwIfAborted(options?.signal)
 
 		try {
 			await open()
-			return await createBufferedWritableStream(bufferSize, {
-				write,
-				release: close
-			})
+			return createWritableStream(
+				{
+					write,
+					release: close
+				},
+				{
+					signal: options?.signal,
+					bufferSize: bufferByteLength,
+					strictBufferSize: false,
+					useBufferView: true,
+				}
+			)
 		}
 		catch (e) {
 			await close().catch(() => { })
 			throw e
 		}
+	}
+
+	/**
+	 * Forcibly disposes of all file streams.
+	 *
+	 * All backend file resources owned by file stream instances 
+	 * created by this plugin are detached from frontend and released.
+	 * 
+	 * After this operation, any read or write operation on existing streams will result in an error, 
+	 * except for buffering on the frontend.
+	 * 
+	 * @since 26.0.0
+	 */
+	public static async closeAllFileStreams(): Promise<void> {
+		await invoke("plugin:android-fs|close_all_file_streams")
+	}
+
+	/**
+	 * Retrieves the number of all currently active file streams.
+	 *
+	 * This counts all backend file resources owned by file stream instances
+	 * created by this plugin that have not yet been detached from frontend and released.
+	 * 
+	 * @since 26.0.0
+	 */
+	public static async countAllFileStreams(): Promise<number> {
+		return await invoke("plugin:android-fs|count_all_file_streams")
 	}
 
 	/**
@@ -1827,8 +1956,8 @@ export class AndroidFs {
 	 * For large files, consider using `AndroidFs.openReadFileStream` with [`TextDecoderStream`](https://developer.mozilla.org/ja/docs/Web/API/TextDecoderStream) or [`TextDecoder`](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/TextDecoder).
 	 *
 	 * @param uri - The URI or path of the target file.
-	 * @param options - Optional settings. They are passed to [the TextDecoder constructor](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/TextDecoder).
-	 * @param options.encoding - The text encoding to use for decoding. Defaults to `"utf-8"`.
+	 * @param options - Optional settings: `encoding`, `fatal`, `ignoreBOM`.
+	 * @param options.encoding - The text encoding label for decoder, such as `"utf-8"`, `"shift_jis"`, `"iso-8859-2"`. See: [the available encodings](https://developer.mozilla.org/ja/docs/Web/API/Encoding_API/Encodings). Defaults to `"utf-8"`.
 	 * @param options.fatal - Indicates whether an error is thrown when an invalid byte sequence is encountered. If `false`, invalid byte sequences are replaced with U+FFFD (`�`) and decoding continues. Defaults to `false`.
 	 * @param options.ignoreBOM - Indicates whether a leading BOM is preserved and treated as a normal character. Defaults to `false`.
 	 * 
@@ -1863,8 +1992,7 @@ export class AndroidFs {
 	 * 
 	 * @param uri - The URI or path of the file to write to. If the path is specified and the entry does not exist, a new file will be created.
 	 * @param data - The bytes to write, either as a `Uint8Array` or a `ReadableStream<Uint8Array>`.
-	 * @param options - Optional settings.
-	 * @param options.bufferByteLength - The buffer size, in bytes, used when sending data from the frontend to the backend while writing from a `ReadableStream`. IPC calls are relatively expensive (several milliseconds to tens of milliseconds per no-op call), so larger buffer sizes are generally more efficient. But if it is too large, the UI may freeze or run out of memory. Defaults to `512000` (500 KiB).
+	 * @param options - Optional settings: `bufferByteLength`, `create`. See `AndroidWriteFileOptions` for detailed descriptions of each item.
 	 * 
 	 * @returns A Promise that resolves when the data has been successfully written.
 	 * 
@@ -1877,36 +2005,37 @@ export class AndroidFs {
 		options?: AndroidWriteFileOptions
 	): Promise<void> {
 
-		if (data instanceof Uint8Array) {
-			await invoke("plugin:android-fs|write_file", {
-				event: {
-					type: "WriteOnce",
-					uri: mapFsPathForInput(uri),
-					data: await mapBytesForInput(data)
-				}
-			})
-		}
-		else if (data instanceof ReadableStream) {
-			const bufferSize = tryMapBufferSizeForInput(options?.bufferByteLength)
-			const { open, write, close } = await resolveWriteFileStreamEvents(
-				"plugin:android-fs|write_file",
-				uri,
-			)
+		const create = options?.create ?? true
+		const bufferByteLength = mapBufferByteLengthForInput(options?.bufferByteLength)
+		const { open, write, close } = await resolveWriteFileStreamEvents(
+			"plugin:android-fs|write_file",
+			mapFsPathForInput(uri),
+			{ create }
+		)
 
-			try {
-				await open()
-				const file = await createBufferedWritableStream(bufferSize, {
-					write,
-					release: async () => { }
-				})
-				await data.pipeTo(file)
+		try {
+			await open()
+
+			if (data instanceof Uint8Array) {
+				await write(data)
 			}
-			finally {
-				await close()
+			else if (data instanceof ReadableStream) {
+				const writer = createWritableStream(
+					{ write },
+					{
+						bufferSize: bufferByteLength,
+						strictBufferSize: false,
+						useBufferView: true,
+					},
+				)
+				await data.pipeTo(writer)
+			}
+			else {
+				throw new Error("Unsupprted data type")
 			}
 		}
-		else {
-			throw new Error("Unsupported data type")
+		finally {
+			await close()
 		}
 	}
 
@@ -1916,6 +2045,7 @@ export class AndroidFs {
 	 * 
 	 * @param uri - The URI or path of the file to write to. If the path is specified and the entry does not exist, a new file will be created.
 	 * @param data - The text data to write.
+	 * @param options - Optional settings: `create`. See `AndroidWriteTextFileOptions` for detailed descriptions of each item.
 	 *
 	 * @returns A Promise that resolves when the data has been successfully written.
 	 * 
@@ -1924,11 +2054,15 @@ export class AndroidFs {
 	 */
 	public static async writeTextFile(
 		uri: AndroidFsUri | FsPath,
-		data: string
+		data: string,
+		options?: AndroidWriteTextFileOptions
 	): Promise<void> {
+
+		const create = options?.create ?? true
 
 		return await invoke("plugin:android-fs|write_text_file", {
 			uri: mapFsPathForInput(uri),
+			create,
 
 			// Android で body や ArrayBuffer, number などを送信すると
 			// 非常に非効率な文字列にシリアライズされ、著しく非効率になる。
@@ -1944,6 +2078,7 @@ export class AndroidFs {
 	 * 
 	 * @param srcUri - The URI or path of the source file to copy. 
 	 * @param destUri - The URI or path of the destination file. If the path is specified and the entry does not exist, a new file will be created.
+	 * @param options - Optional settings: `create`. See `AndroidCopyFileOptions` for detailed descriptions of each item.
 	 * 
 	 * @returns A Promise that resolves when the copying is complete.
 	 * 
@@ -1953,11 +2088,15 @@ export class AndroidFs {
 	public static async copyFile(
 		srcUri: AndroidFsUri | FsPath,
 		destUri: AndroidFsUri | FsPath,
+		options?: AndroidCopyFileOptions,
 	): Promise<void> {
+
+		const create = options?.create ?? true
 
 		return await invoke('plugin:android-fs|copy_file', {
 			srcUri: mapFsPathForInput(srcUri),
-			destUri: mapFsPathForInput(destUri)
+			destUri: mapFsPathForInput(destUri),
+			create
 		})
 	}
 
@@ -2345,40 +2484,34 @@ export class AndroidFs {
 }
 
 
-/** 500 KiB */
-const DEFAULT_BUFFER_SIZE_FOR_IPC = 500 * 1024;
+/** 512 KiB */
+const DEFAULT_BUFFER_SIZE_FOR_IPC = 512 * 1024;
 
-function tryMapBufferSizeForInput(s?: number): number {
+function mapBufferByteLengthForInput(s?: number): number {
 	const bufferSize = s ?? DEFAULT_BUFFER_SIZE_FOR_IPC
-	if (!isNonzeroU32(bufferSize)) {
-		throw new Error(`Invalid bufferByteLength: expected a non-zero 32-bit unsigned integer, got ${bufferSize}`);
+	if (!isNonzeroSafeInt(bufferSize)) {
+		throw new Error("Invalid bufferByteLength: expected a non-zero safe unsigned integer (1..Number.MAX_SAFE_INTEGER)")
 	}
 	return bufferSize
 }
 
-function tryMapMaxLineByteLength(s?: number): number {
+function mapEncodingLabelForInput(label?: string): string {
+	try {
+		return (new TextDecoder(label)).encoding
+	}
+	catch {
+		throw new RangeError("Bad encoding label")
+	}
+}
+
+function mapMaxLineByteLength(s?: number): number {
 	if (s == null) return 0
 
 	if (!Number.isSafeInteger(s) || s < 0) {
-		throw new Error(`Invalid maxLineByteLength: expected a safe unsigned integer, got ${s}`);
+		throw new Error("Invalid maxLineByteLength: expected a safe unsigned integer");
 	}
 
 	return s
-}
-
-/** 
- * Android で frontend から body や ArrayBuffer, number[] などを送信すると
- * 非常に非効率な文字列にシリアライズされ、著しく非効率になる。
- * よって DataURL にエンコードして送信する。
- * https://github.com/tauri-apps/tauri/issues/10573
- */
-async function mapBytesForInput(bytes: Uint8Array<ArrayBufferLike>): Promise<string> {
-	const buffer = bytes.buffer instanceof ArrayBuffer
-		? bytes as Uint8Array<ArrayBuffer>
-		: new Uint8Array(bytes)
-
-	const blob = new Blob([buffer], { type: "application/octet-stream" })
-	return await blobToDataUrl(blob)
 }
 
 type ReadFileStreamEvents = {
@@ -2388,18 +2521,12 @@ type ReadFileStreamEvents = {
 }
 async function resolveReadFileStreamEvents(
 	cmd: string,
-	uri: AndroidFsUri | FsPath,
+	uri: string | AndroidFsUri,
 ): Promise<ReadFileStreamEvents> {
 
-	// tauri::ipc::Response の制約のため全てのイベントで ArrayBuffer を返す
 	type CmdEvents = {
-		// ridFromBytes で id にできる bytes を返す
-		// 呼び出すたびに新しくファイルを開く
-		Open: { uri: AndroidFsUri | string },
-		// 読み込んだ bytes を返す
+		Open: { uri: string | AndroidFsUri },
 		Read: { id: number, len: number },
-		// 常に空の bytes を返す
-		// 何回呼び出してもいい
 		Close: { id: number },
 	}
 	type CmdType = keyof CmdEvents
@@ -2408,374 +2535,264 @@ async function resolveReadFileStreamEvents(
 		return invoke(cmd, { event: { type, ...input } })
 	}
 
+
 	let id: number | null = null
 
 	return {
-		open: async (options) => {
+		open: async (ops) => {
 			if (id !== null) throw new Error("File already opened")
-			const idBytes = await dispatch("Open", { ...options, uri: mapFsPathForInput(uri) })
+			const idBytes = await dispatch("Open", {
+				...ops,
+				uri,
+			})
 			id = ridFromBytes(idBytes)
 		},
-		read: async (len, options) => {
+
+		read: async (len, ops) => {
 			if (id === null) throw new Error("File not opened")
-			const data = await dispatch("Read", { ...options, id, len, })
+			const data = await dispatch("Read", { ...ops, id, len, })
 			return data.byteLength === 0 ? null : new Uint8Array(data)
 		},
-		close: async (options) => {
+
+		close: async (ops) => {
 			if (id === null) return
-			await dispatch("Close", { ...options, id })
+			await dispatch("Close", { ...ops, id })
 		}
 	}
 }
 
 type WriteFileStreamEvents = {
-	open: (options?: Record<any, any>) => Promise<void>,
-	write: (data: Uint8Array<ArrayBufferLike>, options?: Record<any, any>) => Promise<void>,
-	close: (options?: Record<any, any>) => Promise<void>,
+	open: () => Promise<void>,
+	write: (data: Uint8Array<ArrayBufferLike>) => Promise<void>,
+	close: () => Promise<void>,
 }
 async function resolveWriteFileStreamEvents(
 	cmd: string,
-	uri: AndroidFsUri | FsPath,
+	uri: string | AndroidFsUri,
+	options: { create: boolean }
 ): Promise<WriteFileStreamEvents> {
 
-	// Android で frontend から body や ArrayBuffer, number[] などを送信すると
-	// 非常に非効率な文字列にシリアライズされ、著しく非効率になる。
-	// よってそれらは送信しない。
-	// https://github.com/tauri-apps/tauri/issues/10573
 	type CmdEvents = {
-		// 呼び出すたびに新しくファイルを開く
-		Open: { i: { uri: AndroidFsUri | string }, o: number }
-		// 
-		Write: { i: { id: number; data: string }, o: void }
-		// 何回呼び出してもいい
-		Close: { i: { id: number }, o: void }
+		Open: { body: Uint8Array, headers: { uri: string, options: string }, out: { id: number, supportsRawIpcRequestBody: boolean } },
+		Write: { body: Uint8Array | { data: string }, headers: { id: string }, out: void },
+		Close: { body: {}, headers: { id: string }, out: void },
 	}
 	type CmdType = keyof CmdEvents
-	type CmdInput<T extends CmdType> = CmdEvents[T]["i"]
-	type CmdOutput<T extends CmdType> = CmdEvents[T]["o"]
-	function dispatch<T extends CmdType>(type: T, input: CmdInput<T>): Promise<CmdOutput<T>> {
-		return invoke(cmd, { event: { type, ...input } })
+	type CmdInputBody<T extends CmdType> = CmdEvents[T]["body"]
+	type CmdInputHeaders<T extends CmdType> = CmdEvents[T]["headers"]
+	type CmdOutput<T extends CmdType> = CmdEvents[T]["out"]
+	function dispatch<T extends CmdType>(type: T, body: CmdInputBody<T>, headers: CmdInputHeaders<T>): Promise<CmdOutput<T>> {
+		return invoke(cmd, body, { headers: { eventType: type, ...headers } })
 	}
 
 
-	let id: number | null = null
+	const PAYLOAD_FOR_CHECKING_RAW_IPC_REQUEST_BODY_SUPPROTED = new Uint8Array([0]);
+
+	let id: string | null = null
+	let supportsRawIpcRequestBody: boolean | null = null
 
 	return {
-		open: async (options) => {
+		open: async () => {
 			if (id !== null) throw new Error("File already opened")
-			id = await dispatch("Open", { ...options, uri: mapFsPathForInput(uri) })
+
+			const res = await dispatch("Open",
+				PAYLOAD_FOR_CHECKING_RAW_IPC_REQUEST_BODY_SUPPROTED,
+				{
+					uri: encodeURIComponent(JSON.stringify(uri)),
+					options: encodeURIComponent(JSON.stringify(options)),
+				}
+			)
+
+			supportsRawIpcRequestBody = res.supportsRawIpcRequestBody
+			id = res.id.toString()
 		},
-		write: async (chunk, options) => {
+
+		write: async (chunk) => {
 			if (id === null) throw new Error("File not opened")
-			await dispatch("Write", { ...options, id, data: await mapBytesForInput(chunk) })
+			if (supportsRawIpcRequestBody === null) throw new Error("Missing value: supportsRawIpcRequestBody")
+
+			if (supportsRawIpcRequestBody) {
+				await dispatch("Write", chunk, { id })
+			}
+			// IPC のリクエストで raw Body を送れない場合、
+			// 大きな配列に対して非常に非効率な形式にシリアライズされる。
+			// よって、まだマシな dataURL としてデータを送る。
+			// Data URL を用いる理由は web API の FileReader で比較的効率的に作成できるため。
+			// <https://github.com/tauri-apps/tauri/issues/10573>
+			else {
+				await dispatch("Write", { data: await bytesToDataUrl(chunk) }, { id })
+			}
 		},
-		close: async (options) => {
+
+		close: async () => {
 			if (id === null) return
-			await dispatch("Close", { ...options, id })
+			await dispatch("Close", {}, { id })
 		},
 	}
 }
 
-let _isReadableByteStreamAvailable: boolean | null = null
-function isReadableByteStreamAvailable() {
-	if (_isReadableByteStreamAvailable === null) {
-		try {
-			new ReadableStream({ type: "bytes" })
-			_isReadableByteStreamAvailable = true
-		}
-		catch {
-			_isReadableByteStreamAvailable = false
-		}
-	}
-
-	return _isReadableByteStreamAvailable
-}
-
-async function createTextLinesReadableStream(
+function createTextLinesReadableStream(
 	handler: {
-		/**
-		 * null か空で EOF。
-		 * 
-		 * bytes は以下の形式のレコードが連続したものであり、
-		 * 各レコードが分断されることはない。
-		 * 
-		 * |-------------------------------------|
-		 * | err flag: u8  (0 = ok, 1 = err)     |
-		 * |-------------------------------------|
-		 * | line len: u64 (big-endian, 8 bytes) |
-		 * |-------------------------------------|
-		 * | line bytes: variable-length bytes   |
-		 * |-------------------------------------|
-		 * 
-		 * err flag が 1 の場合、その行でエラーが発生したことを示す。
-		 * その場合、line bytes にはエラーメッセージが格納され、
-		 * この呼び出しでの最後の行となる。
-		 * エラー発生後の呼び出しの挙動は未定義。
-		 */
+		/** null か空で EOF。 */
 		read: () => Promise<Uint8Array<ArrayBuffer> | null>,
 		release?: () => Promise<void>
 	},
 	options?: {
 		fatal?: boolean,
-		ignoreBOM?: boolean
-	}
-): Promise<ReadableStream<string>> {
+		label?: string,
+	},
+	signal?: AbortSignal
+): ReadableStream<{
+	line: string,
+	lineBreak: "\n" | "\r\n" | null
+}> {
 
-	let releasePromise: Promise<void> | null = null
-	const releaseOnce = () => {
-		if (!releasePromise) {
-			releasePromise = (handler.release ?? (async () => { }))()
-		}
-		return releasePromise
-	}
+	/*
+	 * bytes は以下の形式のレコードが連続したものであり、
+	 * 各レコードが分断されることはない。
+	 * 
+	 * - err flag (u8, 0 = ok, 1 = err)
+	 * - line break type (u8, 0 = null, 1 = "\n", 2 = "\r\n")
+	 * - line bytes len (u64, big endian)
+	 * - line bytes (variable bytes)
+	 * 
+	 * err flag が 0 の場合、正常にその行が読み込まれたことを指す。
+	 * この場合、line bytes には BOM 処理されたテキストが格納される。
+	 * 
+	 * err flag が 1 の場合、その行でエラーが発生したことを示す。
+	 * この場合、line bytes には utf-8 形式のエラーメッセージが格納され、
+	 * この呼び出しでの最後の行となる。
+	 * 
+	 * エラー発生後の呼び出しの挙動は未定義。
+	 */
+	const ERR_FLAG_LEN = 1;
+	const LINE_BREAK_TYPE_LEN = 1;
+	const LINE_LEN_LEN = 8;
 
+	const ERR_FLAG_OFFSET = 0;
+	const LINE_BREAK_TYPE_OFFSET = ERR_FLAG_OFFSET + ERR_FLAG_LEN;
+	const LINE_LEN_OFFSET = LINE_BREAK_TYPE_OFFSET + LINE_BREAK_TYPE_LEN;
+	const LINE_OFFSET = LINE_LEN_OFFSET + LINE_LEN_LEN;
+
+	const LINE_BREAK_NULL = 0
+	const LINE_BREAK_LF = 1
+	const LINE_BREAK_CRLF = 2
+
+	let abortListener: (() => void) | null = null
 	let decoder: TextDecoder | null = null
 	let buffer: Uint8Array<ArrayBuffer> | null = null
+
+	let cleanupPromise: Promise<void> | null = null
+	function cleanup(): Promise<void> {
+		if (cleanupPromise === null) {
+			cleanupPromise = (async () => {
+				buffer = null
+				decoder = null
+				if (signal != null && abortListener != null) {
+					signal.removeEventListener("abort", abortListener)
+					abortListener = null
+				}
+				if (handler.release) {
+					await handler.release()
+				}
+			})()
+		}
+		return cleanupPromise
+	}
 
 	// エラーはその原因となった行を読み込んだ際に発生させたいため、
 	// 1回の pull では1回だけ enqueue　を行う。
 	// 複数回行うとエラーが発生した行ではない箇所で read してもエラーになってしまう。
 	return new ReadableStream({
+		start(controller) {
+			if (signal) {
+				abortListener = () => {
+					cleanup().catch(() => { })
+					controller.error(signal.reason ?? newAbortError())
+				}
+				signal.addEventListener("abort", abortListener);
+			}
+		},
+
 		async pull(controller) {
 			try {
+				throwIfAborted(signal)
 				if (buffer == null || buffer.byteLength === 0) {
 					buffer = await handler.read()
+					throwIfAborted(signal)
 				}
 				if (buffer == null || buffer.byteLength === 0) {
-					decoder = null
-					buffer = null
-					await releaseOnce()
+					await cleanup()
 					controller.close()
 					return
 				}
 
-				if (buffer.byteLength < 9) {
-					throw new Error(`Invalid data: Chunk ended with partial header. (${buffer.byteLength} bytes remained)`)
+				if (buffer.byteLength < LINE_OFFSET) {
+					throw new Error("Invalid data: Chunk ended with partial header.")
 				}
-				const errFlag = buffer[0]
-				const lineSize = trySafeU64FromBytes(buffer.subarray(1, 9), "bigEndian")
-				if (buffer.byteLength < 9 + lineSize) {
-					throw new Error(`Invalid data: Line split detected. Expected ${lineSize} bytes body, but only ${buffer.byteLength - 9} bytes remained in chunk.`)
+				const lineLen = trySafeU64FromBytes(
+					buffer.subarray(LINE_LEN_OFFSET, LINE_LEN_OFFSET + LINE_LEN_LEN),
+					"bigEndian"
+				)
+
+				if (buffer.byteLength < LINE_OFFSET + lineLen) {
+					throw new Error("Invalid data: Line split detected.")
 				}
-				const lineBytes = buffer.subarray(9, 9 + lineSize)
-				if (errFlag === 1) {
-					throw new Error((new TextDecoder()).decode(lineBytes))
-				}
-				if (errFlag !== 0) {
-					throw new Error(`Invalid err flag: Expected 0 or 1, got ${errFlag}.`)
+				const lineBytes = buffer.subarray(LINE_OFFSET, LINE_OFFSET + lineLen)
+
+				const errFlag = buffer[ERR_FLAG_OFFSET]
+				if (numToFlag(errFlag)) {
+					throw new Error((new TextDecoder("utf-8")).decode(lineBytes))
 				}
 
+				const lineBreakType = buffer[LINE_BREAK_TYPE_OFFSET]
+				let lineBreak: "\n" | "\r\n" | null = null
+				if (lineBreakType === LINE_BREAK_LF) lineBreak = "\n"
+				else if (lineBreakType === LINE_BREAK_CRLF) lineBreak = "\r\n"
+				else if (lineBreakType === LINE_BREAK_NULL) lineBreak = null
+				else throw new Error("Invalid lineBreakType")
+
 				if (decoder == null) {
-					decoder = new TextDecoder("utf-8", {
-						fatal: options?.fatal,
-						ignoreBOM: options?.ignoreBOM
-					})
-				}
-				const text = decoder.decode(lineBytes)
-				if (!decoder.ignoreBOM) {
-					decoder = new TextDecoder("utf-8", {
+					decoder = new TextDecoder(options?.label, {
 						fatal: options?.fatal,
 						ignoreBOM: true
 					})
 				}
+				const line = decoder.decode(lineBytes)
 
-				controller.enqueue(text)
-
-				if (buffer.byteLength === 9 + lineSize) {
-					buffer = null
-				}
-				else {
-					buffer = buffer.subarray(9 + lineSize)
-				}
+				throwIfAborted(signal)
+				controller.enqueue({ line, lineBreak })
+				buffer = buffer.subarray(LINE_OFFSET + lineLen)
 			}
 			catch (e) {
-				decoder = null
-				buffer = null
-				await releaseOnce().catch(() => { })
+				await cleanup().catch(() => { })
 				throw e
 			}
 		},
 
 		async cancel() {
-			decoder = null
-			buffer = null
-			await releaseOnce()
+			await cleanup()
 		}
 	})
 }
 
-async function createReadableStream(
-	handler: {
-		/** null または空配列で EOF */
-		read: () => Promise<Uint8Array<ArrayBuffer> | null>,
-		release?: () => Promise<void>
-	},
-): Promise<ReadableStream<Uint8Array<ArrayBuffer>>> {
-
-	let releasePromise: Promise<void> | null = null
-	const releaseOnce = () => {
-		if (!releasePromise) {
-			releasePromise = (handler.release ?? (async () => { }))()
-		}
-		return releasePromise
+function throwIfAborted(signal: AbortSignal | undefined | null) {
+	if (signal?.aborted === true) {
+		throw (signal?.reason ?? newAbortError())
 	}
-
-	if (!isReadableByteStreamAvailable()) {
-		return new ReadableStream({
-			async pull(controller) {
-				try {
-					const data = await handler.read()
-					if (data == null || data.byteLength === 0) {
-						await releaseOnce()
-						controller.close()
-						return
-					}
-
-					controller.enqueue(data)
-				}
-				catch (e) {
-					await releaseOnce().catch(() => { })
-					throw e
-				}
-			},
-
-			async cancel() {
-				await releaseOnce()
-			}
-		})
-	}
-
-	let buffer: Uint8Array<ArrayBuffer> | null = null
-
-	// autoAllocateChunkSize を指定すると stream.getReader() でも byob が使われるようになるが、
-	// この実装で byob を用いてもコピーが増えるだけで恩恵が少ないため指定しない。
-	// また type: "bytes" で strategy を指定すると (正確には size を定義すると) エラーになる点にも注意。
-	return new ReadableStream({
-		type: "bytes",
-
-		async pull(controller) {
-			try {
-				if (buffer == null || buffer.byteLength === 0) {
-					buffer = await handler.read()
-				}
-				if (buffer == null || buffer.byteLength === 0) {
-					buffer = null
-					await releaseOnce()
-
-					// byobRequest がある場合、respond を呼ばないと promise　が解決されない。
-					// controller.close() の後だと respond(0) を読んでもエラーにはならない。
-					// https://github.com/whatwg/streams/issues/1170
-					controller.close()
-					controller.byobRequest?.respond(0)
-					return
-				}
-
-				const byob = controller.byobRequest
-				// byobRequest がある場合、respond を呼ばないと promise　が解決されないことに注意
-				if (byob != null) {
-					// respond する前なので null にならない
-					const v = byob.view!!
-					const view = new Uint8Array(v.buffer, v.byteOffset, v.byteLength)
-					const nread = Math.min(buffer.byteLength, view.byteLength)
-
-					view.set(buffer.subarray(0, nread))
-					buffer = buffer.subarray(nread)
-					byob.respond(nread)
-				}
-				else {
-					controller.enqueue(buffer)
-					buffer = null
-				}
-			}
-			catch (e) {
-				buffer = null
-				await releaseOnce().catch(() => { })
-
-				// byobRequest が存在する場合、controller.close() を呼んだだけでは
-				// Promise は解決されず、respond() も呼ぶ必要がある。
-				// controller.error() も同様の挙動になる可能性がある。(要検証)
-				// 少なくとも throw すれば Promise は解決されるため、現状はこの実装とする。
-				throw e
-			}
-		},
-
-		async cancel() {
-			buffer = null
-			await releaseOnce()
-		}
-	})
 }
 
-/**
- * chunk はクロージャーの中でのみ用いるべきであり、それ以降は参照すべきでない。
- * 必要な場合はコピーしてから用いる必要がある。
- */
-async function createBufferedWritableStream(
-	bufferSize: number,
-	handler: {
-		write: (chunk: Uint8Array<ArrayBuffer>) => Promise<void>,
-		release?: () => Promise<void>
-	},
-): Promise<WritableStream<Uint8Array<ArrayBufferLike>>> {
+function newAbortError(): DOMException {
+	return new DOMException("The operation was aborted.", "AbortError")
+}
 
-	if (!Number.isSafeInteger(bufferSize) || bufferSize <= 0) {
-		throw new Error("bufferSize must be a positive safe integer")
-	}
+async function bytesToDataUrl(bytes: Uint8Array<ArrayBufferLike>): Promise<string> {
+	const buffer = bytes.buffer instanceof ArrayBuffer
+		? bytes as Uint8Array<ArrayBuffer>
+		: new Uint8Array(bytes)
 
-	let releasePromise: Promise<void> | null = null
-	const releaseOnce = () => {
-		if (!releasePromise) {
-			releasePromise = (handler.release ?? (async () => { }))()
-		}
-		return releasePromise
-	}
-
-	let buffer: Uint8Array<ArrayBuffer> | null = new Uint8Array(bufferSize)
-	let bufferOffset = 0;
-
-	return new WritableStream<Uint8Array<ArrayBufferLike>>({
-		async write(src) {
-			try {
-				if (buffer == null) throw new Error("Buffer missing")
-
-				let srcOffset = 0;
-
-				while (srcOffset < src.byteLength) {
-					const n = Math.min(bufferSize - bufferOffset, src.byteLength - srcOffset)
-					buffer.set(src.subarray(srcOffset, srcOffset + n), bufferOffset)
-					bufferOffset += n
-					srcOffset += n
-
-					if (bufferOffset === bufferSize) {
-						await handler.write(buffer)
-						bufferOffset = 0
-					}
-				}
-			}
-			catch (e) {
-				buffer = null
-				await releaseOnce().catch(() => { })
-				throw e
-			}
-		},
-
-		async close() {
-			try {
-				if (0 < bufferOffset && buffer != null) {
-					await handler.write(buffer.subarray(0, bufferOffset))
-				}
-			}
-			finally {
-				buffer = null
-				await releaseOnce()
-			}
-		},
-
-		async abort() {
-			buffer = null
-			await releaseOnce()
-		}
-	})
+	const blob = new Blob([buffer], { type: "application/octet-stream" })
+	return await blobToDataUrl(blob)
 }
 
 async function blobToDataUrl(blob: Blob): Promise<string> {
@@ -2817,12 +2834,12 @@ async function blobToDataUrl(blob: Blob): Promise<string> {
 	})
 }
 
-function isNonzeroU32(num: number): boolean {
-	return isU32(num) && num !== 0
+function isNonzeroSafeInt(num: number): boolean {
+	return isSafeInt(num) && num !== 0
 }
 
-function isU32(num: number): boolean {
-	return Number.isInteger(num) && 0 <= num && num <= 0xFFFFFFFF
+function isSafeInt(num: number): boolean {
+	return Number.isSafeInteger(num) && 0 <= num && num <= Number.MAX_SAFE_INTEGER
 }
 
 function ridFromBytes(bytes: ArrayBufferView | ArrayBuffer): number {
@@ -2841,7 +2858,7 @@ function u32FromBytes(
 			: new Uint8Array(input.buffer, input.byteOffset, input.byteLength);
 
 	if (bytes.length !== 4) {
-		throw new Error(`Expected 4 bytes for u32, got ${bytes.length}`);
+		throw new Error("Expected 4 bytes for u32");
 	}
 
 	if (endian === "bigEndian") {
@@ -2852,6 +2869,12 @@ function u32FromBytes(
 		// Little Endian: [0xDD, 0xCC, 0xBB, 0xAA] -> 0xAABBCCDD
 		return (bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24)) >>> 0;
 	}
+}
+
+function numToFlag(flag: number): boolean {
+	if (flag === 1) return true
+	if (flag === 0) return false
+	throw new Error("Invalid flag value")
 }
 
 function trySafeU64FromBytes(
@@ -2866,7 +2889,7 @@ function trySafeU64FromBytes(
 			: new Uint8Array(input.buffer, input.byteOffset, input.byteLength);
 
 	if (bytes.length !== 8) {
-		throw new Error(`Expected 8 bytes for u64, got ${bytes.length}`);
+		throw new Error("Expected 8 bytes for u64");
 	}
 
 	if (endian === "bigEndian") {

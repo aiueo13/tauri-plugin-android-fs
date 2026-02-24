@@ -1,6 +1,6 @@
 {
   "name": "tauri-plugin-android-fs-api",
-  "version": "25.1.2",
+  "version": "26.0.0",
   "author": "OkaYu",
   "description": "Android file system API for Tauri.",
   "keywords": ["tauri", "plugin", "android", "fs", "file", "picker", "dialog", "download"],
@@ -13,6 +13,7 @@
   "bugs": {
     "url": "https://github.com/aiueo13/tauri-plugin-android-fs/issues"
   },
+  "sideEffects": false,
   "type": "module",
   "types": "./dist-js/index.d.ts",
   "main": "./dist-js/index.cjs",
@@ -34,7 +35,8 @@
     "pretest": "pnpm build"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.0.0"
+    "@tauri-apps/api": "^2.0.0",
+    "create-web-stream": "^1.1.1"
   },
   "devDependencies": {
     "@rollup/plugin-typescript": "^12.0.0",

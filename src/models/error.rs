@@ -18,6 +18,14 @@ impl crate::Error {
         Self::with(format!("missing value: {}", value_name.as_ref()))
     }
 
+    pub(crate) fn invalid_type(type_name: impl AsRef<str>) -> Self {
+        Self::with(format!("invalid type for {}", type_name.as_ref()))
+    }
+
+    pub(crate) fn invalid_value(value_name: impl AsRef<str>) -> Self {
+        Self::with(format!("invalid value {}", value_name.as_ref()))
+    }
+
     pub(crate) const fn from_static_str(msg: &'static str) -> Self {
         Self { inner: InnerError::Raw(Cow::Borrowed(msg)), }
     }
@@ -70,10 +78,19 @@ enum InnerError {
     Io(std::io::Error),
 
     #[error(transparent)]
+    ParseInt(std::num::ParseIntError),
+
+    #[error(transparent)]
     SerdeJson(serde_json::Error),
 
     #[error(transparent)]
     Tauri(tauri::Error),
+
+    #[error(transparent)]
+    TauriHttpHeaderToStr(tauri::http::header::ToStrError),
+
+    #[error(transparent)]
+    TauriPluginFs(tauri_plugin_fs::Error),
 
     #[error(transparent)]
     StdSystemTime(std::time::SystemTimeError),
@@ -99,14 +116,23 @@ impl_into_err_from_inner!(tauri::plugin::mobile::PluginInvokeError, e => crate::
 impl_into_err_from_inner!(base64::DecodeError, e => crate::Error { inner: InnerError::Base64Decode(e) });
 
 impl_into_err_from_inner!(std::io::Error, e => crate::Error { inner: InnerError::Io(e) });
+impl_into_err_from_inner!(std::num::ParseIntError, e => crate::Error { inner: InnerError::ParseInt(e) });
 impl_into_err_from_inner!(serde_json::Error, e => crate::Error { inner: InnerError::SerdeJson(e) });
 impl_into_err_from_inner!(tauri::Error, e => crate::Error { inner: InnerError::Tauri(e) });
+impl_into_err_from_inner!(tauri::http::header::ToStrError, e => crate::Error { inner: InnerError::TauriHttpHeaderToStr(e) });
+impl_into_err_from_inner!(tauri_plugin_fs::Error, e => crate::Error { inner: InnerError::TauriPluginFs(e) });
 impl_into_err_from_inner!(std::time::SystemTimeError, e => crate::Error { inner: InnerError::StdSystemTime(e) });
 impl_into_err_from_inner!(std::str::Utf8Error, e => crate::Error { inner: InnerError::Utf8Error(e) });
 
 impl<W> From<std::io::IntoInnerError<W>> for crate::Error {
     fn from(e: std::io::IntoInnerError<W>) -> crate::Error {
         crate::Error { inner: InnerError::Io(e.into_error()) }
+    }
+}
+
+impl<T> From<std::sync::PoisonError<T>> for crate::Error {
+    fn from(_: std::sync::PoisonError<T>) -> crate::Error {
+        crate::Error::with("thread poisoned")
     }
 }
 

@@ -1,10 +1,13 @@
 mod utils;
 mod scope;
+mod state;
 
 use scope::*;
 use utils::*;
 use serde::{Deserialize, Serialize};
 use crate::*;
+
+pub use state::*;
 
 
 #[tauri::command]
@@ -605,51 +608,83 @@ pub async fn create_new_file<R: tauri::Runtime>(
 }
 
 #[tauri::command]
+pub async fn close_all_file_streams<R: tauri::Runtime>(
+    resources: FileStreamResourcesState<'_, R>,
+    _app: tauri::AppHandle<R>,
+) -> Result<()> {
+
+    let resources = std::sync::Arc::clone(&resources);
+
+    tauri::async_runtime::spawn_blocking(move || {
+        resources.close_all()?;
+        Ok(())
+    }).await?
+}
+
+#[tauri::command]
+pub async fn count_all_file_streams<R: tauri::Runtime>(
+    resources: FileStreamResourcesState<'_, R>,
+    _app: tauri::AppHandle<R>,
+) -> Result<usize> {
+
+    let resources = std::sync::Arc::clone(&resources);
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let count = resources.count()?;
+        Ok(count)
+    }).await?
+}
+
+#[tauri::command]
 pub async fn open_read_file_stream<R: tauri::Runtime>(
-    event: OpenReadFileStreamEvent,
+    event: ReadFileStreamEventInput,
     app: tauri::AppHandle<R>,
     cmd_scope: tauri::ipc::CommandScope<Scope>,
     global_scope: tauri::ipc::GlobalScope<Scope>,
+    resources: FileStreamResourcesState<'_, R>,
 ) -> Result<tauri::ipc::Response> {
 
     #[cfg(not(target_os = "android"))] {
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        use tauri::Manager as _;
-        use std::io::Read as _;
-        type FileResource = PluginResource<std::sync::Mutex<std::fs::File>>;
+        type FileResource = std::sync::Mutex<FileChunkReader>;
 
-        let api = app.android_fs_async();
-
+        let resources = std::sync::Arc::clone(&resources);
+    
         match event {
-            OpenReadFileStreamEvent::Open { uri } => {
+            ReadFileStreamEventInput::Open { uri } => {
                 let uri = FileUri::from(uri);
                 if let Some(path) = uri.as_path() {
-                    validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
+                    validate_path_permission(&path, &app, &cmd_scope, &global_scope)?;
                 }
 
+                let api = app.android_fs_async();
                 let file = api.open_file_readable(&uri).await?;
-                let file = FileResource::new(std::sync::Mutex::new(file));
-                let id = app.resources_table().add(file);
-                let id_bytes = convert_rid_to_bytes(id);
-                Ok(tauri::ipc::Response::new(id_bytes))
-            },
-            OpenReadFileStreamEvent::Read { id, len } => {
-                tauri::async_runtime::spawn_blocking(move || -> Result<_> {
-                    let file = app.resources_table().get::<FileResource>(id)?.get();
-                    let mut file = file.lock().unwrap_or_else(|e| e.into_inner());
-                    let mut buf = Vec::with_capacity(usize::min(len as usize, 10 * 1024 * 1024));
-                    file.by_ref().take(len as u64).read_to_end(&mut buf)?;
-                    Ok(tauri::ipc::Response::new(buf))
+    
+                tauri::async_runtime::spawn_blocking(move || {
+                    let res = FileChunkReader::new(file, None);
+                    let res: FileResource = std::sync::Mutex::new(res);
+                    let id = resources.add(res)?;
+
+                    ReadFileStreamEventOutput::Open(id).try_into()
                 }).await?
             },
-            OpenReadFileStreamEvent::Close { id } => {
-                let mut resources = app.resources_table();
-                if resources.has(id) {
+            ReadFileStreamEventInput::Read { id, len } => {
+                tauri::async_runtime::spawn_blocking(move || -> Result<_> {
+                    let data = resources
+                        .get::<FileResource>(id)?
+                        .lock()?
+                        .read_chunk(len)?;
+                
+                    ReadFileStreamEventOutput::Read(data).try_into()
+                }).await?
+            },
+            ReadFileStreamEventInput::Close { id } => {
+                tauri::async_runtime::spawn_blocking(move || {
                     resources.close(id)?;
-                }
-                Ok(tauri::ipc::Response::new(Vec::new()))
+                    ReadFileStreamEventOutput::Close(()).try_into()
+                }).await?
             },
         }
     }
@@ -657,274 +692,151 @@ pub async fn open_read_file_stream<R: tauri::Runtime>(
 
 #[tauri::command]
 pub async fn open_read_text_file_lines_stream<R: tauri::Runtime>(
-    event: OpenReadTextFileLinesStreamEvent,
+    event: ReadTextFileLinesStreamEventInput,
     app: tauri::AppHandle<R>,
     cmd_scope: tauri::ipc::CommandScope<Scope>,
     global_scope: tauri::ipc::GlobalScope<Scope>,
+    resources: FileStreamResourcesState<'_, R>,
 ) -> Result<tauri::ipc::Response> {
 
     #[cfg(not(target_os = "android"))] {
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        use tauri::Manager as _;
-        use std::io::BufRead as _;
-        use std::io::Read as _;
-        type FileResource = PluginResource<std::sync::Mutex<std::io::BufReader<std::fs::File>>>;
+        type FileReaderResource = std::sync::Mutex<FileTextLinesReader>;
 
-        let api = app.android_fs_async();
+        let resources = std::sync::Arc::clone(&resources);
 
         match event {
-            OpenReadTextFileLinesStreamEvent::Open { uri } => {
+            ReadTextFileLinesStreamEventInput::Open { uri, label, max_line_len, ignore_bom } => {
                 let uri = FileUri::from(uri);
                 if let Some(path) = uri.as_path() {
-                    validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
+                    validate_path_permission(&path, &app, &cmd_scope, &global_scope)?;
                 }
 
+                let api = app.android_fs_async();
                 let file = api.open_file_readable(&uri).await?;
-                let file = FileResource::new(std::sync::Mutex::new(std::io::BufReader::new(file)));
-                let id = app.resources_table().add(file);
-                let id_bytes = convert_rid_to_bytes(id);
-                Ok(tauri::ipc::Response::new(id_bytes))
-            },
-            OpenReadTextFileLinesStreamEvent::Read { id, len, fatal, max_line_byte_length } => {
-                tauri::async_runtime::spawn_blocking(move || -> Result<_> {
-                    let threshold = len as u64;
-                    let max_line_len = std::num::NonZeroU64::new(max_line_byte_length);
-                    let max_line_byte_length = (); // 使えないようにする
 
-                    let file = app.resources_table().get::<FileResource>(id)?.get();
-                    let mut file = file.lock().unwrap_or_else(|e| e.into_inner());
-                    let mut buf = Vec::new();
-                    
-                    // bytes は以下の形式のレコードが連続したものであり、
-                    // 各レコードが分断されることはない。
-                    // 
-                    // |-------------------------------------|
-                    // | err flag: u8  (0 = ok, 1 = err)     |
-                    // |-------------------------------------|
-                    // | line len: u64 (big-endian, 8 bytes) |
-                    // |-------------------------------------|
-                    // | line bytes: variable-length bytes   |
-                    // |-------------------------------------|
-                    // 
-                    // err flag が 1 の場合、その行でエラーが発生したことを示す。
-                    // その場合、line bytes にはエラーメッセージが格納され、
-                    // この呼び出しでの最後の行となる。
-                    // エラー発生後の呼び出しの挙動は未定義。
-                    //
-                    // この関数は複数の行を先読みしてまとめて送信するため、
-                    // 関数内で直接エラーを返すのではなく、行単位でエラー情報を伝え、
-                    // 対象行を明示的に読み込んだ際にエラーを発生できるようにする。
-                    loop {
-                        // header の場所を確保
-                        let header_offset = buf.len();
-                        buf.extend_from_slice(&[0; 9]);
-                        
-                        let offset = buf.len();
+                tauri::async_runtime::spawn_blocking(move || {
+                    let bom = match ignore_bom {
+                        true => None,
+                        false => bom_for_encoding_label(&label)
+                    };
+                    let line_breaks = line_breaks_for_encoding_label(&label);
+                    let max_line_len = std::num::NonZeroU64::new(max_line_len);
 
-                        let mut n = match max_line_len {
-                            None => file
-                                .by_ref()
-                                .read_until(b'\n', &mut buf)?,
+                    let res = FileTextLinesReader::new(file, max_line_len, line_breaks, bom, None);
+                    let res: FileReaderResource = std::sync::Mutex::new(res);
+                    let id = resources.add(res)?;
 
-                            // 制限 + α のデータを読み込み、行が制限を超えているかを確認する。
-                            // α があるのは制限丁度だと EOF か制限で引っかかたのかわからないため。
-                            Some(i) => file
-                                .by_ref()
-                                .take(i.get().saturating_add(b"\r\n".len() as u64))
-                                .read_until(b'\n', &mut buf)?
-                        };
-
-                        // EOF の場合
-                        if n == 0 {
-                            // header 用に確保した分をキャンセル
-                            buf.truncate(header_offset);
-                            break
-                        }
-
-                        // 最後が EOL ('\n', '\r\n') で終わっていれば削除する。
-                        if 1 <= n && buf.last() == Some(&b'\n') {
-                            buf.pop();
-                            n -= 1;
-                            if 1 <= n && buf.last() == Some(&b'\r') {
-                                buf.pop();
-                                n -= 1;
-                            }
-                        }
-
-                        // エラーとなるかの確認
-                        let mut err: Result<()> = Ok(());
-                        if max_line_len.is_some_and(|i| i.get() < (n as u64)) {
-                            err = Err(Error::with("line length limit exceeded"));
-                        }
-                        if fatal {
-                            if let Err(e) = str::from_utf8(&buf[offset..]) {
-                                err = Err(e.into());
-                            }
-                        }
-
-                        if let Err(err) = err {
-                            let err_msg_bytes = err.to_string().into_bytes();
-
-                            // header を設定
-                            buf[header_offset] = 1;
-                            buf[(header_offset + 1)..(header_offset + 9)]
-                                .copy_from_slice(&(err_msg_bytes.len() as u64).to_be_bytes());
-
-                            // データをエラーメッセージに差し替える
-                            buf.truncate(offset);
-                            buf.extend_from_slice(&err_msg_bytes);
-                            break
-                        }
-                        else {
-                            // header を設定
-                            buf[header_offset] = 0;
-                            buf[(header_offset + 1)..(header_offset + 9)]
-                                .copy_from_slice(&(n as u64).to_be_bytes());
-
-                            if threshold <= (buf.len() as u64) {
-                                break
-                            }
-                        }
-                    }
-                    
-                    Ok(tauri::ipc::Response::new(buf))
+                    ReadFileStreamEventOutput::Open(id).try_into()
                 }).await?
-            },
-            OpenReadTextFileLinesStreamEvent::Close { id } => {
-                let mut resources = app.resources_table();
-                if resources.has(id) {
+            }
+            ReadTextFileLinesStreamEventInput::Read { id, len } => {
+                tauri::async_runtime::spawn_blocking(move || -> Result<_> {
+                    let lines = resources
+                        .get::<FileReaderResource>(id)?
+                        .lock()?
+                        .read_lines_framed(len)?;
+                 
+                    ReadTextFileLinesStreamEventOutput::Read(lines).try_into()
+                }).await?
+            }
+            ReadTextFileLinesStreamEventInput::Close { id } => {
+                tauri::async_runtime::spawn_blocking(move || {
                     resources.close(id)?;
+                    ReadTextFileLinesStreamEventOutput::Close(()).try_into()
+                }).await?
+            }
+        }  
+    }
+}
+
+#[cfg(target_os = "android")]
+async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
+    req: tauri::ipc::Request<'_>,
+    app: tauri::AppHandle<R>,
+    cmd_scope: tauri::ipc::CommandScope<Scope>,
+    global_scope: tauri::ipc::GlobalScope<Scope>,
+    resources: PluginResourcesState<'_, R, K>,
+) -> Result<WriteFileStreamEventOutput> {
+
+    use std::io::Write as _;
+    type FileResource = std::sync::Mutex<std::fs::File>;
+    
+    let resources = std::sync::Arc::clone(&resources);
+    let event: WriteFileStreamEventInput = req.try_into()?;
+
+    match event {
+        WriteFileStreamEventInput::Open { uri, options, supports_raw_ipc_request_body } => {
+            let uri = FileUri::from(uri);
+            if let Some(path) = uri.as_path() {
+                validate_path_permission(&path, &app, &cmd_scope, &global_scope)?;
+
+                if options.create && !std::fs::exists(&path)? {
+                    std::fs::File::create(&path)?;
                 }
-                Ok(tauri::ipc::Response::new(Vec::new()))
-            },
-        }
+            }
+
+            let api = app.android_fs_async();
+            let file = api.open_file_writable(&uri).await?;
+
+            tauri::async_runtime::spawn_blocking(move || {
+                let res: FileResource = std::sync::Mutex::new(file);
+                let id = resources.add(res)?;
+                Ok(WriteFileStreamEventOutput::Open { id, supports_raw_ipc_request_body })
+            }).await?
+        },
+        WriteFileStreamEventInput::Write { id, data } => {
+            tauri::async_runtime::spawn_blocking(move || {
+                resources
+                    .get::<FileResource>(id)?
+                    .lock()?
+                    .write_all(&data)?;
+
+                Ok(WriteFileStreamEventOutput::Write(()))
+            }).await?
+        },
+        WriteFileStreamEventInput::Close { id } => {
+            tauri::async_runtime::spawn_blocking(move || {   
+                resources.close(id)?;
+                Ok(WriteFileStreamEventOutput::Close(()))
+            }).await?
+        },
     }
 }
 
 #[tauri::command]
 pub async fn open_write_file_stream<R: tauri::Runtime>(
-    event: OpenWriteFileStreamEvent,
+    req: tauri::ipc::Request<'_>,
     app: tauri::AppHandle<R>,
     cmd_scope: tauri::ipc::CommandScope<Scope>,
     global_scope: tauri::ipc::GlobalScope<Scope>,
-) -> Result<OpenWriteFileStreamEventOutput> {
+    resources: FileStreamResourcesState<'_, R>,
+) -> Result<WriteFileStreamEventOutput> {
 
     #[cfg(not(target_os = "android"))] {
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        use tauri::Manager as _;
-        use std::io::Write as _;
-        type FileResource = PluginResource<std::sync::Mutex<std::fs::File>>;
-
-        let api = app.android_fs_async();
-
-        match event {
-            OpenWriteFileStreamEvent::Open { uri } => {
-                let uri = FileUri::from(uri);
-                if let Some(path) = uri.as_path() {
-                    validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
-
-                    if !std::fs::exists(path)? {
-                        std::fs::File::create(path)?;
-                    }
-                }
-
-                let file = api.open_file_writable(&uri).await?;
-                let file = FileResource::new(std::sync::Mutex::new(file));
-                let id = app.resources_table().add(file);
-                Ok(OpenWriteFileStreamEventOutput::Open(id))
-            },
-            OpenWriteFileStreamEvent::Write { id, data } => {
-                tauri::async_runtime::spawn_blocking(move || -> Result<_> {
-                    let file = app.resources_table().get::<FileResource>(id)?.get();
-                    let bytes = convert_to_bytes(&data)?;
-                    let mut file = file.lock().unwrap_or_else(|e| e.into_inner());
-                    file.write_all(&bytes)?;
-                    Ok(OpenWriteFileStreamEventOutput::Write(()))
-                }).await?
-            },
-            OpenWriteFileStreamEvent::Close { id } => {
-                let mut resources = app.resources_table();
-                if resources.has(id) {
-                    resources.close(id)?;
-                }
-                Ok(OpenWriteFileStreamEventOutput::Close(()))
-            },
-        }
+        write_file_stream(req, app, cmd_scope, global_scope, resources).await
     }
 }
 
 #[tauri::command]
 pub async fn write_file<R: tauri::Runtime>(
-    event: WriteFileEvent,
+    req: tauri::ipc::Request<'_>,
     app: tauri::AppHandle<R>,
     cmd_scope: tauri::ipc::CommandScope<Scope>,
     global_scope: tauri::ipc::GlobalScope<Scope>,
-) -> Result<WriteFileEventOutput> {
+    resources: FileWriterResourcesState<'_, R>,
+) -> Result<WriteFileStreamEventOutput> {
 
     #[cfg(not(target_os = "android"))] {
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        use tauri::Manager as _;
-        use std::io::Write as _;
-        type FileResource = PluginResource<std::sync::Mutex<std::fs::File>>;
-
-        let api = app.android_fs_async();
-
-        match event {
-            WriteFileEvent::WriteOnce { uri, data } => {
-                let uri = FileUri::from(uri);
-                if let Some(path) = uri.as_path() {
-                    validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
-
-                    if !std::fs::exists(path)? {
-                        std::fs::File::create(path)?;
-                    }
-                }
-        
-                let mut file = api.open_file_writable(&uri).await?;
-                
-                tauri::async_runtime::spawn_blocking(move || -> Result<_> {
-                    file.write_all(&convert_to_bytes(&data)?)?;
-                    Ok(WriteFileEventOutput::WriteOnce(()))
-                }).await?
-            },
-            WriteFileEvent::Open { uri } => {
-                let uri = FileUri::from(uri);
-                if let Some(path) = uri.as_path() {
-                    validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
-
-                    if !std::fs::exists(path)? {
-                        std::fs::File::create(path)?;
-                    }
-                }
-
-                let file = api.open_file_writable(&uri).await?;
-                let file = FileResource::new(std::sync::Mutex::new(file));
-                let id = app.resources_table().add(file);
-                Ok(WriteFileEventOutput::Open(id))
-            },
-            WriteFileEvent::Write { id, data } => {
-                tauri::async_runtime::spawn_blocking(move || -> Result<_> {
-                    let file = app.resources_table().get::<FileResource>(id)?.get();
-                    let bytes = convert_to_bytes(&data)?;
-                    let mut file = file.lock().unwrap_or_else(|e| e.into_inner());
-                    file.write_all(&bytes)?;
-                    Ok(WriteFileEventOutput::Write(()))
-                }).await?
-            },
-            WriteFileEvent::Close { id } => {
-                let mut resources = app.resources_table();
-                if resources.has(id) {
-                    resources.close(id)?;
-                }
-                Ok(WriteFileEventOutput::Close(()))
-            },
-        }
+        write_file_stream(req, app, cmd_scope, global_scope, resources).await
     }
 }
 
@@ -932,6 +844,7 @@ pub async fn write_file<R: tauri::Runtime>(
 pub async fn write_text_file<R: tauri::Runtime>(
     uri: AfsUriOrFsPath,
     data: String,
+    create: bool,
     app: tauri::AppHandle<R>,
     cmd_scope: tauri::ipc::CommandScope<Scope>,
     global_scope: tauri::ipc::GlobalScope<Scope>,
@@ -945,7 +858,7 @@ pub async fn write_text_file<R: tauri::Runtime>(
         if let Some(path) = uri.as_path() {
             validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
 
-            if !std::fs::exists(path)? {
+            if create && !std::fs::exists(path)? {
                 std::fs::File::create(path)?;
             }
         }
@@ -1003,6 +916,7 @@ pub async fn read_text_file<R: tauri::Runtime>(
 pub async fn copy_file<R: tauri::Runtime>(
     src_uri: AfsUriOrFsPath,
     dest_uri: AfsUriOrFsPath,
+    create: bool,
     app: tauri::AppHandle<R>,
     cmd_scope: tauri::ipc::CommandScope<Scope>,
     global_scope: tauri::ipc::GlobalScope<Scope>,
@@ -1022,7 +936,7 @@ pub async fn copy_file<R: tauri::Runtime>(
         if let Some(dest_path) = dest_uri.as_path() {
             validate_path_permission(dest_path, &app, &cmd_scope, &global_scope)?;
 
-            if !std::fs::exists(dest_path)? {
+            if create && !std::fs::exists(dest_path)? {
                 std::fs::File::create(dest_path)?;
             }
         }

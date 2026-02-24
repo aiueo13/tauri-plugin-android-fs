@@ -26,6 +26,8 @@ Default permissions for the plugin
 - `allow-create-new-file`
 - `allow-create-dir-all`
 - `allow-read-dir`
+- `allow-count-all-file-streams`
+- `allow-close-all-file-streams`
 - `allow-open-read-file-stream`
 - `allow-open-read-text-file-lines-stream`
 - `allow-read-file`
@@ -132,6 +134,32 @@ Denies the check_picker_uri_permission command without any pre-configured scope.
 <tr>
 <td>
 
+`android-fs:allow-close-all-file-streams`
+
+</td>
+<td>
+
+Enables the close_all_file_streams command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-close-all-file-streams`
+
+</td>
+<td>
+
+Denies the close_all_file_streams command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `android-fs:allow-copy-file`
 
 </td>
@@ -151,6 +179,32 @@ Enables the copy_file command without any pre-configured scope.
 <td>
 
 Denies the copy_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-count-all-file-streams`
+
+</td>
+<td>
+
+Enables the count_all_file_streams command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-count-all-file-streams`
+
+</td>
+<td>
+
+Denies the count_all_file_streams command without any pre-configured scope.
 
 </td>
 </tr>

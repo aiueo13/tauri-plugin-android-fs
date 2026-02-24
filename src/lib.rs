@@ -36,11 +36,13 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
                 app.manage(afs_sync);
                 app.manage(afs_async);
 
+                app.manage(cmds::new_file_stream_resources_state(app.app_handle().clone()));
+                app.manage(cmds::new_file_writer_resources_state(app.app_handle().clone()));
+
+                // 前回作成した一時ファイルを全て削除
                 let app_handle = app.app_handle().clone();
                 std::thread::spawn(move || {
                     let afs = app_handle.android_fs();
-
-                    // 前回作成した一時ファイルを全て削除
                     afs.impls().remove_all_temp_files().ok();
                 });
             }
@@ -79,6 +81,8 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             cmds::has_public_files_permission,
             cmds::create_new_file,
             cmds::create_dir_all,
+            cmds::count_all_file_streams,
+            cmds::close_all_file_streams,
             cmds::open_read_file_stream,
             cmds::open_read_text_file_lines_stream,
             cmds::open_write_file_stream,
