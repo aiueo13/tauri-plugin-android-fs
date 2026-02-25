@@ -44,7 +44,16 @@ impl FileUri {
         serde_json::from_str(json.as_ref()).map_err(Into::into)
     }
 
+    pub fn from_uri(uri: impl Into<String>) -> Self {
+        FileUri {
+            uri: uri.into(),
+            document_top_tree_uri: None 
+        }
+    }
+
     /// Constructs a URI from the absolute path of a file or directory.   
+    /// 
+    /// This must be an absolute path that does not contain `./` or `../`.
     /// Even if the path is invalid, it will not cause an error or panic; an invalid URI will be returned.   
     /// 
     /// # Note
@@ -52,26 +61,37 @@ impl FileUri {
     /// - This URI cannot be passed to functions of [`FileOpener`](crate::api::api_async::FileOpener) for sending to other apps.
     /// - Operations using this URI may fall back to [`std::fs`] instead of Kotlin API.
     pub fn from_path(path: impl AsRef<std::path::Path>) -> Self {
-        Self { uri: format!("file://{}", path.as_ref().to_string_lossy()), document_top_tree_uri: None }
+        Self {
+            uri: path_to_android_file_uri(path), 
+            document_top_tree_uri: None
+        }
     }
 
-    pub(crate) fn as_path(&self) -> Option<&std::path::Path> {
-        if self.uri.starts_with("file://") {
-            return Some(std::path::Path::new(self.uri.trim_start_matches("file://")))
+    /// If this URI is an Android file-scheme URI, for example,
+    /// via [`FileUri::from_path`], its absolute path will be retrieved.
+    pub fn to_path(&self) -> Option<std::path::PathBuf> {
+        if self.is_file_uri() {
+            return Some(android_file_uri_to_path(&self.uri))
         }
         None
     }
 
-    pub(crate) fn is_content_scheme(&self) -> bool {
+    /// Indicates whether this is `file://` URI.
+    pub fn is_file_uri(&self) -> bool {
+        self.uri.starts_with("file://")
+    }
+
+    /// Indicates whether this is `content://` URI.
+    pub fn is_content_uri(&self) -> bool {
         self.uri.starts_with("content://")
     }
 
-    pub(crate) fn require_content_scheme(&self) -> Result<()> {
-        if self.is_content_scheme() {
+    pub(crate) fn require_content_uri(&self) -> Result<()> {
+        if self.is_content_uri() {
             Ok(())
         }
         else {
-            Err(Error::with(format!("invalid URI scheme: {}", self.uri)))
+            Err(Error::invalid_uri_scheme(&self.uri))
         }
     }
 }
@@ -101,8 +121,8 @@ impl From<tauri_plugin_fs::FilePath> for FileUri {
 
     fn from(value: tauri_plugin_fs::FilePath) -> Self {
         match value {
-            tauri_plugin_fs::FilePath::Url(url) => Self { uri: url.to_string(), document_top_tree_uri: None },
-            tauri_plugin_fs::FilePath::Path(path_buf) => path_buf.into(),
+            tauri_plugin_fs::FilePath::Url(url) => Self::from_uri(url),
+            tauri_plugin_fs::FilePath::Path(path) => Self::from_path(path),
         }
     }
 }
@@ -112,5 +132,61 @@ impl From<FileUri> for tauri_plugin_fs::FilePath {
     fn from(value: FileUri) -> Self {
         type NeverErr<T> = std::result::Result::<T, std::convert::Infallible>;
         NeverErr::unwrap(value.uri.parse())
+    }
+}
+
+
+fn android_file_uri_to_path(uri: impl AsRef<str>) -> std::path::PathBuf {
+    let uri = uri.as_ref();
+    let path_part = uri.strip_prefix("file://").unwrap_or(uri);
+    let decoded = percent_encoding::percent_decode_str(path_part)
+        .decode_utf8_lossy();
+
+    std::path::PathBuf::from(decoded.as_ref())
+}
+
+fn path_to_android_file_uri(path: impl AsRef<std::path::Path>) -> String {
+    let encoded = path
+        .as_ref()
+        .to_string_lossy()
+        .split('/')
+        .map(|s| encode_android_uri_component(s))
+        .collect::<Vec<_>>()
+        .join("/");
+
+    format!("file://{}", encoded)
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn test_android_safe_characters() {
+        let path = Path::new("/sdcard/test_file-name!.~'()*.txt");
+        let uri = path_to_android_file_uri(path);
+        
+        assert_eq!(uri, "file:///sdcard/test_file-name!.~'()*.txt");
+        assert_eq!(android_file_uri_to_path(&uri), path);
+    }
+
+    #[test]
+    fn test_spaces_and_unsafe_chars() {
+        let path = Path::new("/sdcard/My Documents/file @#$%.txt");
+        let uri = path_to_android_file_uri(path);
+        
+        assert_eq!(uri, "file:///sdcard/My%20Documents/file%20%40%23%24%25.txt");
+        assert_eq!(android_file_uri_to_path(&uri), path);
+    }
+
+    #[test]
+    fn test_unicode_characters() {
+        let path = Path::new("/sdcard/ダウンロード");
+        let uri = path_to_android_file_uri(path);
+        
+        assert_eq!(uri, "file:///sdcard/%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89");
+        assert_eq!(android_file_uri_to_path(&uri), path);
     }
 }

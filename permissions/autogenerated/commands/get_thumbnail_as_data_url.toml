@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-get-thumbnail-as-data-url"
+description = "Enables the get_thumbnail_as_data_url command without any pre-configured scope."
+commands.allow = ["get_thumbnail_as_data_url"]
+
+[[permission]]
+identifier = "deny-get-thumbnail-as-data-url"
+description = "Denies the get_thumbnail_as_data_url command without any pre-configured scope."
+commands.deny = ["get_thumbnail_as_data_url"]

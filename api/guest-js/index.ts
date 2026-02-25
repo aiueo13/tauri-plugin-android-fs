@@ -153,6 +153,10 @@ export type AndroidDirMetadata = {
 	type: "Dir",
 	name: string,
 	lastModified: Date,
+
+	// TODO: 次のメージャーアップデートで以下を追加
+	//byteLength?: never,
+	//mimeType?: never,
 }
 
 /**
@@ -186,6 +190,19 @@ type AndroidEntryMetadataInner =
 export type AndroidEntryMetadataWithUri = AndroidEntryMetadata & { uri: AndroidFsUri }
 
 type AndroidEntryMetadataWithUriInner = AndroidEntryMetadataInner & { uri: AndroidFsUri }
+
+/**
+ * Options of `AndroidFs.readFileAsDataUrl`
+ */
+export type AndroidReadFileAsDataUrlOptions = {
+
+	/**
+	 * The MIME type of the file used as the media type of the Data URL.
+	 *
+	 * If not specified, the MIME type provided by the file provider will be used.
+	 */
+	mimeType?: string
+}
 
 /**
  * Options of `AndroidFs.readTextFile`
@@ -446,7 +463,7 @@ export type AndroidOpenFilePickerOptions = {
 
 	/**
 	 * Preferable picker type.  
-	 * This is not necessarily guaranteed to be used.  
+	 * `"Gallery"` is not necessarily guaranteed to be used.  
 	 * By default, the appropriate option will be selected according to the `mimeTypes`. 
 	 */
 	pickerType?: "FilePicker" | "Gallery",
@@ -1222,9 +1239,9 @@ export class AndroidFs {
 	 * @throws The Promise will be rejected with an error, if the specified entry does not exist, if the entry is a directory, or if the read permission is missing.
 	 * 
 	 * @see [AndroidFs::get_thumbnail](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_thumbnail)
-	 * @since 22.0.0
+	 * @since 26.1.0
 	 */
-	public static async getThumbnailDataUrl(
+	public static async getThumbnailAsDataURL(
 		uri: AndroidFsUri | FsPath,
 		width: number,
 		height: number,
@@ -1232,13 +1249,14 @@ export class AndroidFs {
 	): Promise<string | null> {
 
 		const format: AndroidThumbnailFormat = options?.format ?? "jpeg"
-
-		return await invoke('plugin:android-fs|get_thumbnail_data_url', {
+		const thumbnail = await invoke<ArrayBuffer>('plugin:android-fs|get_thumbnail_as_data_url', {
 			uri: mapFsPathForInput(uri),
 			width,
 			height,
 			format
 		})
+
+		return thumbnail.byteLength === 0 ? null : decodeUtf8(thumbnail)
 	}
 
 	/**
@@ -1251,13 +1269,13 @@ export class AndroidFs {
 	 * @param options - Optional settings.
 	 * @param options.format - The image format of the thumbnail. One of: `"jpeg"`, `"png"`, `"webp"`. Defaults to `"jpeg"`.
 	 * 
-	 * @returns A Promise that resolves to the thumbnail as a base64-encoded string using "+" and "/" characters and containing no line breaks (a single line), or `null` if the file does not have a thumbnail. The actual thumbnail dimensions will not exceed approximately twice the specified width or height, and the original aspect ratio of the file is always maintained.
+	 * @returns A Promise that resolves to the thumbnail as a base64-encoded string using "+" and "/" characters with padding and containing no line breaks (a single line), or `null` if the file does not have a thumbnail. The actual thumbnail dimensions will not exceed approximately twice the specified width or height, and the original aspect ratio of the file is always maintained.
 	 * @throws The Promise will be rejected with an error, if the specified entry does not exist, if the entry is a directory, or if the read permission is missing.
 	 * 
 	 * @see [AndroidFs::get_thumbnail](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_thumbnail)
-	 * @since 22.0.0
+	 * @since 26.1.0
 	 */
-	public static async getThumbnailBase64(
+	public static async getThumbnailAsBase64(
 		uri: AndroidFsUri | FsPath,
 		width: number,
 		height: number,
@@ -1265,13 +1283,48 @@ export class AndroidFs {
 	): Promise<string | null> {
 
 		const format: AndroidThumbnailFormat = options?.format ?? "jpeg"
-
-		return await invoke('plugin:android-fs|get_thumbnail_base64', {
+		const thumbnail = await invoke<ArrayBuffer>('plugin:android-fs|get_thumbnail_as_base64', {
 			uri: mapFsPathForInput(uri),
 			width,
 			height,
 			format
 		})
+
+		return thumbnail.byteLength === 0 ? null : decodeUtf8(thumbnail)
+	}
+
+	/**
+	 * Gets a thumbnail bytes of the specified file.  
+	 * This does not perform caching.
+	 *
+	 * @param uri - The URI or path of the target file.
+	 * @param width - The preferred width of the thumbnail in pixels. 
+	 * @param height - The preferred height of the thumbnail in pixels.
+	 * @param options - Optional settings.
+	 * @param options.format - The image format of the thumbnail. One of: `"jpeg"`, `"png"`, `"webp"`. Defaults to `"jpeg"`.
+	 *
+	 * @returns A Promise that resolves to a `Uint8Array<ArrayBuffer>` containing the thumbnail bytes, or `null` if the file does not have a thumbnail. The actual thumbnail dimensions will not exceed approximately twice the specified width or height, and the original aspect ratio of the file is always maintained.
+	 * @throws The Promise will be rejected with an error, if the specified entry does not exist, if the entry is a directory, or if the read permission is missing.
+	 * 
+	 * @see [AndroidFs::get_thumbnail](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_thumbnail)
+	 * @since 26.1.0
+	 */
+	public static async getThumbnailAsBytes(
+		uri: AndroidFsUri | FsPath,
+		width: number,
+		height: number,
+		options?: AndroidGetThumbnailOptions
+	): Promise<Uint8Array<ArrayBuffer> | null> {
+
+		const format: AndroidThumbnailFormat = options?.format ?? "jpeg"
+		const thumbnail = await invoke<ArrayBuffer>('plugin:android-fs|get_thumbnail_as_bytes', {
+			uri: mapFsPathForInput(uri),
+			width,
+			height,
+			format
+		})
+
+		return thumbnail.byteLength === 0 ? null : new Uint8Array(thumbnail)
 	}
 
 	/**
@@ -1724,14 +1777,14 @@ export class AndroidFs {
 	 * @throws The Promise will be rejected with an error, if the base directory does not exist, is not a directory, lacks read/write permissions, or if the file provider does not support creating directories.
 	 * 
 	 * @see [AndroidFs::create_dir_all](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.create_dir_all)
-	 * @since 22.1.0
+	 * @since 26.1.0
 	 */
-	public static async createDirAll(
+	public static async createDir(
 		baseDirUri: AndroidFsUri,
 		relativePath: string,
 	): Promise<AndroidFsUri> {
 
-		return await invoke('plugin:android-fs|create_dir_all', {
+		return await invoke('plugin:android-fs|create_dir', {
 			baseDirUri,
 			relativePath,
 		})
@@ -1943,11 +1996,60 @@ export class AndroidFs {
 		uri: AndroidFsUri | FsPath,
 	): Promise<Uint8Array<ArrayBuffer>> {
 
-		const buffer = await invoke<ArrayBuffer>('plugin:android-fs|read_file', {
+		const bytes = await invoke<ArrayBuffer>('plugin:android-fs|read_file', {
 			uri: mapFsPathForInput(uri),
 		})
 
-		return new Uint8Array(buffer)
+		return new Uint8Array(bytes)
+	}
+
+	/**
+	 * Reads the entire contents of the specified file as a base64-encoded string.
+	 * 
+	 * @param uri - The URI or path of the target file.
+	 *
+	 * @returns A Promise that resolves to the entire file data as a base64-encoded string using "+" and "/" characters with padding and containing no line breaks (a single line).
+	 * @throws The Promise will be rejected with an error, if the specified entry does not exist, if the entry is a directory, or if the read permission is missing.
+	 *
+	 * @see [AndroidFs::read_file](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.read_file)
+	 * @since 26.1.0
+	 */
+	public static async readFileAsBase64(
+		uri: AndroidFsUri | FsPath,
+	): Promise<string> {
+
+		const base64 = await invoke<ArrayBuffer>('plugin:android-fs|read_file_as_base64', {
+			uri: mapFsPathForInput(uri),
+		})
+
+		return decodeUtf8(base64)
+	}
+
+	/**
+	 * Reads the entire contents of the specified file as a data URL.
+	 *
+	 * @param uri - The URI or path of the target file.
+	 * @param options - Optional settings: `mimeType`.
+	 * @param options.mimeType - The MIME type of the file used as the media type of the data URL. If not specified, the MIME type provided by the file provider will be used.
+	 *
+	 * @returns A Promise that resolves to a string containing the entire file data as a data URL.
+	 * @throws The Promise will be rejected with an error, if the specified entry does not exist, if the entry is a directory, or if the read permission is missing.
+	 *
+	 * @see [AndroidFs::read_file](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.read_file)
+	 * @since 26.1.0
+	 */
+	public static async readFileAsDataURL(
+		uri: AndroidFsUri | FsPath,
+		options?: AndroidReadFileAsDataUrlOptions
+	): Promise<string> {
+
+		const mimeType = options?.mimeType ?? null
+		const dataUrl = await invoke<ArrayBuffer>('plugin:android-fs|read_file_as_data_url', {
+			uri: mapFsPathForInput(uri),
+			mimeType
+		})
+
+		return decodeUtf8(dataUrl)
 	}
 
 	/**
@@ -2015,7 +2117,6 @@ export class AndroidFs {
 
 		try {
 			await open()
-
 			if (data instanceof Uint8Array) {
 				await write(data)
 			}
@@ -2245,7 +2346,7 @@ export class AndroidFs {
 	 * @param options - Optional configuration for the file picker.
 	 * @param options.mimeTypes - The MIME types of the files to pick. If empty, any file can be selected.
 	 * @param options.multiple - Indicates whether multiple files can be picked. Defaults to `false`.
-	 * @param options.pickerType - Preferable picker type. One of: `"FilePicker"`, `"Gallery"`. This is not necessarily guaranteed to be used. By default, the appropriate option will be selected according to the `mimeTypes`.
+	 * @param options.pickerType - Preferable picker type. One of: `"FilePicker"`, `"Gallery"`. `"Gallery"` is not necessarily guaranteed to be used. By default, the appropriate option will be selected according to the `mimeTypes`.
 	 * @param options.needWritePermission - Indicates whether write access to the picked files is required. Defaults to `false`.
 	 * @param options.localOnly - Indicates whether only files located on the local device should be pickable. Defaults to `false`.
 	 * @param options.initialLocation - Initial directory when launching the file picker. If this option is omitted or the desired initial location cannot be resolved,the initial location is system-specific. One of: `AndroidPickerInitialLocation.Any(...)`, `AndroidPickerInitialLocation.VolumeTop(...)`, `AndroidPickerInitialLocation.PublicDir(...)`.
@@ -2481,6 +2582,63 @@ export class AndroidFs {
 	public static async releaseAllPersistedPickerUriPermissions(): Promise<void> {
 		return await invoke("plugin:android-fs|release_all_persisted_picker_uri_permissions")
 	}
+
+
+	/**
+	 * @deprecated Use `AndroidFs.createDir` instead.
+	 */
+	public static async createDirAll(
+		baseDirUri: AndroidFsUri,
+		relativePath: string,
+	): Promise<AndroidFsUri> {
+
+		return await invoke('plugin:android-fs|create_dir_all', {
+			baseDirUri,
+			relativePath,
+		})
+	}
+
+	/**
+	 * @deprecated Use `AndroidFs.getThumbnailAsDataURL` instead.
+	 */
+	public static async getThumbnailDataUrl(
+		uri: AndroidFsUri | FsPath,
+		width: number,
+		height: number,
+		options?: AndroidGetThumbnailOptions
+	): Promise<string | null> {
+
+		const format: AndroidThumbnailFormat = options?.format ?? "jpeg"
+		const thumbnail = await invoke<ArrayBuffer>('plugin:android-fs|get_thumbnail_data_url', {
+			uri: mapFsPathForInput(uri),
+			width,
+			height,
+			format
+		})
+
+		return thumbnail.byteLength === 0 ? null : decodeUtf8(thumbnail)
+	}
+
+	/**
+	 * @deprecated Use `AndroidFs.getThumbnailAsBase64` instead.
+	 */
+	public static async getThumbnailBase64(
+		uri: AndroidFsUri | FsPath,
+		width: number,
+		height: number,
+		options?: AndroidGetThumbnailOptions
+	): Promise<string | null> {
+
+		const format: AndroidThumbnailFormat = options?.format ?? "jpeg"
+		const thumbnail = await invoke<ArrayBuffer>('plugin:android-fs|get_thumbnail_base64', {
+			uri: mapFsPathForInput(uri),
+			width,
+			height,
+			format
+		})
+
+		return thumbnail.byteLength === 0 ? null : decodeUtf8(thumbnail)
+	}
 }
 
 
@@ -2512,6 +2670,12 @@ function mapMaxLineByteLength(s?: number): number {
 	}
 
 	return s
+}
+
+const UTF8_DECODER = new TextDecoder()
+
+function decodeUtf8(bytes: AllowSharedBufferSource): string {
+	return UTF8_DECODER.decode(bytes)
 }
 
 type ReadFileStreamEvents = {

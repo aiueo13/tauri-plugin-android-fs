@@ -5,8 +5,11 @@
 mod models;
 mod cmds;
 mod consts;
+mod utils;
 
 pub mod api;
+
+use utils::*;
 
 pub use models::*;
 pub use consts::*;
@@ -68,8 +71,9 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             cmds::get_metadata,
             cmds::get_fs_path,
             cmds::get_thumbnail,
-            cmds::get_thumbnail_base64,
-            cmds::get_thumbnail_data_url,
+            cmds::get_thumbnail_as_bytes,
+            cmds::get_thumbnail_as_base64,
+            cmds::get_thumbnail_as_data_url,
             cmds::list_volumes,
             cmds::create_new_public_file,
             cmds::create_new_public_image_file,
@@ -80,13 +84,15 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             cmds::request_public_files_permission,
             cmds::has_public_files_permission,
             cmds::create_new_file,
-            cmds::create_dir_all,
+            cmds::create_dir,
             cmds::count_all_file_streams,
             cmds::close_all_file_streams,
             cmds::open_read_file_stream,
             cmds::open_read_text_file_lines_stream,
             cmds::open_write_file_stream,
             cmds::read_file,
+            cmds::read_file_as_base64,
+            cmds::read_file_as_data_url,
             cmds::read_text_file,
             cmds::write_file,
             cmds::write_text_file,
@@ -109,6 +115,11 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             cmds::show_share_file_dialog,
             cmds::show_view_file_dialog,
             cmds::show_view_dir_dialog,
+
+            // Deprecated
+            cmds::create_dir_all,
+            cmds::get_thumbnail_base64,
+            cmds::get_thumbnail_data_url,
         ])
         .build()
 }

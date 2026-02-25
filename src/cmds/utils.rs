@@ -109,6 +109,34 @@ pub fn convert_time_to_f64_millis(time: std::time::SystemTime) -> Result<f64> {
     Ok(duration.as_millis() as f64)
 }
 
+#[cfg(target_os = "android")]
+pub fn convert_bytes_to_base64(bytes: &[u8]) -> Result<String> {
+    use base64::engine::Engine;
+    use base64::engine::general_purpose::STANDARD;
+
+    Ok(STANDARD.encode(bytes))
+}
+
+#[cfg(target_os = "android")]
+pub fn convert_bytes_to_data_url(bytes: &[u8], mime_type: &str) -> Result<String> {
+    use base64::engine::Engine;
+    use base64::engine::general_purpose::STANDARD;
+
+    let mut buffer = format!("data:{mime_type};base64,");
+    buffer.reserve_exact((bytes.len() * 4 / 3) + 4);
+    STANDARD.encode_string(bytes, &mut buffer);
+    Ok(buffer)
+}
+
+#[cfg(target_os = "android")]
+pub fn convert_base64_to_data_url(base64: &str, mime_type: &str) -> Result<String> {
+    let mut buffer = format!("data:{mime_type};base64,");
+    buffer.reserve_exact(base64.len());
+    buffer.push_str(base64);
+    Ok(buffer)
+}
+
+
 #[cfg_attr(not(target_os = "android"), allow(unused))]
 pub enum WriteFileStreamEventInput {
     Open {
@@ -703,12 +731,29 @@ pub enum AfsUriOrFsPath {
     FsPath(tauri_plugin_fs::FilePath),
 }
 
-impl From<AfsUriOrFsPath> for FileUri {
+impl TryFrom<AfsUriOrFsPath> for FileUri {
+    type Error = Error;
 
-    fn from(value: AfsUriOrFsPath) -> Self {
+    fn try_from(value: AfsUriOrFsPath) -> Result<Self> {
+        // Content URI かパスのみを受け入れる。
+        // File scheme URI は受け入れない。
+
         match value {
-            AfsUriOrFsPath::AfsUri(uri) => uri,
-            AfsUriOrFsPath::FsPath(path) => path.into(),
+            AfsUriOrFsPath::AfsUri(uri) => {
+                uri.require_content_uri()?;
+                Ok(uri)
+            },
+            AfsUriOrFsPath::FsPath(path) => {
+                match path {
+                    tauri_plugin_fs::FilePath::Path(path) => Ok(FileUri::from_path(path)),
+                    tauri_plugin_fs::FilePath::Url(url) => {
+                        if url.scheme() != "content" {
+                            return Err(Error::invalid_uri_scheme(url))
+                        }
+                        Ok(FileUri::from_uri(url))
+                    }
+                }
+            },
         }
     }
 }

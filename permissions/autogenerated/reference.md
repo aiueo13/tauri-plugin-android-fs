@@ -4,45 +4,7 @@ Default permissions for the plugin
 
 #### This default permission set includes the following:
 
-- `allow-get-android-api-level`
-- `allow-get-name`
-- `allow-get-byte-length`
-- `allow-get-type`
-- `allow-get-mime-type`
-- `allow-get-metadata`
-- `allow-get-thumbnail`
-- `allow-get-thumbnail-base64`
-- `allow-get-thumbnail-data-url`
-- `allow-get-fs-path`
-- `allow-list-volumes`
-- `allow-create-new-public-file`
-- `allow-create-new-public-image-file`
-- `allow-create-new-public-video-file`
-- `allow-create-new-public-audio-file`
-- `allow-scan-public-file`
-- `allow-set-public-file-pending`
-- `allow-request-public-files-permission`
-- `allow-has-public-files-permission`
-- `allow-create-new-file`
-- `allow-create-dir-all`
-- `allow-read-dir`
-- `allow-count-all-file-streams`
-- `allow-close-all-file-streams`
-- `allow-open-read-file-stream`
-- `allow-open-read-text-file-lines-stream`
-- `allow-read-file`
-- `allow-read-text-file`
-- `allow-check-picker-uri-permission`
-- `allow-persist-picker-uri-permission`
-- `allow-check-persisted-picker-uri-permission`
-- `allow-release-persisted-picker-uri-permission`
-- `allow-release-all-persisted-picker-uri-permissions`
-- `allow-show-open-file-picker`
-- `allow-show-open-dir-picker`
-- `allow-show-save-file-picker`
-- `allow-show-share-file-dialog`
-- `allow-show-view-file-dialog`
-- `allow-show-view-dir-dialog`
+- `all-without-delete`
 
 ## Permission Table
 
@@ -61,7 +23,7 @@ Default permissions for the plugin
 </td>
 <td>
 
-This enables all commands except those that delete existing entries (such as remove, copy or truncate).
+This enables all commands except those that delete existing entries (such as remove, truncate, copy or write).
 
 </td>
 </tr>
@@ -205,6 +167,32 @@ Enables the count_all_file_streams command without any pre-configured scope.
 <td>
 
 Denies the count_all_file_streams command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-create-dir`
+
+</td>
+<td>
+
+Enables the create_dir command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-create-dir`
+
+</td>
+<td>
+
+Denies the create_dir command without any pre-configured scope.
 
 </td>
 </tr>
@@ -550,6 +538,84 @@ Denies the get_thumbnail command without any pre-configured scope.
 <tr>
 <td>
 
+`android-fs:allow-get-thumbnail-as-base64`
+
+</td>
+<td>
+
+Enables the get_thumbnail_as_base64 command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-get-thumbnail-as-base64`
+
+</td>
+<td>
+
+Denies the get_thumbnail_as_base64 command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-get-thumbnail-as-bytes`
+
+</td>
+<td>
+
+Enables the get_thumbnail_as_bytes command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-get-thumbnail-as-bytes`
+
+</td>
+<td>
+
+Denies the get_thumbnail_as_bytes command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-get-thumbnail-as-data-url`
+
+</td>
+<td>
+
+Enables the get_thumbnail_as_data_url command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-get-thumbnail-as-data-url`
+
+</td>
+<td>
+
+Denies the get_thumbnail_as_data_url command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `android-fs:allow-get-thumbnail-base64`
 
 </td>
@@ -829,6 +895,58 @@ Enables the read_file command without any pre-configured scope.
 <td>
 
 Denies the read_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-read-file-as-base64`
+
+</td>
+<td>
+
+Enables the read_file_as_base64 command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-read-file-as-base64`
+
+</td>
+<td>
+
+Denies the read_file_as_base64 command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-read-file-as-data-url`
+
+</td>
+<td>
+
+Enables the read_file_as_data_url command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-read-file-as-data-url`
+
+</td>
+<td>
+
+Denies the read_file_as_data_url command without any pre-configured scope.
 
 </td>
 </tr>

@@ -295,10 +295,10 @@
       "type": "string",
       "oneOf": [
         {
-          "description": "This enables all commands except those that delete existing entries (such as remove, copy or truncate).",
+          "description": "This enables all commands except those that delete existing entries (such as remove, truncate, copy or write).",
           "type": "string",
           "const": "all-without-delete",
-          "markdownDescription": "This enables all commands except those that delete existing entries (such as remove, copy or truncate)."
+          "markdownDescription": "This enables all commands except those that delete existing entries (such as remove, truncate, copy or write)."
         },
         {
           "description": "This enables all commands.",
@@ -365,6 +365,18 @@
           "type": "string",
           "const": "deny-count-all-file-streams",
           "markdownDescription": "Denies the count_all_file_streams command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the create_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-create-dir",
+          "markdownDescription": "Enables the create_dir command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the create_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-create-dir",
+          "markdownDescription": "Denies the create_dir command without any pre-configured scope."
         },
         {
           "description": "Enables the create_dir_all command without any pre-configured scope.",
@@ -523,6 +535,42 @@
           "markdownDescription": "Denies the get_thumbnail command without any pre-configured scope."
         },
         {
+          "description": "Enables the get_thumbnail_as_base64 command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-thumbnail-as-base64",
+          "markdownDescription": "Enables the get_thumbnail_as_base64 command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_thumbnail_as_base64 command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-thumbnail-as-base64",
+          "markdownDescription": "Denies the get_thumbnail_as_base64 command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_thumbnail_as_bytes command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-thumbnail-as-bytes",
+          "markdownDescription": "Enables the get_thumbnail_as_bytes command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_thumbnail_as_bytes command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-thumbnail-as-bytes",
+          "markdownDescription": "Denies the get_thumbnail_as_bytes command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_thumbnail_as_data_url command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-thumbnail-as-data-url",
+          "markdownDescription": "Enables the get_thumbnail_as_data_url command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_thumbnail_as_data_url command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-thumbnail-as-data-url",
+          "markdownDescription": "Denies the get_thumbnail_as_data_url command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_thumbnail_base64 command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-thumbnail-base64",
@@ -653,6 +701,30 @@
           "type": "string",
           "const": "deny-read-file",
           "markdownDescription": "Denies the read_file command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the read_file_as_base64 command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-read-file-as-base64",
+          "markdownDescription": "Enables the read_file_as_base64 command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the read_file_as_base64 command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-read-file-as-base64",
+          "markdownDescription": "Denies the read_file_as_base64 command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the read_file_as_data_url command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-read-file-as-data-url",
+          "markdownDescription": "Enables the read_file_as_data_url command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the read_file_as_data_url command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-read-file-as-data-url",
+          "markdownDescription": "Denies the read_file_as_data_url command without any pre-configured scope."
         },
         {
           "description": "Enables the read_text_file command without any pre-configured scope.",
@@ -895,10 +967,10 @@
           "markdownDescription": "Denies the write_text_file command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-android-api-level`\n- `allow-get-name`\n- `allow-get-byte-length`\n- `allow-get-type`\n- `allow-get-mime-type`\n- `allow-get-metadata`\n- `allow-get-thumbnail`\n- `allow-get-thumbnail-base64`\n- `allow-get-thumbnail-data-url`\n- `allow-get-fs-path`\n- `allow-list-volumes`\n- `allow-create-new-public-file`\n- `allow-create-new-public-image-file`\n- `allow-create-new-public-video-file`\n- `allow-create-new-public-audio-file`\n- `allow-scan-public-file`\n- `allow-set-public-file-pending`\n- `allow-request-public-files-permission`\n- `allow-has-public-files-permission`\n- `allow-create-new-file`\n- `allow-create-dir-all`\n- `allow-read-dir`\n- `allow-count-all-file-streams`\n- `allow-close-all-file-streams`\n- `allow-open-read-file-stream`\n- `allow-open-read-text-file-lines-stream`\n- `allow-read-file`\n- `allow-read-text-file`\n- `allow-check-picker-uri-permission`\n- `allow-persist-picker-uri-permission`\n- `allow-check-persisted-picker-uri-permission`\n- `allow-release-persisted-picker-uri-permission`\n- `allow-release-all-persisted-picker-uri-permissions`\n- `allow-show-open-file-picker`\n- `allow-show-open-dir-picker`\n- `allow-show-save-file-picker`\n- `allow-show-share-file-dialog`\n- `allow-show-view-file-dialog`\n- `allow-show-view-dir-dialog`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `all-without-delete`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-android-api-level`\n- `allow-get-name`\n- `allow-get-byte-length`\n- `allow-get-type`\n- `allow-get-mime-type`\n- `allow-get-metadata`\n- `allow-get-thumbnail`\n- `allow-get-thumbnail-base64`\n- `allow-get-thumbnail-data-url`\n- `allow-get-fs-path`\n- `allow-list-volumes`\n- `allow-create-new-public-file`\n- `allow-create-new-public-image-file`\n- `allow-create-new-public-video-file`\n- `allow-create-new-public-audio-file`\n- `allow-scan-public-file`\n- `allow-set-public-file-pending`\n- `allow-request-public-files-permission`\n- `allow-has-public-files-permission`\n- `allow-create-new-file`\n- `allow-create-dir-all`\n- `allow-read-dir`\n- `allow-count-all-file-streams`\n- `allow-close-all-file-streams`\n- `allow-open-read-file-stream`\n- `allow-open-read-text-file-lines-stream`\n- `allow-read-file`\n- `allow-read-text-file`\n- `allow-check-picker-uri-permission`\n- `allow-persist-picker-uri-permission`\n- `allow-check-persisted-picker-uri-permission`\n- `allow-release-persisted-picker-uri-permission`\n- `allow-release-all-persisted-picker-uri-permissions`\n- `allow-show-open-file-picker`\n- `allow-show-open-dir-picker`\n- `allow-show-save-file-picker`\n- `allow-show-share-file-dialog`\n- `allow-show-view-file-dialog`\n- `allow-show-view-dir-dialog`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `all-without-delete`"
         },
         {
           "description": "An empty permission you can use to modify the global scope.\n\n## Example\n\n```json\n{\n  \"permissions\": [\n    \"android-fs:all-without-delete\",\n    {\n      \"identifier\": \"android-fs:scope\",\n      \"allow\": [\n        \"$APPDATA/documents/**/*\"\n      ],\n      \"deny\": [\n        \"$APPDATA/documents/secret.txt\"\n      ]\n    }\n  ]\n}\n```\n",

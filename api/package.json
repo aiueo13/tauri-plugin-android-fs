@@ -1,6 +1,6 @@
 {
   "name": "tauri-plugin-android-fs-api",
-  "version": "26.0.0",
+  "version": "26.1.0",
   "author": "OkaYu",
   "description": "Android file system API for Tauri.",
   "keywords": ["tauri", "plugin", "android", "fs", "file", "picker", "dialog", "download"],

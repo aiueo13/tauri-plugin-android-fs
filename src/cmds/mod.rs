@@ -36,8 +36,8 @@ pub async fn get_name<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        let uri = FileUri::from(uri);
-        if let Some(path) = uri.as_path() {
+        let uri = FileUri::try_from(uri)?;
+        if let Some(path) = uri.to_path() {
             validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
         }
 
@@ -58,8 +58,8 @@ pub async fn get_byte_length<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        let uri = FileUri::from(uri);
-        if let Some(path) = uri.as_path() {
+        let uri = FileUri::try_from(uri)?;
+        if let Some(path) = uri.to_path() {
             validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
         }
 
@@ -80,8 +80,8 @@ pub async fn get_mime_type<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        let uri = FileUri::from(uri);
-        if let Some(path) = uri.as_path() {
+        let uri = FileUri::try_from(uri)?;
+        if let Some(path) = uri.to_path() {
             validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
         }
 
@@ -102,8 +102,8 @@ pub async fn get_type<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        let uri = FileUri::from(uri);
-        if let Some(path) = uri.as_path() {
+        let uri = FileUri::try_from(uri)?;
+        if let Some(path) = uri.to_path() {
             validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
         }
 
@@ -147,8 +147,8 @@ pub async fn get_metadata<R: tauri::Runtime>(
             }
         }
 
-        let uri = FileUri::from(uri);
-        if let Some(path) = uri.as_path() {
+        let uri = FileUri::try_from(uri)?;
+        if let Some(path) = uri.to_path() {
             validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
         }
 
@@ -193,8 +193,8 @@ pub async fn get_thumbnail<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        let uri = FileUri::from(uri);
-        if let Some(path) = uri.as_path() {
+        let uri = FileUri::try_from(uri)?;
+        if let Some(path) = uri.to_path() {
             validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
         }
 
@@ -211,7 +211,7 @@ pub async fn get_thumbnail<R: tauri::Runtime>(
 }
 
 #[tauri::command]
-pub async fn get_thumbnail_base64<R: tauri::Runtime>(
+pub async fn get_thumbnail_as_bytes<R: tauri::Runtime>(
     uri: AfsUriOrFsPath,
     width: f64,
     height: f64,
@@ -219,14 +219,28 @@ pub async fn get_thumbnail_base64<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     cmd_scope: tauri::ipc::CommandScope<Scope>,
     global_scope: tauri::ipc::GlobalScope<Scope>,
-) -> Result<Option<String>> {
+) -> Result<tauri::ipc::Response> {
+
+    get_thumbnail(uri, width, height, format, app, cmd_scope, global_scope).await
+}
+
+#[tauri::command]
+pub async fn get_thumbnail_as_base64<R: tauri::Runtime>(
+    uri: AfsUriOrFsPath,
+    width: f64,
+    height: f64,
+    format: String,
+    app: tauri::AppHandle<R>,
+    cmd_scope: tauri::ipc::CommandScope<Scope>,
+    global_scope: tauri::ipc::GlobalScope<Scope>,
+) -> Result<tauri::ipc::Response> {
 
     #[cfg(not(target_os = "android"))] {
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        let uri = FileUri::from(uri);
-        if let Some(path) = uri.as_path() {
+        let uri = FileUri::try_from(uri)?;
+        if let Some(path) = uri.to_path() {
             validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
         }
 
@@ -234,12 +248,16 @@ pub async fn get_thumbnail_base64<R: tauri::Runtime>(
         let size = convert_to_thumbnail_preferred_size(width, height)?;
         let api = app.android_fs_async();
 
-        api.get_thumbnail_base64(&uri, size, format).await
+        let Some(base64) = api.get_thumbnail_base64(&uri, size, format).await? else {
+            return Ok(tauri::ipc::Response::new(Vec::new()))
+        };
+
+        Ok(tauri::ipc::Response::new(base64.into_bytes()))
     }
 }
 
 #[tauri::command]
-pub async fn get_thumbnail_data_url<R: tauri::Runtime>(
+pub async fn get_thumbnail_as_data_url<R: tauri::Runtime>(
     uri: AfsUriOrFsPath,
     width: f64,
     height: f64,
@@ -247,14 +265,14 @@ pub async fn get_thumbnail_data_url<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     cmd_scope: tauri::ipc::CommandScope<Scope>,
     global_scope: tauri::ipc::GlobalScope<Scope>,
-) -> Result<Option<String>> {
+) -> Result<tauri::ipc::Response> {
 
     #[cfg(not(target_os = "android"))] {
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        let uri = FileUri::from(uri);
-        if let Some(path) = uri.as_path() {
+        let uri = FileUri::try_from(uri)?;
+        if let Some(path) = uri.to_path() {
             validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
         }
 
@@ -262,16 +280,13 @@ pub async fn get_thumbnail_data_url<R: tauri::Runtime>(
         let size = convert_to_thumbnail_preferred_size(width, height)?;
         let api = app.android_fs_async();
     
-        let Some(data) = api.get_thumbnail_base64(&uri, size, format).await? else {
-            return Ok(None)
+        let Some(base64) = api.get_thumbnail_base64(&uri, size, format).await? else {
+            return Ok(tauri::ipc::Response::new(Vec::new()))
         };
-    
+
         let mime_type = format.mime_type();
-        let prefix = format!("data:{mime_type};base64,");
-        let mut data_url = String::with_capacity(prefix.len() + data.len());
-        data_url.push_str(&prefix);
-        data_url.push_str(&data);
-        Ok(Some(data_url))
+        let data_url = convert_base64_to_data_url(&base64, &mime_type)?;
+        Ok(tauri::ipc::Response::new(data_url.into_bytes()))
     }
 }
 
@@ -515,7 +530,7 @@ pub async fn scan_public_file<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_scheme()?;
+        uri.require_content_uri()?;
 
         let api = app.android_fs_async();
         api.public_storage().scan(&uri).await?;
@@ -534,7 +549,7 @@ pub async fn set_public_file_pending<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_scheme()?;
+        uri.require_content_uri()?;
 
         let api = app.android_fs_async();
         api.public_storage().set_pending(&uri, is_pending).await?;
@@ -571,7 +586,7 @@ pub async fn has_public_files_permission<R: tauri::Runtime>(
 }
 
 #[tauri::command]
-pub async fn create_dir_all<R: tauri::Runtime>(
+pub async fn create_dir<R: tauri::Runtime>(
     base_dir_uri: FileUri,
     relative_path: String,
     app: tauri::AppHandle<R>
@@ -581,7 +596,7 @@ pub async fn create_dir_all<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        base_dir_uri.require_content_scheme()?;
+        base_dir_uri.require_content_uri()?;
 
         let api = app.android_fs_async();
         api.create_dir_all(&base_dir_uri, relative_path).await
@@ -600,7 +615,7 @@ pub async fn create_new_file<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        base_dir_uri.require_content_scheme()?;
+        base_dir_uri.require_content_uri()?;
 
         let api = app.android_fs_async();
         api.create_new_file(&base_dir_uri, relative_path, mime_type.as_deref()).await
@@ -654,8 +669,8 @@ pub async fn open_read_file_stream<R: tauri::Runtime>(
     
         match event {
             ReadFileStreamEventInput::Open { uri } => {
-                let uri = FileUri::from(uri);
-                if let Some(path) = uri.as_path() {
+                let uri = FileUri::try_from(uri)?;
+                if let Some(path) = uri.to_path() {
                     validate_path_permission(&path, &app, &cmd_scope, &global_scope)?;
                 }
 
@@ -709,8 +724,8 @@ pub async fn open_read_text_file_lines_stream<R: tauri::Runtime>(
 
         match event {
             ReadTextFileLinesStreamEventInput::Open { uri, label, max_line_len, ignore_bom } => {
-                let uri = FileUri::from(uri);
-                if let Some(path) = uri.as_path() {
+                let uri = FileUri::try_from(uri)?;
+                if let Some(path) = uri.to_path() {
                     validate_path_permission(&path, &app, &cmd_scope, &global_scope)?;
                 }
 
@@ -769,8 +784,8 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
 
     match event {
         WriteFileStreamEventInput::Open { uri, options, supports_raw_ipc_request_body } => {
-            let uri = FileUri::from(uri);
-            if let Some(path) = uri.as_path() {
+            let uri = FileUri::try_from(uri)?;
+            if let Some(path) = uri.to_path() {
                 validate_path_permission(&path, &app, &cmd_scope, &global_scope)?;
 
                 if options.create && !std::fs::exists(&path)? {
@@ -854,12 +869,12 @@ pub async fn write_text_file<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        let uri = FileUri::from(uri);
-        if let Some(path) = uri.as_path() {
-            validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
+        let uri = FileUri::try_from(uri)?;
+        if let Some(path) = uri.to_path() {
+            validate_path_permission(&path, &app, &cmd_scope, &global_scope)?;
 
-            if create && !std::fs::exists(path)? {
-                std::fs::File::create(path)?;
+            if create && !std::fs::exists(&path)? {
+                std::fs::File::create(&path)?;
             }
         }
 
@@ -880,13 +895,72 @@ pub async fn read_file<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        let uri = FileUri::from(uri);
-        if let Some(path) = uri.as_path() {
+        let uri = FileUri::try_from(uri)?;
+        if let Some(path) = uri.to_path() {
             validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
         }
 
         let bytes = app.android_fs_async().read(&uri).await?;
         Ok(tauri::ipc::Response::new(bytes))
+    }
+}
+
+#[tauri::command]
+pub async fn read_file_as_base64<R: tauri::Runtime>(
+    uri: AfsUriOrFsPath,
+    app: tauri::AppHandle<R>,
+    cmd_scope: tauri::ipc::CommandScope<Scope>,
+    global_scope: tauri::ipc::GlobalScope<Scope>,
+) -> Result<tauri::ipc::Response> {
+
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        let uri = FileUri::try_from(uri)?;
+        if let Some(path) = uri.to_path() {
+            validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
+        }
+
+        let api = app.android_fs_async();
+        let bytes = api.read(&uri).await?;
+        
+        tauri::async_runtime::spawn_blocking(move || {
+            let base64 = convert_bytes_to_base64(&bytes)?;
+            Ok(tauri::ipc::Response::new(base64.into_bytes()))
+        }).await?
+    }
+}
+
+#[tauri::command]
+pub async fn read_file_as_data_url<R: tauri::Runtime>(
+    uri: AfsUriOrFsPath,
+    mime_type: Option<String>,
+    app: tauri::AppHandle<R>,
+    cmd_scope: tauri::ipc::CommandScope<Scope>,
+    global_scope: tauri::ipc::GlobalScope<Scope>,
+) -> Result<tauri::ipc::Response> {
+
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        let uri = FileUri::try_from(uri)?;
+        if let Some(path) = uri.to_path() {
+            validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
+        }
+
+        let api = app.android_fs_async();
+        let mime_type = match mime_type {
+            Some(mime_type) => mime_type,
+            None => api.get_mime_type(&uri).await?
+        };
+        let bytes = api.read(&uri).await?;
+
+        tauri::async_runtime::spawn_blocking(move || {
+            let data_url = convert_bytes_to_data_url(&bytes, &mime_type)?;
+            Ok(tauri::ipc::Response::new(data_url.into_bytes()))
+        }).await?
     }
 }
 
@@ -902,8 +976,8 @@ pub async fn read_text_file<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        let uri = FileUri::from(uri);
-        if let Some(path) = uri.as_path() {
+        let uri = FileUri::try_from(uri)?;
+        if let Some(path) = uri.to_path() {
             validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
         }
 
@@ -926,18 +1000,18 @@ pub async fn copy_file<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        let src_uri: FileUri = src_uri.into();
-        let dest_uri: FileUri = dest_uri.into();
+        let src_uri = FileUri::try_from(src_uri)?;
+        let dest_uri = FileUri::try_from(dest_uri)?;
         let api = app.android_fs_async();
 
-        if let Some(src_path) = src_uri.as_path() {
+        if let Some(src_path) = src_uri.to_path() {
             validate_path_permission(src_path, &app, &cmd_scope, &global_scope)?;
         }
-        if let Some(dest_path) = dest_uri.as_path() {
-            validate_path_permission(dest_path, &app, &cmd_scope, &global_scope)?;
+        if let Some(dest_path) = dest_uri.to_path() {
+            validate_path_permission(&dest_path, &app, &cmd_scope, &global_scope)?;
 
-            if create && !std::fs::exists(dest_path)? {
-                std::fs::File::create(dest_path)?;
+            if create && !std::fs::exists(&dest_path)? {
+                std::fs::File::create(&dest_path)?;
             }
         }
 
@@ -955,7 +1029,7 @@ pub async fn truncate_file<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_scheme()?;
+        uri.require_content_uri()?;
 
         let api = app.android_fs_async();
         api.open_file_writable(&uri).await?;
@@ -998,7 +1072,7 @@ pub async fn read_dir<R: tauri::Runtime>(
             }
         }
 
-        uri.require_content_scheme()?;
+        uri.require_content_uri()?;
 
         let api = app.android_fs_async();
         let entries = api.read_dir(&uri).await?;
@@ -1033,7 +1107,7 @@ pub async fn rename_file<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_scheme()?;
+        uri.require_content_uri()?;
 
         let api = app.android_fs_async();
 
@@ -1056,7 +1130,7 @@ pub async fn rename_dir<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_scheme()?;
+        uri.require_content_uri()?;
 
         let api = app.android_fs_async();
 
@@ -1078,7 +1152,7 @@ pub async fn remove_file<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_scheme()?;
+        uri.require_content_uri()?;
 
         let api = app.android_fs_async();
         api.remove_file(&uri).await?;
@@ -1096,7 +1170,7 @@ pub async fn remove_empty_dir<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_scheme()?;
+        uri.require_content_uri()?;
 
         let api = app.android_fs_async();
         api.remove_dir(&uri).await?;
@@ -1114,7 +1188,7 @@ pub async fn remove_dir_all<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_scheme()?;
+        uri.require_content_uri()?;
 
         let api = app.android_fs_async();
         api.remove_dir_all(&uri).await?;
@@ -1133,7 +1207,7 @@ pub async fn check_picker_uri_permission<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_scheme()?;
+        uri.require_content_uri()?;
 
         let api = app.android_fs_async();
         api.file_picker().check_uri_permission(&uri, state).await
@@ -1150,7 +1224,7 @@ pub async fn persist_picker_uri_permission<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_scheme()?;
+        uri.require_content_uri()?;
 
         let api = app.android_fs_async();
         api.file_picker().persist_uri_permission(&uri).await?;
@@ -1169,7 +1243,7 @@ pub async fn check_persisted_picker_uri_permission<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_scheme()?;
+        uri.require_content_uri()?;
 
         let api = app.android_fs_async();
         api.file_picker().check_persisted_uri_permission(&uri, state).await
@@ -1186,7 +1260,7 @@ pub async fn release_persisted_picker_uri_permission<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_scheme()?;
+        uri.require_content_uri()?;
 
         let api = app.android_fs_async();
         api.file_picker().release_persisted_uri_permission(&uri).await
@@ -1219,7 +1293,7 @@ pub async fn show_share_file_dialog<R: tauri::Runtime>(
     }
     #[cfg(target_os = "android")] {
         for uri in &uris {
-            uri.require_content_scheme()?;
+            uri.require_content_uri()?;
         }
 
         let api = app.android_fs_async();
@@ -1238,7 +1312,7 @@ pub async fn show_view_file_dialog<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_scheme()?;
+        uri.require_content_uri()?;
 
         let api = app.android_fs_async();
         api.file_opener().open_file(&uri).await?;
@@ -1256,7 +1330,7 @@ pub async fn show_view_dir_dialog<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_scheme()?;
+        uri.require_content_uri()?;
 
         let api = app.android_fs_async();
         api.file_opener().open_dir(&uri).await?;
@@ -1283,7 +1357,7 @@ pub async fn show_open_file_picker<R: tauri::Runtime>(
             Some(initial_location) => resolve_picker_initial_location(initial_location, &app).await.ok(),
             None => None
         };
-        let initial_location = initial_location.filter(|i| i.is_content_scheme());
+        let initial_location = initial_location.filter(|i| i.is_content_uri());
 
         let target_is_single = mime_types.len() == 1;
         let (
@@ -1377,7 +1451,7 @@ pub async fn show_open_dir_picker<R: tauri::Runtime>(
             Some(initial_location) => resolve_picker_initial_location(initial_location, &app).await.ok(),
             None => None
         };
-        let initial_location = initial_location.filter(|i| i.is_content_scheme());
+        let initial_location = initial_location.filter(|i| i.is_content_uri());
 
         api.file_picker().pick_dir(initial_location.as_ref(), local_only).await
     }
@@ -1401,7 +1475,7 @@ pub async fn show_save_file_picker<R: tauri::Runtime>(
             Some(initial_location) => resolve_picker_initial_location(initial_location, &app).await.ok(),
             None => None
         };
-        let initial_location = initial_location.filter(|i| i.is_content_scheme());
+        let initial_location = initial_location.filter(|i| i.is_content_uri());
 
         api.file_picker().save_file(
             initial_location.as_ref(), 
@@ -1410,4 +1484,45 @@ pub async fn show_save_file_picker<R: tauri::Runtime>(
             local_only
         ).await
     }
+}
+
+
+// Deprecated
+
+#[tauri::command]
+pub async fn create_dir_all<R: tauri::Runtime>(
+    base_dir_uri: FileUri,
+    relative_path: String,
+    app: tauri::AppHandle<R>
+) -> Result<FileUri> {
+
+    create_dir(base_dir_uri, relative_path, app).await
+}
+
+#[tauri::command]
+pub async fn get_thumbnail_base64<R: tauri::Runtime>(
+    uri: AfsUriOrFsPath,
+    width: f64,
+    height: f64,
+    format: String,
+    app: tauri::AppHandle<R>,
+    cmd_scope: tauri::ipc::CommandScope<Scope>,
+    global_scope: tauri::ipc::GlobalScope<Scope>,
+) -> Result<tauri::ipc::Response> {
+
+    get_thumbnail_as_base64(uri, width, height, format, app, cmd_scope, global_scope).await
+}
+
+#[tauri::command]
+pub async fn get_thumbnail_data_url<R: tauri::Runtime>(
+    uri: AfsUriOrFsPath,
+    width: f64,
+    height: f64,
+    format: String,
+    app: tauri::AppHandle<R>,
+    cmd_scope: tauri::ipc::CommandScope<Scope>,
+    global_scope: tauri::ipc::GlobalScope<Scope>,
+) -> Result<tauri::ipc::Response> {
+
+    get_thumbnail_as_data_url(uri, width, height, format, app, cmd_scope, global_scope).await
 }

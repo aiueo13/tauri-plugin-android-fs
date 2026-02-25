@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-create-dir"
+description = "Enables the create_dir command without any pre-configured scope."
+commands.allow = ["create_dir"]
+
+[[permission]]
+identifier = "deny-create-dir"
+description = "Denies the create_dir command without any pre-configured scope."
+commands.deny = ["create_dir"]

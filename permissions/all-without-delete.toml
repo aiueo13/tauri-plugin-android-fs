@@ -2,7 +2,7 @@
 
 [[permission]]
 identifier = "all-without-delete"
-description = "This enables all commands except those that delete existing entries (such as remove, copy or truncate)."
+description = "This enables all commands except those that delete existing entries (such as remove, truncate, copy or write)."
 commands.allow = [
     "get_android_api_level",
     "get_name",
@@ -11,8 +11,9 @@ commands.allow = [
     "get_mime_type",
     "get_metadata",
     "get_thumbnail",
-    "get_thumbnail_base64",
-    "get_thumbnail_data_url",
+    "get_thumbnail_as_bytes",
+    "get_thumbnail_as_base64",
+    "get_thumbnail_as_data_url",
     "get_fs_path",
     "list_volumes",
     "create_new_public_file",
@@ -24,12 +25,14 @@ commands.allow = [
     "request_public_files_permission",
     "has_public_files_permission",
     "create_new_file",
-    "create_dir_all",
+    "create_dir",
     "count_all_file_streams",
     "close_all_file_streams",
     "open_read_file_stream",
     "open_read_text_file_lines_stream",
     "read_file",
+    "read_file_as_base64",
+    "read_file_as_data_url",
     "read_text_file",
     "read_dir",
     "rename_file",
@@ -45,4 +48,8 @@ commands.allow = [
     "show_share_file_dialog",
     "show_view_file_dialog",
     "show_view_dir_dialog",
+
+    "get_thumbnail_base64",
+    "get_thumbnail_data_url",
+    "create_dir_all"
 ]

@@ -14,16 +14,20 @@ impl crate::Error {
         "unsupported platform; only Android is supported"
     );
 
-    pub(crate) fn missing_value(value_name: impl AsRef<str>) -> Self {
-        Self::with(format!("missing value: {}", value_name.as_ref()))
+    pub(crate) fn missing_value(value_name: impl std::fmt::Display) -> Self {
+        Self::with(format!("missing value: {value_name}"))
     }
 
-    pub(crate) fn invalid_type(type_name: impl AsRef<str>) -> Self {
-        Self::with(format!("invalid type for {}", type_name.as_ref()))
+    pub(crate) fn invalid_type(type_name: impl std::fmt::Display) -> Self {
+        Self::with(format!("invalid type for {type_name}"))
     }
 
-    pub(crate) fn invalid_value(value_name: impl AsRef<str>) -> Self {
-        Self::with(format!("invalid value {}", value_name.as_ref()))
+    pub(crate) fn invalid_uri_scheme(uri: impl std::fmt::Display) -> Self {
+        Self::with(format!("invalid URI scheme: {uri}"))
+    }
+
+    pub(crate) fn invalid_value(value_name: impl std::fmt::Display) -> Self {
+        Self::with(format!("invalid value {value_name}"))
     }
 
     pub(crate) const fn from_static_str(msg: &'static str) -> Self {

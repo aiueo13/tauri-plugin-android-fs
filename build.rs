@@ -19,8 +19,9 @@ const COMMANDS: &'static [&'static str] = &[
     "get_mime_type",
     "get_metadata",
     "get_thumbnail",
-    "get_thumbnail_base64",
-    "get_thumbnail_data_url",
+    "get_thumbnail_as_bytes",
+    "get_thumbnail_as_base64",
+    "get_thumbnail_as_data_url",
     "get_fs_path",
     "list_volumes",
     "create_new_public_file",
@@ -32,7 +33,7 @@ const COMMANDS: &'static [&'static str] = &[
     "request_public_files_permission",
     "has_public_files_permission",
     "create_new_file",
-    "create_dir_all",
+    "create_dir",
     "truncate_file",
     "copy_file",
     "count_all_file_streams",
@@ -41,6 +42,8 @@ const COMMANDS: &'static [&'static str] = &[
     "open_read_text_file_lines_stream",
     "open_write_file_stream",
     "read_file",
+    "read_file_as_base64",
+    "read_file_as_data_url",
     "read_text_file",
     "write_file",
     "write_text_file",
@@ -61,6 +64,11 @@ const COMMANDS: &'static [&'static str] = &[
     "show_share_file_dialog",
     "show_view_file_dialog",
     "show_view_dir_dialog",
+
+    // Deprecated
+    "get_thumbnail_base64",
+    "get_thumbnail_data_url",
+    "create_dir_all",
 ];
 
 fn main() {

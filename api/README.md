@@ -10,7 +10,10 @@ First, install this plugin to your Tauri project:
 
 ```toml
 [dependencies]
-tauri-plugin-android-fs = { version = "=26.0.0", features = ["legacy_storage_permission"] }
+tauri-plugin-android-fs = { version = "=26.1.0", features = [
+    # For `AndroidFs.createNewPublicFile` and related APIs
+    "legacy_storage_permission"
+] }
 ```
 
 Next, register this plugin in your Tauri project:
@@ -41,11 +44,11 @@ Then, set the APIs that can be called from the Javascript:
 Finally, install the JavaScript Guest bindings using whichever JavaScript package manager you prefer:
 
 ```bash
-pnpm add tauri-plugin-android-fs-api@26.0.0 -E
+pnpm add tauri-plugin-android-fs-api@26.1.0 -E
 # or
-npm install tauri-plugin-android-fs-api@26.0.0 --save-exact
+npm install tauri-plugin-android-fs-api@26.1.0 --save-exact
 # or
-yarn add tauri-plugin-android-fs-api@26.0.0 --exact
+yarn add tauri-plugin-android-fs-api@26.1.0 --exact
 ```
 
 **NOTE**: Please make sure that the Rust-side `tauri-plugin-android-fs` and the JavaScript-side `tauri-plugin-android-fs-api` versions match exactly.
@@ -128,13 +131,13 @@ This plugin provides following APIs:
 - `AndroidFs.showSaveFilePicker` 
 - `AndroidFs.readDir` 
 - `AndroidFs.createNewFile` 
-- `AndroidFs.createDirAll` 
+- `AndroidFs.createDir` 
 - `AndroidFs.createNewPublicFile` 
 - `AndroidFs.createNewPublicImageFile` 
 - `AndroidFs.createNewPublicVideoFile` 
 - `AndroidFs.createNewPublicAudioFile` 
 
-### 2. APIs to retrieve data from entries
+### 2. APIs to retrieve entry data
 - `AndroidFs.getFsPath` 
 - `AndroidFs.getMetadata` 
 - `AndroidFs.getName` 
@@ -142,19 +145,11 @@ This plugin provides following APIs:
 - `AndroidFs.getMimeType` 
 - `AndroidFs.getByteLength` 
 - `AndroidFs.getThumbnail` 
-- `AndroidFs.getThumbnailBase64` 
-- `AndroidFs.getThumbnailDataUrl` 
+- `AndroidFs.getThumbnailAsBytes` 
+- `AndroidFs.getThumbnailAsBase64` 
+- `AndroidFs.getThumbnailAsDataURL` 
 
-### 3. APIs to read/write entries
-- `AndroidFs.openReadFileStream`
-- `AndroidFs.openReadTextFileLinesStream`
-- `AndroidFs.openWriteFileStream`
-- `AndroidFs.readFile`
-- `AndroidFs.readTextFile`
-- `AndroidFs.writeFile`
-- `AndroidFs.writeTextFile`
-
-### 4. APIs to operate entries
+### 3. APIs to operate entries
 - `AndroidFs.copyFile`
 - `AndroidFs.truncateFile`
 - `AndroidFs.renameFile`
@@ -165,7 +160,20 @@ This plugin provides following APIs:
 - `AndroidFs.scanPublicFile`
 - `AndroidFs.setPublicFilePending`
 
-### 5. APIs to manage entry permissions
+### 4. APIs to read files
+- `AndroidFs.openReadFileStream`
+- `AndroidFs.openReadTextFileLinesStream`
+- `AndroidFs.readFile`
+- `AndroidFs.readFileAsBase64`
+- `AndroidFs.readFileAsDataURL`
+- `AndroidFs.readTextFile`
+
+### 5. APIs to write to files
+- `AndroidFs.openWriteFileStream`
+- `AndroidFs.writeFile`
+- `AndroidFs.writeTextFile`
+
+### 6. APIs to manage permissions
 - `AndroidFs.checkPickerUriPermission`
 - `AndroidFs.persistPickerUriPermission`
 - `AndroidFs.checkPersistedPickerUriPermission`
@@ -174,12 +182,12 @@ This plugin provides following APIs:
 - `AndroidFs.hasPublicFilesPermission`
 - `AndroidFs.requestPublicFilesPermission`
 
-### 6. APIs to send entries to other apps
+### 7. APIs to send entries to other apps
 - `AndroidFs.showViewFileDialog`
 - `AndroidFs.showViewDirDialog`
 - `AndroidFs.showShareFileDialog`
 
-### 7. Helper
+### 8. Helper
 - `isAndroid`
 - `getAndroidApiLevel`
 

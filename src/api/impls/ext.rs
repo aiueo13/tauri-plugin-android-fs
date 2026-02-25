@@ -195,7 +195,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
 
     #[maybe_async]
     pub fn is_dir(&self, uri: &FileUri) -> Result<bool> {
-        if let Some(path) = uri.as_path().map(|p| p.to_path_buf()) {
+        if let Some(path) = uri.to_path() {
             return run_blocking(move || Ok(std::fs::metadata(&path)?.is_dir())).await
         }
 
@@ -204,7 +204,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
 
     #[maybe_async]
     pub fn is_file(&self, uri: &FileUri) -> Result<bool> {
-        if let Some(path) = uri.as_path().map(|p| p.to_path_buf()) {
+        if let Some(path) = uri.to_path() {
             return run_blocking(move || Ok(std::fs::metadata(&path)?.is_file())).await
         }
         
@@ -273,7 +273,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         let relative_path = validate_relative_path(relative_path.as_ref())?;
 
         // file:// 形式の URI
-        if let Some(path) = dir.as_path() {
+        if let Some(path) = dir.to_path() {
             let uri = FileUri::from_path(path.join(relative_path));
             return Ok(Some(uri))
         }
@@ -294,7 +294,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         if dir.uri.starts_with("content://com.android.externalstorage.documents/tree/") {
             let uri = FileUri {
                 document_top_tree_uri: dir.document_top_tree_uri.clone(),
-                uri: format!("{}%2F{}", &dir.uri, encode_uri(relative_path))
+                uri: format!("{}%2F{}", &dir.uri, encode_android_uri_component(relative_path))
             };
             return Ok(Some(uri))
         }
@@ -535,7 +535,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             let mut uri = String::from("content://com.android.externalstorage.documents/document/");
             uri.push_str(volume_id);
             uri.push_str("%3A");
-            uri.push_str(&encode_uri(relative_path_from_volume_root.to_string_lossy()));
+            uri.push_str(&encode_android_uri_component(relative_path_from_volume_root.to_string_lossy()));
       
             FileUri { uri, document_top_tree_uri: None }
         };
