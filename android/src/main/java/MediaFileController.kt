@@ -122,7 +122,7 @@ class MediaFileController(private val activity: Activity): FileController {
         throw Exception("Unsupported operation for ${uri.uri}")
     }
 
-    override fun readDir(dirUri: AFUri, options: ReadDirEntryOptions): JSArray {
+    override fun readDir(dirUri: AFUri, options: ReadDirEntryOptions, offset: ULong, limit: ULong?): JSArray {
         throw Exception("Unsupported operation for ${dirUri.uri}")
     }
 }

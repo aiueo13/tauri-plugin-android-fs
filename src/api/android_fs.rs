@@ -833,21 +833,10 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     }
 
     /// Returns the child files and directories of the specified directory.  
-    /// The order of the entries is not guaranteed.  
+    /// The order of the entries depends on the file provider.  
     /// 
     /// The permissions and validity period of the returned URIs depend on the origin directory 
     /// (e.g., the top directory selected by [`FilePicker::pick_dir`])  
-    /// 
-    /// This retrieves all metadata including `uri`, `name`, `last_modified`, `len`, and `mime_type`. 
-    /// If only specific information is needed, 
-    /// using [`AndroidFs::read_dir_with_options`] will improve performance.
-    /// 
-    /// # Note
-    /// The returned type is an iterator, but the file system call is not executed lazily.  
-    /// Instead, all data is retrieved at once.  
-    /// For directories containing thousands or even tens of thousands of entries,  
-    /// this function may take several seconds to complete.  
-    /// The returned iterator itself is low-cost, as it only performs lightweight data formatting.
     /// 
     /// # Args
     /// - ***uri*** :  
@@ -857,26 +846,54 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Support
     /// All Android version.
     #[maybe_async]
-    pub fn read_dir(&self, uri: &FileUri) -> Result<impl Iterator<Item = Entry>> {
-        let entries = self.read_dir_with_options(uri, EntryOptions::ALL).await?
-            .map(Entry::try_from)
-            .filter_map(Result::ok);
-        
-        Ok(entries)
+    pub fn read_dir(&self, uri: &FileUri) -> Result<Vec<Entry>> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls()
+                .read_dir(uri, EntryOptions::ALL, ..).await?
+                .map(Entry::try_from)
+                .collect::<Result<_>>()
+        }
     }
 
     /// Returns the child files and directories of the specified directory.  
-    /// The order of the entries is not guaranteed.  
+    /// The order of the entries depends on the file provider.  
     /// 
     /// The permissions and validity period of the returned URIs depend on the origin directory 
     /// (e.g., the top directory selected by [`FilePicker::pick_dir`])  
     /// 
-    /// # Note
-    /// The returned type is an iterator, but the file system call is not executed lazily.  
-    /// Instead, all data is retrieved at once.  
-    /// For directories containing thousands or even tens of thousands of entries,  
-    /// this function may take several seconds to complete.  
-    /// The returned iterator itself is low-cost, as it only performs lightweight data formatting.
+    /// # Args
+    /// - ***uri*** :  
+    /// Target directory URI.  
+    /// Must be **readable**.
+    /// 
+    /// # Support
+    /// All Android version.
+    #[maybe_async]
+    pub fn read_dir_with_range(
+        &self, 
+        uri: &FileUri, 
+        range: impl std::ops::RangeBounds<u64>
+    ) -> Result<Vec<Entry>> {
+        
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls()
+                .read_dir(uri, EntryOptions::ALL, range).await?
+                .map(Entry::try_from)
+                .collect::<Result<_>>()
+        }
+    }
+
+    /// Returns the child files and directories of the specified directory.  
+    /// The order of the entries depends on the file provider.  
+    /// 
+    /// The permissions and validity period of the returned URIs depend on the origin directory 
+    /// (e.g., the top directory selected by [`FilePicker::pick_dir`])  
     /// 
     /// # Args
     /// - ***uri*** :  
@@ -890,13 +907,46 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         &self, 
         uri: &FileUri, 
         options: EntryOptions
-    ) -> Result<impl Iterator<Item = OptionalEntry>> {
+    ) -> Result<Vec<OptionalEntry>> {
         
         #[cfg(not(target_os = "android"))] {
-            Err::<std::iter::Empty<_>, _>(Error::NOT_ANDROID)
+            Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().read_dir_with_options(uri, options).await
+            self.impls()
+                .read_dir(uri, options, ..).await
+                .map(|i| i.collect())
+        }
+    }
+
+    /// Returns the child files and directories of the specified directory.  
+    /// The order of the entries depends on the file provider.  
+    /// 
+    /// The permissions and validity period of the returned URIs depend on the origin directory 
+    /// (e.g., the top directory selected by [`FilePicker::pick_dir`])  
+    /// 
+    /// # Args
+    /// - ***uri*** :  
+    /// Target directory URI.  
+    /// Must be **readable**.
+    /// 
+    /// # Support
+    /// All Android version.
+    #[maybe_async]
+    pub fn read_dir_with_options_and_range(
+        &self, 
+        uri: &FileUri, 
+        options: EntryOptions,
+        range: impl std::ops::RangeBounds<u64>
+    ) -> Result<Vec<OptionalEntry>> {
+        
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls()
+                .read_dir(uri, options, range).await
+                .map(|i| i.collect())
         }
     }
 

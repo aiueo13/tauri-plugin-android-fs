@@ -19,6 +19,26 @@ pub fn encode_android_uri_component(input: impl AsRef<str>) -> String {
     percent_encoding::utf8_percent_encode(input.as_ref(), SAFE).to_string()
 }
 
+pub fn range_to_offset_and_len(range: impl std::ops::RangeBounds<u64>) -> (u128, Option<u128>) {
+    use std::ops::Bound::{Included, Excluded, Unbounded};
+
+    let offset = match range.start_bound() {
+        Included(&v) => v as u128,
+        Excluded(&v) => v as u128 + 1,
+        Unbounded => 0,
+    };
+    let len = match range.end_bound() {
+        Included(&v) => Some((v as u128 + 1).saturating_sub(offset)),
+        Excluded(&v) => Some((v as u128).saturating_sub(offset)),
+        Unbounded => None,
+    };
+    (offset, len)
+}
+
+pub fn saturate_u128_to_u64(val: u128) -> u64 {
+    u128::min(val, u64::MAX as u128) as u64
+}
+
 pub fn validate_relative_path(path: &std::path::Path) -> Result<&std::path::Path> {
     for component in path.components() {
         use std::path::Component::*;

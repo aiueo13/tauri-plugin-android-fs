@@ -47,6 +47,9 @@ pub const CODE_VANILLA_ICE_CREAM: i32 = 35;
 /// API level for [Build.VERSION_CODES.BAKLAVA](https://developer.android.com/reference/android/os/Build.VERSION_CODES#BAKLAVA)
 pub const CODE_BAKLAVA: i32 = 36;
 
+/// API level for [Build.VERSION_CODES.CINNAMON_BUN](https://developer.android.com/reference/android/os/Build.VERSION_CODES#CINNAMON_BUN)
+pub const CODE_CINNAMON_BUN: i32 = 37;
+
 /// API level for Android 7.0
 pub const ANDROID_7: i32 = CODE_N;
 
@@ -88,3 +91,6 @@ pub const ANDROID_15: i32 = CODE_VANILLA_ICE_CREAM;
 
 /// API level for Android 16
 pub const ANDROID_16: i32 = CODE_BAKLAVA;
+
+/// API level for Android 17
+pub const ANDROID_17: i32 = CODE_CINNAMON_BUN;

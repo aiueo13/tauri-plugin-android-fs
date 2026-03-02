@@ -76,6 +76,7 @@ export const AndroidApiLevel = Object.freeze({
 	ANDROID_14: 34,
 	ANDROID_15: 35,
 	ANDROID_16: 36,
+	ANDROID_17: 37,
 } as const);
 
 /**
@@ -134,11 +135,33 @@ export type AndroidThumbnailFormat = "jpeg" | "png" | "webp"
 export type AndroidGetThumbnailOptions = {
 
 	/**
-	 * An image format of the thumbnail.  
-	 * One of `"jpeg"`, `"png"`, `"webp"`.  
+	 * Image format of the thumbnail.  
+	 * 
+	 * One of `"jpeg"`, `"png"`, `"webp"`. 
+	 *  
 	 * Defaults to `"jpeg"`.  
 	 */
 	format?: AndroidThumbnailFormat
+}
+
+/**
+ * Options of `AndroidFs.readDir`
+ */
+export type AndroidReadDirOptons = {
+
+	/**
+	 * Number of entries to skip from the beginning.
+	 *
+	 * Defaults to `0`.
+	 */
+	offset?: number,
+
+	/**
+	 * Maximum number of entries to return.
+	 *
+	 * If omitted, all available entries starting from `offset` are returned.
+	 */
+	limit?: number,
 }
 
 /**
@@ -153,10 +176,6 @@ export type AndroidDirMetadata = {
 	type: "Dir",
 	name: string,
 	lastModified: Date,
-
-	// TODO: 次のメージャーアップデートで以下を追加
-	//byteLength?: never,
-	//mimeType?: never,
 }
 
 /**
@@ -248,17 +267,6 @@ export type AndroidReadTextFileOptions = {
  * Options of `AndroidFs.writeFile`
  */
 export type AndroidWriteFileOptions = {
-
-	/**
-	 * The buffer size, in bytes, used when sending data from the frontend to the backend while writing from a `ReadableStream`.
-	 * 
-	 * IPC calls are relatively expensive, 
-	 * so larger buffer sizes are generally more efficient. 
-	 * But if it is too large, the UI may freeze or run out of memory.
-	 * 
-	 * Defaults to `524288` (512 KiB).
-	 */
-	bufferByteLength?: number,
 
 	/**
 	 * Indicates whether a new file should be created if it does not exist 
@@ -1351,7 +1359,6 @@ export class AndroidFs {
 	): Promise<ArrayBuffer | null> {
 
 		const format: AndroidThumbnailFormat = options?.format ?? "jpeg"
-
 		const thumbnail = await invoke<ArrayBuffer>('plugin:android-fs|get_thumbnail', {
 			uri: mapFsPathForInput(uri),
 			width,
@@ -1558,8 +1565,8 @@ export class AndroidFs {
 	 *
 	 * async function saveImage(
 	 *   fileName: string,
-	 *   data: Uint8Array | ReadableStream<Uint8Array>,
-	 *   mimeType: string
+	 *   data: Uint8Array,
+	 *   mimeType: string,
 	 * ): Promise<void> {
 	 *
 	 *   const baseDir = AndroidPublicImageDir.Pictures;
@@ -1622,8 +1629,8 @@ export class AndroidFs {
 	 *
 	 * async function saveVideo(
 	 *   fileName: string,
-	 *   data: Uint8Array | ReadableStream<Uint8Array>,
-	 *   mimeType: string
+	 *   data: Uint8Array,
+	 *   mimeType: string,
 	 * ): Promise<void> {
 	 *
 	 *   const baseDir = AndroidPublicVideoDir.Movies;
@@ -1686,8 +1693,8 @@ export class AndroidFs {
 	 *
 	 * async function saveAudio(
 	 *   fileName: string,
-	 *   data: Uint8Array | ReadableStream<Uint8Array>,
-	 *   mimeType: string
+	 *   data: Uint8Array,
+	 *   mimeType: string,
 	 * ): Promise<void> {
 	 *
 	 *   const baseDir = AndroidPublicAudioDir.Music;
@@ -1802,7 +1809,7 @@ export class AndroidFs {
 	 * - When the provided AbortSignal fires an abort event.
 	 * 
 	 * @param uri - The URI or path of the file to read. 
-	 * @param options - Optional settings: `bufferByteLength`, `signal`, `freezeSize`. See `AndroidOpenReadFileStreamOptions` for detailed descriptions of each item.
+	 * @param options - Optional settings: `bufferByteLength`, `signal`. See `AndroidOpenReadFileStreamOptions` for detailed descriptions of each item.
 	 * 
 	 * @returns A Promise that resolves to a `ReadableStream<Uint8Array<ArrayBuffer>>` backed by the file opened in read-only mode. This stream has a one-to-one correspondence with the file descriptor.
 	 * @throws The Promise will be rejected with an error, if the specified entry does not exist, if the entry is a directory, or if the read permission is missing.
@@ -1854,7 +1861,7 @@ export class AndroidFs {
 	 * - When the provided AbortSignal fires an abort event.
 	 * 
 	 * @param uri - The URI or path of the file to read. 
-	 * @param options - Optional settings: `encoding`, `fatal`, `ignoreBOM`, `maxLineByteLength`, `bufferByteLength`, `signal`, `freezeSize`. See `AndroidOpenReadTextFileLinesStreamOptions` for detailed descriptions of each item.
+	 * @param options - Optional settings: `encoding`, `fatal`, `ignoreBOM`, `maxLineByteLength`, `bufferByteLength`, `signal`. See `AndroidOpenReadTextFileLinesStreamOptions` for detailed descriptions of each item.
 	 * 
 	 * @returns A Promise that resolves to a `ReadableStream<AndroidOpenReadTextFileLinesStreamItem>` backed by the file opened in read-only mode. This stream has a one-to-one correspondence with the file descriptor.
 	 * @throws The Promise will be rejected with an error, if the specified entry does not exist, if the entry is a directory, or if the read permission is missing.
@@ -1869,7 +1876,7 @@ export class AndroidFs {
 
 		throwIfAborted(options?.signal)
 		const maxLineByteLength = mapMaxLineByteLength(options?.maxLineByteLength)
-		const bufferSize = mapBufferByteLengthForInput(options?.bufferByteLength)
+		const bufferByteLength = mapBufferByteLengthForInput(options?.bufferByteLength)
 		const label = mapEncodingLabelForInput(options?.encoding)
 		const fatal = options?.fatal ?? false
 		const ignoreBOM = options?.ignoreBOM ?? false
@@ -1883,7 +1890,7 @@ export class AndroidFs {
 			await open({ label, maxLineByteLength, ignoreBOM })
 			return createTextLinesReadableStream(
 				{
-					read: () => read(bufferSize),
+					read: () => read(bufferByteLength),
 					release: close
 				},
 				{ label, fatal },
@@ -1899,7 +1906,7 @@ export class AndroidFs {
 	/**
 	 * Opens the file with write mode and resolves to a `WritableStream`.  
 	 * Existing content of the file will be truncated.  
-		 * 
+	 * 
 	 * The returned `WritableStream` must always be released by the caller.
 	 * Failure to do so may cause file resource leaks.
 	 * The returned WritableStream is released in the following cases:
@@ -2090,11 +2097,13 @@ export class AndroidFs {
 
 	/**
 	 * Writes bytes to the file.   
-	 * Existing content of the file will be truncated.   
+	 * Existing content of the file will be truncated.  
 	 * 
-	 * @param uri - The URI or path of the file to write to. If the path is specified and the entry does not exist, a new file will be created.
-	 * @param data - The bytes to write, either as a `Uint8Array` or a `ReadableStream<Uint8Array>`.
-	 * @param options - Optional settings: `bufferByteLength`, `create`. See `AndroidWriteFileOptions` for detailed descriptions of each item.
+	 * If you want to write `ReadableStream`, use `AndroidFs.openWriteFileStream`.
+	 * 
+	 * @param uri - The URI or path of the file to write to. 
+	 * @param data - The bytes to write.
+	 * @param options - Optional settings: `create`. See `AndroidWriteFileOptions` for detailed descriptions of each item.
 	 * 
 	 * @returns A Promise that resolves when the data has been successfully written.
 	 * 
@@ -2103,12 +2112,11 @@ export class AndroidFs {
 	 */
 	public static async writeFile(
 		uri: AndroidFsUri | FsPath,
-		data: Uint8Array<ArrayBufferLike> | ReadableStream<Uint8Array<ArrayBufferLike>>,
+		data: Uint8Array<ArrayBufferLike>,
 		options?: AndroidWriteFileOptions
 	): Promise<void> {
 
 		const create = options?.create ?? true
-		const bufferByteLength = mapBufferByteLengthForInput(options?.bufferByteLength)
 		const { open, write, close } = await resolveWriteFileStreamEvents(
 			"plugin:android-fs|write_file",
 			mapFsPathForInput(uri),
@@ -2117,26 +2125,12 @@ export class AndroidFs {
 
 		try {
 			await open()
-			if (data instanceof Uint8Array) {
-				await write(data)
-			}
-			else if (data instanceof ReadableStream) {
-				const writer = createWritableStream(
-					{ write },
-					{
-						bufferSize: bufferByteLength,
-						strictBufferSize: false,
-						useBufferView: true,
-					},
-				)
-				await data.pipeTo(writer)
-			}
-			else {
-				throw new Error("Unsupprted data type")
-			}
-		}
-		finally {
+			await write(data)
 			await close()
+		}
+		catch (e) {
+			await close().catch(() => { })
+			throw e
 		}
 	}
 
@@ -2165,7 +2159,7 @@ export class AndroidFs {
 			uri: mapFsPathForInput(uri),
 			create,
 
-			// Android で body や ArrayBuffer, number などを送信すると
+			// Android で body として ArrayBuffer, number などを送信すると
 			// 非常に非効率な文字列にシリアライズされ、著しく非効率になる。
 			// よって plugin-fs のようにエンコードした後の ArrayBuffer を body として送ることはしない。
 			// https://github.com/tauri-apps/tauri/issues/10573
@@ -2317,15 +2311,29 @@ export class AndroidFs {
 	 * Retrieves metadata and URIs for the child files and subdirectories of the specified directory.
 	 * 
 	 * @param uri - The URI of the direcotry to read.
+	 * @param options - Optional settings: `offset`, `limit`.
+	 * @param options.offset - Number of entries to skip from the beginning. Defaults to `0`.
+	 * @param options.limit - Maximum number of entries to get. If omitted, all available entries starting from `offset` are returned.
 	 * 
-	 * @returns A Promise that resolves to an array of entries, each containing metadata and the URI of a file or directory.
+	 * @returns A Promise that resolves to an array of entries, each containing metadata and the URI of a file or directory. The order of the entries depends on the file provider.  
 	 * @throws The Promise will be rejected with an error, if the entry does not exist, if the entry is not a directory, if read permission is missing.
 	 * 
 	 * @see [AndroidFs::read_dir](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.read_dir)
 	 * @since 22.0.0
 	 */
-	public static async readDir(uri: AndroidFsUri): Promise<AndroidEntryMetadataWithUri[]> {
-		const entries = await invoke<AndroidEntryMetadataWithUriInner[]>('plugin:android-fs|read_dir', { uri })
+	public static async readDir(
+		uri: AndroidFsUri,
+		options?: AndroidReadDirOptons
+	): Promise<AndroidEntryMetadataWithUri[]> {
+
+		const offset = options?.offset ?? null
+		const limit = options?.limit ?? null
+		const entries = await invoke<AndroidEntryMetadataWithUriInner[]>('plugin:android-fs|read_dir', {
+			uri,
+			offset,
+			limit,
+		})
+
 		const buffer: AndroidEntryMetadataWithUri[] = new Array(entries.length)
 
 		for (let i = 0; i < entries.length; i++) {
@@ -2582,63 +2590,6 @@ export class AndroidFs {
 	public static async releaseAllPersistedPickerUriPermissions(): Promise<void> {
 		return await invoke("plugin:android-fs|release_all_persisted_picker_uri_permissions")
 	}
-
-
-	/**
-	 * @deprecated Use `AndroidFs.createDir` instead.
-	 */
-	public static async createDirAll(
-		baseDirUri: AndroidFsUri,
-		relativePath: string,
-	): Promise<AndroidFsUri> {
-
-		return await invoke('plugin:android-fs|create_dir_all', {
-			baseDirUri,
-			relativePath,
-		})
-	}
-
-	/**
-	 * @deprecated Use `AndroidFs.getThumbnailAsDataURL` instead.
-	 */
-	public static async getThumbnailDataUrl(
-		uri: AndroidFsUri | FsPath,
-		width: number,
-		height: number,
-		options?: AndroidGetThumbnailOptions
-	): Promise<string | null> {
-
-		const format: AndroidThumbnailFormat = options?.format ?? "jpeg"
-		const thumbnail = await invoke<ArrayBuffer>('plugin:android-fs|get_thumbnail_data_url', {
-			uri: mapFsPathForInput(uri),
-			width,
-			height,
-			format
-		})
-
-		return thumbnail.byteLength === 0 ? null : decodeUtf8(thumbnail)
-	}
-
-	/**
-	 * @deprecated Use `AndroidFs.getThumbnailAsBase64` instead.
-	 */
-	public static async getThumbnailBase64(
-		uri: AndroidFsUri | FsPath,
-		width: number,
-		height: number,
-		options?: AndroidGetThumbnailOptions
-	): Promise<string | null> {
-
-		const format: AndroidThumbnailFormat = options?.format ?? "jpeg"
-		const thumbnail = await invoke<ArrayBuffer>('plugin:android-fs|get_thumbnail_base64', {
-			uri: mapFsPathForInput(uri),
-			width,
-			height,
-			format
-		})
-
-		return thumbnail.byteLength === 0 ? null : decodeUtf8(thumbnail)
-	}
 }
 
 
@@ -2700,27 +2651,24 @@ async function resolveReadFileStreamEvents(
 	}
 
 
-	let id: number | null = null
+	let id: Promise<number> | null = null
 
 	return {
 		open: async (ops) => {
 			if (id !== null) throw new Error("File already opened")
-			const idBytes = await dispatch("Open", {
-				...ops,
-				uri,
-			})
-			id = ridFromBytes(idBytes)
+			id = dispatch("Open", { ...ops, uri }).then(ridFromBytes)
+			await id
 		},
 
 		read: async (len, ops) => {
 			if (id === null) throw new Error("File not opened")
-			const data = await dispatch("Read", { ...ops, id, len, })
+			const data = await dispatch("Read", { ...ops, id: await id, len, })
 			return data.byteLength === 0 ? null : new Uint8Array(data)
 		},
 
 		close: async (ops) => {
 			if (id === null) return
-			await dispatch("Close", { ...ops, id })
+			await dispatch("Close", { ...ops, id: await id })
 		}
 	}
 }
@@ -2752,28 +2700,30 @@ async function resolveWriteFileStreamEvents(
 
 	const PAYLOAD_FOR_CHECKING_RAW_IPC_REQUEST_BODY_SUPPROTED = new Uint8Array([0]);
 
-	let id: string | null = null
-	let supportsRawIpcRequestBody: boolean | null = null
+	let state: Promise<{ id: string, supportsRawIpcRequestBody: boolean }> | null = null
 
 	return {
 		open: async () => {
-			if (id !== null) throw new Error("File already opened")
-
-			const res = await dispatch("Open",
+			if (state !== null) throw new Error("File already opened")
+			state = dispatch(
+				"Open",
 				PAYLOAD_FOR_CHECKING_RAW_IPC_REQUEST_BODY_SUPPROTED,
 				{
 					uri: encodeURIComponent(JSON.stringify(uri)),
 					options: encodeURIComponent(JSON.stringify(options)),
 				}
-			)
-
-			supportsRawIpcRequestBody = res.supportsRawIpcRequestBody
-			id = res.id.toString()
+			).then(res => {
+				return {
+					id: res.id.toString(),
+					supportsRawIpcRequestBody: res.supportsRawIpcRequestBody
+				}
+			})
+			await state
 		},
 
 		write: async (chunk) => {
-			if (id === null) throw new Error("File not opened")
-			if (supportsRawIpcRequestBody === null) throw new Error("Missing value: supportsRawIpcRequestBody")
+			if (state === null) throw new Error("File not opened")
+			const { id, supportsRawIpcRequestBody } = await state
 
 			if (supportsRawIpcRequestBody) {
 				await dispatch("Write", chunk, { id })
@@ -2789,15 +2739,15 @@ async function resolveWriteFileStreamEvents(
 		},
 
 		close: async () => {
-			if (id === null) return
-			await dispatch("Close", {}, { id })
+			if (state === null) return
+			await dispatch("Close", {}, { id: (await state).id })
 		},
 	}
 }
 
 function createTextLinesReadableStream(
 	handler: {
-		/** null か空で EOF。 */
+		/** null か空で EOF */
 		read: () => Promise<Uint8Array<ArrayBuffer> | null>,
 		release?: () => Promise<void>
 	},
@@ -2806,10 +2756,7 @@ function createTextLinesReadableStream(
 		label?: string,
 	},
 	signal?: AbortSignal
-): ReadableStream<{
-	line: string,
-	lineBreak: "\n" | "\r\n" | null
-}> {
+): ReadableStream<{ line: string, lineBreak: "\n" | "\r\n" | null }> {
 
 	/*
 	 * bytes は以下の形式のレコードが連続したものであり、
@@ -2906,7 +2853,7 @@ function createTextLinesReadableStream(
 
 				const errFlag = buffer[ERR_FLAG_OFFSET]
 				if (numToFlag(errFlag)) {
-					throw new Error((new TextDecoder("utf-8")).decode(lineBytes))
+					throw new Error(decodeUtf8(lineBytes))
 				}
 
 				const lineBreakType = buffer[LINE_BREAK_TYPE_OFFSET]

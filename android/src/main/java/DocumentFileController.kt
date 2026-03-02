@@ -76,24 +76,21 @@ class DocumentFileController(private val activity: Activity): FileController {
         throw Exception("No permission or file: ${uri.uri}")
     }
 
-    override fun readDir(dirUri: AFUri, options: ReadDirEntryOptions): JSArray {
+    override fun readDir(dirUri: AFUri, options: ReadDirEntryOptions, offset: ULong, limit: ULong?): JSArray {
         val queryTarget = mutableListOf(DocumentsContract.Document.COLUMN_MIME_TYPE)
-        if (options.uri) {
-            queryTarget.add(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
-        }
-        if (options.lastModified) {
-            queryTarget.add(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
-        }
-        if (options.name) {
-            queryTarget.add(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
-        }
-        if (options.len) {
-            queryTarget.add(DocumentsContract.Document.COLUMN_SIZE)
-        }
+        if (options.uri) queryTarget.add(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+        if (options.lastModified) queryTarget.add(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+        if (options.name) queryTarget.add(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+        if (options.len) queryTarget.add(DocumentsContract.Document.COLUMN_SIZE)
 
         val topTreeUriString = dirUri.documentTopTreeUri!!
         val topTreeUri = Uri.parse(dirUri.documentTopTreeUri!!)
-        val cursor = activity.contentResolver.query(
+        val offsetInt = minOf(offset, Int.MAX_VALUE.toULong()).toInt()
+        val limitInt = if (limit == null) { null } else { minOf(limit, Int.MAX_VALUE.toULong()).toInt() }
+
+        // DocumentsContract の query では selectionArgs や Bundle を用いて limit や offset を指定しても無視される。
+        // よってこれらは使わない。
+        activity.contentResolver.query(
             DocumentsContract.buildChildDocumentsUriUsingTree(
                 topTreeUri,
                 DocumentsContract.getDocumentId(Uri.parse(dirUri.uri))
@@ -102,48 +99,50 @@ class DocumentFileController(private val activity: Activity): FileController {
             null,
             null,
             null
-        )
+        )?.use {
 
-        val buffer = JSArray()
+            val idIdx = it.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+            val mimeTypeIdx = it.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
+            val nameIdx = it.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+            val lastModifiedIdx = it.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+            val sizeIdx = it.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
 
-        cursor?.use {
-            val idColumnIndex = it.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
-            val mimeTypeColumnIndex = it.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
-            val nameColumnIndex = it.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
-            val lastModifiedColumnIndex = it.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
-            val sizeColumnIndex = it.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
-
-            while (it.moveToNext()) {
-                val obj = JSObject()
-
-                if (options.uri) {
-                    obj.put("uri", JSObject().apply {
-                        val id = it.getString(idColumnIndex)
-                        val uri = DocumentsContract.buildDocumentUriUsingTree(topTreeUri, id)
-                        put("uri", uri.toString())
-                        put("documentTopTreeUri", topTreeUriString)
+            val buffer = JSArray()
+            if (limitInt != 0 && it.moveToPosition(offsetInt)) {
+                while (true) {
+                    buffer.put(JSObject().apply {
+                        if (options.uri) {
+                            put("uri", JSObject().apply {
+                                val id = it.getString(idIdx)
+                                val uri = DocumentsContract.buildDocumentUriUsingTree(topTreeUri, id)
+                                put("uri", uri.toString())
+                                put("documentTopTreeUri", topTreeUriString)
+                            })
+                        }
+                        if (options.name) put("name", it.getString(nameIdx))
+                        if (options.lastModified) put("lastModified", it.getLongOrNull(lastModifiedIdx) ?: 0)
+                        val mimeType = it.getStringOrNull(mimeTypeIdx) ?: "application/octet-stream"
+                        if (mimeType != DocumentsContract.Document.MIME_TYPE_DIR) {
+                            put("mimeType", mimeType)
+                            if (options.len) {
+                                put("len", it.getLongOrNull(sizeIdx) ?: 0)
+                            }
+                        }
                     })
-                }
-                if (options.name) {
-                    obj.put("name", it.getString(nameColumnIndex))
-                }
-                if (options.lastModified) {
-                    obj.put("lastModified", it.getLongOrNull(lastModifiedColumnIndex) ?: 0)
-                }
 
-                val mimeType = it.getStringOrNull(mimeTypeColumnIndex) ?: "application/octet-stream"
-                if (mimeType != DocumentsContract.Document.MIME_TYPE_DIR) {
-                    obj.put("mimeType", mimeType)
-                    if (options.len) {
-                        obj.put("len", it.getLongOrNull(sizeColumnIndex) ?: 0)
+                    if (limitInt != null && limitInt <= buffer.length()) {
+                        break
+                    }
+                    if (!it.moveToNext()) {
+                        break
                     }
                 }
-
-                buffer.put(obj)
             }
+
+            return buffer
         }
 
-        return buffer
+        throw Exception("No directory or permission, or invalid state")
     }
 
     override fun getMetadata(uri: AFUri): JSObject {

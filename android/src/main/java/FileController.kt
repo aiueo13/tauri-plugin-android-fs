@@ -11,7 +11,7 @@ interface FileController {
 
     fun getLen(uri: AFUri): Long
 
-    fun readDir(dirUri: AFUri, options: ReadDirEntryOptions): JSArray
+    fun readDir(dirUri: AFUri, options: ReadDirEntryOptions, offset: ULong, limit: ULong?): JSArray
 
     fun getMetadata(uri: AFUri): JSObject
 

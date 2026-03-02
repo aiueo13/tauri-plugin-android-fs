@@ -227,13 +227,22 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn read_dir_with_options(
+    pub fn read_dir(
         &self, 
         uri: &FileUri, 
-        options: EntryOptions
+        options: EntryOptions,
+        range: impl std::ops::RangeBounds<u64>
     ) -> Result<impl Iterator<Item = OptionalEntry>> {
         
-        impl_se!(struct Req<'a> { uri: &'a FileUri, options: Ops });
+        impl_se!(struct Req<'a> { uri: &'a FileUri, options: Ops, offset: &'a str, limit: Option<&'a str>, });
+        // ファイルかフォルダかを知るために mime_type は常に取得する。
+        impl_se!(struct Ops {
+            uri: bool,
+            name: bool,
+            last_modified: bool,
+            len: bool,
+        });
+        impl_de!(struct Res { entries: Vec<Obj> });
         impl_de!(struct Obj {
             uri: Option<FileUri>,
             mime_type: Option<String>,
@@ -241,46 +250,61 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             last_modified: Option<i64>,
             len: Option<i64>, 
         });
-        impl_de!(struct Res { entries: Vec<Obj> });
 
-        // OptionalEntry { mime_type } の値に関わらず
-        // ファイルかフォルダかを知るために mime_type は常に使用する。
-        impl_se!(struct Ops {
-            uri: bool,
-            name: bool,
-            last_modified: bool,
-            len: bool,
-        });
+        let map_entry = move |v: Obj| -> OptionalEntry {
+            let map_time = |millis: i64| -> std::time::SystemTime {
+                use std::time::{UNIX_EPOCH, Duration};
+                
+                UNIX_EPOCH + Duration::from_millis(i64::max(0, millis) as u64)
+            };
 
-        let need_mt = options.mime_type;
-        let options = Ops {
-            uri: options.uri,
-            name: options.name,
-            last_modified: options.last_modified,
-            len: options.len,
-        };
-
-        use std::time::{UNIX_EPOCH, Duration};
-    
-        self.invoke::<Res>("readDir", Req { uri, options })
-            .await
-            .map(|v| v.entries.into_iter())
-            .map(move |v| v.map(move |v| match v.mime_type {
-                // ファイルの時は必ず Some(mime_type) になり、
-                // フォルダの時にのみ None になる。
+            // ファイルの時は必ず Some(mime_type) になり、
+            // フォルダの時にのみ None になる。
+            match v.mime_type {
                 Some(mime_type) => OptionalEntry::File {
                     uri: v.uri,
                     name: v.name,
-                    last_modified: v.last_modified.map(|i| UNIX_EPOCH + Duration::from_millis(i64::max(0, i) as u64)),
+                    last_modified: v.last_modified.map(map_time),
                     len: v.len.map(|i| i64::max(0, i) as u64),
-                    mime_type: if need_mt { Some(mime_type) } else { None },
+                    mime_type: if options.mime_type { Some(mime_type) } else { None },
                 },
                 None => OptionalEntry::Dir {
                     uri: v.uri,
                     name: v.name,
-                    last_modified: v.last_modified.map(|i| UNIX_EPOCH + Duration::from_millis(i as u64)),
+                    last_modified: v.last_modified.map(map_time),
                 }
-            }))
+            }
+        };
+
+
+        let (offset, limit) = range_to_offset_and_len(range); 
+        let entries;
+        // range の要素は u64 で表されているため offset が u64::MAX を超えた場合は
+        // 表現できない範囲として要素ゼロとして扱う。
+        if limit == Some(0) || (u64::MAX as u128) < offset {
+            entries = Vec::new();
+        }
+        else {
+            let offset = saturate_u128_to_u64(offset);
+            let limit = limit.map(saturate_u128_to_u64);
+            let options = Ops {
+                uri: options.uri,
+                name: options.name,
+                last_modified: options.last_modified,
+                len: options.len,
+            };
+
+            entries = self.invoke::<Res>("readDir", Req {
+                    uri, 
+                    options, 
+                    offset: &offset.to_string(), 
+                    limit: limit.map(|l| l.to_string()).as_deref()
+                })
+                .await?
+                .entries
+        }
+
+        Ok(entries.into_iter().map(map_entry))
     }
 
     #[maybe_async]

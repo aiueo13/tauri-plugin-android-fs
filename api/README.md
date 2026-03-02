@@ -10,8 +10,8 @@ First, install this plugin to your Tauri project:
 
 ```toml
 [dependencies]
-tauri-plugin-android-fs = { version = "=26.1.0", features = [
-    # For `AndroidFs.createNewPublicFile` and related APIs
+tauri-plugin-android-fs = { version = "=27.0.0", features = [
+    # For `AndroidFs.createNewPublicFile` and related APIs on Android 9 or lower
     "legacy_storage_permission"
 ] }
 ```
@@ -44,11 +44,11 @@ Then, set the APIs that can be called from the Javascript:
 Finally, install the JavaScript Guest bindings using whichever JavaScript package manager you prefer:
 
 ```bash
-pnpm add tauri-plugin-android-fs-api@26.1.0 -E
+pnpm add tauri-plugin-android-fs-api@27.0.0 -E
 # or
-npm install tauri-plugin-android-fs-api@26.1.0 --save-exact
+npm install tauri-plugin-android-fs-api@27.0.0 --save-exact
 # or
-yarn add tauri-plugin-android-fs-api@26.1.0 --exact
+yarn add tauri-plugin-android-fs-api@27.0.0 --exact
 ```
 
 **NOTE**: Please make sure that the Rust-side `tauri-plugin-android-fs` and the JavaScript-side `tauri-plugin-android-fs-api` versions match exactly.
@@ -57,26 +57,53 @@ yarn add tauri-plugin-android-fs-api@26.1.0 --exact
 This plugin operates on files and directories via URIs rather than paths.  
 
 ```typescript
-import { AndroidFs, AndroidPublicGeneralPurposeDir } from 'tauri-plugin-android-fs-api';
+import { AndroidFs, AndroidPublicImageDir } from 'tauri-plugin-android-fs-api';
 
-/**
- * Save the text to '~/Download/MyApp/{fileName}'
+/** 
+ * Saves an image to '~/Pictures/MyApp/{fileName}'
  */
-async function saveText(fileName: string, data: string): Promise<void> {
-    const baseDir = AndroidPublicGeneralPurposeDir.Download;
-    const relativePath = `MyApp/${fileName}`;
-    const mimeType = "text/plain";
+async function saveImage(
+	fileName: string,
+	mimeType: string,
+	data: Uint8Array | ReadableStream<Uint8Array>,
+): Promise<void> {
 
-    const uri = await AndroidFs.createNewPublicFile(baseDir, relativePath, mimeType);
+	let uri;
+	try {
+		// Creates a new empty file
+		uri = await AndroidFs.createNewPublicImageFile(
+			AndroidPublicImageDir.Pictures,
+			`MyApp/${fileName}`,
+			mimeType,
+			{ isPending: true }
+		);
 
-    try {
-        await AndroidFs.writeTextFile(uri, data);
-        await AndroidFs.scanPublicFile(uri);
-    }
-    catch (e) {
-        await AndroidFs.removeFile(uri).catch(() => {});
-        throw e;
-    }
+		// Writes data to the file
+		if (data instanceof Uint8Array) {
+			await AndroidFs.writeFile(uri, data);
+		}
+		else if (data instanceof ReadableStream) {
+			const writer = await AndroidFs.openWriteFileStream(uri);
+			await data.pipeTo(writer);
+		}
+		else {
+			throw new TypeError("Unsupported data type");
+		}
+
+		// Makes the file visible in other apps and gallery
+		await AndroidFs.setPublicFilePending(uri, false);
+		await AndroidFs.scanPublicFile(uri);
+	}
+	// Handles error and cleanup
+	catch (e) {
+		if (data instanceof ReadableStream) {
+			await data.cancel(e).catch(() => { });
+		}
+		if (uri != null) {
+			await AndroidFs.removeFile(uri).catch(() => { });
+		}
+		throw e;
+	}
 }
 ```
 

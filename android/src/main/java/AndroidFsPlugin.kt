@@ -955,13 +955,22 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         class Args {
             lateinit var uri: AFUri
             lateinit var options: ReadDirEntryOptions
+            var offset: String? = null
+            var limit: String? = null
         }
 
         scope.launch {
             try {
                 val args = invoke.parseArgs(Args::class.java)
+                val entries = getFileController(args.uri).readDir(
+                    args.uri,
+                    args.options,
+                    args.offset.let { it?.toULong() } ?: 0UL,
+                    args.limit.let { it?.toULong() },
+                )
+
                 val res = JSObject().apply {
-                    put("entries", getFileController(args.uri).readDir(args.uri, args.options))
+                    put("entries", entries)
                 }
 
                 invoke.resolve(res)

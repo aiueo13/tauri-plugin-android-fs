@@ -24,11 +24,22 @@ class RawFileController: FileController {
         return entry.length()
     }
 
-    override fun readDir(dirUri: AFUri, options: ReadDirEntryOptions): JSArray {
+    override fun readDir(dirUri: AFUri, options: ReadDirEntryOptions, offset: ULong, limit: ULong?): JSArray {
         val dir = File(Uri.parse(dirUri.uri).path!!)
         val buffer = JSArray()
+        var i = 0UL
 
         for (file in dir.listFiles()!!) {
+            if (i < offset) {
+                i++
+                continue
+            }
+            if (limit != null && limit <= (i - offset)) {
+                break
+            }
+            i++
+
+
             val obj = JSObject()
 
             if (options.uri) {

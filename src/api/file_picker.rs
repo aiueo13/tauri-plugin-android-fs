@@ -567,12 +567,14 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// # Support
     /// All Android version.
     #[maybe_async]
-    pub fn get_all_persisted_uri_permissions(&self) -> Result<impl Iterator<Item = PersistedUriPermissionState>> {
+    pub fn get_all_persisted_uri_permissions(&self) -> Result<Vec<PersistedUriPermissionState>> {
         #[cfg(not(target_os = "android"))] {
-            Err::<std::iter::Empty<_>, _>(Error::NOT_ANDROID)
+            Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().get_all_persisted_picker_uri_permissions().await
+            self.impls()
+                .get_all_persisted_picker_uri_permissions().await
+                .map(|v| v.collect())
         }
     }
 

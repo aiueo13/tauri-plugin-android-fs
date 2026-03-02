@@ -115,11 +115,6 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             cmds::show_share_file_dialog,
             cmds::show_view_file_dialog,
             cmds::show_view_dir_dialog,
-
-            // Deprecated
-            cmds::create_dir_all,
-            cmds::get_thumbnail_base64,
-            cmds::get_thumbnail_data_url,
         ])
         .build()
 }

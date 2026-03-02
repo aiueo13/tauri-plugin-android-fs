@@ -200,32 +200,6 @@ Denies the create_dir command without any pre-configured scope.
 <tr>
 <td>
 
-`android-fs:allow-create-dir-all`
-
-</td>
-<td>
-
-Enables the create_dir_all command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-fs:deny-create-dir-all`
-
-</td>
-<td>
-
-Denies the create_dir_all command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
 `android-fs:allow-create-new-file`
 
 </td>
@@ -609,58 +583,6 @@ Enables the get_thumbnail_as_data_url command without any pre-configured scope.
 <td>
 
 Denies the get_thumbnail_as_data_url command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-fs:allow-get-thumbnail-base64`
-
-</td>
-<td>
-
-Enables the get_thumbnail_base64 command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-fs:deny-get-thumbnail-base64`
-
-</td>
-<td>
-
-Denies the get_thumbnail_base64 command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-fs:allow-get-thumbnail-data-url`
-
-</td>
-<td>
-
-Enables the get_thumbnail_data_url command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-fs:deny-get-thumbnail-data-url`
-
-</td>
-<td>
-
-Denies the get_thumbnail_data_url command without any pre-configured scope.
 
 </td>
 </tr>

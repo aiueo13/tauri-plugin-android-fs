@@ -379,18 +379,6 @@
           "markdownDescription": "Denies the create_dir command without any pre-configured scope."
         },
         {
-          "description": "Enables the create_dir_all command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-create-dir-all",
-          "markdownDescription": "Enables the create_dir_all command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the create_dir_all command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-create-dir-all",
-          "markdownDescription": "Denies the create_dir_all command without any pre-configured scope."
-        },
-        {
           "description": "Enables the create_new_file command without any pre-configured scope.",
           "type": "string",
           "const": "allow-create-new-file",
@@ -569,30 +557,6 @@
           "type": "string",
           "const": "deny-get-thumbnail-as-data-url",
           "markdownDescription": "Denies the get_thumbnail_as_data_url command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the get_thumbnail_base64 command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-get-thumbnail-base64",
-          "markdownDescription": "Enables the get_thumbnail_base64 command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the get_thumbnail_base64 command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-get-thumbnail-base64",
-          "markdownDescription": "Denies the get_thumbnail_base64 command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the get_thumbnail_data_url command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-get-thumbnail-data-url",
-          "markdownDescription": "Enables the get_thumbnail_data_url command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the get_thumbnail_data_url command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-get-thumbnail-data-url",
-          "markdownDescription": "Denies the get_thumbnail_data_url command without any pre-configured scope."
         },
         {
           "description": "Enables the get_type command without any pre-configured scope.",

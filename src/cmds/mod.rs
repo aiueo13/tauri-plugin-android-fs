@@ -744,7 +744,7 @@ pub async fn open_read_text_file_lines_stream<R: tauri::Runtime>(
                     let res: FileReaderResource = std::sync::Mutex::new(res);
                     let id = resources.add(res)?;
 
-                    ReadFileStreamEventOutput::Open(id).try_into()
+                    ReadTextFileLinesStreamEventOutput::Open(id).try_into()
                 }).await?
             }
             ReadTextFileLinesStreamEventInput::Read { id, len } => {
@@ -1040,6 +1040,8 @@ pub async fn truncate_file<R: tauri::Runtime>(
 #[tauri::command]
 pub async fn read_dir<R: tauri::Runtime>(
     uri: FileUri,
+    offset: Option<u64>,
+    limit: Option<u64>,
     app: tauri::AppHandle<R>
 ) -> Result<Vec<impl Serialize>> {
 
@@ -1075,7 +1077,13 @@ pub async fn read_dir<R: tauri::Runtime>(
         uri.require_content_uri()?;
 
         let api = app.android_fs_async();
-        let entries = api.read_dir(&uri).await?;
+        let start = offset.unwrap_or(0);
+        let end = limit.map(|limit| start.saturating_add(limit));
+        let entries = match end {
+            Some(end) => api.read_dir_with_range(&uri, start..end).await?,
+            None => api.read_dir_with_range(&uri, start..).await?,
+        };
+
         let mut buffer = Vec::new();
 
         for entry in entries {
@@ -1484,45 +1492,4 @@ pub async fn show_save_file_picker<R: tauri::Runtime>(
             local_only
         ).await
     }
-}
-
-
-// Deprecated
-
-#[tauri::command]
-pub async fn create_dir_all<R: tauri::Runtime>(
-    base_dir_uri: FileUri,
-    relative_path: String,
-    app: tauri::AppHandle<R>
-) -> Result<FileUri> {
-
-    create_dir(base_dir_uri, relative_path, app).await
-}
-
-#[tauri::command]
-pub async fn get_thumbnail_base64<R: tauri::Runtime>(
-    uri: AfsUriOrFsPath,
-    width: f64,
-    height: f64,
-    format: String,
-    app: tauri::AppHandle<R>,
-    cmd_scope: tauri::ipc::CommandScope<Scope>,
-    global_scope: tauri::ipc::GlobalScope<Scope>,
-) -> Result<tauri::ipc::Response> {
-
-    get_thumbnail_as_base64(uri, width, height, format, app, cmd_scope, global_scope).await
-}
-
-#[tauri::command]
-pub async fn get_thumbnail_data_url<R: tauri::Runtime>(
-    uri: AfsUriOrFsPath,
-    width: f64,
-    height: f64,
-    format: String,
-    app: tauri::AppHandle<R>,
-    cmd_scope: tauri::ipc::CommandScope<Scope>,
-    global_scope: tauri::ipc::GlobalScope<Scope>,
-) -> Result<tauri::ipc::Response> {
-
-    get_thumbnail_as_data_url(uri, width, height, format, app, cmd_scope, global_scope).await
 }
