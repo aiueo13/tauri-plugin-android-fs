@@ -1,6 +1,6 @@
 //! Overview and usage is [here](https://crates.io/crates/tauri-plugin-android-fs)
 
-#![allow(unused_variables)]
+#![cfg_attr(not(target_os = "android"), allow(unused_variables))]
 
 mod models;
 mod cmds;
@@ -82,6 +82,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             cmds::scan_public_file,
             cmds::set_public_file_pending,
             cmds::request_public_files_permission,
+            cmds::check_public_files_permission,
             cmds::has_public_files_permission,
             cmds::create_new_file,
             cmds::create_dir,

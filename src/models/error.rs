@@ -85,6 +85,9 @@ enum InnerError {
     ParseInt(std::num::ParseIntError),
 
     #[error(transparent)]
+    ParseBool(std::str::ParseBoolError),
+
+    #[error(transparent)]
     SerdeJson(serde_json::Error),
 
     #[error(transparent)]
@@ -121,6 +124,7 @@ impl_into_err_from_inner!(base64::DecodeError, e => crate::Error { inner: InnerE
 
 impl_into_err_from_inner!(std::io::Error, e => crate::Error { inner: InnerError::Io(e) });
 impl_into_err_from_inner!(std::num::ParseIntError, e => crate::Error { inner: InnerError::ParseInt(e) });
+impl_into_err_from_inner!(std::str::ParseBoolError, e => crate::Error { inner: InnerError::ParseBool(e) });
 impl_into_err_from_inner!(serde_json::Error, e => crate::Error { inner: InnerError::SerdeJson(e) });
 impl_into_err_from_inner!(tauri::Error, e => crate::Error { inner: InnerError::Tauri(e) });
 impl_into_err_from_inner!(tauri::http::header::ToStrError, e => crate::Error { inner: InnerError::TauriHttpHeaderToStr(e) });

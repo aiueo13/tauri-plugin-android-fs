@@ -536,7 +536,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         // その frontend 側の関数の呼び出しがなぜか終了しないことが偶にある。
         // よって遅延を強制的に追加してこれを回避する。
         // https://github.com/aiueo13/tauri-plugin-android-fs/issues/1
-        sleep(std::time::Duration::from_millis(200)).await?;
+        sleep(std::time::Duration::from_millis(200)).await;
 
         result
     }
@@ -571,7 +571,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             .map(|v| v.uris);
 
         // show_pick_file_dialog 内のコメントを参照
-        sleep(std::time::Duration::from_millis(200)).await?;
+        sleep(std::time::Duration::from_millis(200)).await;
 
         result
     }
@@ -591,7 +591,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             .map(|v| v.uris);
 
         // show_pick_file_dialog 内のコメントを参照
-        sleep(std::time::Duration::from_millis(200)).await?;
+        sleep(std::time::Duration::from_millis(200)).await;
 
         result
     }
@@ -611,7 +611,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             .map(|v| v.uri);
 
         // show_pick_file_dialog 内のコメントを参照
-        sleep(std::time::Duration::from_millis(200)).await?;
+        sleep(std::time::Duration::from_millis(200)).await;
 
         result
     }
@@ -640,7 +640,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             .map(|v| v.uri);
 
         // show_pick_file_dialog 内のコメントを参照
-        sleep(std::time::Duration::from_millis(200)).await?;
+        sleep(std::time::Duration::from_millis(200)).await;
 
         result
     }
@@ -670,7 +670,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             .map(|_| ());
 
         // show_pick_file_dialog 内のコメントを参照
-        sleep(std::time::Duration::from_millis(200)).await?;
+        sleep(std::time::Duration::from_millis(200)).await;
 
         result
     }
@@ -689,7 +689,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             .map(|_| ());
 
         // show_pick_file_dialog 内のコメントを参照
-        sleep(std::time::Duration::from_millis(200)).await?;
+        sleep(std::time::Duration::from_millis(200)).await;
 
         result
     }
@@ -708,7 +708,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             .map(|_| ());
 
         // show_pick_file_dialog 内のコメントを参照
-        sleep(std::time::Duration::from_millis(200)).await?;
+        sleep(std::time::Duration::from_millis(200)).await;
 
         result
     }
@@ -727,7 +727,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             .map(|_| ());
 
         // show_pick_file_dialog 内のコメントを参照
-        sleep(std::time::Duration::from_millis(200)).await?;
+        sleep(std::time::Duration::from_millis(200)).await;
 
         result
     }
@@ -740,17 +740,17 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
 
         if result.prompted {
             // show_pick_file_dialog 内のコメントを参照
-            sleep(std::time::Duration::from_millis(200)).await?;
+            sleep(std::time::Duration::from_millis(200)).await;
         }
             
         Ok(result.granted)
     }
 
     #[maybe_async]
-    pub fn has_legacy_storage_permission(&self) -> Result<bool> {
+    pub fn check_legacy_storage_permission(&self) -> Result<bool> {
         impl_de!(struct Res { granted: bool });
 
-        self.invoke::<Res>("hasLegacyStoragePermission", ())
+        self.invoke::<Res>("checkLegacyStoragePermission", ())
             .await
             .map(|res| res.granted)
     }
@@ -973,6 +973,83 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             .insert(ext.to_string(), mime_type.to_owned());
 
         Ok(mime_type)
+    }
+
+    #[maybe_async]
+    pub fn start_progress_notification(
+        &self,
+        icon_type: ProgressNotificationIcon,
+        title: Option<&str>,
+        text: Option<&str>,
+        sub_text: Option<&str>,
+        progress: Option<i32>,
+        progress_max: Option<i32>,
+    ) -> Result<i32> {
+
+        impl_se!(struct Req<'a> { icon_type: ProgressNotificationIcon, title: Option<&'a str>, text: Option<&'a str>, sub_text: Option<&'a str>, progress: Option<i32>, progress_max: Option<i32> });
+        impl_de!(struct Res { id: i32 });
+
+        self.invoke::<Res>("startProgressNotification", Req { icon_type, title, text, sub_text, progress, progress_max })
+            .await
+            .map(|v| v.id)
+    }
+
+    #[maybe_async]
+    pub fn update_progress_notification(
+        &self,
+        id: i32,
+        icon_type: ProgressNotificationIcon,
+        title: Option<&str>,
+        text: Option<&str>,
+        sub_text: Option<&str>,
+        progress: Option<i32>,
+        progress_max: Option<i32>,
+    ) -> Result<()> {
+
+        impl_se!(struct Req<'a> { id: i32, icon_type: ProgressNotificationIcon, title: Option<&'a str>, text: Option<&'a str>, sub_text: Option<&'a str>, progress: Option<i32>, progress_max: Option<i32> });
+            
+        self.invoke::<()>("updateProgressNotification", Req { id, icon_type, title, text, sub_text, progress, progress_max })
+            .await
+    }
+
+    #[maybe_async]
+    pub fn finish_progress_notification(
+        &self,
+        id: i32,
+        icon_type: ProgressNotificationIcon,
+        title: Option<&str>,
+        text: Option<&str>,
+        sub_text: Option<&str>,
+        error: bool,
+    ) -> Result<()> {
+
+        impl_se!(struct Req<'a> { id: i32, icon_type: ProgressNotificationIcon, title: Option<&'a str>, text: Option<&'a str>, sub_text: Option<&'a str>, error: bool });
+            
+        self.invoke::<()>("finishProgressNotification", Req { id, icon_type, title, text, sub_text, error })
+            .await
+    }
+
+    #[maybe_async]
+    pub fn request_notification_permission(&self) -> Result<bool> {
+        impl_de!(struct Res { granted: bool, prompted: bool });
+
+        let result = self.invoke::<Res>("requestNotificationPermission", ()).await?;
+
+        if result.prompted {
+            // show_pick_file_dialog 内のコメントを参照
+            sleep(std::time::Duration::from_millis(200)).await;
+        }
+            
+        Ok(result.granted)
+    }
+
+    #[maybe_async]
+    pub fn check_notification_permission(&self) -> Result<bool> {
+        impl_de!(struct Res { granted: bool });
+
+        self.invoke::<Res>("hasNotificationPermission", ())
+            .await
+            .map(|res| res.granted)
     }
 }
 

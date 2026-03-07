@@ -96,6 +96,32 @@ Denies the check_picker_uri_permission command without any pre-configured scope.
 <tr>
 <td>
 
+`android-fs:allow-check-public-files-permission`
+
+</td>
+<td>
+
+Enables the check_public_files_permission command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-check-public-files-permission`
+
+</td>
+<td>
+
+Denies the check_public_files_permission command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `android-fs:allow-close-all-file-streams`
 
 </td>

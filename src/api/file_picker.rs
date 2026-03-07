@@ -510,7 +510,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     ///     - [`FilePicker::pick_dir`]  
     ///     - [`FilePicker::save_file`]  
     ///     - [`AndroidFs::resolve_file_uri`], [`AndroidFs::resolve_dir_uri`], [`AndroidFs::read_dir`], [`AndroidFs::create_new_file`], [`AndroidFs::create_dir_all`] :  
-    ///     If use URI from thoese fucntions, the permissions of the origin directory URI is persisted, not a entry iteself by this function. 
+    ///     If use URI from thoese fucntions, the permissions of the origin directory URI is persisted, not an entry iteself by this function. 
     ///     Because the permissions and validity period of the descendant entry URIs depend on the origin directory.   
     /// 
     /// # Support
@@ -539,7 +539,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     ///     - [`FilePicker::pick_dir`]  
     ///     - [`FilePicker::save_file`]  
     ///     - [`AndroidFs::resolve_file_uri`], [`AndroidFs::resolve_dir_uri`], [`AndroidFs::read_dir`], [`AndroidFs::create_new_file`], [`AndroidFs::create_dir_all`] :  
-    ///     If use URI from those functions, the permissions of the origin directory URI is checked, not a entry iteself by this function. 
+    ///     If use URI from those functions, the permissions of the origin directory URI is checked, not an entry iteself by this function. 
     ///     Because the permissions and validity period of the descendant entry URIs depend on the origin directory.   
     /// 
     /// - **permission** :  

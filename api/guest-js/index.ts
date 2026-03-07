@@ -145,9 +145,14 @@ export type AndroidGetThumbnailOptions = {
 }
 
 /**
+ * @deprecated Typo in type name. Use `AndroidReadDirOptions` instead.
+ */
+export type AndroidReadDirOptons = AndroidReadDirOptions;
+
+/**
  * Options of `AndroidFs.readDir`
  */
-export type AndroidReadDirOptons = {
+export type AndroidReadDirOptions = {
 
 	/**
 	 * Number of entries to skip from the beginning.
@@ -275,6 +280,20 @@ export type AndroidWriteFileOptions = {
 	 * Defaults to `true`.
 	 */
 	create?: boolean,
+
+	/**
+	 * Configuration for the system progress notification on status bar.
+	 * 
+	 * If this option is omitted, the operation will be performed silently without any notification.  
+	 * If specified, a progress notification will be displayed in the Android status bar during the operation. 
+	 * 
+	 * You can provide a custom configuration object or use one of the predefined presets:
+	 * - `AndroidProgressNotificationTemplate.Default`
+	 * - `AndroidProgressNotificationTemplate.DefaultDownload`
+	 * - `AndroidProgressNotificationTemplate.DefaultUpload`
+	 * - `AndroidProgressNotificationTemplate.DefaultSave`
+	 */
+	notification?: AndroidProgressNotificationTemplate,
 }
 
 /**
@@ -289,6 +308,20 @@ export type AndroidWriteTextFileOptions = {
 	 * Defaults to `true`.
 	 */
 	create?: boolean,
+
+	/**
+	 * Configuration for the system progress notification on status bar.
+	 * 
+	 * If this option is omitted, the operation will be performed silently without any notification.  
+	 * If specified, a progress notification will be displayed in the Android status bar during the operation. 
+	 * 
+	 * You can provide a custom configuration object or use one of the predefined presets:
+	 * - `AndroidProgressNotificationTemplate.Default`
+	 * - `AndroidProgressNotificationTemplate.DefaultDownload`
+	 * - `AndroidProgressNotificationTemplate.DefaultUpload`
+	 * - `AndroidProgressNotificationTemplate.DefaultSave`
+	 */
+	notification?: AndroidProgressNotificationTemplate,
 }
 
 /**
@@ -303,6 +336,20 @@ export type AndroidCopyFileOptions = {
 	 * Defaults to `true`.
 	 */
 	create?: boolean,
+
+	/**
+	 * Configuration for the system progress notification on status bar.
+	 * 
+	 * If this option is omitted, the operation will be performed silently without any notification.  
+	 * If specified, a progress notification will be displayed in the Android status bar during the operation. 
+	 * 
+	 * You can provide a custom configuration object or use one of the predefined presets:
+	 * - `AndroidProgressNotificationTemplate.Default`
+	 * - `AndroidProgressNotificationTemplate.DefaultDownload`
+	 * - `AndroidProgressNotificationTemplate.DefaultUpload`
+	 * - `AndroidProgressNotificationTemplate.DefaultSave`
+	 */
+	notification?: AndroidProgressNotificationTemplate,
 }
 
 /**
@@ -336,6 +383,20 @@ export type AndroidOpenWriteFileStreamOptions = {
 	 * Defaults to `true`.
 	 */
 	create?: boolean,
+
+	/**
+	 * Configuration for the system progress notification on status bar.
+	 * 
+	 * If this option is omitted, the operation will be performed silently without any notification.  
+	 * If specified, a progress notification will be displayed in the Android status bar during the operation. 
+	 * 
+	 * You can provide a custom configuration object or use one of the predefined presets:
+	 * - `AndroidProgressNotificationContent.Default`
+	 * - `AndroidProgressNotificationContent.DefaultDownload`
+	 * - `AndroidProgressNotificationContent.DefaultUpload`
+	 * - `AndroidProgressNotificationContent.DefaultSave`
+	 */
+	notification?: AndroidProgressNotificationTemplate,
 }
 
 /**
@@ -1137,6 +1198,273 @@ export const AndroidPickerInitialLocation = Object.freeze({
 	},
 } as const)
 
+export const AndroidProgressNotificationIconType = Object.freeze({
+
+	/**
+	 * Application icon
+	 */
+	App: "App",
+
+	/**
+	 * Download icon
+	 */
+	Download: "Download",
+
+	/**
+	 * Upload icon
+	 */
+	Upload: "Upload",
+
+	/**
+	 * Save icon
+	 */
+	Save: "Save",
+} as const);
+
+export type AndroidProgressNotificationIconType = (typeof AndroidProgressNotificationIconType)[keyof typeof AndroidProgressNotificationIconType]
+
+export const AndroidProgressNotificationTemplate = Object.freeze({
+
+	/**
+	 * Default application notification settings.
+	 */
+	Default: Object.freeze({
+		icon: AndroidProgressNotificationIconType.App,
+		title: "{{fileName}}",
+		subTextProgress: "{{progress}}",
+		subTextCompletion: "{{progress}}"
+	} as const satisfies AndroidProgressNotificationTemplate),
+
+	/**
+	 * Default download notification settings.
+	 */
+	DefaultDownload: Object.freeze({
+		icon: AndroidProgressNotificationIconType.Download,
+		title: "{{fileName}}",
+		subTextProgress: "{{progress}}",
+		subTextCompletion: "{{progress}}"
+	} as const satisfies AndroidProgressNotificationTemplate),
+
+	/**
+	 * Default upload notification settings.
+	 */
+	DefaultUpload: Object.freeze({
+		icon: AndroidProgressNotificationIconType.Upload,
+		title: "{{fileName}}",
+		subTextProgress: "{{progress}}",
+		subTextCompletion: "{{progress}}"
+	} as const satisfies AndroidProgressNotificationTemplate),
+
+	/**
+	 * Default save notification settings.
+	 */
+	DefaultSave: Object.freeze({
+		icon: AndroidProgressNotificationIconType.Save,
+		title: "{{fileName}}",
+		subTextProgress: "{{progress}}",
+		subTextCompletion: "{{progress}}"
+	} as const satisfies AndroidProgressNotificationTemplate),
+} as const)
+
+export type AndroidProgressNotificationTemplate = {
+
+	/**
+	 * Icon of the notification.
+	 * 
+	 * One of: `"App"`, `"Download"`, `"Upload"`, `"Save"`.
+	 */
+	icon: AndroidProgressNotificationIconType,
+
+	/**
+	 * Total length of the data in bytes.
+	 * 
+	 * If not specified, the progress bar will be indeterminate mode.
+	 */
+	expectedByteLength?: number,
+
+	/**
+	 * Whether to force the progress bar into an indeterminate state (a continuous loop animation).
+	 */
+	forceIndeterminateProgressBar?: boolean,
+
+	/**
+	 * Title of the notification.
+	 * 
+	 * To set a specific title depending on the state, 
+	 * use `titleProgress`, `titleCompletion`, and `titleFailure`.
+	 *
+	 * The following placeholders are supported:
+	 * - `"{{fileName}}"`: The file name
+	 * - `"{{progress}}"`: Formatted number of bytes processed so far (e.g. `"2.2 KB"`, `"100.1 MB"`)
+	 * - `"{{progressMax}}"`: Formatted total number of bytes (e.g. `"5.0 MB"`, or `"--"` if `expectedByteLength` is undefined)
+	 * - `"{{percentage}}"`: Progress percentage from 0 to 100 (e.g. `"45"`, or `"--"` if `expectedByteLength` is undefined)
+	 * 
+	 * @see [Notification.Builder.setContentTitle](https://developer.android.com/reference/android/app/Notification.Builder#setContentTitle(java.lang.CharSequence))
+	 * @see [Layout of the content title](https://developer.android.com/develop/ui/views/notifications/progress-centric#anatomy)
+	 */
+	title?: string;
+
+	/**
+	 * Title of the notification while the process is in progress.
+	 * 
+	 * The following placeholders are supported:
+	 * - `"{{fileName}}"`: The file name
+	 * - `"{{progress}}"`: Formatted number of bytes processed so far (e.g. `"2.2 KB"`, `"100.1 MB"`)
+	 * - `"{{progressMax}}"`: Formatted total number of bytes (e.g. `"5.0 MB"`, or `"--"` if `expectedByteLength` is undefined)
+	 * - `"{{percentage}}"`: Progress percentage from 0 to 100 (e.g. `"45"`, or `"--"` if `expectedByteLength` is undefined)
+	 * 
+	 * @see [Notification.Builder.setContentTitle](https://developer.android.com/reference/android/app/Notification.Builder#setContentTitle(java.lang.CharSequence))
+	 * @see [Layout of the content title](https://developer.android.com/develop/ui/views/notifications/progress-centric#anatomy)
+	 */
+	titleProgress?: string;
+
+	/**
+	 * Title of the notification upon successful completion.
+	 * 
+	 * The following placeholders are supported:
+	 * - `"{{fileName}}"`: The file name
+	 * - `"{{progress}}"`: Formatted number of bytes processed so far (e.g. `"2.2 KB"`, `"100.1 MB"`)
+	 * - `"{{progressMax}}"`: Formatted total number of bytes (always same as `{{progress}}`)
+	 * - `"{{percentage}}"`: Progress percentage from 0 to 100 (always `"100"`)
+	 * 
+	 * @see [Notification.Builder.setContentTitle](https://developer.android.com/reference/android/app/Notification.Builder#setContentTitle(java.lang.CharSequence))
+	 * @see [Layout of the content title](https://developer.android.com/develop/ui/views/notifications/progress-centric#anatomy)
+	 */
+	titleCompletion?: string;
+
+	/**
+	 * Title of the notification when the process fails.
+	 * 
+	 * The following placeholders are supported:
+	 * - `"{{fileName}}"`: The file name
+	 * - `"{{progress}}"`: Formatted number of bytes processed so far (e.g. `"2.2 KB"`, `"100.1 MB"`)
+	 * - `"{{progressMax}}"`: Formatted total number of bytes (e.g. `"5.0 MB"`, or `"--"` if `expectedByteLength` is undefined)
+	 * - `"{{percentage}}"`: Progress percentage from 0 to 100 (e.g. `"45"`, or `"--"` if `expectedByteLength` is undefined)
+	 * 
+	 * @see [Notification.Builder.setContentTitle](https://developer.android.com/reference/android/app/Notification.Builder#setContentTitle(java.lang.CharSequence))
+	 * @see [Layout of the content title](https://developer.android.com/develop/ui/views/notifications/progress-centric#anatomy)
+	 */
+	titleFailure?: string;
+
+	/**
+	 * Message body of the notification.
+	 * 
+	 * To set a specific message depending on the state, 
+	 * use `textProgress`, `textCompletion`, and `textFailure`.
+	 * 
+	 * The following placeholders are supported:
+	 * - `"{{fileName}}"`: The file name
+	 * - `"{{progress}}"`: Formatted number of bytes processed so far (e.g. `"2.2 KB"`, `"100.1 MB"`)
+	 * - `"{{progressMax}}"`: Formatted total number of bytes (e.g. `"5.0 MB"`, or `"--"` if `expectedByteLength` is undefined)
+	 * - `"{{percentage}}"`: Progress percentage from 0 to 100 (e.g. `"45"`, or `"--"` if `expectedByteLength` is undefined)
+	 * 
+	 * @see [Notification.Builder.setContentText](https://developer.android.com/reference/android/app/Notification.Builder#setContentText(java.lang.CharSequence))
+	 * @see [Layout of the content text](https://developer.android.com/develop/ui/views/notifications/progress-centric#anatomy)
+	 */
+	text?: string;
+
+	/**
+	 * Message body of the notification while the process is in progress.
+	 * 
+	 * The following placeholders are supported:
+	 * - `"{{fileName}}"`: The file name
+	 * - `"{{progress}}"`: Formatted number of bytes processed so far (e.g. `"2.2 KB"`, `"100.1 MB"`)
+	 * - `"{{progressMax}}"`: Formatted total number of bytes (e.g. `"5.0 MB"`, or `"--"` if `expectedByteLength` is undefined)
+	 * - `"{{percentage}}"`: Progress percentage from 0 to 100 (e.g. `"45"`, or `"--"` if `expectedByteLength` is undefined)
+	 * 
+	 * @see [Notification.Builder.setContentText](https://developer.android.com/reference/android/app/Notification.Builder#setContentText(java.lang.CharSequence))
+	 * @see [Layout of the content text](https://developer.android.com/develop/ui/views/notifications/progress-centric#anatomy)
+	 */
+	textProgress?: string;
+
+	/**
+	 * Message body of the notification upon successful completion.
+	 * 
+	 * The following placeholders are supported:
+	 * - `"{{fileName}}"`: The file name
+	 * - `"{{progress}}"`: Formatted number of bytes processed so far (e.g. `"2.2 KB"`, `"100.1 MB"`)
+	 * - `"{{progressMax}}"`: Formatted total number of bytes (always same as `{{progress}}`)
+	 * - `"{{percentage}}"`: Progress percentage from 0 to 100 (always `"100"`)
+	 * 
+	 * @see [Notification.Builder.setContentText](https://developer.android.com/reference/android/app/Notification.Builder#setContentText(java.lang.CharSequence))
+	 * @see [Layout of the content text](https://developer.android.com/develop/ui/views/notifications/progress-centric#anatomy)
+	 */
+	textCompletion?: string;
+
+	/**
+	 * Message body of the notification when the process fails.
+	 * 
+	 * The following placeholders are supported:
+	 * - `"{{fileName}}"`: The file name
+	 * - `"{{progress}}"`: Formatted number of bytes processed so far (e.g. `"2.2 KB"`, `"100.1 MB"`)
+	 * - `"{{progressMax}}"`: Formatted total number of bytes (e.g. `"5.0 MB"`, or `"--"` if `expectedByteLength` is undefined)
+	 * - `"{{percentage}}"`: Progress percentage from 0 to 100 (e.g. `"45"`, or `"--"` if `expectedByteLength` is undefined)
+	 * 
+	 * @see [Notification.Builder.setContentText](https://developer.android.com/reference/android/app/Notification.Builder#setContentText(java.lang.CharSequence))
+	 * @see [Layout of the content text](https://developer.android.com/develop/ui/views/notifications/progress-centric#anatomy)
+	 */
+	textFailure?: string;
+
+	/**
+	 * Sub text of the notification.
+	 * 
+	 * To set a specific sub text depending on the state, 
+	 * use `subTextProgress`, `subTextCompletion`, and `subTextFailure`.
+	 * 
+	 * The following placeholders are supported:
+	 * - `"{{fileName}}"`: The file name
+	 * - `"{{progress}}"`: Formatted number of bytes processed so far (e.g. `"2.2 KB"`, `"100.1 MB"`)
+	 * - `"{{progressMax}}"`: Formatted total number of bytes (e.g. `"5.0 MB"`, or `"--"` if `expectedByteLength` is undefined)
+	 * - `"{{percentage}}"`: Progress percentage from 0 to 100 (e.g. `"45"`, or `"--"` if `expectedByteLength` is undefined)
+	 * 
+	 * @see [Notification.Builder.setSubText](https://developer.android.com/reference/android/app/Notification.Builder#setSubText(java.lang.CharSequence))
+	 * @see [Layout of the sub text](https://developer.android.com/develop/ui/views/notifications/progress-centric#anatomy)
+	 */
+	subText?: string;
+
+	/**
+	 * Sub text of the notification while the process is in progress.
+	 * 
+	 * The following placeholders are supported:
+	 * - `"{{fileName}}"`: The file name
+	 * - `"{{progress}}"`: Formatted number of bytes processed so far (e.g. `"2.2 KB"`, `"100.1 MB"`)
+	 * - `"{{progressMax}}"`: Formatted total number of bytes (e.g. `"5.0 MB"`, or `"--"` if `expectedByteLength` is undefined)
+	 * - `"{{percentage}}"`: Progress percentage from 0 to 100 (e.g. `"45"`, or `"--"` if `expectedByteLength` is undefined)
+	 * 
+	 * @see [Notification.Builder.setSubText](https://developer.android.com/reference/android/app/Notification.Builder#setSubText(java.lang.CharSequence))
+	 * @see [Layout of the sub text](https://developer.android.com/develop/ui/views/notifications/progress-centric#anatomy)
+	 */
+	subTextProgress?: string;
+
+	/**
+	 * Sub text of the notification upon successful completion.
+	 * 
+	 * The following placeholders are supported:
+	 * - `"{{fileName}}"`: The file name
+	 * - `"{{progress}}"`: Formatted number of bytes processed so far (e.g. `"2.2 KB"`, `"100.1 MB"`)
+	 * - `"{{progressMax}}"`: Formatted total number of bytes (always same as `{{progress}}`)
+	 * - `"{{percentage}}"`: Progress percentage from 0 to 100 (always `"100"`)
+	 * 
+	 * @see [Notification.Builder.setSubText](https://developer.android.com/reference/android/app/Notification.Builder#setSubText(java.lang.CharSequence))
+	 * @see [Layout of the sub text](https://developer.android.com/develop/ui/views/notifications/progress-centric#anatomy)
+	 */
+	subTextCompletion?: string;
+
+	/**
+	 * Sub text of the notification when the process fails.
+	 * 
+	 * The following placeholders are supported:
+	 * - `"{{fileName}}"`: The file name
+	 * - `"{{progress}}"`: Formatted number of bytes processed so far (e.g. `"2.2 KB"`, `"100.1 MB"`)
+	 * - `"{{progressMax}}"`: Formatted total number of bytes (e.g. `"5.0 MB"`, or `"--"` if `expectedByteLength` is undefined)
+	 * - `"{{percentage}}"`: Progress percentage from 0 to 100 (e.g. `"45"`, or `"--"` if `expectedByteLength` is undefined)
+	 * 
+	 * @see [Notification.Builder.setSubText](https://developer.android.com/reference/android/app/Notification.Builder#setSubText(java.lang.CharSequence))
+	 * @see [Layout of the sub text](https://developer.android.com/develop/ui/views/notifications/progress-centric#anatomy)
+	 */
+	subTextFailure?: string;
+};
+
 export class AndroidFs {
 
 	private constructor() { }
@@ -1441,11 +1769,11 @@ export class AndroidFs {
 	 * The app can request it by `AndroidFs.requestPublicFilesPermission`.
 	 * 
 	 * @returns A Promise that resolves to a boolean indicating whether the app is allowed to create files in public storage and read/write the files it creates.
-	 * @see [PublicStorage::has_permission](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.request_permission)
-	 * @since 22.0.0
+	 * @see [PublicStorage::check_permission](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.check_permission)
+	 * @since 27.1.0
 	 */
-	public static async hasPublicFilesPermission(): Promise<boolean> {
-		return await invoke('plugin:android-fs|has_public_files_permission')
+	public static async checkPublicFilesPermission(): Promise<boolean> {
+		return await invoke('plugin:android-fs|check_public_files_permission')
 	}
 
 	/**
@@ -1722,7 +2050,7 @@ export class AndroidFs {
 	 * @param options.isPending - Indicates whether the file will be marked as pending. When set to `true`, the app has exclusive access to the file, and it becomes invisible to other apps until `AndroidFs.setPublicFilePending(..., false)` is called. If it remains `true` for more than 7 days, the system will automatically delete the file. Note this is available for Android 11 or higher. If unavailable, this will be ignored. Defaults to `false`.
 	 * 
 	 * @return A Promise that resolves to the URI of the created file, with persisted read and write permissions that depends on `AndroidFs.hasPublicFilesPermission`.
-	 * @throws The Promise will be rejected with an error, if the `mimeType` is not a audio type, if the storage is currently unavailable or the required permission is missing.
+	 * @throws The Promise will be rejected with an error, if the `mimeType` is not an audio type, if the storage is currently unavailable or the required permission is missing.
 	 * 
 	 * @see [PublicStorage::create_new_file](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.create_new_file)
 	 * @since 22.0.0
@@ -1755,7 +2083,7 @@ export class AndroidFs {
 	 * @param relativePath - The file's relative path from the base directory. If a file with the same name already exists, a sequential number is appended to ensure uniqueness. If the directories in this path do not exist, they will be created recursively.
 	 * @param mimeType - The MIME type of the file to create. If `null`, this is inferred from the extension of `relativePath`.
 	 * 
-	 * @returns A Promise that resolves to the URI of the created file, with permissions that depend on the base direcotry.
+	 * @returns A Promise that resolves to the URI of the created file, with permissions that depend on the base directory.
 	 * @throws The Promise will be rejected with an error, if the base directory does not exist, is not a directory, lacks read/write permissions, or if the file provider does not support creating files or directories.
 	 * 
 	 * @see [AndroidFs::create_new_file](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.create_new_file)
@@ -1916,7 +2244,7 @@ export class AndroidFs {
 	 * - When the provided AbortSignal fires an abort event.
 	 * 
 	 * @param uri - The URI or path of the file to write to.
-	 * @param options - Optional settings: `bufferByteLength`, `signal`, `create`. See `AndroidOpenWriteFileStreamOptions` for detailed descriptions of each item.
+	 * @param options - Optional settings: `bufferByteLength`, `signal`, `create`, `notification`. See `AndroidOpenWriteFileStreamOptions` for detailed descriptions of each item.
 	 * 
 	 * @returns A Promise that resolves to a `WritableStream<Uint8Array<ArrayBufferLike>>` backed by the file opened in write mode. This stream has a one-to-one correspondence with the file descriptor.
 	 *
@@ -1930,11 +2258,12 @@ export class AndroidFs {
 
 		throwIfAborted(options?.signal)
 		const create = options?.create ?? true
+		const notification = options?.notification ?? null
 		const bufferByteLength = mapBufferByteLengthForInput(options?.bufferByteLength)
 		const { open, write, close } = await resolveWriteFileStreamEvents(
 			"plugin:android-fs|open_write_file_stream",
 			mapFsPathForInput(uri),
-			{ create }
+			{ create, notification }
 		)
 		throwIfAborted(options?.signal)
 
@@ -1943,7 +2272,7 @@ export class AndroidFs {
 			return createWritableStream(
 				{
 					write,
-					release: close
+					release: (t) => close(t === "Close" ? "Ok" : "Err")
 				},
 				{
 					signal: options?.signal,
@@ -1954,7 +2283,7 @@ export class AndroidFs {
 			)
 		}
 		catch (e) {
-			await close().catch(() => { })
+			await close("Err").catch(() => { })
 			throw e
 		}
 	}
@@ -2103,7 +2432,7 @@ export class AndroidFs {
 	 * 
 	 * @param uri - The URI or path of the file to write to. 
 	 * @param data - The bytes to write.
-	 * @param options - Optional settings: `create`. See `AndroidWriteFileOptions` for detailed descriptions of each item.
+	 * @param options - Optional settings: `create`, `notification`. See `AndroidWriteFileOptions` for detailed descriptions of each item.
 	 * 
 	 * @returns A Promise that resolves when the data has been successfully written.
 	 * 
@@ -2116,20 +2445,22 @@ export class AndroidFs {
 		options?: AndroidWriteFileOptions
 	): Promise<void> {
 
+		const n = options?.notification
+		const notification = n != null ? { ...n, forceIndeterminateProgressBar: true } : null
 		const create = options?.create ?? true
 		const { open, write, close } = await resolveWriteFileStreamEvents(
 			"plugin:android-fs|write_file",
 			mapFsPathForInput(uri),
-			{ create }
+			{ create, notification }
 		)
 
 		try {
 			await open()
 			await write(data)
-			await close()
+			await close("Ok")
 		}
 		catch (e) {
-			await close().catch(() => { })
+			await close("Err").catch(() => { })
 			throw e
 		}
 	}
@@ -2140,7 +2471,7 @@ export class AndroidFs {
 	 * 
 	 * @param uri - The URI or path of the file to write to. If the path is specified and the entry does not exist, a new file will be created.
 	 * @param data - The text data to write.
-	 * @param options - Optional settings: `create`. See `AndroidWriteTextFileOptions` for detailed descriptions of each item.
+	 * @param options - Optional settings: `create`, `notification`. See `AndroidWriteTextFileOptions` for detailed descriptions of each item.
 	 *
 	 * @returns A Promise that resolves when the data has been successfully written.
 	 * 
@@ -2153,18 +2484,24 @@ export class AndroidFs {
 		options?: AndroidWriteTextFileOptions
 	): Promise<void> {
 
+		const n = options?.notification
+		const notification = n != null ? { ...n, forceIndeterminateProgressBar: true } : null
 		const create = options?.create ?? true
+		const { open, write, close } = await resolveWriteFileStreamEvents(
+			"plugin:android-fs|write_text_file",
+			mapFsPathForInput(uri),
+			{ create, notification }
+		)
 
-		return await invoke("plugin:android-fs|write_text_file", {
-			uri: mapFsPathForInput(uri),
-			create,
-
-			// Android で body として ArrayBuffer, number などを送信すると
-			// 非常に非効率な文字列にシリアライズされ、著しく非効率になる。
-			// よって plugin-fs のようにエンコードした後の ArrayBuffer を body として送ることはしない。
-			// https://github.com/tauri-apps/tauri/issues/10573
-			data
-		})
+		try {
+			await open()
+			await write(data)
+			await close("Ok")
+		}
+		catch (e) {
+			await close("Err").catch(() => { })
+			throw e
+		}
 	}
 
 	/**
@@ -2173,7 +2510,7 @@ export class AndroidFs {
 	 * 
 	 * @param srcUri - The URI or path of the source file to copy. 
 	 * @param destUri - The URI or path of the destination file. If the path is specified and the entry does not exist, a new file will be created.
-	 * @param options - Optional settings: `create`. See `AndroidCopyFileOptions` for detailed descriptions of each item.
+	 * @param options - Optional settings: `create`, `notification`. See `AndroidCopyFileOptions` for detailed descriptions of each item.
 	 * 
 	 * @returns A Promise that resolves when the copying is complete.
 	 * 
@@ -2187,11 +2524,13 @@ export class AndroidFs {
 	): Promise<void> {
 
 		const create = options?.create ?? true
+		const notification = options?.notification ?? null
 
 		return await invoke('plugin:android-fs|copy_file', {
 			srcUri: mapFsPathForInput(srcUri),
 			destUri: mapFsPathForInput(destUri),
-			create
+			create,
+			notification,
 		})
 	}
 
@@ -2217,7 +2556,7 @@ export class AndroidFs {
 	 * For URIs from the file picker, all permissions are lost after this operation, including for the new URI.
 	 * 
 	 * @param uri - The URI of the file to rename.
-	 * @param name - New name, including the file extension if needed. If a entry with the same name already exists, a sequential number is appended to ensure uniqueness.
+	 * @param name - New name, including the file extension if needed. If an entry with the same name already exists, a sequential number is appended to ensure uniqueness.
 	 * 
 	 * @returns A Promise that resolves to the new URI of the target file.
 	 * @throws The Promise will be rejected with an error, if the entry does not exist, if the entry is not a file, if write permission is missing, or if the file provider does not support rename.
@@ -2243,7 +2582,7 @@ export class AndroidFs {
 	 * For URIs from the directory picker, all permissions are lost after this operation, including for the new URI.
 	 * 
 	 * @param uri - The URI of the directory to rename.
-	 * @param name- New name. If a entry with the same name already exists, a sequential number is appended to ensure uniqueness.
+	 * @param name - New name. If an entry with the same name already exists, a sequential number is appended to ensure uniqueness.
 	 * 
 	 * @returns A Promise that resolves to the new URI of the target directory.
 	 * @throws The Promise will be rejected with an error, if the entry does not exist, if the entry is not a directory, if write permission is missing, or if the file provider does not support rename.
@@ -2295,7 +2634,7 @@ export class AndroidFs {
 	/**
 	 * Removes the specified directory if empty.
 	 * 
-	 * @param uri - The URI of the direcotry to remove.
+	 * @param uri - The URI of the directory to remove.
 	 * 
 	 * @returns A Promise that resolves when the removing is complete.
 	 * @throws The Promise will be rejected with an error, if the entry does not exist, if the entry is not an empty directory, if write permission is missing, or if the file provider does not support removing.
@@ -2310,7 +2649,7 @@ export class AndroidFs {
 	/**
 	 * Retrieves metadata and URIs for the child files and subdirectories of the specified directory.
 	 * 
-	 * @param uri - The URI of the direcotry to read.
+	 * @param uri - The URI of the directory to read.
 	 * @param options - Optional settings: `offset`, `limit`.
 	 * @param options.offset - Number of entries to skip from the beginning. Defaults to `0`.
 	 * @param options.limit - Maximum number of entries to get. If omitted, all available entries starting from `offset` are returned.
@@ -2323,7 +2662,7 @@ export class AndroidFs {
 	 */
 	public static async readDir(
 		uri: AndroidFsUri,
-		options?: AndroidReadDirOptons
+		options?: AndroidReadDirOptions
 	): Promise<AndroidEntryMetadataWithUri[]> {
 
 		const offset = options?.offset ?? null
@@ -2357,7 +2696,7 @@ export class AndroidFs {
 	 * @param options.pickerType - Preferable picker type. One of: `"FilePicker"`, `"Gallery"`. `"Gallery"` is not necessarily guaranteed to be used. By default, the appropriate option will be selected according to the `mimeTypes`.
 	 * @param options.needWritePermission - Indicates whether write access to the picked files is required. Defaults to `false`.
 	 * @param options.localOnly - Indicates whether only files located on the local device should be pickable. Defaults to `false`.
-	 * @param options.initialLocation - Initial directory when launching the file picker. If this option is omitted or the desired initial location cannot be resolved,the initial location is system-specific. One of: `AndroidPickerInitialLocation.Any(...)`, `AndroidPickerInitialLocation.VolumeTop(...)`, `AndroidPickerInitialLocation.PublicDir(...)`.
+	 * @param options.initialLocation - Initial directory when launching the file picker. If this option is omitted or the desired initial location cannot be resolved, the initial location is system-specific. One of: `AndroidPickerInitialLocation.Any(...)`, `AndroidPickerInitialLocation.VolumeTop(...)`, `AndroidPickerInitialLocation.PublicDir(...)`.
 	 * 
 	 * @returns A Promise that resolves to an array of URI representing the picked files, or an empty array if unpicked. By default, the app has read access to the URIs, and this permission remains valid until the app or device is terminated. The app will be able to gain persistent access to the files by using `AndroidFs.persistPickerUriPermission`.
 	 * 
@@ -2392,7 +2731,7 @@ export class AndroidFs {
 	 * 
 	 * @param options - Optional configuration for the directory picker.
 	 * @param options.localOnly - Indicates whether only directories located on the local device should be pickable. Defaults to `false`.
-	 * @param options.initialLocation - Initial directory when launching the directory picker. If this option is omitted or the desired initial location cannot be resolved,the initial location is system-specific. One of: `AndroidPickerInitialLocation.Any(...)`, `AndroidPickerInitialLocation.VolumeTop(...)`, `AndroidPickerInitialLocation.PublicDir(...)`.
+	 * @param options.initialLocation - Initial directory when launching the directory picker. If this option is omitted or the desired initial location cannot be resolved, the initial location is system-specific. One of: `AndroidPickerInitialLocation.Any(...)`, `AndroidPickerInitialLocation.VolumeTop(...)`, `AndroidPickerInitialLocation.PublicDir(...)`.
 	 * 
 	 * @returns A Promise that resolves to a URI representing the picked directory, or `null` if unpicked. The directory may be a newly created directory, or it may be an existing directory. By default, the app has read-write access to the URI, and this permission remains valid until the app or device is terminated. The app will be able to gain persistent access to the directory by using `AndroidFs.persistPickerUriPermission`. Permissions for entries derived from this directory, such as `AndroidFs.readDir` and `AndroidFs.createNewFile`, depend on the permissions granted to this picked directory itself.
 	 * 
@@ -2419,7 +2758,7 @@ export class AndroidFs {
 	 * @param mimeType - The MIME type of the file to pick. If `null`, this is inferred from the extension of `defaultFileName`.
 	 * @param options - Optional configuration for the file saver.
 	 * @param options.localOnly - Indicates whether only files located on the local device should be pickable. Defaults to `false`.
-	 * @param options.initialLocation - Initial directory when launching the directory picker. If this option is omitted or the desired initial location cannot be resolved,the initial location is system-specific. One of: `AndroidPickerInitialLocation.Any(...)`, `AndroidPickerInitialLocation.VolumeTop(...)`, `AndroidPickerInitialLocation.PublicDir(...)`.
+	 * @param options.initialLocation - Initial directory when launching the directory picker. If this option is omitted or the desired initial location cannot be resolved, the initial location is system-specific. One of: `AndroidPickerInitialLocation.Any(...)`, `AndroidPickerInitialLocation.VolumeTop(...)`, `AndroidPickerInitialLocation.PublicDir(...)`.
 	 * 
 	 * @return A Promise that resolves to a URI representing the picked file, or `null` if unpicked. The file may be a newly created file with no content, or it may be an existing file with the requested MIME type. By default, the app has write access to the URI, and this permission remains valid until the app or device is terminated. The app will be able to gain persistent access to the file by using `AndroidFs.persistPickerUriPermission`.
 	 * 
@@ -2590,6 +2929,14 @@ export class AndroidFs {
 	public static async releaseAllPersistedPickerUriPermissions(): Promise<void> {
 		return await invoke("plugin:android-fs|release_all_persisted_picker_uri_permissions")
 	}
+
+
+	/**
+	 * @deprecated Use `AndroidFs.checkPublicFilesPermission` instead.
+	 */
+	public static async hasPublicFilesPermission(): Promise<boolean> {
+		return await invoke('plugin:android-fs|has_public_files_permission')
+	}
 }
 
 
@@ -2624,9 +2971,13 @@ function mapMaxLineByteLength(s?: number): number {
 }
 
 const UTF8_DECODER = new TextDecoder()
+const UTF8_ENCODER = new TextEncoder()
 
 function decodeUtf8(bytes: AllowSharedBufferSource): string {
 	return UTF8_DECODER.decode(bytes)
+}
+function encodeUtf8(text: string): Uint8Array<ArrayBuffer> {
+	return UTF8_ENCODER.encode(text)
 }
 
 type ReadFileStreamEvents = {
@@ -2675,19 +3026,22 @@ async function resolveReadFileStreamEvents(
 
 type WriteFileStreamEvents = {
 	open: () => Promise<void>,
-	write: (data: Uint8Array<ArrayBufferLike>) => Promise<void>,
-	close: () => Promise<void>,
+	write: (data: Uint8Array<ArrayBufferLike> | string) => Promise<void>,
+	close: (type: "Err" | "Ok") => Promise<void>,
 }
 async function resolveWriteFileStreamEvents(
 	cmd: string,
 	uri: string | AndroidFsUri,
-	options: { create: boolean }
+	options: {
+		create: boolean,
+		notification: AndroidProgressNotificationTemplate | null
+	}
 ): Promise<WriteFileStreamEvents> {
 
 	type CmdEvents = {
 		Open: { body: Uint8Array, headers: { uri: string, options: string }, out: { id: number, supportsRawIpcRequestBody: boolean } },
-		Write: { body: Uint8Array | { data: string }, headers: { id: string }, out: void },
-		Close: { body: {}, headers: { id: string }, out: void },
+		Write: { body: Uint8Array | { data: string, format: "dataUrlToDecodedData" | "textToUtf8" }, headers: { id: string }, out: void },
+		Close: { body: {}, headers: { id: string, error: string }, out: void },
 	}
 	type CmdType = keyof CmdEvents
 	type CmdInputBody<T extends CmdType> = CmdEvents[T]["body"]
@@ -2698,7 +3052,7 @@ async function resolveWriteFileStreamEvents(
 	}
 
 
-	const PAYLOAD_FOR_CHECKING_RAW_IPC_REQUEST_BODY_SUPPROTED = new Uint8Array([0]);
+	const PAYLOAD_FOR_CHECKING_RAW_IPC_REQUEST_BODY_SUPPORTED = new Uint8Array([0]);
 
 	let state: Promise<{ id: string, supportsRawIpcRequestBody: boolean }> | null = null
 
@@ -2707,7 +3061,7 @@ async function resolveWriteFileStreamEvents(
 			if (state !== null) throw new Error("File already opened")
 			state = dispatch(
 				"Open",
-				PAYLOAD_FOR_CHECKING_RAW_IPC_REQUEST_BODY_SUPPROTED,
+				PAYLOAD_FOR_CHECKING_RAW_IPC_REQUEST_BODY_SUPPORTED,
 				{
 					uri: encodeURIComponent(JSON.stringify(uri)),
 					options: encodeURIComponent(JSON.stringify(options)),
@@ -2726,21 +3080,30 @@ async function resolveWriteFileStreamEvents(
 			const { id, supportsRawIpcRequestBody } = await state
 
 			if (supportsRawIpcRequestBody) {
-				await dispatch("Write", chunk, { id })
+				const data = typeof chunk === "string"
+					? encodeUtf8(chunk)
+					: chunk
+
+				await dispatch("Write", data, { id })
 			}
-			// IPC のリクエストで raw Body を送れない場合、
-			// 大きな配列に対して非常に非効率な形式にシリアライズされる。
-			// よって、まだマシな dataURL としてデータを送る。
-			// Data URL を用いる理由は web API の FileReader で比較的効率的に作成できるため。
-			// <https://github.com/tauri-apps/tauri/issues/10573>
 			else {
-				await dispatch("Write", { data: await bytesToDataUrl(chunk) }, { id })
+				if (typeof chunk === "string") {
+					await dispatch("Write", { data: chunk, format: "textToUtf8" }, { id })
+				}
+				// IPC のリクエストで raw Body を送れない場合、
+				// 大きな配列に対して非常に非効率な形式にシリアライズされる。
+				// よって、まだマシな dataURL としてデータを送る。
+				// Data URL を用いる理由は web API の FileReader で比較的効率的に作成できるため。
+				// <https://github.com/tauri-apps/tauri/issues/10573>
+				else {
+					await dispatch("Write", { data: await bytesToDataUrl(chunk), format: "dataUrlToDecodedData" }, { id })
+				}
 			}
 		},
 
-		close: async () => {
+		close: async (t) => {
 			if (state === null) return
-			await dispatch("Close", {}, { id: (await state).id })
+			await dispatch("Close", {}, { id: (await state).id, error: (t === "Err").toString() })
 		},
 	}
 }

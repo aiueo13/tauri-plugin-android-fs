@@ -10,9 +10,11 @@ First, install this plugin to your Tauri project:
 
 ```toml
 [dependencies]
-tauri-plugin-android-fs = { version = "=27.0.0", features = [
+tauri-plugin-android-fs = { version = "=27.1.0", features = [
     # For `AndroidFs.createNewPublicFile` and related APIs on Android 9 or lower
-    "legacy_storage_permission"
+    "legacy_storage_permission",
+    # For notification options
+    "notification_permission"
 ] }
 ```
 
@@ -44,11 +46,11 @@ Then, set the APIs that can be called from the Javascript:
 Finally, install the JavaScript Guest bindings using whichever JavaScript package manager you prefer:
 
 ```bash
-pnpm add tauri-plugin-android-fs-api@27.0.0 -E
+pnpm add tauri-plugin-android-fs-api@27.1.0 -E
 # or
-npm install tauri-plugin-android-fs-api@27.0.0 --save-exact
+npm install tauri-plugin-android-fs-api@27.1.0 --save-exact
 # or
-yarn add tauri-plugin-android-fs-api@27.0.0 --exact
+yarn add tauri-plugin-android-fs-api@27.1.0 --exact
 ```
 
 **NOTE**: Please make sure that the Rust-side `tauri-plugin-android-fs` and the JavaScript-side `tauri-plugin-android-fs-api` versions match exactly.
@@ -56,60 +58,11 @@ yarn add tauri-plugin-android-fs-api@27.0.0 --exact
 # Usage
 This plugin operates on files and directories via URIs rather than paths.  
 
-```typescript
-import { AndroidFs, AndroidPublicImageDir } from 'tauri-plugin-android-fs-api';
-
-/** 
- * Saves an image to '~/Pictures/MyApp/{fileName}'
- */
-async function saveImage(
-	fileName: string,
-	mimeType: string,
-	data: Uint8Array | ReadableStream<Uint8Array>,
-): Promise<void> {
-
-	let uri;
-	try {
-		// Creates a new empty file
-		uri = await AndroidFs.createNewPublicImageFile(
-			AndroidPublicImageDir.Pictures,
-			`MyApp/${fileName}`,
-			mimeType,
-			{ isPending: true }
-		);
-
-		// Writes data to the file
-		if (data instanceof Uint8Array) {
-			await AndroidFs.writeFile(uri, data);
-		}
-		else if (data instanceof ReadableStream) {
-			const writer = await AndroidFs.openWriteFileStream(uri);
-			await data.pipeTo(writer);
-		}
-		else {
-			throw new TypeError("Unsupported data type");
-		}
-
-		// Makes the file visible in other apps and gallery
-		await AndroidFs.setPublicFilePending(uri, false);
-		await AndroidFs.scanPublicFile(uri);
-	}
-	// Handles error and cleanup
-	catch (e) {
-		if (data instanceof ReadableStream) {
-			await data.cancel(e).catch(() => { });
-		}
-		if (uri != null) {
-			await AndroidFs.removeFile(uri).catch(() => { });
-		}
-		throw e;
-	}
-}
-```
-
 When passing URIs to this plugin's functions, no scope configuration is required.  
-Some functions accept not only URIs but also absolute paths. In this case, you need to set the scope configuration, [like in plugin-fs](https://v2.tauri.app/reference/javascript/fs/#security).
+This is because the plugin only provides and accepts URIs whose permissions are already managed by the Android system, such as those explicitly selected by the user through a file picker or files created by the app in public directories.
 
+Some functions accept not only URIs but also absolute paths, including app-specific directories. In this case, you need to set the scope configuration for security, [like in plugin-fs](https://v2.tauri.app/reference/javascript/fs/#security).  
+You can set a global scope for the plugin, or assign specific scopes to individual commands:
 
 `src-tauri/capabilities/*.json`
 ```json
@@ -117,37 +70,83 @@ Some functions accept not only URIs but also absolute paths. In this case, you n
     "permissions": [
         {
             "identifier": "android-fs:scope",
-            "allow": [
-                "$APPDATA/my-data/**/*"
-            ],
-            "deny": [
-                "$APPDATA/my-data/secret.txt"
-            ]
-        }
-    ]
-}
-```
-
-And you can also assign a specific scope to a particular command.
-
-`src-tauri/capabilities/*.json`
-```json
-{
-    "permissions": [
+            "allow": ["$APPDATA/my-data/**/*"],
+            "deny": ["$APPDATA/my-data/secret.txt"]
+        },
         {
             "identifier": "android-fs:allow-copy-file",
-            "allow": [
-                "$APPDATA/my-data/**/*"
-            ],
-            "deny": [
-                "$APPDATA/my-data/secret.txt"
-            ]
+            "allow": ["$APPDATA/my-data/**/*"]
         }
     ]
 }
 ```
 
-**Note**: A dedicated `my-data` subdirectory is used because resolved directories may already contain files created by the WebView system or other Tauri plugins. This helps prevent file name collisions and unintended access.
+# Examples
+
+```typescript
+import { 
+  AndroidFs, 
+  AndroidPublicGeneralPurposeDir, 
+  AndroidProgressNotificationIconType,
+  type AndroidProgressNotificationTemplate 
+} from 'tauri-plugin-android-fs-api';
+
+/** 
+ * Saves the data to '~/Download/MyApp/{fileName}'
+ */
+async function download(
+  fileName: string,
+  mimeType: string,
+  data: Uint8Array | ReadableStream<Uint8Array>,
+): Promise<void> {
+
+  let uri;
+  try {
+    // Creates a new empty file
+    uri = await AndroidFs.createNewPublicFile(
+      AndroidPublicGeneralPurposeDir.Download,
+      `MyApp/${fileName}`,
+      mimeType,
+      { isPending: true }
+    );
+
+    // Configures the system status bar notification (optional)
+    const notification: AndroidProgressNotificationTemplate | undefined = {
+      icon: AndroidProgressNotificationIconType.Download,
+      title: "{{fileName}}",
+      textProgress: "Downloading...",
+      textCompletion: "Download complete",
+      subText: "{{progress}}"
+    };
+
+    // Writes data to the file
+    if (data instanceof Uint8Array) {
+      await AndroidFs.writeFile(uri, data, { notification });
+    }
+    else if (data instanceof ReadableStream) {
+      const writer = await AndroidFs.openWriteFileStream(uri, { notification });
+      await data.pipeTo(writer);
+    }
+    else {
+      throw new TypeError("Unsupported data type");
+    }
+
+    // Makes the file visible in other apps and gallery
+    await AndroidFs.setPublicFilePending(uri, false);
+    await AndroidFs.scanPublicFile(uri);
+  }
+  // Handles error and cleanup
+  catch (e) {
+    if (data instanceof ReadableStream) {
+      await data.cancel(e).catch(() => { });
+    }
+    if (uri != null) {
+      await AndroidFs.removeFile(uri).catch(() => { });
+    }
+    throw e;
+  }
+}
+```
 
 # APIs
 This plugin provides following APIs:
@@ -206,7 +205,7 @@ This plugin provides following APIs:
 - `AndroidFs.checkPersistedPickerUriPermission`
 - `AndroidFs.releasePersistedPickerUriPermission`
 - `AndroidFs.releaseAllPersistedPickerUriPermissions`
-- `AndroidFs.hasPublicFilesPermission`
+- `AndroidFs.checkPublicFilesPermission`
 - `AndroidFs.requestPublicFilesPermission`
 
 ### 7. APIs to send entries to other apps

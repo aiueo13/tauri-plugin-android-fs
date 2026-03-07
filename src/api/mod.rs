@@ -7,6 +7,8 @@ mod file_picker;
 mod app_storage;
 mod private_storage;
 mod public_storage;
+mod utils;
+mod progress_notification_guard;
 mod temp_file_guard;
 
 pub use temp_file_guard::TempFileGuard;
@@ -18,6 +20,8 @@ pub mod api_async {
     pub use crate::api::app_storage::AsyncAppStorage as AppStorage;
     pub use crate::api::private_storage::AsyncPrivateStorage as PrivateStorage;
     pub use crate::api::public_storage::AsyncPublicStorage as PublicStorage;
+    pub use crate::api::utils::AsyncUtils as Utils;
+    pub use crate::api::progress_notification_guard::AsyncProgressNotificationGuard as ProgressNotificationGuard;
 }
 
 pub mod api_sync {
@@ -27,4 +31,6 @@ pub mod api_sync {
     pub use crate::api::app_storage::SyncAppStorage as AppStorage;
     pub use crate::api::private_storage::SyncPrivateStorage as PrivateStorage;
     pub use crate::api::public_storage::SyncPublicStorage as PublicStorage;
+    pub use crate::api::utils::SyncUtils as Utils;
+    pub use crate::api::progress_notification_guard::SyncProgressNotificationGuard as ProgressNotificationGuard;
 }

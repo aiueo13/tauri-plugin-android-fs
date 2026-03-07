@@ -1,6 +1,6 @@
 [package]
 name = "tauri-plugin-android-fs"
-version = "27.0.0"
+version = "27.1.0"
 edition = "2021"
 rust-version = "1.77.2"
 links = "tauri-plugin-android-fs"
@@ -32,6 +32,7 @@ ios = { level = "none", notes = "" }
 
 [features]
 default = []
+notification_permission = []
 legacy_storage_permission = []
 legacy_storage_permission_include_android_10 = []
 

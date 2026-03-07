@@ -313,9 +313,9 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn has_storage_permission_for_public_storage(&self) -> Result<bool> {
+    pub fn check_storage_permission_for_public_storage(&self) -> Result<bool> {
         if self.is_legacy_storage()? {
-            self.has_legacy_storage_permission().await
+            self.check_legacy_storage_permission().await
         }
         else {
             Ok(true)

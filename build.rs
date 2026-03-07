@@ -1,16 +1,6 @@
 #[path = "src/cmds/scope.rs"]
 mod scope;
 
-const PERMISSIONS_FOR_ANDROID_9_OR_LOWER: &'static str = r#"
-<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
-<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
-"#;
-
-const PERMISSIONS_FOR_ANDROID_10_OR_LOWER: &'static str = r#"
-<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
-<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
-"#;
-
 const COMMANDS: &'static [&'static str] = &[
     "get_android_api_level",
     "get_name",
@@ -31,6 +21,7 @@ const COMMANDS: &'static [&'static str] = &[
     "scan_public_file",
     "set_public_file_pending",
     "request_public_files_permission",
+    "check_public_files_permission",
     "has_public_files_permission",
     "create_new_file",
     "create_dir",
@@ -72,26 +63,25 @@ fn main() {
         .global_scope_schema(schemars::schema_for!(scope::ScopeSchema))
         .build();
 
+    let mut permissions = Vec::new();
+
+    if std::env::var("CARGO_FEATURE_NOTIFICATION_PERMISSION").is_ok() {
+        permissions.push(r#"<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />"#);
+    }
+
     if std::env::var("CARGO_FEATURE_LEGACY_STORAGE_PERMISSION_INCLUDE_ANDROID_10").is_ok() {
-        tauri_plugin::mobile::update_android_manifest(
-            "ANDROID FS PLUGIN",
-            "manifest",
-            PERMISSIONS_FOR_ANDROID_10_OR_LOWER.trim().to_string(),
-		).expect("failed to rewrite AndroidManifest.xml");
+        permissions.push(r#"<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />"#);
+        permissions.push(r#"<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" />"#);
     }
 	else if std::env::var("CARGO_FEATURE_LEGACY_STORAGE_PERMISSION").is_ok() {
-        tauri_plugin::mobile::update_android_manifest(
-            "ANDROID FS PLUGIN",
-            "manifest",
-            PERMISSIONS_FOR_ANDROID_9_OR_LOWER.trim().to_string(),
-        ).expect("failed to rewrite AndroidManifest.xml");
+        permissions.push(r#"<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />"#);
+        permissions.push(r#"<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="28" />"#);
     }
-	else {
-        // 必要ない場合は上書きして宣言を消す
-        tauri_plugin::mobile::update_android_manifest(
-            "ANDROID FS PLUGIN",
-            "manifest",
-            "".to_string(),
-        ).expect("failed to rewrite AndroidManifest.xml");
-    }
+
+    tauri_plugin::mobile::update_android_manifest(
+        "ANDROID FS PLUGIN",
+        "manifest",
+        // 空の文字列の場合でも書き込むことで使われなくなった宣言を上書きして消すことができる。
+        permissions.join("\n"),
+    ).expect("failed to rewrite AndroidManifest.xml");
 }

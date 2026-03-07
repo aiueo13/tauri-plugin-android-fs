@@ -55,6 +55,13 @@ impl<R: tauri::Runtime, K> PluginResources<R, K> {
         Ok(std::sync::Arc::clone(&r.resource))
     }
 
+    pub fn take<T: Sync + Send + 'static>(&self, id: tauri::ResourceId) -> Result<std::sync::Arc<T>> {
+        self.list.lock()?.remove(&id);
+        
+        let r = self.app.resources_table().take::<PluginResource<T>>(id)?;
+        Ok(std::sync::Arc::clone(&r.resource))
+    }
+
     pub fn close(&self, id: tauri::ResourceId) -> Result<()> {  
         self.list.lock()?.remove(&id);
         

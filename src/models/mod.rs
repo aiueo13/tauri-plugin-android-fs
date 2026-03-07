@@ -5,6 +5,7 @@ mod file_uri;
 mod file_picker;
 mod file_access;
 mod image;
+mod notification;
 mod storage_volume;
 
 pub use dir::*;
@@ -14,6 +15,7 @@ pub use file_uri::*;
 pub use file_picker::*;
 pub use file_access::*;
 pub use image::*;
+pub use notification::*;
 pub use storage_volume::*;
 
 pub type Result<T> = std::result::Result<T, crate::Error>;

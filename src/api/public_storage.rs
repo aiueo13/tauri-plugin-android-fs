@@ -99,12 +99,12 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// # Support
     /// All Android versions.
     #[maybe_async]
-    pub fn has_permission(&self) -> Result<bool> {
+    pub fn check_permission(&self) -> Result<bool> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            self.impls().has_storage_permission_for_public_storage().await
+            self.impls().check_storage_permission_for_public_storage().await
         }
     }
 
@@ -845,6 +845,18 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         }
         #[cfg(target_os = "android")] {
             self.impls().scan_file_in_public_storage_for_result(uri, true).await
+        }
+    }
+
+
+    #[deprecated = "Use `check_permission` instead"]
+    #[maybe_async]
+    pub fn has_permission(&self) -> Result<bool> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().check_storage_permission_for_public_storage().await
         }
     }
 }

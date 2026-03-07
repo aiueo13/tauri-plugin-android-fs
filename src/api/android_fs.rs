@@ -11,6 +11,7 @@ use super::*;
 ///     use tauri_plugin_android_fs::AndroidFsExt as _;
 /// 
 ///     let api = app.android_fs();
+///     let api_async = app.android_fs_async();
 /// }
 /// ```
 
@@ -38,8 +39,8 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 }
 
 #[sync_async(
-    use(if_async) api_async::{FileOpener, FilePicker, AppStorage, PrivateStorage, PublicStorage};
-    use(if_sync) api_sync::{FileOpener, FilePicker, AppStorage, PrivateStorage, PublicStorage};
+    use(if_async) api_async::{FileOpener, FilePicker, AppStorage, PrivateStorage, PublicStorage, Utils, ProgressNotificationGuard};
+    use(if_sync) api_sync::{FileOpener, FilePicker, AppStorage, PrivateStorage, PublicStorage, Utils, ProgressNotificationGuard};
 )]
 impl<R: tauri::Runtime> AndroidFs<R> {
 
@@ -73,6 +74,12 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         FileOpener { handle: &self.handle }
     }
 
+    /// API of utils
+    #[always_sync]
+    pub fn utils(&self) -> Utils<'_, R> {
+        Utils { handle: &self.handle }
+    }
+
     /// Get the file or directory name.  
     /// 
     /// # Args
@@ -90,6 +97,25 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         #[cfg(target_os = "android")] {
             self.impls().get_entry_name(uri).await
         }
+    }
+
+    /// Gets the file or directory name,
+    /// or falls back to the URI's last path segment (percent-decoded). 
+    #[maybe_async]
+    pub fn get_name_or_last_path_segment(&self, uri: &FileUri) -> String {
+        #[cfg(target_os = "android")] {
+            if let Ok(name) = self.impls().get_entry_name(uri).await {
+                return name
+            }
+        }
+
+        let uri = percent_encoding::percent_decode_str(&uri.uri)
+            .decode_utf8_lossy();
+            
+        uri.rsplit_once("/")
+            .map(|(_, l)| l)
+            .unwrap_or(&uri)
+            .to_string()
     }
 
     /// Queries the provider to get the MIME type.
@@ -762,7 +788,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 
     /// Creates a directory and it's parents at the specified location if they are missing,
     /// then return the URI.  
-    /// If it already exists, do nothing and just return the direcotry uri.
+    /// If it already exists, do nothing and just return the directory uri.
     /// 
     /// [`AndroidFs::create_new_file`] does this automatically, so there is no need to use it together.
     /// 

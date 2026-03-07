@@ -77,39 +77,3 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         self.handle.run_mobile_plugin(command, payload).map_err(Into::into)
     }
 }
-
-
-#[sync_async]
-mod utils {
-    use super::*;
-
-    #[maybe_async]
-    pub fn run_blocking<T, F>(task: F) -> Result<T> 
-    where 
-        T: Send + 'static,
-        F: FnOnce() -> Result<T> + Send + 'static,
-    {
-        #[if_async] {
-            tauri::async_runtime::spawn_blocking(task).await?
-        }
-        #[if_sync] {
-            task()
-        }
-    }
-
-    #[maybe_async]
-    pub fn sleep(duration: std::time::Duration) -> Result<()> {
-        #[if_async] {
-            // NOTE:
-            // tokio の sleep は使わない。
-            // Tauri はデベロッパーが独自の Tokio runtime を設定できるので
-            // time が有効になってない Tokio runtime が使われることでパニックになる可能性がある。
-            tauri::async_runtime::spawn_blocking(move || std::thread::sleep(duration)).await?;
-            Ok(())
-        }
-        #[if_sync] {
-            std::thread::sleep(duration);
-            Ok(())
-        }
-    }
-}

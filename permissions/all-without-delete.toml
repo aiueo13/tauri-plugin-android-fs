@@ -23,6 +23,7 @@ commands.allow = [
     "scan_public_file",
     "set_public_file_pending",
     "request_public_files_permission",
+    "check_public_files_permission",
     "has_public_files_permission",
     "create_new_file",
     "create_dir",

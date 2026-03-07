@@ -58,6 +58,7 @@ val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
 private const val ALIAS_LEGACY_WRITE_STORAGE_PERMISSION = "WRITE_EXTERNAL_STORAGE_MAX"
 private const val ALIAS_LEGACY_READ_STORAGE_PERMISSION = "READ_EXTERNAL_STORAGE_MAX"
+private const val ALIAS_NOTIFICATION_PERMISSION = "NOTIFICATION_STORAGE"
 
 @TauriPlugin(
     permissions = [
@@ -69,6 +70,11 @@ private const val ALIAS_LEGACY_READ_STORAGE_PERMISSION = "READ_EXTERNAL_STORAGE_
             strings = [Manifest.permission.READ_EXTERNAL_STORAGE],
             alias = ALIAS_LEGACY_READ_STORAGE_PERMISSION
         ),
+        Permission(
+            // Android 33 以上でないと使えないのでハードコーディングする
+            strings = ["android.permission.POST_NOTIFICATIONS"],
+            alias = ALIAS_NOTIFICATION_PERMISSION
+        )
     ]
 )
 class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
@@ -291,7 +297,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
-    fun hasLegacyStoragePermission(invoke: Invoke) {
+    fun checkLegacyStoragePermission(invoke: Invoke) {
         try {
             val writeGranted = when (getPermissionState(ALIAS_LEGACY_WRITE_STORAGE_PERMISSION)) {
                 PermissionState.GRANTED -> true
@@ -305,6 +311,187 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             invoke.resolve(JSObject().apply {
                 put("granted", writeGranted && readGranted)
             })
+        }
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "unknown error: $e")
+        }
+    }
+
+    @Command
+    fun startProgressNotification(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var iconType: AFNotification.Companion.ProgressNotificationIconType
+            var title: String? = null
+            var text: String? = null
+            var subText: String? = null
+            var progressMax: Int? = null
+            var progress: Int? = null
+        }
+
+        scope.launch {
+            try {
+                val granted = when {
+                    // Android 13 以上
+                    Build.VERSION_CODES.TIRAMISU <= Build.VERSION.SDK_INT -> {
+                        getPermissionState(ALIAS_NOTIFICATION_PERMISSION) == PermissionState.GRANTED
+                    }
+                    // Android 13 未満
+                    else -> true
+                }
+
+                if (!granted) throw Exception("No notification permission")
+                val args = invoke.parseArgs(Args::class.java)
+
+                val id = AFNotification.startProgressNotification(
+                    args.iconType,
+                    args.title,
+                    args.text,
+                    args.subText,
+                    args.progressMax,
+                    args.progress,
+                    activity,
+                    scope,
+                )
+
+                invoke.resolve(JSObject().apply { put("id", id) })
+            }
+            catch (e: Exception) {
+                invoke.reject(e.message ?: "unknown error: $e")
+            }
+        }
+    }
+
+    @Command
+    fun updateProgressNotification(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var iconType: AFNotification.Companion.ProgressNotificationIconType
+            var id: Int? = null
+            var title: String? = null
+            var text: String? = null
+            var subText: String? = null
+            var progressMax: Int? = null
+            var progress: Int? = null
+        }
+
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val id = args.id ?: throw Exception("Empty id")
+
+                AFNotification.updateProgressNotification(
+                    id,
+                    args.iconType,
+                    args.title,
+                    args.text,
+                    args.subText,
+                    args.progressMax,
+                    args.progress,
+                    activity
+                )
+
+                invoke.resolve()
+            }
+            catch (e: Exception) {
+                invoke.reject(e.message ?: "unknown error: $e")
+            }
+        }
+    }
+
+    @Command
+    fun finishProgressNotification(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var iconType: AFNotification.Companion.ProgressNotificationIconType
+            var id: Int? = null
+            var error: Boolean? = null
+            var title: String? = null
+            var text: String? = null
+            var subText: String? = null
+        }
+
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val id = args.id ?: throw Exception("Empty id")
+                val error = args.error ?: throw Exception("Empty error")
+
+                AFNotification.finishProgressNotification(
+                    id,
+                    args.iconType,
+                    args.title,
+                    args.text,
+                    args.subText,
+                    error,
+                    activity
+                )
+
+                invoke.resolve()
+            }
+            catch (e: Exception) {
+                invoke.reject(e.message ?: "unknown error: $e")
+            }
+        }
+    }
+
+    @Command
+    fun requestNotificationPermission(invoke: Invoke) {
+        try {
+            val granted = when {
+                // Android 13 以上
+                Build.VERSION_CODES.TIRAMISU <= Build.VERSION.SDK_INT -> {
+                    getPermissionState(ALIAS_NOTIFICATION_PERMISSION) == PermissionState.GRANTED
+                }
+                // Android 13 未満
+                else -> true
+            }
+
+            if (granted) {
+                invoke.resolve(JSObject().apply {
+                    put("granted", true)
+                    put("prompted", false)
+                })
+            }
+            else {
+                requestPermissionForAliases(
+                    arrayOf(ALIAS_NOTIFICATION_PERMISSION),
+                    invoke,
+                    "handleRequestNotificationPermission"
+                )
+            }
+        }
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "unknown error: $e")
+        }
+    }
+
+    @PermissionCallback
+    fun handleRequestNotificationPermission(invoke: Invoke) {
+        try {
+            invoke.resolve(JSObject().apply {
+                put("granted", getPermissionState(ALIAS_NOTIFICATION_PERMISSION) == PermissionState.GRANTED)
+                put("prompted", true)
+            })
+        }
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "unknown error: $e")
+        }
+    }
+
+    @Command
+    fun hasNotificationPermission(invoke: Invoke) {
+        try {
+            val granted = when {
+                // Android 13 以上
+                Build.VERSION_CODES.TIRAMISU <= Build.VERSION.SDK_INT -> {
+                    getPermissionState(ALIAS_NOTIFICATION_PERMISSION) == PermissionState.GRANTED
+                }
+                // Android 13 未満
+                else -> true
+            }
+
+            invoke.resolve(JSObject().apply {  put("granted", granted) })
         }
         catch (e: Exception) {
             invoke.reject(e.message ?: "unknown error: $e")

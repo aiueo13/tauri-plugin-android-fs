@@ -153,7 +153,6 @@ pub async fn get_metadata<R: tauri::Runtime>(
         }
 
         let api = app.android_fs_async();
-        let entry = api.get_info(&uri).await?;
 
         match api.get_info(&uri).await? {
             Entry::File { name, last_modified, len, mime_type, .. } => {
@@ -571,6 +570,7 @@ pub async fn request_public_files_permission<R: tauri::Runtime>(
     }
 }
 
+// TODO: 次のメージャーアップデートで削除
 #[tauri::command]
 pub async fn has_public_files_permission<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
@@ -581,7 +581,21 @@ pub async fn has_public_files_permission<R: tauri::Runtime>(
     }
     #[cfg(target_os = "android")] {
         let api = app.android_fs_async();
-        api.public_storage().has_permission().await
+        api.public_storage().check_permission().await
+    }
+}
+
+#[tauri::command]
+pub async fn check_public_files_permission<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<bool> {
+
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        let api = app.android_fs_async();
+        api.public_storage().check_permission().await
     }
 }
 
@@ -777,13 +791,28 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
 ) -> Result<WriteFileStreamEventOutput> {
 
     use std::io::Write as _;
-    type FileResource = std::sync::Mutex<std::fs::File>;
+    use crate::api::api_async::ProgressNotificationGuard as NotificationGuard;
+
+    type FileResource<R> = std::sync::Mutex<FileResourceInner<R>>;
     
+    struct FileResourceInner<R: tauri::Runtime> {
+        file: std::fs::File,
+        written: u64,
+        noti: Option<std::sync::Arc<Noti<R>>>,
+    }
+
+    struct Noti<R: tauri::Runtime> {
+        handler: NotificationGuard<R>,
+        settings: ProgressNotificationSettings,
+        dest_file_name: String,
+    }
+
+
     let resources = std::sync::Arc::clone(&resources);
     let event: WriteFileStreamEventInput = req.try_into()?;
 
     match event {
-        WriteFileStreamEventInput::Open { uri, options, supports_raw_ipc_request_body } => {
+        WriteFileStreamEventInput::Open { uri, options, supports_raw_ipc_request_body, } => {
             let uri = FileUri::try_from(uri)?;
             if let Some(path) = uri.to_path() {
                 validate_path_permission(&path, &app, &cmd_scope, &global_scope)?;
@@ -796,25 +825,148 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
             let api = app.android_fs_async();
             let file = api.open_file_writable(&uri).await?;
 
+            let use_noti = 
+                options.notification.is_some() &&
+                api.utils().request_notification_permission().await?;
+
+            let noti = match use_noti {
+                true => {
+                    let dest_file_name = api.get_name_or_last_path_segment(&uri).await;
+                    let settings = options.notification.ok_or_else(|| Error::with("missing notification"))?;
+
+                    let progress = Some(0);
+                    let progress_max = settings.expected_byte_length();
+                    let resolve_placeholders = |text| resolve_pn_placeholders(
+                        text,
+                        &dest_file_name, 
+                        progress, 
+                        progress_max
+                    );
+                    
+                    let handler = api
+                        .utils()
+                        .create_progress_notification(
+                            settings.icon(),
+                            resolve_placeholders(settings.title_progress()).as_deref(), 
+                            resolve_placeholders(settings.text_progress()).as_deref(), 
+                            resolve_placeholders(settings.sub_text_progress()).as_deref(), 
+                            progress,
+                            if settings.force_indeterminate_progress_bar() { None } else { progress_max },
+                        )
+                        .await?;
+                    
+                    handler.set_drop_behavior_to_fail_with(
+                        {
+                            let title = settings.title_failure().map(|s| s.to_string());
+                            let dest_file_name = dest_file_name.clone();
+                            let expected_byte_len = settings.expected_byte_length();
+                            move |current_state| resolve_pn_placeholders(
+                                title.as_deref(),
+                                &dest_file_name,
+                                current_state.progress,
+                                expected_byte_len
+                            )
+                        },
+                        {
+                            let text = settings.text_failure().map(|s| s.to_string());
+                            let dest_file_name = dest_file_name.clone();
+                            let expected_byte_len = settings.expected_byte_length();
+                            move |current_state| resolve_pn_placeholders(
+                                text.as_deref(),
+                                &dest_file_name,
+                                current_state.progress,
+                                expected_byte_len
+                            )
+                        },
+                        {
+                            let sub_text = settings.sub_text_failure().map(|s| s.to_string());
+                            let dest_file_name = dest_file_name.clone();
+                            let expected_byte_len = settings.expected_byte_length();
+                            move |current_state| resolve_pn_placeholders(
+                                sub_text.as_deref(),
+                                &dest_file_name,
+                                current_state.progress,
+                                expected_byte_len
+                            )
+                        },
+                    );
+
+                    Some(std::sync::Arc::new(Noti { dest_file_name, handler, settings }))
+                },
+                false => None
+            };
+
             tauri::async_runtime::spawn_blocking(move || {
-                let res: FileResource = std::sync::Mutex::new(file);
+                let res = FileResourceInner { file, noti, written: 0 };
+                let res: FileResource<R> = std::sync::Mutex::new(res);
                 let id = resources.add(res)?;
                 Ok(WriteFileStreamEventOutput::Open { id, supports_raw_ipc_request_body })
             }).await?
         },
         WriteFileStreamEventInput::Write { id, data } => {
             tauri::async_runtime::spawn_blocking(move || {
-                resources
-                    .get::<FileResource>(id)?
-                    .lock()?
-                    .write_all(&data)?;
+                let res = resources.get::<FileResource<R>>(id)?;
+                let mut locked_res = res.lock()?;
+
+                locked_res.file.write_all(&data)?;
+                locked_res.written += data.len() as u64;
+                let written = locked_res.written;
+                let noti = locked_res.noti.as_ref().map(std::sync::Arc::clone);
+                std::mem::drop(locked_res);
+
+                if let Some(noti) = noti {
+                    let need_update_noti = 
+                        has_pn_progress_or_percentage_placeholder(noti.settings.title_progress()) ||
+                        has_pn_progress_or_percentage_placeholder(noti.settings.text_progress()) ||
+                        has_pn_progress_or_percentage_placeholder(noti.settings.sub_text_progress());
+
+                    if need_update_noti {
+                        let progress = Some(written);
+                        let progress_max = noti.settings.expected_byte_length();
+                        tauri::async_runtime::spawn(async move {
+                            let resolve_placeholders = |text| resolve_pn_placeholders(
+                                text,
+                                &noti.dest_file_name, 
+                                progress, 
+                                progress_max
+                            );
+                            
+                            noti.handler.update(
+                                resolve_placeholders(noti.settings.title_progress()).as_deref(),
+                                resolve_placeholders(noti.settings.text_progress()).as_deref(),
+                                resolve_placeholders(noti.settings.sub_text_progress()).as_deref(), 
+                                progress, 
+                                if noti.settings.force_indeterminate_progress_bar() { None } else { progress_max },
+                            ).await
+                        });
+                    }
+                }
 
                 Ok(WriteFileStreamEventOutput::Write(()))
             }).await?
         },
-        WriteFileStreamEventInput::Close { id } => {
-            tauri::async_runtime::spawn_blocking(move || {   
-                resources.close(id)?;
+        WriteFileStreamEventInput::Close { id, error } => {
+            tauri::async_runtime::spawn_blocking(move || {
+                if let Ok(res) = resources.take::<FileResource<R>>(id) {
+                    let mut res = res.lock()?;
+                    if let Some(noti) = res.noti.take() {
+                        if !error {
+                            let resolve_placeholders = |text| resolve_pn_placeholders(
+                                text,
+                                &noti.dest_file_name, 
+                                Some(res.written), 
+                                Some(res.written)
+                            );
+
+                            noti.handler.set_drop_behavior_to_complete(
+                                resolve_placeholders(noti.settings.title_completion()).as_deref(),
+                                resolve_placeholders(noti.settings.text_completion()).as_deref(),
+                                resolve_placeholders(noti.settings.sub_text_completion()).as_deref(),
+                            );
+                        }
+                    }
+                }
+
                 Ok(WriteFileStreamEventOutput::Close(()))
             }).await?
         },
@@ -857,29 +1009,18 @@ pub async fn write_file<R: tauri::Runtime>(
 
 #[tauri::command]
 pub async fn write_text_file<R: tauri::Runtime>(
-    uri: AfsUriOrFsPath,
-    data: String,
-    create: bool,
+    req: tauri::ipc::Request<'_>,
     app: tauri::AppHandle<R>,
     cmd_scope: tauri::ipc::CommandScope<Scope>,
     global_scope: tauri::ipc::GlobalScope<Scope>,
-) -> Result<()> {
+    resources: FileWriterResourcesState<'_, R>,
+) -> Result<WriteFileStreamEventOutput> {
 
     #[cfg(not(target_os = "android"))] {
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        let uri = FileUri::try_from(uri)?;
-        if let Some(path) = uri.to_path() {
-            validate_path_permission(&path, &app, &cmd_scope, &global_scope)?;
-
-            if create && !std::fs::exists(&path)? {
-                std::fs::File::create(&path)?;
-            }
-        }
-
-        app.android_fs_async().write(&uri, data.into_bytes()).await?;
-        Ok(())
+        write_file_stream(req, app, cmd_scope, global_scope, resources).await
     }
 }
 
@@ -991,6 +1132,7 @@ pub async fn copy_file<R: tauri::Runtime>(
     src_uri: AfsUriOrFsPath,
     dest_uri: AfsUriOrFsPath,
     create: bool,
+    notification: Option<ProgressNotificationSettings>,
     app: tauri::AppHandle<R>,
     cmd_scope: tauri::ipc::CommandScope<Scope>,
     global_scope: tauri::ipc::GlobalScope<Scope>,
@@ -1002,7 +1144,6 @@ pub async fn copy_file<R: tauri::Runtime>(
     #[cfg(target_os = "android")] {
         let src_uri = FileUri::try_from(src_uri)?;
         let dest_uri = FileUri::try_from(dest_uri)?;
-        let api = app.android_fs_async();
 
         if let Some(src_path) = src_uri.to_path() {
             validate_path_permission(src_path, &app, &cmd_scope, &global_scope)?;
@@ -1015,7 +1156,105 @@ pub async fn copy_file<R: tauri::Runtime>(
             }
         }
 
-        api.copy(&src_uri, &dest_uri).await
+        let api = app.android_fs_async();
+
+        let use_noti = 
+            notification.is_some() &&
+            api.utils().request_notification_permission().await?;
+
+        if !use_noti {
+            api.copy(&src_uri, &dest_uri).await?;
+            return Ok(())
+        }
+
+        let dest_file_name = api.get_name_or_last_path_segment(&dest_uri).await;
+        let settings = notification.ok_or_else(|| Error::with("missing notification"))?;
+
+        let progress = Some(0);
+        let progress_max = settings.expected_byte_length();
+
+        let resolve_placeholders = |text| resolve_pn_placeholders(
+            text,
+            &dest_file_name, 
+            progress, 
+            progress_max
+        );
+                    
+        let handler = api
+            .utils()
+            .create_progress_notification(
+                settings.icon(),
+                resolve_placeholders(settings.title_progress()).as_deref(), 
+                resolve_placeholders(settings.text_progress()).as_deref(), 
+                resolve_placeholders(settings.sub_text_progress()).as_deref(), 
+                progress,
+                None,
+            )
+            .await?;
+                    
+        handler.set_drop_behavior_to_fail_with(
+            {
+                let title = settings.title_failure().map(|s| s.to_string());
+                let dest_file_name = dest_file_name.clone();
+                let expected_byte_len = settings.expected_byte_length();
+                move |current_state| resolve_pn_placeholders(
+                    title.as_deref(),
+                    &dest_file_name,
+                    current_state.progress,
+                    expected_byte_len
+                )
+            },
+            {
+                let text = settings.text_failure().map(|s| s.to_string());
+                let dest_file_name = dest_file_name.clone();
+                let expected_byte_len = settings.expected_byte_length();
+                move |current_state| resolve_pn_placeholders(
+                    text.as_deref(),
+                    &dest_file_name,
+                    current_state.progress,
+                    expected_byte_len
+                )
+            },
+            {
+                let sub_text = settings.sub_text_failure().map(|s| s.to_string());
+                let dest_file_name = dest_file_name.clone();
+                let expected_byte_len = settings.expected_byte_length();
+                move |current_state| resolve_pn_placeholders(
+                    sub_text.as_deref(),
+                    &dest_file_name,
+                    current_state.progress,
+                    expected_byte_len
+                )
+            },
+        );
+
+        let mut src = api.open_file_readable(&src_uri).await?;
+        let dest = api.open_file_writable(&dest_uri).await?;
+        
+        let written = tauri::async_runtime::spawn_blocking(move || -> Result<_> {
+            let mut written = 0;
+            let mut dest = CountWriter::new(dest, |l: usize| {
+                written += l;
+                Ok(())
+            });
+            std::io::copy(&mut src, &mut dest)?;
+            Ok(written as u64)
+        }).await??;
+
+        let resolve_placeholders = |text| resolve_pn_placeholders(
+            text,
+            &dest_file_name, 
+            Some(written), 
+            Some(written)
+        );
+
+        handler.set_drop_behavior_to_complete(
+            resolve_placeholders(settings.title_completion()).as_deref(),
+            resolve_placeholders(settings.text_completion()).as_deref(),
+            resolve_placeholders(settings.sub_text_completion()).as_deref(),
+        );
+
+        Ok(())
     }
 }
 

@@ -331,6 +331,18 @@
           "markdownDescription": "Denies the check_picker_uri_permission command without any pre-configured scope."
         },
         {
+          "description": "Enables the check_public_files_permission command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-check-public-files-permission",
+          "markdownDescription": "Enables the check_public_files_permission command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the check_public_files_permission command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-check-public-files-permission",
+          "markdownDescription": "Denies the check_public_files_permission command without any pre-configured scope."
+        },
+        {
           "description": "Enables the close_all_file_streams command without any pre-configured scope.",
           "type": "string",
           "const": "allow-close-all-file-streams",

@@ -136,6 +136,187 @@ pub fn convert_base64_to_data_url(base64: &str, mime_type: &str) -> Result<Strin
     Ok(buffer)
 }
 
+#[cfg(target_os = "android")]
+pub struct CountWriter<W, F> {
+    writer: W,
+    on_count: F
+}
+
+#[cfg(target_os = "android")]
+impl<W, F> CountWriter<W, F> {
+
+    pub fn new(writer: W, on_count: F) -> Self {
+        Self { writer, on_count }
+    }
+}
+
+#[cfg(target_os = "android")]
+impl<W: std::io::Write, F: FnMut(usize) -> Result<()>> std::io::Write for CountWriter<W, F> {
+
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let n = self.writer.write(buf)?;
+        (self.on_count)(n)?;
+        Ok(n)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.writer.flush()
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(not(target_os = "android"), allow(unused))]
+pub struct ProgressNotificationSettings {
+    icon: ProgressNotificationIcon,
+    title: Option<String>,
+    title_progress: Option<String>,
+    title_completion: Option<String>,
+    title_failure: Option<String>,
+    text: Option<String>,
+    text_progress: Option<String>,
+    text_completion: Option<String>,
+    text_failure: Option<String>,
+    sub_text: Option<String>,
+    sub_text_progress: Option<String>,
+    sub_text_completion: Option<String>,
+    sub_text_failure: Option<String>,
+    expected_byte_length: Option<u64>,
+    force_indeterminate_progress_bar: Option<bool>,
+}
+
+#[cfg_attr(not(target_os = "android"), allow(unused))]
+impl ProgressNotificationSettings {
+
+    pub fn icon(&self) -> ProgressNotificationIcon {
+        self.icon
+    }
+
+    pub fn expected_byte_length(&self) -> Option<u64> {
+        self.expected_byte_length
+    }
+
+    pub fn force_indeterminate_progress_bar(&self) -> bool {
+        self.force_indeterminate_progress_bar.unwrap_or(false)
+    }
+
+    pub fn title_progress(&self) -> Option<&str> {
+        self.title_progress.as_deref().or(self.title.as_deref())
+    }
+    pub fn title_completion(&self) -> Option<&str> {
+        self.title_completion.as_deref().or(self.title.as_deref())
+    }
+    pub fn title_failure(&self) -> Option<&str> {
+        self.title_failure.as_deref().or(self.title.as_deref())
+    }
+
+    pub fn text_progress(&self) -> Option<&str> {
+        self.text_progress.as_deref().or(self.text.as_deref())
+    }
+    pub fn text_completion(&self) -> Option<&str> {
+        self.text_completion.as_deref().or(self.text.as_deref())
+    }
+    pub fn text_failure(&self) -> Option<&str> {
+        self.text_failure.as_deref().or(self.text.as_deref())
+    }
+
+    pub fn sub_text_progress(&self) -> Option<&str> {
+        self.sub_text_progress.as_deref().or(self.sub_text.as_deref())
+    }
+    pub fn sub_text_completion(&self) -> Option<&str> {
+        self.sub_text_completion.as_deref().or(self.sub_text.as_deref())
+    }
+    pub fn sub_text_failure(&self) -> Option<&str> {
+        self.sub_text_failure.as_deref().or(self.sub_text.as_deref())
+    }
+}
+
+#[cfg(target_os = "android")]
+const PN_FILE_NAME_PLACEHOLDER: &str = "{{fileName}}";
+#[cfg(target_os = "android")]
+const PN_PROGRESS_PLACEHOLDER: &str = "{{progress}}";
+#[cfg(target_os = "android")]
+const PN_PROGRESS_MAX_PLACEHOLDER: &str = "{{progressMax}}";
+#[cfg(target_os = "android")]
+const PN_PERCENTAGE_PLACEHOLDER: &str = "{{percentage}}"; 
+
+#[cfg(target_os = "android")]
+pub fn has_pn_progress_or_percentage_placeholder(text: Option<&str>) -> bool {
+    text.is_some_and(|t| 
+        t.contains(PN_PROGRESS_PLACEHOLDER) ||
+        t.contains(PN_PERCENTAGE_PLACEHOLDER)
+    )
+}
+
+#[cfg(target_os = "android")]
+pub fn resolve_pn_placeholders(
+    text: Option<&str>,
+    file_name: &str,
+    progress: Option<u64>,
+    progress_max: Option<u64>,
+) -> Option<String> {
+
+    let Some(mut text) = text.map(|s| s.to_string()) else {
+        return None;
+    };
+    
+    if text.contains(PN_FILE_NAME_PLACEHOLDER) {
+        text = text.replace(PN_FILE_NAME_PLACEHOLDER, file_name);
+    }
+    if text.contains(PN_PROGRESS_PLACEHOLDER) {
+        let progress_str = match progress {
+            Some(progress) => format_byte_len(progress),
+            None => "--".to_string()
+        };
+        text = text.replace(PN_PROGRESS_PLACEHOLDER, &progress_str);
+    }
+    if text.contains(PN_PROGRESS_MAX_PLACEHOLDER) {
+        let max_str = match progress_max {
+            Some(progress_max) => format_byte_len(progress_max),
+            None => "--".to_string()
+        };
+        text = text.replace(PN_PROGRESS_MAX_PLACEHOLDER, &max_str);
+    }
+    if text.contains(PN_PERCENTAGE_PLACEHOLDER) {
+        let percentage_str = match Option::zip(progress, progress_max) {
+            Some((progress, progress_max)) => {
+                let p = match progress_max {
+                    0 => 100.0,
+                    progress_max => progress as f64 / progress_max as f64 * 100.0
+                };
+                (p.clamp(0.0, 100.0) as u64).to_string()
+            },
+            None => "--".to_string()
+        };
+        text = text.replace(PN_PERCENTAGE_PLACEHOLDER, &percentage_str);
+    }
+
+    Some(text)
+}
+
+#[cfg(target_os = "android")]
+pub fn format_byte_len(bytes: u64) -> String {
+    const KB: u64 = 1000;
+    const MB: u64 = KB * KB;
+    const GB: u64 = MB * KB;
+    const TB: u64 = GB * KB;
+
+    if bytes < KB {
+        format!("{} B", bytes)
+    }
+    else if bytes < MB {
+        format!("{:.1} KB", bytes as f64 / KB as f64)
+    } 
+    else if bytes < GB {
+        format!("{:.1} MB", bytes as f64 / MB as f64)
+    } 
+    else if bytes < TB {
+        format!("{:.1} GB", bytes as f64 / GB as f64)
+    } 
+    else {
+        format!("{:.1} TB", bytes as f64 / TB as f64)
+    }
+}
 
 #[cfg_attr(not(target_os = "android"), allow(unused))]
 pub enum WriteFileStreamEventInput {
@@ -150,6 +331,7 @@ pub enum WriteFileStreamEventInput {
     },
     Close {
         id: tauri::ResourceId,
+        error: bool,
     }
 }
 
@@ -158,6 +340,7 @@ pub enum WriteFileStreamEventInput {
 #[cfg_attr(not(target_os = "android"), allow(unused))]
 pub struct WriteFileStreamEventInputOptions {
     pub create: bool,
+    pub notification: Option<ProgressNotificationSettings>,
 }
 
 #[cfg(target_os = "android")]
@@ -165,15 +348,17 @@ impl<'a> TryInto<WriteFileStreamEventInput> for tauri::ipc::Request<'a> {
     type Error = Error;
 
     fn try_into(self) -> Result<WriteFileStreamEventInput> {
-        let get_header_value = |header_name: &str| -> Result<_> {
+        let get_header_value = |header_name: &str| -> Result<std::borrow::Cow<'_, str>> {
             self.headers()
                 .get(header_name)
                 .ok_or_else(|| Error::missing_value(header_name))
+                .map(|s| percent_encoding::percent_decode(s.as_ref()))
+                .and_then(|s| s.decode_utf8().map_err(Into::into))
         };
         
-        let event_type = get_header_value("eventType")?.to_str()?;
+        let event_type = get_header_value("eventType")?;
 
-        match event_type {
+        match event_type.as_ref() {
             "Open" => {
                 // 呼び出し時に body として与えられた判定用の payload をチェックして
                 // 生の body を受け取り可能かどうかを調べる。
@@ -183,62 +368,54 @@ impl<'a> TryInto<WriteFileStreamEventInput> for tauri::ipc::Request<'a> {
                     tauri::ipc::InvokeBody::Raw(_) => true,
                 };
 
-                let uri = get_header_value("uri")
-                    .map(|s| percent_encoding::percent_decode(s.as_ref()))
-                    .and_then(|s| s.decode_utf8().map_err(Into::into))
-                    .and_then(|s| serde_json::from_str(&s).map_err(Into::into))?;
-               
-                let options = get_header_value("options")
-                    .map(|s| percent_encoding::percent_decode(s.as_ref()))
-                    .and_then(|s| s.decode_utf8().map_err(Into::into))
-                    .and_then(|s| serde_json::from_str(&s).map_err(Into::into))?;
-
+                let uri = serde_json::from_str(&get_header_value("uri")?)?;
+                let options = serde_json::from_str(&get_header_value("options")?)?;
+              
                 Ok(WriteFileStreamEventInput::Open { uri, options, supports_raw_ipc_request_body })
             },
             "Write" => {
-                let id = get_header_value("id")?
-                    .to_str()?
-                    .parse::<u32>()?;
+                let id = get_header_value("id")?.parse::<u32>()?;
 
                 let data = match self.body() {
                     tauri::ipc::InvokeBody::Raw(body) => {
                         body.clone()
                     },
                     tauri::ipc::InvokeBody::Json(body) => {
+                        let format = body
+                            .get("format")
+                            .ok_or_else(|| Error::missing_value("format"))?
+                            .as_str()
+                            .ok_or_else(|| Error::invalid_type("format"))?;
+
                         let data = body
                             .get("data")
                             .ok_or_else(|| Error::missing_value("data"))?
                             .as_str()
                             .ok_or_else(|| Error::invalid_type("data"))?;
 
-                        let b64 = match data.starts_with("data:") {
-                            // data URL
-                            true => {
+                        match format {
+                            "dataUrlToDecodedData" => {
                                 let comma_i = data
                                     .find(",")
                                     .ok_or_else(|| Error::with("invalid Data URL"))?;
 
                                 let (_, b64) = data.split_at(comma_i + 1);
-                                b64
+                                use base64::engine::Engine;
+                                base64::engine::general_purpose::STANDARD.decode(b64)?
                             },
-                            // base64
-                            false => data,
-                        };
-
-                        // TODO: データが大きい場合は別スレッドに逃す
-                        use base64::engine::Engine;
-                        base64::engine::general_purpose::STANDARD.decode(b64)?
+                            "textToUtf8" => data.to_string().into_bytes(),
+                            _ => Err(Error::invalid_value("format"))?
+                        }
                     },
                 };
 
                 Ok(WriteFileStreamEventInput::Write { id, data })
             },
             "Close" => {
-                let id = get_header_value("id")?
-                    .to_str()?
-                    .parse::<u32>()?;
+                let id = get_header_value("id")?.parse::<u32>()?;
+                let error = get_header_value("error")?.parse::<bool>()?;
 
-                Ok(WriteFileStreamEventInput::Close { id })
+                Ok(WriteFileStreamEventInput::Close { id, error })
             },
             value => Err(Error::invalid_value(value))
         }

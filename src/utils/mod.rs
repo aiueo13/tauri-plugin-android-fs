@@ -1,7 +1,43 @@
-#![cfg_attr(not(target_os = "android"), allow(unused))]
-
+#[allow(unused_imports)]
 use crate::*;
 
+#[cfg(target_os = "android")]
+mod async_sleep;
+
+
+#[cfg(target_os = "android")]
+#[sync_async::sync_async]
+pub mod utils {
+    use super::*;
+
+    #[maybe_async]
+    pub fn run_blocking<T, F>(task: F) -> Result<T> 
+    where 
+        T: Send + 'static,
+        F: FnOnce() -> Result<T> + Send + 'static,
+    {
+        #[if_async] {
+            tauri::async_runtime::spawn_blocking(task).await?
+        }
+        #[if_sync] {
+            task()
+        }
+    }
+
+    #[maybe_async]
+    pub fn sleep(time: std::time::Duration) {
+        #[if_async] {
+            // NOTE:
+            // tokio の sleep は使わない。
+            // Tauri はデベロッパーが独自の Tokio runtime を設定できるので
+            // time が有効になってない Tokio runtime が使われることでパニックになる可能性がある。
+            async_sleep::sleep(time).await;
+        }
+        #[if_sync] {
+            std::thread::sleep(time);
+        }
+    }
+}
 
 pub fn encode_android_uri_component(input: impl AsRef<str>) -> String {
     // https://developer.android.com/reference/android/net/Uri.html#encode(java.lang.String)
@@ -19,6 +55,7 @@ pub fn encode_android_uri_component(input: impl AsRef<str>) -> String {
     percent_encoding::utf8_percent_encode(input.as_ref(), SAFE).to_string()
 }
 
+#[cfg(target_os = "android")]
 pub fn range_to_offset_and_len(range: impl std::ops::RangeBounds<u64>) -> (u128, Option<u128>) {
     use std::ops::Bound::{Included, Excluded, Unbounded};
 
@@ -35,10 +72,12 @@ pub fn range_to_offset_and_len(range: impl std::ops::RangeBounds<u64>) -> (u128,
     (offset, len)
 }
 
+#[cfg(target_os = "android")]
 pub fn saturate_u128_to_u64(val: u128) -> u64 {
     u128::min(val, u64::MAX as u128) as u64
 }
 
+#[cfg(target_os = "android")]
 pub fn validate_relative_path(path: &std::path::Path) -> Result<&std::path::Path> {
     for component in path.components() {
         use std::path::Component::*;
@@ -61,6 +100,7 @@ pub fn validate_relative_path(path: &std::path::Path) -> Result<&std::path::Path
 // - https://docs.rs/tokio/1.47.1/src/tokio/util/as_ref.rs.html
 // - Copyright (c) Tokio Contributors
 // - Licensed under the MIT License
+#[cfg(target_os = "android")]
 pub fn upgrade_bytes_ref<B: AsRef<[u8]>>(buf: B) -> Vec<u8> {
 
     // Based on code from Tokio crate ver. 1.47.1
@@ -124,12 +164,14 @@ pub fn upgrade_bytes_ref<B: AsRef<[u8]>>(buf: B) -> Vec<u8> {
     buf.as_ref().to_owned()
 }
 
+#[cfg(target_os = "android")]
 pub struct BoundedHashMap<K, V> {
     map: std::collections::HashMap<K, V>,
     order: std::collections::VecDeque<K>,
     bound: usize,
 }
 
+#[cfg(target_os = "android")]
 impl<K: Eq + std::hash::Hash + Clone, V> BoundedHashMap<K, V> {
 
     pub fn with_bound(bound: usize) -> Self {

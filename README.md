@@ -20,7 +20,7 @@ pub fn run() {
 ```
 
 # Usage
-This section explains how to use this plugin on the Rust side. If you need JavaScript bindings on the frontend, please see [this link](https://www.npmjs.com/package/tauri-plugin-android-fs-api?activeTab=readme).
+This section explains how to use this plugin on the Rust side. If you need JavaScript bindings on the frontend, please see [this page](https://www.npmjs.com/package/tauri-plugin-android-fs-api?activeTab=readme).
 
 ### 1. Dialog
 
@@ -142,7 +142,7 @@ async fn dir_picker_example(app: &tauri::AppHandle<impl tauri::Runtime>) -> Resu
                     // Handle a file
                 },
                 Entry::Dir { uri, name, .. } => {
-                    // Handle a direcotry
+                    // Handle a directory
                 },
             }
         }
