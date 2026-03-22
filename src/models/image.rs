@@ -54,4 +54,28 @@ impl ImageFormat {
             ImageFormat::Png => "image/png",
         }
     }
+
+    pub(crate) fn from_mime_type(mime_type: &str) -> Option<Self> {
+        match mime_type {
+            "image/jpeg" | "image/jpg" => Some(Self::Jpeg),
+            "image/webp" => Some(Self::Webp),
+            "image/png" => Some(Self::Png),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn from_name(name: &str) -> Option<Self> {
+        if name.eq_ignore_ascii_case("jpeg") || name.eq_ignore_ascii_case("jpg") {
+            Some(Self::Jpeg)
+        }
+        else if name.eq_ignore_ascii_case("webp") {
+            Some(Self::Webp)
+        }
+        else if name.eq_ignore_ascii_case("png") {
+            Some(Self::Png)
+        }
+        else {
+            None
+        }
+    }
 }

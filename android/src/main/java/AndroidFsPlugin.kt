@@ -1231,6 +1231,37 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
+    fun getFileResourceForContentProtocol(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var uri: AFUri
+        }
+
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val c = getFileController(args.uri)
+
+                val fd: Int = AFFileDescriptor
+                    .getPfd(Uri.parse(args.uri.uri), "r", activity)
+                    .detachFd()
+
+                val len: Long? = runCatching { c.getLen(args.uri) }.getOrNull()
+                val mimeType: String? = runCatching { c.getMimeType(args.uri) }.getOrNull()
+
+                invoke.resolve(JSObject().apply {
+                    put("len", len)
+                    put("mimeType", mimeType)
+                    put("fd", fd)
+                })
+            }
+            catch (e: Exception) {
+                invoke.reject(e.message ?: "unknown error: $e")
+            }
+        }
+    }
+
+    @Command
     fun getThumbnailToFile(invoke: Invoke) {
         @InvokeArg
         class Args {

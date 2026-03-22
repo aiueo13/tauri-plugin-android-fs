@@ -849,6 +849,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     }
 
 
+    // TODO: 次のメージャーアップデートで削除
     #[deprecated = "Use `check_permission` instead"]
     #[maybe_async]
     pub fn has_permission(&self) -> Result<bool> {

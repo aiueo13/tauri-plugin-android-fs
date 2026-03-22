@@ -74,6 +74,26 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
+    pub fn get_file_resource_for_content_protocol(
+        &self, 
+        uri: &FileUri
+    ) -> Result<(std::fs::File, Option<String>, Option<u64>)> {
+
+        impl_se!(struct Req<'a> { uri: &'a FileUri });
+        impl_de!(struct Res { fd: std::os::fd::RawFd, mime_type: Option<String>, len: Option<u64> });
+
+        self.invoke::<Res>("getFileResourceForContentProtocol", Req { uri })
+            .await
+            .map(|r| {
+                let file = unsafe {
+                    use std::os::fd::FromRawFd;
+                    std::fs::File::from_raw_fd(r.fd)
+                };
+                (file, r.mime_type, r.len)
+            })
+    }
+
+    #[maybe_async]
     pub fn open_file(&self, uri: &FileUri, mode: FileAccessMode) -> Result<std::fs::File> {
         impl_se!(struct Req<'a> { uri: &'a FileUri, mode: &'a str });
         impl_de!(struct Res { fd: std::os::fd::RawFd });

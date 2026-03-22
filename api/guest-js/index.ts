@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 import { createReadableStream, createWritableStream } from 'create-web-stream'
 
 /** @ignore */
@@ -140,6 +140,29 @@ export type AndroidGetThumbnailOptions = {
 	 * One of `"jpeg"`, `"png"`, `"webp"`. 
 	 *  
 	 * Defaults to `"jpeg"`.  
+	 */
+	format?: AndroidThumbnailFormat
+}
+
+/**
+ * Options of `AndroidFs.convertThumbnailSrc`.
+ */
+export type AndroidConvertThumbnailSrcOptions = {
+
+	/**
+	 * Preferred width in pixels of the thumbnail. 
+	 */
+	width?: number,
+
+	/**
+	 * Preferred height in pixels of the thumbnail. 
+	 */
+	height?: number,
+
+	/**
+	 * Image format of the thumbnail.  
+	 * 
+	 * One of `"jpeg"`, `"png"`, `"webp"`. 
 	 */
 	format?: AndroidThumbnailFormat
 }
@@ -1708,16 +1731,158 @@ export class AndroidFs {
 	 * When reading or writing files using plugin-fs, caution is required. 
 	 * Writing to files can sometimes be very slow. 
 	 * Also, files obtained from third-party apps via a file picker may not be openable, readable, writable, or seekable.  
-	 * For this reason, it is strongly recommended to use the APIs provided by this plugin, such as `AndroidFs.openReadFileStream`, `AndroidFs.openWriteFileStream`, `AndroidFs.writeFile` and etc.
+	 * For this reason, it is strongly recommended to use the APIs provided by this plugin, such as `AndroidFs.openReadFileStream`, `AndroidFs.openWriteFileStream`, `AndroidFs.writeFile`, `AndroidFs.copyFile` and etc.
 	 * 
 	 * @param uri - The URI or path of the target file or directory.
 	 * @returns A Promise that resolves to the path. Note that although it says "Path", it may actually be a URI that can be used with `@tauri-apps/plugin-fs`.
 	 * @since 22.0.0
 	 */
-	public static async getFsPath(uri: AndroidFsUri | FsPath): Promise<FsPath> {
+	public static async getFsPath(uri: AndroidFsUri | FsPath): Promise<string> {
 		return await invoke<string>('plugin:android-fs|get_fs_path', {
 			uri: mapFsPathForInput(uri)
 		})
+	}
+
+	/**
+	 * Converts a file URI into a URL that can be used to load thumbnails in HTML `<img>` elements.
+	 * 
+	 * This is backed by Tauri’s custom protocol.
+	 * 
+	 * ## Setup
+	 * This function only constructs a URL.  
+	 * To actually load a file using the returned URL, follow the steps below.
+	 * 
+	 * #### 1. Enable protocol feature
+	 * Enable protocol-thumbnail feature.
+	 * 
+	 * `src-tauri/Cargo.toml`
+	 * ```toml
+	 * [dependencies]
+	 * tauri-plugin-android-fs = { features = ["protocol-thumbnail"], ... }
+	 * ```
+	 * 
+	 * #### 2. Configuration
+	 * Set the configuration to allow files to be loaded.
+	 * If you are using absolute paths, you must configure the scope as with other APIs.
+	 * 
+	 * `src-tauri/tauri.conf.json`
+	 * ```json
+	 * {
+	 *   "plugins": {
+	 *     "android-fs": {
+	 *       "thumbnailProtocol": {
+	 *         "enable": true,
+	 *         "scope": {
+	 *           "allow": ["$APPDATA/my-data/*"],
+	 *         }
+	 *       }
+	 *     }
+	 *   }
+	 * }
+	 * ```
+	 * 
+	 * NOTE:
+	 * Ensure that `serde_json` is present in your Rust dependencies.  
+	 * It is included by default in Tauri project templates, but if it has been removed, add it back.  
+	 * If it is missing, the project will fail to build.
+	 * 
+	 * #### 3. Content Security Policy (CSP)
+	 * If you are using a CSP, 
+	 * add `http://android-fs-thumbnail.localhost` to [`app.security.csp`](https://v2.tauri.app/reference/config/#csp-1) in `src-tauri/tauri.conf.json`.
+	 * 
+	 * @param uri - URI or path of the target file.
+	 * @param options - Optional settings: `width`, `height`, `format`.
+	 * 
+	 * @since 27.2.0
+	 */
+	public static convertThumbnailSrc(
+		uri: AndroidFsUri | FsPath,
+		options?: AndroidConvertThumbnailSrcOptions,
+	): string {
+
+		let srcUrl = convertFileSrc(
+			JSON.stringify(mapFsPathForInput(uri)),
+			"android-fs-thumbnail"
+		)
+
+		let sep = "?"
+		if (options?.width != null) {
+			srcUrl += sep + "w=" + options.width
+			sep = "&"
+		}
+		if (options?.height != null) {
+			srcUrl += sep + "h=" + options.height
+			sep = "&"
+		}
+		if (options?.format != null) {
+			srcUrl += sep + "f=" + options?.format
+			sep = "&"
+		}
+
+		return srcUrl
+	}
+
+	/**
+	 * Converts a file URI into a URL that can be loaded by HTML `<img>`, `<video>`, and `<audio>` elements.
+	 * 
+	 * This is backed by Tauri’s custom protocol.
+	 * 
+	 * ## Setup
+	 * This function only constructs a URL.  
+	 * To actually load a file using the returned URL, follow the steps below.
+	 * 
+	 * #### 1. Enable protocol feature
+	 * Enable protocol-content feature.
+	 * 
+	 * `src-tauri/Cargo.toml`
+	 * ```toml
+	 * [dependencies]
+	 * tauri-plugin-android-fs = { features = ["protocol-content"], ... }
+	 * ```
+	 * 
+	 * #### 2. Configuration
+	 * Set the configuration to allow files to be loaded.
+	 * If you are using absolute paths, you must configure the scope as with other APIs.
+	 * 
+	 * `src-tauri/tauri.conf.json`
+	 * ```json
+	 * {
+	 *   "plugins": {
+	 *     "android-fs": {
+	 *       "contentProtocol": {
+	 *         "enable": true,
+	 *         "scope": {
+	 *           "allow": ["$APPDATA/my-data/*"],
+	 *         }
+	 *       }
+	 *     }
+	 *   }
+	 * }
+	 * ```
+	 * 
+	 * NOTE:
+	 * Ensure that `serde_json` is present in your Rust dependencies.  
+	 * It is included by default in Tauri project templates, but if it has been removed, add it back.  
+	 * If it is missing, the project will fail to build.
+	 * 
+	 * #### 3. Content Security Policy (CSP)
+	 * If you are using a CSP, 
+	 * add `http://android-fs-content.localhost` to [`app.security.csp`](https://v2.tauri.app/reference/config/#csp-1) in `src-tauri/tauri.conf.json`.
+	 * 
+	 * ## Known Issues (As of March 21, 2026)
+	 * Loading files may fail. 
+	 * This occurs frequently with `<video>` and `<audio>` elements, but is not limited to them.
+	 * Because Tauri’s custom protocol currently has [an issue on Android where it cannot handle range requests](https://github.com/tauri-apps/tauri/issues/12019).
+	 * 
+	 * @param uri - URI or path of the target file.
+	 * 
+	 * @since 27.2.0
+	 */
+	public static convertFileSrc(uri: AndroidFsUri | FsPath): string {
+		return convertFileSrc(
+			JSON.stringify(mapFsPathForInput(uri)),
+			"android-fs-content"
+		)
 	}
 
 	/**
@@ -2509,7 +2674,7 @@ export class AndroidFs {
 	 * Existing content of the destination file will be truncated.   
 	 * 
 	 * @param srcUri - The URI or path of the source file to copy. 
-	 * @param destUri - The URI or path of the destination file. If the path is specified and the entry does not exist, a new file will be created.
+	 * @param destUri - The URI or path of the destination file. 
 	 * @param options - Optional settings: `create`, `notification`. See `AndroidCopyFileOptions` for detailed descriptions of each item.
 	 * 
 	 * @returns A Promise that resolves when the copying is complete.

@@ -82,7 +82,13 @@ enum InnerError {
     Io(std::io::Error),
 
     #[error(transparent)]
+    Fmt(std::fmt::Error),
+
+    #[error(transparent)]
     ParseInt(std::num::ParseIntError),
+
+    #[error(transparent)]
+    ParseFloat(std::num::ParseFloatError),
 
     #[error(transparent)]
     ParseBool(std::str::ParseBoolError),
@@ -92,6 +98,9 @@ enum InnerError {
 
     #[error(transparent)]
     Tauri(tauri::Error),
+
+    #[error(transparent)]
+    TauriHttp(tauri::http::Error),
 
     #[error(transparent)]
     TauriHttpHeaderToStr(tauri::http::header::ToStrError),
@@ -123,14 +132,18 @@ impl_into_err_from_inner!(tauri::plugin::mobile::PluginInvokeError, e => crate::
 impl_into_err_from_inner!(base64::DecodeError, e => crate::Error { inner: InnerError::Base64Decode(e) });
 
 impl_into_err_from_inner!(std::io::Error, e => crate::Error { inner: InnerError::Io(e) });
+impl_into_err_from_inner!(std::fmt::Error, e => crate::Error { inner: InnerError::Fmt(e) });
 impl_into_err_from_inner!(std::num::ParseIntError, e => crate::Error { inner: InnerError::ParseInt(e) });
+impl_into_err_from_inner!(std::num::ParseFloatError, e => crate::Error { inner: InnerError::ParseFloat(e) });
 impl_into_err_from_inner!(std::str::ParseBoolError, e => crate::Error { inner: InnerError::ParseBool(e) });
 impl_into_err_from_inner!(serde_json::Error, e => crate::Error { inner: InnerError::SerdeJson(e) });
 impl_into_err_from_inner!(tauri::Error, e => crate::Error { inner: InnerError::Tauri(e) });
+impl_into_err_from_inner!(tauri::http::Error, e => crate::Error { inner: InnerError::TauriHttp(e) });
 impl_into_err_from_inner!(tauri::http::header::ToStrError, e => crate::Error { inner: InnerError::TauriHttpHeaderToStr(e) });
 impl_into_err_from_inner!(tauri_plugin_fs::Error, e => crate::Error { inner: InnerError::TauriPluginFs(e) });
 impl_into_err_from_inner!(std::time::SystemTimeError, e => crate::Error { inner: InnerError::StdSystemTime(e) });
 impl_into_err_from_inner!(std::str::Utf8Error, e => crate::Error { inner: InnerError::Utf8Error(e) });
+impl_into_err_from_inner!(&'static str, e => crate::Error { inner: InnerError::Raw(e.into()) });
 
 impl<W> From<std::io::IntoInnerError<W>> for crate::Error {
     fn from(e: std::io::IntoInnerError<W>) -> crate::Error {

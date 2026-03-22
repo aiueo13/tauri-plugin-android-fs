@@ -4,8 +4,10 @@
 
 mod models;
 mod cmds;
+mod config;
 mod consts;
 mod utils;
+mod protocols;
 
 pub mod api;
 
@@ -27,8 +29,8 @@ pub use consts::*;
 ///         .expect("error while running tauri application");
 /// }
 /// ```
-pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
-    tauri::plugin::Builder::new("android-fs")
+pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R, Option<config::Config>> {
+    let builder = tauri::plugin::Builder::<R, Option<config::Config>>::new("android-fs")
         .setup(|app, api| {
             use tauri::Manager as _;
 
@@ -41,6 +43,10 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
 
                 app.manage(cmds::new_file_stream_resources_state(app.app_handle().clone()));
                 app.manage(cmds::new_file_writer_resources_state(app.app_handle().clone()));
+                
+                #[cfg(any(feature = "protocol-content", feature = "protocol-thumbnail"))] {
+                    app.manage(protocols::new_config_state(api.config().as_ref(), app));
+                }
 
                 // 前回作成した一時ファイルを全て削除
                 let app_handle = app.app_handle().clone();
@@ -116,8 +122,23 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             cmds::show_share_file_dialog,
             cmds::show_view_file_dialog,
             cmds::show_view_dir_dialog,
-        ])
-        .build()
+        ]);
+
+    #[cfg(all(target_os = "android", feature = "protocol-thumbnail"))]
+    let builder = builder
+        .register_asynchronous_uri_scheme_protocol(
+            protocols::protocol_thumbnail::URI_SCHEME, 
+            protocols::protocol_thumbnail::protocol,
+        );
+
+    #[cfg(all(target_os = "android", feature = "protocol-content"))]
+    let builder = builder
+        .register_asynchronous_uri_scheme_protocol(
+            protocols::protocol_content::URI_SCHEME, 
+            protocols::protocol_content::protocol,
+        );
+    
+    builder.build()
 }
 
 pub trait AndroidFsExt<R: tauri::Runtime> {
@@ -132,12 +153,12 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> AndroidFsExt<R> for T {
     fn android_fs(&self) -> &api::api_sync::AndroidFs<R> {
         self.try_state::<api::api_sync::AndroidFs<R>>()
             .map(|i| i.inner())
-            .expect("should register this plugin by tauri_plugin_android_fs::init(). see https://crates.io/crates/tauri-plugin-android-fs")
+            .expect("tauri_plugin_android_fs should be initialized to use; see https://crates.io/crates/tauri-plugin-android-fs")
     }
 
     fn android_fs_async(&self) -> &api::api_async::AndroidFs<R> {
         self.try_state::<api::api_async::AndroidFs<R>>()
             .map(|i| i.inner())
-            .expect("should register this plugin by tauri_plugin_android_fs::init(). see https://crates.io/crates/tauri-plugin-android-fs")
+            .expect("tauri_plugin_android_fs should be initialized to use; see https://crates.io/crates/tauri-plugin-android-fs")
     }
 }

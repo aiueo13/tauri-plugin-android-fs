@@ -54,6 +54,33 @@ pub struct StorageVolume {
     pub id: StorageVolumeId
 }
 
+impl StorageVolume {
+
+    /// Returns `true` if this volume is likely a SD-card–type storage.
+    ///
+    /// This is a heuristic classification based on the following properties:
+    ///
+    /// - `is_removable == true`
+    /// - `is_stable == true`
+    ///
+    /// Such volumes are typically removable media that are considered a stable part of the device.
+    pub fn is_sd_card_like(&self) -> bool {
+        self.is_removable && self.is_stable
+    }
+
+    /// Returns `true` if this volume is likely a USB-drive–type storage.
+    ///
+    /// This is a heuristic classification based on the following properties:
+    ///
+    /// - `is_removable == true`
+    /// - `is_stable == false`
+    ///
+    /// Such volumes are typically removable media that are not considered a stable part of the device.
+    pub fn is_usb_drive_like(&self) -> bool {
+        self.is_removable && !self.is_stable
+    }
+}
+
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StorageVolumeId {

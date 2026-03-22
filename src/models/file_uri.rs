@@ -2,36 +2,32 @@ use serde::{Deserialize, Serialize};
 use crate::*;
 
 
-/// Path to represent a file or directory.
+/// URI to represent a file or directory.
 /// 
-/// # Note
-/// For compatibility, an interconversion to [`tauri_plugin_fs::FilePath`] is implemented, such as follwing.  
-/// This is lossy and also not guaranteed to work properly with other plugins.  
-/// However, reading and writing files by official [`tauri_plugin_fs`] etc. should work well.  
-/// ```ignore
-/// use tauri_plugin_android_fs::FileUri;
-/// use tauri_plugin_fs::FilePath;
+/// # TypeScript
 /// 
-/// let uri: FileUri = unimplemented!();
-/// let path: FilePath = uri.into();
-/// let uri: FileUri = path.into();
-/// ```
-/// 
-/// # Typescript type
-/// ```typescript
+/// ```ts
 /// type FileUri = {
-///     uri: string, // This can use as path for official tauri_plugin_fs
+///     uri: string,
 ///     documentTopTreeUri: string | null
 /// }
 /// ```
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileUri {
+
+    /// URI pointing to a file or directory.
+    /// 
+    /// This uses either the `content://` scheme or the `file://` scheme.
     pub uri: String,
+
+    /// Tree URI of the origin directory to which this entry belongs.
+    ///
+    /// This is present for directories obtained via a directory picker
+    /// and for entries derived from them.
     pub document_top_tree_uri: Option<String>,
 }
 
-#[allow(unused)]
 impl FileUri {
 
     /// Same as `serde_json::to_string(...)`
@@ -70,29 +66,32 @@ impl FileUri {
     /// If this URI is an Android file-scheme URI, for example,
     /// via [`FileUri::from_path`], its absolute path will be retrieved.
     pub fn to_path(&self) -> Option<std::path::PathBuf> {
-        if self.is_file_uri() {
+        if self.is_file_scheme() {
             return Some(android_file_uri_to_path(&self.uri))
         }
         None
     }
 
     /// Indicates whether this is `file://` URI.
-    pub fn is_file_uri(&self) -> bool {
+    pub fn is_file_scheme(&self) -> bool {
         self.uri.starts_with("file://")
     }
 
     /// Indicates whether this is `content://` URI.
-    pub fn is_content_uri(&self) -> bool {
+    pub fn is_content_scheme(&self) -> bool {
         self.uri.starts_with("content://")
     }
 
-    pub(crate) fn require_content_uri(&self) -> Result<()> {
-        if self.is_content_uri() {
-            Ok(())
-        }
-        else {
-            Err(Error::invalid_uri_scheme(&self.uri))
-        }
+    // TODO: 次のメージャーアップデートで削除
+    #[deprecated = "Use `is_file_scheme` instead"]
+    pub fn is_file_uri(&self) -> bool {
+        self.is_file_scheme()
+    }
+
+    // TODO: 次のメージャーアップデートで削除
+    #[deprecated = "Use `is_content_scheme` instead"]
+    pub fn is_content_uri(&self) -> bool {
+        self.is_content_scheme()
     }
 }
 

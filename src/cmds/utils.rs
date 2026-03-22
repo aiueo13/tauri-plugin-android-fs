@@ -901,50 +901,6 @@ impl From<PublicAudioOrGeneralPurposeDir> for PublicDir {
     }
 }
 
-#[derive(Deserialize)]
-#[serde(untagged)]
-pub enum AfsUriOrFsPath {
-    AfsUri(FileUri),
-    FsPath(tauri_plugin_fs::FilePath),
-}
-
-impl TryFrom<AfsUriOrFsPath> for FileUri {
-    type Error = Error;
-
-    fn try_from(value: AfsUriOrFsPath) -> Result<Self> {
-        // Content URI かパスのみを受け入れる。
-        // File scheme URI は受け入れない。
-
-        match value {
-            AfsUriOrFsPath::AfsUri(uri) => {
-                uri.require_content_uri()?;
-                Ok(uri)
-            },
-            AfsUriOrFsPath::FsPath(path) => {
-                match path {
-                    tauri_plugin_fs::FilePath::Path(path) => Ok(FileUri::from_path(path)),
-                    tauri_plugin_fs::FilePath::Url(url) => {
-                        if url.scheme() != "content" {
-                            return Err(Error::invalid_uri_scheme(url))
-                        }
-                        Ok(FileUri::from_uri(url))
-                    }
-                }
-            },
-        }
-    }
-}
-
-impl From<AfsUriOrFsPath> for tauri_plugin_fs::FilePath {
-
-    fn from(value: AfsUriOrFsPath) -> Self {
-        match value {
-            AfsUriOrFsPath::AfsUri(uri) => uri.into(),
-            AfsUriOrFsPath::FsPath(path) => path,
-        }
-    }
-}
-
 // Based on code from tauri-plugin-fs crate
 //
 // Source:

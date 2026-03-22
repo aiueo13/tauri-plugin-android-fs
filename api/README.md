@@ -10,7 +10,7 @@ First, install this plugin to your Tauri project:
 
 ```toml
 [dependencies]
-tauri-plugin-android-fs = { version = "=27.1.0", features = [
+tauri-plugin-android-fs = { version = "=27.2.0", features = [
     # For `AndroidFs.createNewPublicFile` and related APIs on Android 9 or lower
     "legacy_storage_permission",
     # For notification options
@@ -46,11 +46,11 @@ Then, set the APIs that can be called from the Javascript:
 Finally, install the JavaScript Guest bindings using whichever JavaScript package manager you prefer:
 
 ```bash
-pnpm add tauri-plugin-android-fs-api@27.1.0 -E
+pnpm add tauri-plugin-android-fs-api@27.2.0 -E
 # or
-npm install tauri-plugin-android-fs-api@27.1.0 --save-exact
+npm install tauri-plugin-android-fs-api@27.2.0 --save-exact
 # or
-yarn add tauri-plugin-android-fs-api@27.1.0 --exact
+yarn add tauri-plugin-android-fs-api@27.2.0 --exact
 ```
 
 **NOTE**: Please make sure that the Rust-side `tauri-plugin-android-fs` and the JavaScript-side `tauri-plugin-android-fs-api` versions match exactly.
@@ -151,7 +151,7 @@ async function download(
 # APIs
 This plugin provides following APIs:
 
-### 1. APIs to obtain entries such as files and directories
+### 1. APIs to get entries such as files and directories
 - `AndroidFs.showOpenFilePicker` 
 - `AndroidFs.showOpenDirPicker` 
 - `AndroidFs.showSaveFilePicker` 
@@ -163,7 +163,18 @@ This plugin provides following APIs:
 - `AndroidFs.createNewPublicVideoFile` 
 - `AndroidFs.createNewPublicAudioFile` 
 
-### 2. APIs to retrieve entry data
+### 2. APIs to operate entries
+- `AndroidFs.copyFile`
+- `AndroidFs.truncateFile`
+- `AndroidFs.renameFile`
+- `AndroidFs.renameDir`
+- `AndroidFs.removeFile`
+- `AndroidFs.removeEmptyDir`
+- `AndroidFs.removeDirAll`
+- `AndroidFs.scanPublicFile`
+- `AndroidFs.setPublicFilePending`
+
+### 3. APIs to get entry data
 - `AndroidFs.getFsPath` 
 - `AndroidFs.getMetadata` 
 - `AndroidFs.getName` 
@@ -175,18 +186,11 @@ This plugin provides following APIs:
 - `AndroidFs.getThumbnailAsBase64` 
 - `AndroidFs.getThumbnailAsDataURL` 
 
-### 3. APIs to operate entries
-- `AndroidFs.copyFile`
-- `AndroidFs.truncateFile`
-- `AndroidFs.renameFile`
-- `AndroidFs.renameDir`
-- `AndroidFs.removeFile`
-- `AndroidFs.removeEmptyDir`
-- `AndroidFs.removeDirAll`
-- `AndroidFs.scanPublicFile`
-- `AndroidFs.setPublicFilePending`
+### 4. APIs to get source URLs
+- `AndroidFs.convertFileSrc`
+- `AndroidFs.convertThumbnailSrc`
 
-### 4. APIs to read files
+### 5. APIs to read files
 - `AndroidFs.openReadFileStream`
 - `AndroidFs.openReadTextFileLinesStream`
 - `AndroidFs.readFile`
@@ -194,12 +198,17 @@ This plugin provides following APIs:
 - `AndroidFs.readFileAsDataURL`
 - `AndroidFs.readTextFile`
 
-### 5. APIs to write to files
+### 6. APIs to write to files
 - `AndroidFs.openWriteFileStream`
 - `AndroidFs.writeFile`
 - `AndroidFs.writeTextFile`
 
-### 6. APIs to manage permissions
+### 7. APIs to send entries to other apps
+- `AndroidFs.showViewFileDialog`
+- `AndroidFs.showViewDirDialog`
+- `AndroidFs.showShareFileDialog`
+
+### 8. APIs to manage permissions
 - `AndroidFs.checkPickerUriPermission`
 - `AndroidFs.persistPickerUriPermission`
 - `AndroidFs.checkPersistedPickerUriPermission`
@@ -208,12 +217,7 @@ This plugin provides following APIs:
 - `AndroidFs.checkPublicFilesPermission`
 - `AndroidFs.requestPublicFilesPermission`
 
-### 7. APIs to send entries to other apps
-- `AndroidFs.showViewFileDialog`
-- `AndroidFs.showViewDirDialog`
-- `AndroidFs.showShareFileDialog`
-
-### 8. Helper
+### 9. Helper
 - `isAndroid`
 - `getAndroidApiLevel`
 

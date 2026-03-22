@@ -280,9 +280,27 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
             let sub_text = sub_text.map(|s| s.to_string());
 
             *self.inner.lock_drop_behavior() = DropBehavior { 
-                title: Some(Box::new(move |_| title)),
-                text: Some(Box::new(move |_| text)),
-                sub_text: Some(Box::new(move |_| sub_text)),
+                title: Some(Box::new(move || title)),
+                text: Some(Box::new(move || text)),
+                sub_text: Some(Box::new(move || sub_text)),
+                error: false,
+            };
+        }
+    }
+
+    #[always_sync]
+    pub fn set_drop_behavior_to_complete_with(
+        &self,
+        title: impl 'static + Send + FnOnce() -> Option<String>,
+        text: impl 'static + Send + FnOnce() -> Option<String>,
+        sub_text: impl 'static + Send + FnOnce() -> Option<String>,
+    ) {
+        
+        #[cfg(target_os = "android")] {
+            *self.inner.lock_drop_behavior() = DropBehavior { 
+                title: Some(Box::new(title)),
+                text: Some(Box::new(text)),
+                sub_text: Some(Box::new(sub_text)),
                 error: false,
             };
         }
@@ -302,22 +320,20 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
             let sub_text = sub_text.map(|s| s.to_string());
 
             *self.inner.lock_drop_behavior() = DropBehavior { 
-                title: Some(Box::new(move |_| title)),
-                text: Some(Box::new(move |_| text)),
-                sub_text: Some(Box::new(move |_| sub_text)),
+                title: Some(Box::new(move || title)),
+                text: Some(Box::new(move || text)),
+                sub_text: Some(Box::new(move || sub_text)),
                 error: true,
             };
         }
     }
 
     #[always_sync]
-    #[allow(dead_code)]
-    #[cfg(target_os = "android")]
-    pub(crate) fn set_drop_behavior_to_fail_with(
+    pub fn set_drop_behavior_to_fail_with(
         &self,
-        title: impl 'static + Send + Sync + FnOnce(&CurrentState) -> Option<String>,
-        text: impl 'static + Send + Sync + FnOnce(&CurrentState) -> Option<String>,
-        sub_text: impl 'static + Send + Sync + FnOnce(&CurrentState) -> Option<String>,
+        title: impl 'static + Send + FnOnce() -> Option<String>,
+        text: impl 'static + Send + FnOnce() -> Option<String>,
+        sub_text: impl 'static + Send + FnOnce() -> Option<String>,
     ) {
         
         #[cfg(target_os = "android")] {
@@ -422,20 +438,20 @@ struct Inner<R: tauri::Runtime> {
 
 #[cfg(target_os = "android")]
 struct DropBehavior {
-    title: Option<Box<dyn Sync + Send + 'static + FnOnce(&CurrentState) -> Option<String>>>,
-    text: Option<Box<dyn Sync + Send + 'static + FnOnce(&CurrentState) -> Option<String>>>,
-    sub_text: Option<Box<dyn Sync + Send + 'static + FnOnce(&CurrentState) -> Option<String>>>,
+    title: Option<Box<dyn Send + 'static + FnOnce() -> Option<String>>>,
+    text: Option<Box<dyn Send + 'static + FnOnce() -> Option<String>>>,
+    sub_text: Option<Box<dyn Send + 'static + FnOnce() -> Option<String>>>,
     error: bool,
 }
 
 #[cfg(target_os = "android")]
 #[derive(Clone)]
-pub(crate) struct CurrentState {
-    pub title: Option<String>,
-    pub text: Option<String>,
-    pub sub_text: Option<String>,
-    pub progress: Option<u64>,
-    pub progress_max: Option<u64>,
+struct CurrentState {
+    title: Option<String>,
+    text: Option<String>,
+    sub_text: Option<String>,
+    progress: Option<u64>,
+    progress_max: Option<u64>,
 }
 
 #[cfg(target_os = "android")]
@@ -461,7 +477,6 @@ impl<R: tauri::Runtime> Drop for Inner<R> {
         let handle = self.handle.clone();
         let id = self.id;
         let icon = self.icon;
-        let current_state = self.lock_current_state().clone();
         let (error, title, text, sub_text) = {
             let mut d = self.lock_drop_behavior();
             (d.error, d.title.take(), d.text.take(), d.sub_text.take())
@@ -472,9 +487,9 @@ impl<R: tauri::Runtime> Drop for Inner<R> {
             impls.finish_progress_notification(
                 id, 
                 icon,
-                title.and_then(|f| f(&current_state)).as_deref(),
-                text.and_then(|f| f(&current_state)).as_deref(),
-                sub_text.and_then(|f| f(&current_state)).as_deref(),
+                title.and_then(|f| f()).as_deref(),
+                text.and_then(|f| f()).as_deref(),
+                sub_text.and_then(|f| f()).as_deref(),
                 error
             ).await.ok();
         });

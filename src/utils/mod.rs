@@ -39,6 +39,66 @@ pub mod utils {
     }
 }
 
+#[derive(serde::Deserialize)]
+#[serde(untagged)]
+#[cfg_attr(not(target_os = "android"), allow(unused))]
+pub enum AfsUriOrFsPath {
+    AfsUri(FileUri),
+    FsPath(tauri_plugin_fs::FilePath),
+}
+
+#[cfg(target_os = "android")]
+impl AfsUriOrFsPath {
+
+    pub fn try_into_content_or_safe_file_scheme_uri(self) -> Result<FileUri> {
+        match self {
+            AfsUriOrFsPath::AfsUri(uri) => {
+                if !uri.is_content_scheme() {
+                    return Err(Error::invalid_uri_scheme(&uri.uri))
+                }
+                Ok(uri)
+            },
+            AfsUriOrFsPath::FsPath(path) => {
+                match path {
+                    tauri_plugin_fs::FilePath::Path(path) => {
+                        Ok(FileUri::from_path(tauri::path::SafePathBuf::new(path)?))
+                    },
+                    tauri_plugin_fs::FilePath::Url(url) => {
+                        if url.scheme() != "content" {
+                            return Err(Error::invalid_uri_scheme(url))
+                        }
+                        Ok(FileUri::from_uri(url))
+                    }
+                }
+            },
+        }
+    }
+
+    pub fn try_into_content_uri(self) -> Result<FileUri> {
+        match self {
+            AfsUriOrFsPath::AfsUri(uri) => {
+                if !uri.is_content_scheme() {
+                    return Err(Error::invalid_uri_scheme(&uri.uri))
+                }
+                Ok(uri)
+            },
+            AfsUriOrFsPath::FsPath(path) => {
+                match path {
+                    tauri_plugin_fs::FilePath::Path(_) => {
+                        Err(Error::with("invalid value: expected a content-scheme URI"))
+                    },
+                    tauri_plugin_fs::FilePath::Url(url) => {
+                        if url.scheme() != "content" {
+                            return Err(Error::invalid_uri_scheme(url))
+                        }
+                        Ok(FileUri::from_uri(url))
+                    }
+                }
+            },
+        }
+    }
+}
+
 pub fn encode_android_uri_component(input: impl AsRef<str>) -> String {
     // https://developer.android.com/reference/android/net/Uri.html#encode(java.lang.String)
     const SAFE: &percent_encoding::AsciiSet = &percent_encoding::NON_ALPHANUMERIC

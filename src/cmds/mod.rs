@@ -36,7 +36,7 @@ pub async fn get_name<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        let uri = FileUri::try_from(uri)?;
+        let uri = uri.try_into_content_or_safe_file_scheme_uri()?;
         if let Some(path) = uri.to_path() {
             validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
         }
@@ -58,7 +58,7 @@ pub async fn get_byte_length<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        let uri = FileUri::try_from(uri)?;
+        let uri = uri.try_into_content_or_safe_file_scheme_uri()?;
         if let Some(path) = uri.to_path() {
             validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
         }
@@ -80,7 +80,7 @@ pub async fn get_mime_type<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        let uri = FileUri::try_from(uri)?;
+        let uri = uri.try_into_content_or_safe_file_scheme_uri()?;
         if let Some(path) = uri.to_path() {
             validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
         }
@@ -102,7 +102,7 @@ pub async fn get_type<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        let uri = FileUri::try_from(uri)?;
+        let uri = uri.try_into_content_or_safe_file_scheme_uri()?;
         if let Some(path) = uri.to_path() {
             validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
         }
@@ -147,7 +147,7 @@ pub async fn get_metadata<R: tauri::Runtime>(
             }
         }
 
-        let uri = FileUri::try_from(uri)?;
+        let uri = uri.try_into_content_or_safe_file_scheme_uri()?;
         if let Some(path) = uri.to_path() {
             validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
         }
@@ -173,7 +173,10 @@ pub fn get_fs_path(uri: AfsUriOrFsPath) -> Result<tauri_plugin_fs::FilePath> {
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        Ok(uri.into())
+        Ok(match uri {
+            AfsUriOrFsPath::AfsUri(uri) => uri.into(),
+            AfsUriOrFsPath::FsPath(path) => path,
+        })
     }
 }
 
@@ -192,7 +195,7 @@ pub async fn get_thumbnail<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        let uri = FileUri::try_from(uri)?;
+        let uri = uri.try_into_content_or_safe_file_scheme_uri()?;
         if let Some(path) = uri.to_path() {
             validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
         }
@@ -238,7 +241,7 @@ pub async fn get_thumbnail_as_base64<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        let uri = FileUri::try_from(uri)?;
+        let uri = uri.try_into_content_or_safe_file_scheme_uri()?;
         if let Some(path) = uri.to_path() {
             validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
         }
@@ -270,7 +273,7 @@ pub async fn get_thumbnail_as_data_url<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        let uri = FileUri::try_from(uri)?;
+        let uri = uri.try_into_content_or_safe_file_scheme_uri()?;
         if let Some(path) = uri.to_path() {
             validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
         }
@@ -521,7 +524,7 @@ pub async fn create_new_public_audio_file<R: tauri::Runtime>(
 
 #[tauri::command]
 pub async fn scan_public_file<R: tauri::Runtime>(
-    uri: FileUri,
+    uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>,
 ) -> Result<()> {
 
@@ -529,8 +532,7 @@ pub async fn scan_public_file<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_uri()?;
-
+        let uri = uri.try_into_content_uri()?;
         let api = app.android_fs_async();
         api.public_storage().scan(&uri).await?;
         Ok(())
@@ -539,7 +541,7 @@ pub async fn scan_public_file<R: tauri::Runtime>(
 
 #[tauri::command]
 pub async fn set_public_file_pending<R: tauri::Runtime>(
-    uri: FileUri,
+    uri: AfsUriOrFsPath,
     is_pending: bool,
     app: tauri::AppHandle<R>,
 ) -> Result<()> {
@@ -548,8 +550,7 @@ pub async fn set_public_file_pending<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_uri()?;
-
+        let uri = uri.try_into_content_uri()?;
         let api = app.android_fs_async();
         api.public_storage().set_pending(&uri, is_pending).await?;
         Ok(())
@@ -601,7 +602,7 @@ pub async fn check_public_files_permission<R: tauri::Runtime>(
 
 #[tauri::command]
 pub async fn create_dir<R: tauri::Runtime>(
-    base_dir_uri: FileUri,
+    base_dir_uri: AfsUriOrFsPath,
     relative_path: String,
     app: tauri::AppHandle<R>
 ) -> Result<FileUri> {
@@ -610,8 +611,7 @@ pub async fn create_dir<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        base_dir_uri.require_content_uri()?;
-
+        let base_dir_uri = base_dir_uri.try_into_content_uri()?;
         let api = app.android_fs_async();
         api.create_dir_all(&base_dir_uri, relative_path).await
     }
@@ -619,7 +619,7 @@ pub async fn create_dir<R: tauri::Runtime>(
 
 #[tauri::command]
 pub async fn create_new_file<R: tauri::Runtime>(
-    base_dir_uri: FileUri,
+    base_dir_uri: AfsUriOrFsPath,
     relative_path: String,
     mime_type: Option<String>,
     app: tauri::AppHandle<R>,
@@ -629,8 +629,7 @@ pub async fn create_new_file<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        base_dir_uri.require_content_uri()?;
-
+        let base_dir_uri = base_dir_uri.try_into_content_uri()?;
         let api = app.android_fs_async();
         api.create_new_file(&base_dir_uri, relative_path, mime_type.as_deref()).await
     }
@@ -683,7 +682,7 @@ pub async fn open_read_file_stream<R: tauri::Runtime>(
     
         match event {
             ReadFileStreamEventInput::Open { uri } => {
-                let uri = FileUri::try_from(uri)?;
+                let uri = uri.try_into_content_or_safe_file_scheme_uri()?;
                 if let Some(path) = uri.to_path() {
                     validate_path_permission(&path, &app, &cmd_scope, &global_scope)?;
                 }
@@ -738,7 +737,7 @@ pub async fn open_read_text_file_lines_stream<R: tauri::Runtime>(
 
         match event {
             ReadTextFileLinesStreamEventInput::Open { uri, label, max_line_len, ignore_bom } => {
-                let uri = FileUri::try_from(uri)?;
+                let uri = uri.try_into_content_or_safe_file_scheme_uri()?;
                 if let Some(path) = uri.to_path() {
                     validate_path_permission(&path, &app, &cmd_scope, &global_scope)?;
                 }
@@ -791,18 +790,18 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
 ) -> Result<WriteFileStreamEventOutput> {
 
     use std::io::Write as _;
-    use crate::api::api_async::ProgressNotificationGuard as NotificationGuard;
+    use crate::api::api_async::ProgressNotificationGuard as ProgressNotificationGuard;
 
     type FileResource<R> = std::sync::Mutex<FileResourceInner<R>>;
     
     struct FileResourceInner<R: tauri::Runtime> {
         file: std::fs::File,
-        written: u64,
+        written: std::sync::Arc<std::sync::atomic::AtomicU64>,
         noti: Option<std::sync::Arc<Noti<R>>>,
     }
 
     struct Noti<R: tauri::Runtime> {
-        handler: NotificationGuard<R>,
+        handler: ProgressNotificationGuard<R>,
         settings: ProgressNotificationSettings,
         dest_file_name: String,
     }
@@ -813,7 +812,7 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
 
     match event {
         WriteFileStreamEventInput::Open { uri, options, supports_raw_ipc_request_body, } => {
-            let uri = FileUri::try_from(uri)?;
+            let uri = uri.try_into_content_or_safe_file_scheme_uri()?;
             if let Some(path) = uri.to_path() {
                 validate_path_permission(&path, &app, &cmd_scope, &global_scope)?;
 
@@ -829,66 +828,53 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
                 options.notification.is_some() &&
                 api.utils().request_notification_permission().await?;
 
+            let written = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
+
             let noti = match use_noti {
                 true => {
                     let dest_file_name = api.get_name_or_last_path_segment(&uri).await;
                     let settings = options.notification.ok_or_else(|| Error::with("missing notification"))?;
 
-                    let progress = Some(0);
-                    let progress_max = settings.expected_byte_length();
-                    let resolve_placeholders = |text| resolve_pn_placeholders(
-                        text,
-                        &dest_file_name, 
-                        progress, 
-                        progress_max
-                    );
-                    
-                    let handler = api
-                        .utils()
-                        .create_progress_notification(
-                            settings.icon(),
-                            resolve_placeholders(settings.title_progress()).as_deref(), 
-                            resolve_placeholders(settings.text_progress()).as_deref(), 
-                            resolve_placeholders(settings.sub_text_progress()).as_deref(), 
-                            progress,
-                            if settings.force_indeterminate_progress_bar() { None } else { progress_max },
+                    let handler = {
+                        let indeterminate_progress_bar = settings.force_indeterminate_progress_bar();
+                        let progress = Some(written.load(std::sync::atomic::Ordering::SeqCst));
+                        let progress_max = settings.expected_byte_length();
+                        let resolve_placeholders = |text| resolve_pn_placeholders(
+                            text,
+                            &dest_file_name, 
+                            progress, 
+                            progress_max
+                        );
+                        let handler = api
+                            .utils()
+                            .create_progress_notification(
+                                settings.icon(),
+                                resolve_placeholders(settings.title_progress()).as_deref(), 
+                                resolve_placeholders(settings.text_progress()).as_deref(), 
+                                resolve_placeholders(settings.sub_text_progress()).as_deref(), 
+                                if indeterminate_progress_bar { None } else { progress },
+                                if indeterminate_progress_bar { None } else { progress_max },
+                            )
+                            .await?;
+
+                        handler
+                    };
+
+                    let resolve_drop_behavior_fn = |value: Option<String>| {
+                        let written = std::sync::Arc::clone(&written);
+                        let dest_file_name = dest_file_name.clone();
+                        let expected_byte_len = settings.expected_byte_length();
+                        move || resolve_pn_placeholders(
+                            value.as_deref(),
+                            &dest_file_name,
+                            Some(written.load(std::sync::atomic::Ordering::SeqCst)),
+                            expected_byte_len
                         )
-                        .await?;
-                    
+                    };
                     handler.set_drop_behavior_to_fail_with(
-                        {
-                            let title = settings.title_failure().map(|s| s.to_string());
-                            let dest_file_name = dest_file_name.clone();
-                            let expected_byte_len = settings.expected_byte_length();
-                            move |current_state| resolve_pn_placeholders(
-                                title.as_deref(),
-                                &dest_file_name,
-                                current_state.progress,
-                                expected_byte_len
-                            )
-                        },
-                        {
-                            let text = settings.text_failure().map(|s| s.to_string());
-                            let dest_file_name = dest_file_name.clone();
-                            let expected_byte_len = settings.expected_byte_length();
-                            move |current_state| resolve_pn_placeholders(
-                                text.as_deref(),
-                                &dest_file_name,
-                                current_state.progress,
-                                expected_byte_len
-                            )
-                        },
-                        {
-                            let sub_text = settings.sub_text_failure().map(|s| s.to_string());
-                            let dest_file_name = dest_file_name.clone();
-                            let expected_byte_len = settings.expected_byte_length();
-                            move |current_state| resolve_pn_placeholders(
-                                sub_text.as_deref(),
-                                &dest_file_name,
-                                current_state.progress,
-                                expected_byte_len
-                            )
-                        },
+                        resolve_drop_behavior_fn(settings.title_failure().map(|s| s.to_string())),
+                        resolve_drop_behavior_fn(settings.text_failure().map(|s| s.to_string())),
+                        resolve_drop_behavior_fn(settings.sub_text_failure().map(|s| s.to_string())),
                     );
 
                     Some(std::sync::Arc::new(Noti { dest_file_name, handler, settings }))
@@ -897,7 +883,7 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
             };
 
             tauri::async_runtime::spawn_blocking(move || {
-                let res = FileResourceInner { file, noti, written: 0 };
+                let res = FileResourceInner { file, noti, written };
                 let res: FileResource<R> = std::sync::Mutex::new(res);
                 let id = resources.add(res)?;
                 Ok(WriteFileStreamEventOutput::Open { id, supports_raw_ipc_request_body })
@@ -905,14 +891,21 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
         },
         WriteFileStreamEventInput::Write { id, data } => {
             tauri::async_runtime::spawn_blocking(move || {
-                let res = resources.get::<FileResource<R>>(id)?;
-                let mut locked_res = res.lock()?;
+                let (written, noti) = {
+                    let res = resources.get::<FileResource<R>>(id)?;
+                    let mut locked_res = res.lock()?;
 
-                locked_res.file.write_all(&data)?;
-                locked_res.written += data.len() as u64;
-                let written = locked_res.written;
-                let noti = locked_res.noti.as_ref().map(std::sync::Arc::clone);
-                std::mem::drop(locked_res);
+                    locked_res.file.write_all(&data)?;
+                    let written = {
+                        let addend = data.len() as u64;
+                        let prev = locked_res.written.fetch_add(addend, std::sync::atomic::Ordering::SeqCst);
+                        prev + addend
+                    };
+
+                    let noti = locked_res.noti.as_ref().map(std::sync::Arc::clone);
+
+                    (written, noti)
+                };
 
                 if let Some(noti) = noti {
                     let need_update_noti = 
@@ -921,22 +914,23 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
                         has_pn_progress_or_percentage_placeholder(noti.settings.sub_text_progress());
 
                     if need_update_noti {
-                        let progress = Some(written);
-                        let progress_max = noti.settings.expected_byte_length();
                         tauri::async_runtime::spawn(async move {
+                            let progress = Some(written);
+                            let progress_max = noti.settings.expected_byte_length();
+                            let indeterminate_progress_bar = noti.settings.force_indeterminate_progress_bar();
                             let resolve_placeholders = |text| resolve_pn_placeholders(
                                 text,
                                 &noti.dest_file_name, 
                                 progress, 
                                 progress_max
                             );
-                            
+
                             noti.handler.update(
                                 resolve_placeholders(noti.settings.title_progress()).as_deref(),
                                 resolve_placeholders(noti.settings.text_progress()).as_deref(),
                                 resolve_placeholders(noti.settings.sub_text_progress()).as_deref(), 
-                                progress, 
-                                if noti.settings.force_indeterminate_progress_bar() { None } else { progress_max },
+                                if indeterminate_progress_bar { None } else { progress },
+                                if indeterminate_progress_bar { None } else { progress_max },
                             ).await
                         });
                     }
@@ -951,11 +945,12 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
                     let mut res = res.lock()?;
                     if let Some(noti) = res.noti.take() {
                         if !error {
+                            let written = res.written.load(std::sync::atomic::Ordering::SeqCst);
                             let resolve_placeholders = |text| resolve_pn_placeholders(
                                 text,
                                 &noti.dest_file_name, 
-                                Some(res.written), 
-                                Some(res.written)
+                                Some(written), 
+                                Some(written)
                             );
 
                             noti.handler.set_drop_behavior_to_complete(
@@ -1036,7 +1031,7 @@ pub async fn read_file<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        let uri = FileUri::try_from(uri)?;
+        let uri = uri.try_into_content_or_safe_file_scheme_uri()?;
         if let Some(path) = uri.to_path() {
             validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
         }
@@ -1058,7 +1053,7 @@ pub async fn read_file_as_base64<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        let uri = FileUri::try_from(uri)?;
+        let uri = uri.try_into_content_or_safe_file_scheme_uri()?;
         if let Some(path) = uri.to_path() {
             validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
         }
@@ -1086,7 +1081,7 @@ pub async fn read_file_as_data_url<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        let uri = FileUri::try_from(uri)?;
+        let uri = uri.try_into_content_or_safe_file_scheme_uri()?;
         if let Some(path) = uri.to_path() {
             validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
         }
@@ -1117,7 +1112,7 @@ pub async fn read_text_file<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        let uri = FileUri::try_from(uri)?;
+        let uri = uri.try_into_content_or_safe_file_scheme_uri()?;
         if let Some(path) = uri.to_path() {
             validate_path_permission(path, &app, &cmd_scope, &global_scope)?;
         }
@@ -1142,8 +1137,8 @@ pub async fn copy_file<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        let src_uri = FileUri::try_from(src_uri)?;
-        let dest_uri = FileUri::try_from(dest_uri)?;
+        let src_uri = src_uri.try_into_content_or_safe_file_scheme_uri()?;
+        let dest_uri = dest_uri.try_into_content_or_safe_file_scheme_uri()?;
 
         if let Some(src_path) = src_uri.to_path() {
             validate_path_permission(src_path, &app, &cmd_scope, &global_scope)?;
@@ -1167,69 +1162,44 @@ pub async fn copy_file<R: tauri::Runtime>(
             return Ok(())
         }
 
+        let mut src = api.open_file_readable(&src_uri).await?;
+        let dest = api.open_file_writable(&dest_uri).await?;
+
         let dest_file_name = api.get_name_or_last_path_segment(&dest_uri).await;
-        let settings = notification.ok_or_else(|| Error::with("missing notification"))?;
-
-        let progress = Some(0);
-        let progress_max = settings.expected_byte_length();
-
+        let noti_settings = notification.ok_or_else(|| Error::with("missing notification"))?;
+        
         let resolve_placeholders = |text| resolve_pn_placeholders(
             text,
             &dest_file_name, 
-            progress, 
-            progress_max
-        );
-                    
+            Some(0), 
+            noti_settings.expected_byte_length()
+        );      
         let handler = api
             .utils()
             .create_progress_notification(
-                settings.icon(),
-                resolve_placeholders(settings.title_progress()).as_deref(), 
-                resolve_placeholders(settings.text_progress()).as_deref(), 
-                resolve_placeholders(settings.sub_text_progress()).as_deref(), 
-                progress,
+                noti_settings.icon(),
+                resolve_placeholders(noti_settings.title_progress()).as_deref(), 
+                resolve_placeholders(noti_settings.text_progress()).as_deref(), 
+                resolve_placeholders(noti_settings.sub_text_progress()).as_deref(), 
+                None,
                 None,
             )
             .await?;
-                    
+           
+        let resolve_drop_behavior_fn = |value: Option<String>| {
+            let dest_file_name = dest_file_name.clone();
+            move || resolve_pn_placeholders(
+                value.as_deref(),
+                &dest_file_name,
+                None,
+                None
+            )
+        };
         handler.set_drop_behavior_to_fail_with(
-            {
-                let title = settings.title_failure().map(|s| s.to_string());
-                let dest_file_name = dest_file_name.clone();
-                let expected_byte_len = settings.expected_byte_length();
-                move |current_state| resolve_pn_placeholders(
-                    title.as_deref(),
-                    &dest_file_name,
-                    current_state.progress,
-                    expected_byte_len
-                )
-            },
-            {
-                let text = settings.text_failure().map(|s| s.to_string());
-                let dest_file_name = dest_file_name.clone();
-                let expected_byte_len = settings.expected_byte_length();
-                move |current_state| resolve_pn_placeholders(
-                    text.as_deref(),
-                    &dest_file_name,
-                    current_state.progress,
-                    expected_byte_len
-                )
-            },
-            {
-                let sub_text = settings.sub_text_failure().map(|s| s.to_string());
-                let dest_file_name = dest_file_name.clone();
-                let expected_byte_len = settings.expected_byte_length();
-                move |current_state| resolve_pn_placeholders(
-                    sub_text.as_deref(),
-                    &dest_file_name,
-                    current_state.progress,
-                    expected_byte_len
-                )
-            },
+            resolve_drop_behavior_fn(noti_settings.title_failure().map(|s| s.to_string())),
+            resolve_drop_behavior_fn(noti_settings.text_failure().map(|s| s.to_string())),
+            resolve_drop_behavior_fn(noti_settings.sub_text_failure().map(|s| s.to_string())),
         );
-
-        let mut src = api.open_file_readable(&src_uri).await?;
-        let dest = api.open_file_writable(&dest_uri).await?;
         
         let written = tauri::async_runtime::spawn_blocking(move || -> Result<_> {
             let mut written = 0;
@@ -1247,11 +1217,10 @@ pub async fn copy_file<R: tauri::Runtime>(
             Some(written), 
             Some(written)
         );
-
         handler.set_drop_behavior_to_complete(
-            resolve_placeholders(settings.title_completion()).as_deref(),
-            resolve_placeholders(settings.text_completion()).as_deref(),
-            resolve_placeholders(settings.sub_text_completion()).as_deref(),
+            resolve_placeholders(noti_settings.title_completion()).as_deref(),
+            resolve_placeholders(noti_settings.text_completion()).as_deref(),
+            resolve_placeholders(noti_settings.sub_text_completion()).as_deref(),
         );
 
         Ok(())
@@ -1260,7 +1229,7 @@ pub async fn copy_file<R: tauri::Runtime>(
 
 #[tauri::command]
 pub async fn truncate_file<R: tauri::Runtime>(
-    uri: FileUri,
+    uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>
 ) -> Result<()> {
 
@@ -1268,8 +1237,7 @@ pub async fn truncate_file<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_uri()?;
-
+        let uri = uri.try_into_content_uri()?;
         let api = app.android_fs_async();
         api.open_file_writable(&uri).await?;
         Ok(())
@@ -1278,7 +1246,7 @@ pub async fn truncate_file<R: tauri::Runtime>(
 
 #[tauri::command]
 pub async fn read_dir<R: tauri::Runtime>(
-    uri: FileUri,
+    uri: AfsUriOrFsPath,
     offset: Option<u64>,
     limit: Option<u64>,
     app: tauri::AppHandle<R>
@@ -1313,8 +1281,7 @@ pub async fn read_dir<R: tauri::Runtime>(
             }
         }
 
-        uri.require_content_uri()?;
-
+        let uri = uri.try_into_content_uri()?;
         let api = app.android_fs_async();
         let start = offset.unwrap_or(0);
         let end = limit.map(|limit| start.saturating_add(limit));
@@ -1345,7 +1312,7 @@ pub async fn read_dir<R: tauri::Runtime>(
 
 #[tauri::command]
 pub async fn rename_file<R: tauri::Runtime>(
-    uri: FileUri,
+    uri: AfsUriOrFsPath,
     name: String,
     app: tauri::AppHandle<R>,
 ) -> Result<FileUri> {
@@ -1354,8 +1321,7 @@ pub async fn rename_file<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_uri()?;
-
+        let uri = uri.try_into_content_uri()?;
         let api = app.android_fs_async();
 
         if !api.get_type(&uri).await?.is_file() {
@@ -1368,7 +1334,7 @@ pub async fn rename_file<R: tauri::Runtime>(
 
 #[tauri::command]
 pub async fn rename_dir<R: tauri::Runtime>(
-    uri: FileUri,
+    uri: AfsUriOrFsPath,
     name: String,
     app: tauri::AppHandle<R>,
 ) -> Result<FileUri> {
@@ -1377,8 +1343,7 @@ pub async fn rename_dir<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_uri()?;
-
+        let uri = uri.try_into_content_uri()?;
         let api = app.android_fs_async();
 
         if !api.get_type(&uri).await?.is_dir() {
@@ -1391,7 +1356,7 @@ pub async fn rename_dir<R: tauri::Runtime>(
 
 #[tauri::command]
 pub async fn remove_file<R: tauri::Runtime>(
-    uri: FileUri,
+    uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>,
 ) -> Result<()> {
 
@@ -1399,8 +1364,7 @@ pub async fn remove_file<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_uri()?;
-
+        let uri = uri.try_into_content_uri()?;
         let api = app.android_fs_async();
         api.remove_file(&uri).await?;
         Ok(())
@@ -1409,7 +1373,7 @@ pub async fn remove_file<R: tauri::Runtime>(
 
 #[tauri::command]
 pub async fn remove_empty_dir<R: tauri::Runtime>(
-    uri: FileUri,
+    uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>,
 ) -> Result<()> {
 
@@ -1417,8 +1381,7 @@ pub async fn remove_empty_dir<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_uri()?;
-
+        let uri = uri.try_into_content_uri()?;
         let api = app.android_fs_async();
         api.remove_dir(&uri).await?;
         Ok(())
@@ -1427,7 +1390,7 @@ pub async fn remove_empty_dir<R: tauri::Runtime>(
 
 #[tauri::command]
 pub async fn remove_dir_all<R: tauri::Runtime>(
-    uri: FileUri,
+    uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>,
 ) -> Result<()> {
 
@@ -1435,8 +1398,7 @@ pub async fn remove_dir_all<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_uri()?;
-
+        let uri = uri.try_into_content_uri()?;
         let api = app.android_fs_async();
         api.remove_dir_all(&uri).await?;
         Ok(())
@@ -1445,7 +1407,7 @@ pub async fn remove_dir_all<R: tauri::Runtime>(
 
 #[tauri::command]
 pub async fn check_picker_uri_permission<R: tauri::Runtime>(
-    uri: FileUri,
+    uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>,
     state: UriPermission
 ) -> Result<bool> {
@@ -1454,8 +1416,7 @@ pub async fn check_picker_uri_permission<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_uri()?;
-
+        let uri = uri.try_into_content_uri()?;
         let api = app.android_fs_async();
         api.file_picker().check_uri_permission(&uri, state).await
     }
@@ -1463,7 +1424,7 @@ pub async fn check_picker_uri_permission<R: tauri::Runtime>(
 
 #[tauri::command]
 pub async fn persist_picker_uri_permission<R: tauri::Runtime>(
-    uri: FileUri,
+    uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>,
 ) -> Result<()> {
 
@@ -1471,8 +1432,7 @@ pub async fn persist_picker_uri_permission<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_uri()?;
-
+        let uri = uri.try_into_content_uri()?;
         let api = app.android_fs_async();
         api.file_picker().persist_uri_permission(&uri).await?;
         Ok(())
@@ -1481,7 +1441,7 @@ pub async fn persist_picker_uri_permission<R: tauri::Runtime>(
 
 #[tauri::command]
 pub async fn check_persisted_picker_uri_permission<R: tauri::Runtime>(
-    uri: FileUri,
+    uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>,
     state: UriPermission
 ) -> Result<bool> {
@@ -1490,8 +1450,7 @@ pub async fn check_persisted_picker_uri_permission<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_uri()?;
-
+        let uri = uri.try_into_content_uri()?;
         let api = app.android_fs_async();
         api.file_picker().check_persisted_uri_permission(&uri, state).await
     }
@@ -1499,7 +1458,7 @@ pub async fn check_persisted_picker_uri_permission<R: tauri::Runtime>(
 
 #[tauri::command]
 pub async fn release_persisted_picker_uri_permission<R: tauri::Runtime>(
-    uri: FileUri,
+    uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>,
 ) -> Result<bool> {
 
@@ -1507,8 +1466,7 @@ pub async fn release_persisted_picker_uri_permission<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_uri()?;
-
+        let uri = uri.try_into_content_uri()?;
         let api = app.android_fs_async();
         api.file_picker().release_persisted_uri_permission(&uri).await
     }
@@ -1531,7 +1489,7 @@ pub async fn release_all_persisted_picker_uri_permissions<R: tauri::Runtime>(
 
 #[tauri::command]
 pub async fn show_share_file_dialog<R: tauri::Runtime>(
-    uris: Vec<FileUri>,
+    uris: Vec<AfsUriOrFsPath>,
     app: tauri::AppHandle<R>,
 ) -> Result<()> {
     
@@ -1539,9 +1497,10 @@ pub async fn show_share_file_dialog<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        for uri in &uris {
-            uri.require_content_uri()?;
-        }
+        let uris = uris
+            .into_iter()
+            .map(|uri| uri.try_into_content_uri())
+            .collect::<Result<Vec<_>>>()?;
 
         let api = app.android_fs_async();
         api.file_opener().share_files(uris.iter()).await?;
@@ -1551,7 +1510,7 @@ pub async fn show_share_file_dialog<R: tauri::Runtime>(
 
 #[tauri::command]
 pub async fn show_view_file_dialog<R: tauri::Runtime>(
-    uri: FileUri,
+    uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>,
 ) -> Result<()> {
     
@@ -1559,8 +1518,7 @@ pub async fn show_view_file_dialog<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_uri()?;
-
+        let uri = uri.try_into_content_uri()?;
         let api = app.android_fs_async();
         api.file_opener().open_file(&uri).await?;
         Ok(())
@@ -1569,7 +1527,7 @@ pub async fn show_view_file_dialog<R: tauri::Runtime>(
 
 #[tauri::command]
 pub async fn show_view_dir_dialog<R: tauri::Runtime>(
-    uri: FileUri,
+    uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>,
 ) -> Result<()> {
     
@@ -1577,8 +1535,7 @@ pub async fn show_view_dir_dialog<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        uri.require_content_uri()?;
-
+        let uri = uri.try_into_content_uri()?;
         let api = app.android_fs_async();
         api.file_opener().open_dir(&uri).await?;
         Ok(())
@@ -1604,7 +1561,7 @@ pub async fn show_open_file_picker<R: tauri::Runtime>(
             Some(initial_location) => resolve_picker_initial_location(initial_location, &app).await.ok(),
             None => None
         };
-        let initial_location = initial_location.filter(|i| i.is_content_uri());
+        let initial_location = initial_location.filter(|i| i.is_content_scheme());
 
         let target_is_single = mime_types.len() == 1;
         let (
@@ -1698,7 +1655,7 @@ pub async fn show_open_dir_picker<R: tauri::Runtime>(
             Some(initial_location) => resolve_picker_initial_location(initial_location, &app).await.ok(),
             None => None
         };
-        let initial_location = initial_location.filter(|i| i.is_content_uri());
+        let initial_location = initial_location.filter(|i| i.is_content_scheme());
 
         api.file_picker().pick_dir(initial_location.as_ref(), local_only).await
     }
@@ -1722,7 +1679,7 @@ pub async fn show_save_file_picker<R: tauri::Runtime>(
             Some(initial_location) => resolve_picker_initial_location(initial_location, &app).await.ok(),
             None => None
         };
-        let initial_location = initial_location.filter(|i| i.is_content_uri());
+        let initial_location = initial_location.filter(|i| i.is_content_scheme());
 
         api.file_picker().save_file(
             initial_location.as_ref(), 
