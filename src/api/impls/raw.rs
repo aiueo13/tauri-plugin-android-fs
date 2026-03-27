@@ -1040,12 +1040,13 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         title: Option<&str>,
         text: Option<&str>,
         sub_text: Option<&str>,
+        share_src: Option<&FileUri>,
         error: bool,
     ) -> Result<()> {
 
-        impl_se!(struct Req<'a> { id: i32, icon_type: ProgressNotificationIcon, title: Option<&'a str>, text: Option<&'a str>, sub_text: Option<&'a str>, error: bool });
+        impl_se!(struct Req<'a> { id: i32, icon_type: ProgressNotificationIcon, title: Option<&'a str>, text: Option<&'a str>, sub_text: Option<&'a str>, error: bool, share_src: Option<&'a FileUri> });
             
-        self.invoke::<()>("finishProgressNotification", Req { id, icon_type, title, text, sub_text, error })
+        self.invoke::<()>("finishProgressNotification", Req { id, icon_type, title, text, sub_text, error, share_src })
             .await
     }
 

@@ -10,7 +10,7 @@ First, install this plugin to your Tauri project:
 
 ```toml
 [dependencies]
-tauri-plugin-android-fs = { version = "=27.2.0", features = [
+tauri-plugin-android-fs = { version = "=28.0.0", features = [
     # For `AndroidFs.createNewPublicFile` and related APIs on Android 9 or lower
     "legacy_storage_permission",
     # For notification options
@@ -46,11 +46,11 @@ Then, set the APIs that can be called from the Javascript:
 Finally, install the JavaScript Guest bindings using whichever JavaScript package manager you prefer:
 
 ```bash
-pnpm add tauri-plugin-android-fs-api@27.2.0 -E
+pnpm add tauri-plugin-android-fs-api@28.0.0 -E
 # or
-npm install tauri-plugin-android-fs-api@27.2.0 --save-exact
+npm install tauri-plugin-android-fs-api@28.0.0 --save-exact
 # or
-yarn add tauri-plugin-android-fs-api@27.2.0 --exact
+yarn add tauri-plugin-android-fs-api@28.0.0 --exact
 ```
 
 **NOTE**: Please make sure that the Rust-side `tauri-plugin-android-fs` and the JavaScript-side `tauri-plugin-android-fs-api` versions match exactly.
@@ -92,7 +92,7 @@ import {
 } from 'tauri-plugin-android-fs-api';
 
 /** 
- * Saves the data to '~/Download/MyApp/{fileName}'
+ * Saves data to '~/Download/MyApp/{fileName}'
  */
 async function download(
   fileName: string,
@@ -110,7 +110,7 @@ async function download(
       { isPending: true }
     );
 
-    // Configures the system status bar notification (optional)
+    // Configures a system status bar notification (optional)
     const notification: AndroidProgressNotificationTemplate | undefined = {
       icon: AndroidProgressNotificationIconType.Download,
       title: "{{fileName}}",
@@ -135,7 +135,7 @@ async function download(
     await AndroidFs.setPublicFilePending(uri, false);
     await AndroidFs.scanPublicFile(uri);
   }
-  // Handles error and cleanup
+  // Handles an error and cleanup
   catch (e) {
     if (data instanceof ReadableStream) {
       await data.cancel(e).catch(() => { });

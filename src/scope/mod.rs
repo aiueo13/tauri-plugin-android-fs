@@ -1,4 +1,3 @@
-
 // Based on code from tauri-plugin-fs crate
 //
 // Source:
@@ -8,7 +7,7 @@
 #[derive(schemars::JsonSchema, serde::Deserialize)]
 #[serde(untagged)]
 #[allow(unused)]
-pub enum ScopeSchema {
+pub enum Scope {
 
     /// A path that can be accessed by the webview when using the Android fs APIs.
     ///
@@ -29,10 +28,4 @@ pub enum ScopeSchema {
         /// `$APPLOCALDATA`, `$APPCACHE`, `$APPLOG`.
         path: std::path::PathBuf,
     },
-}
-
-#[derive(Debug)]
-#[allow(unused)]
-pub struct Scope {
-    pub path: Option<std::path::PathBuf>,
 }

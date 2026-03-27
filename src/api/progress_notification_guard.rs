@@ -57,6 +57,7 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
                     title: None,
                     text: None,
                     sub_text: None,
+                    share_src: None,
                     error: true,
                 }),
                 update_throttler: Throttler::with_delay(std::time::Duration::from_millis(1100)),
@@ -272,17 +273,20 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
         title: Option<&str>,
         text: Option<&str>,
         sub_text: Option<&str>,
+        share_src: Option<&FileUri>
     ) {
 
         #[cfg(target_os = "android")] {
             let title = title.map(|s| s.to_string());
             let text = text.map(|s| s.to_string());
             let sub_text = sub_text.map(|s| s.to_string());
+            let share_src = share_src.map(|s| s.clone());
 
             *self.inner.lock_drop_behavior() = DropBehavior { 
                 title: Some(Box::new(move || title)),
                 text: Some(Box::new(move || text)),
                 sub_text: Some(Box::new(move || sub_text)),
+                share_src: Some(Box::new(move || share_src)),
                 error: false,
             };
         }
@@ -294,6 +298,7 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
         title: impl 'static + Send + FnOnce() -> Option<String>,
         text: impl 'static + Send + FnOnce() -> Option<String>,
         sub_text: impl 'static + Send + FnOnce() -> Option<String>,
+        share_src: impl 'static + Send + FnOnce() -> Option<FileUri>,
     ) {
         
         #[cfg(target_os = "android")] {
@@ -301,6 +306,7 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
                 title: Some(Box::new(title)),
                 text: Some(Box::new(text)),
                 sub_text: Some(Box::new(sub_text)),
+                share_src: Some(Box::new(share_src)),
                 error: false,
             };
         }
@@ -323,6 +329,7 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
                 title: Some(Box::new(move || title)),
                 text: Some(Box::new(move || text)),
                 sub_text: Some(Box::new(move || sub_text)),
+                share_src: None,
                 error: true,
             };
         }
@@ -341,6 +348,7 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
                 title: Some(Box::new(title)),
                 text: Some(Box::new(text)),
                 sub_text: Some(Box::new(sub_text)),
+                share_src: None,
                 error: true,
             };
         }
@@ -352,13 +360,14 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
         title: Option<&str>,
         text: Option<&str>,
         sub_text: Option<&str>,
+        share_src: Option<&FileUri>,
     ) -> Result<()> {
 
         #[cfg(not(target_os = "android"))] {
             Ok(())
         }
         #[cfg(target_os = "android")] {
-            self.finish_notification(title, text, sub_text, false).await
+            self.finish_notification(title, text, sub_text, share_src, false).await
         }
     }
 
@@ -374,7 +383,7 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
             Ok(())
         }
         #[cfg(target_os = "android")] { 
-            self.finish_notification(title, text, sub_text, true).await
+            self.finish_notification(title, text, sub_text, None, true).await
         }
     }
     
@@ -386,6 +395,7 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
         title: Option<&str>, 
         text: Option<&str>,
         sub_text: Option<&str>,
+        share_src: Option<&FileUri>,
         error: bool
     ) -> Result<()> {
 
@@ -395,7 +405,8 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
             title,
             text,
             sub_text,
-            error
+            share_src,
+            error,
         ).await?;
             
         self.inner.is_finished = true;
@@ -441,6 +452,7 @@ struct DropBehavior {
     title: Option<Box<dyn Send + 'static + FnOnce() -> Option<String>>>,
     text: Option<Box<dyn Send + 'static + FnOnce() -> Option<String>>>,
     sub_text: Option<Box<dyn Send + 'static + FnOnce() -> Option<String>>>,
+    share_src: Option<Box<dyn Send + 'static + FnOnce() -> Option<FileUri>>>,
     error: bool,
 }
 
@@ -477,9 +489,9 @@ impl<R: tauri::Runtime> Drop for Inner<R> {
         let handle = self.handle.clone();
         let id = self.id;
         let icon = self.icon;
-        let (error, title, text, sub_text) = {
+        let (error, title, text, sub_text, share_src) = {
             let mut d = self.lock_drop_behavior();
-            (d.error, d.title.take(), d.text.take(), d.sub_text.take())
+            (d.error, d.title.take(), d.text.take(), d.sub_text.take(), d.share_src.take())
         };
 
         tauri::async_runtime::spawn(async move {
@@ -490,6 +502,7 @@ impl<R: tauri::Runtime> Drop for Inner<R> {
                 title.and_then(|f| f()).as_deref(),
                 text.and_then(|f| f()).as_deref(),
                 sub_text.and_then(|f| f()).as_deref(),
+                share_src.and_then(|f| f()).as_ref(),
                 error
             ).await.ok();
         });

@@ -911,8 +911,8 @@ impl From<PublicAudioOrGeneralPurposeDir> for PublicDir {
 pub fn validate_path_permission<R: tauri::Runtime>(
     path: impl AsRef<std::path::Path>,
     app: &tauri::AppHandle<R>,
-    cmd_scope: &tauri::ipc::CommandScope<Scope>,
-    global_scope: &tauri::ipc::GlobalScope<Scope>,
+    cmd_scope: &tauri::ipc::CommandScope<AfsScope>,
+    global_scope: &tauri::ipc::GlobalScope<AfsScope>,
 ) -> Result<()> {
 
     let path = path.as_ref();
@@ -1004,13 +1004,19 @@ fn is_forbidden<P: AsRef<std::path::Path>>(
     }
 }
 
+#[derive(Debug)]
+#[cfg_attr(not(target_os = "android"), allow(unused))]
+pub struct AfsScope {
+    pub path: Option<std::path::PathBuf>,
+}
+
 // Based on code from tauri-plugin-fs crate
 //
 // Source:
 // - https://github.com/tauri-apps/plugins-workspace/blob/3d0d2e041bbad9766aebecaeba291a28d8d7bf5c/plugins/fs/src/lib.rs#L347
 // - Copyright 2019-2023 Tauri Programme within The Commons Conservancy
 // - Licensed under the MIT License or the Apache 2.0 License
-impl tauri::ipc::ScopeObject for Scope {
+impl tauri::ipc::ScopeObject for AfsScope {
     type Error = Error;
 
     fn deserialize<R: tauri::Runtime>(
@@ -1019,8 +1025,8 @@ impl tauri::ipc::ScopeObject for Scope {
     ) -> Result<Self> {
         
         let path = serde_json::from_value(raw.into()).map(|raw| match raw {
-            ScopeSchema::Value(path) => path,
-            ScopeSchema::Object { path } => path,
+            scope::Scope::Value(path) => path,
+            scope::Scope::Object { path } => path,
         })?;
 
         match app.path().parse(path) {

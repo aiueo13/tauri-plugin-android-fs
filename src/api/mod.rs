@@ -9,9 +9,9 @@ mod private_storage;
 mod public_storage;
 mod utils;
 mod progress_notification_guard;
-mod temp_file_guard;
 
-pub use temp_file_guard::TempFileGuard;
+pub(crate) mod models;
+pub(crate) mod consts;
 
 pub mod api_async {
     pub use crate::api::android_fs::AsyncAndroidFs as AndroidFs;

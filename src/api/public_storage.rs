@@ -847,17 +847,4 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
             self.impls().scan_file_in_public_storage_for_result(uri, true).await
         }
     }
-
-
-    // TODO: 次のメージャーアップデートで削除
-    #[deprecated = "Use `check_permission` instead"]
-    #[maybe_async]
-    pub fn has_permission(&self) -> Result<bool> {
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().check_storage_permission_for_public_storage().await
-        }
-    }
 }

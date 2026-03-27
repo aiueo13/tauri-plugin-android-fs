@@ -409,6 +409,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             var title: String? = null
             var text: String? = null
             var subText: String? = null
+            var shareSrc: AFUri? = null
         }
 
         scope.launch {
@@ -424,6 +425,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     args.text,
                     args.subText,
                     error,
+                    args.shareSrc,
                     activity
                 )
 

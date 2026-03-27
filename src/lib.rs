@@ -2,19 +2,18 @@
 
 #![cfg_attr(not(target_os = "android"), allow(unused_variables))]
 
-mod models;
 mod cmds;
-mod config;
-mod consts;
-mod utils;
 mod protocols;
+mod config;
+mod scope;
+mod utils;
 
 pub mod api;
 
 use utils::*;
 
-pub use models::*;
-pub use consts::*;
+pub use api::models::*;
+pub use api::consts::*;
 
 /// Initializes the plugin.
 /// 
@@ -41,19 +40,14 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R, Option<config:
                 app.manage(afs_sync);
                 app.manage(afs_async);
 
-                app.manage(cmds::new_file_stream_resources_state(app.app_handle().clone()));
-                app.manage(cmds::new_file_writer_resources_state(app.app_handle().clone()));
-                
+                #[cfg(feature = "commands")] {
+                    app.manage(cmds::new_file_stream_resources_state(app.app_handle().clone()));
+                    app.manage(cmds::new_file_writer_resources_state(app.app_handle().clone()));
+                }
+
                 #[cfg(any(feature = "protocol-content", feature = "protocol-thumbnail"))] {
                     app.manage(protocols::new_config_state(api.config().as_ref(), app));
                 }
-
-                // 前回作成した一時ファイルを全て削除
-                let app_handle = app.app_handle().clone();
-                std::thread::spawn(move || {
-                    let afs = app_handle.android_fs();
-                    afs.impls().remove_all_temp_files().ok();
-                });
             }
             #[cfg(not(target_os = "android"))] {
                 let afs_sync = crate::api::api_sync::AndroidFs::<R> { handle: Default::default() };
@@ -63,7 +57,10 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R, Option<config:
             }
 
             Ok(())
-        })
+        });
+
+    #[cfg(feature = "commands")]
+    let builder = builder
         .js_init_script(format!(
             "window.__TAURI_ANDROID_FS_PLUGIN_INTERNALS__ = {{ isAndroid: {} }};",
             cfg!(target_os = "android")
@@ -89,7 +86,6 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R, Option<config:
             cmds::set_public_file_pending,
             cmds::request_public_files_permission,
             cmds::check_public_files_permission,
-            cmds::has_public_files_permission,
             cmds::create_new_file,
             cmds::create_dir,
             cmds::count_all_file_streams,

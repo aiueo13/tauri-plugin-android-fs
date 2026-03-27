@@ -1,6 +1,6 @@
 [package]
 name = "tauri-plugin-android-fs"
-version = "27.2.0"
+version = "28.0.0"
 edition = "2021"
 rust-version = "1.77.2"
 links = "tauri-plugin-android-fs"
@@ -31,7 +31,8 @@ macos = { level = "none", notes = "" }
 ios = { level = "none", notes = "" }
 
 [features]
-default = []
+default = ["commands"]
+commands = []
 protocol-content = ["dep:getrandom", "dep:http-range"]
 protocol-thumbnail = []
 notification_permission = []

@@ -20,49 +20,6 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         Ok(self.consts()?.public_dir_name(dir)?)
     }
 
-    #[always_sync]
-    pub fn temp_dir_path(&self) -> Result<&'static std::path::PathBuf> {
-        get_or_init_temp_dir_path(|| {
-            let path = self.private_dir_path(PrivateDir::NoBackupData)?
-                .join("pluginAndroidFs-tempDir-01K486FKQ2BZSBGFD34RFH9FWJ");
-
-            Ok(path)
-        })
-    }
-
-    #[maybe_async]
-    pub fn remove_all_temp_files(&self) -> Result<()> {
-        let path = self.temp_dir_path()?;
-
-        run_blocking(move || {
-            let _g = LOCK_FOR_REMOVE_TEMP_FILE.lock();
-
-            match std::fs::remove_dir_all(path) {
-                Ok(_) => Ok(()),
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-                Err(e) => Err(e.into()),
-            }
-        }).await
-    }
-
-    #[maybe_async]
-    pub fn create_new_temp_file(&self) -> Result<(std::fs::File, std::path::PathBuf, FileUri)> {
-        let temp_dir_path = self.temp_dir_path()?;
-
-        run_blocking(move || {
-            std::mem::drop(LOCK_FOR_REMOVE_TEMP_FILE.lock());
-
-            std::fs::create_dir_all(&temp_dir_path).ok();
-
-            let uid = next_uid_for_temp_file();
-            let temp_file_path = temp_dir_path.join(format!("{uid}"));
-            let temp_file_uri = FileUri::from_path(&temp_file_path);
-            let temp_file = std::fs::File::create_new(&temp_file_path)?;
-
-            Ok((temp_file, temp_file_path, temp_file_uri))
-        }).await
-    }
-
     #[maybe_async]
     pub fn get_file_mime_type(&self, uri: &FileUri) -> Result<String> {
         self.get_entry_type(uri).await?.into_file_mime_type_or_err()
@@ -623,19 +580,4 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
 
         self.get_media_store_file_path(uri).await
     }
-}
-
-// Tokio の Mutex は async context 内の blocking lock でパニックになるので使わない
-static LOCK_FOR_REMOVE_TEMP_FILE: std::sync::LazyLock<std::sync::Mutex<()>> = std::sync::LazyLock::new(|| std::sync::Mutex::new(()));
-
-fn_get_or_init!(get_or_init_temp_dir_path, std::path::PathBuf);
-
-fn next_uid_for_temp_file() -> usize {
-    // temp file の寿命はアプリ終了までで、アプリ起動時に全て消される。
-    // よって 0 から始まる単調増加の ID でいい。
-
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    static COUNTER: AtomicUsize = AtomicUsize::new(0);
-
-    COUNTER.fetch_add(1, Ordering::Relaxed) 
 }

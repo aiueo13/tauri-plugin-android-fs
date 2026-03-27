@@ -1,12 +1,17 @@
 package com.plugin.android_fs
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.ShareCompat
 import app.tauri.annotation.InvokeArg
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
@@ -170,6 +175,7 @@ class AFNotification {
             text: String?,
             subText: String?,
             error: Boolean,
+            shareSrc: AFUri?,
             ctx: Context,
         ) {
 
@@ -187,6 +193,29 @@ class AFNotification {
                     .setOnlyAlertOnce(true)
                     .setOngoing(false)
                     .setAutoCancel(true)
+
+                if (shareSrc != null) {
+                    try {
+                        val uri = Uri.parse(shareSrc.uri)
+                        val mimeType = AFUtils.getFileMimeType(shareSrc, ctx)
+                        val intentChooser = ShareCompat.IntentBuilder(ctx)
+                            .setType(mimeType)
+                            .setStream(uri)
+                            .createChooserIntent().apply {
+                                if (ctx is Activity) {
+                                    putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(ctx.componentName))
+                                }
+                            }
+
+                        builder.setContentIntent(PendingIntent.getActivity(
+                            ctx,
+                            id,
+                            intentChooser,
+                            PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                        ))
+                    }
+                    catch (ignore: Exception) { }
+                }
 
                 if (!text.isNullOrEmpty()) {
                     builder.setContentText(text)

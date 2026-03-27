@@ -64,7 +64,7 @@ impl FileUri {
     }
 
     /// If this URI is an Android file-scheme URI, for example,
-    /// via [`FileUri::from_path`], its absolute path will be retrieved.
+    /// via [`FileUri::from_path`], its path will be retrieved.
     pub fn to_path(&self) -> Option<std::path::PathBuf> {
         if self.is_file_scheme() {
             return Some(android_file_uri_to_path(&self.uri))
@@ -80,18 +80,6 @@ impl FileUri {
     /// Indicates whether this is `content://` URI.
     pub fn is_content_scheme(&self) -> bool {
         self.uri.starts_with("content://")
-    }
-
-    // TODO: 次のメージャーアップデートで削除
-    #[deprecated = "Use `is_file_scheme` instead"]
-    pub fn is_file_uri(&self) -> bool {
-        self.is_file_scheme()
-    }
-
-    // TODO: 次のメージャーアップデートで削除
-    #[deprecated = "Use `is_content_scheme` instead"]
-    pub fn is_content_uri(&self) -> bool {
-        self.is_content_scheme()
     }
 }
 

@@ -168,11 +168,6 @@ export type AndroidConvertThumbnailSrcOptions = {
 }
 
 /**
- * @deprecated Typo in type name. Use `AndroidReadDirOptions` instead.
- */
-export type AndroidReadDirOptons = AndroidReadDirOptions;
-
-/**
  * Options of `AndroidFs.readDir`
  */
 export type AndroidReadDirOptions = {
@@ -305,7 +300,7 @@ export type AndroidWriteFileOptions = {
 	create?: boolean,
 
 	/**
-	 * Configuration for the system progress notification on status bar.
+	 * Configuration for the system progress notification.
 	 * 
 	 * If this option is omitted, the operation will be performed silently without any notification.  
 	 * If specified, a progress notification will be displayed in the Android status bar during the operation. 
@@ -333,7 +328,7 @@ export type AndroidWriteTextFileOptions = {
 	create?: boolean,
 
 	/**
-	 * Configuration for the system progress notification on status bar.
+	 * Configuration for the system progress notification.
 	 * 
 	 * If this option is omitted, the operation will be performed silently without any notification.  
 	 * If specified, a progress notification will be displayed in the Android status bar during the operation. 
@@ -361,7 +356,7 @@ export type AndroidCopyFileOptions = {
 	create?: boolean,
 
 	/**
-	 * Configuration for the system progress notification on status bar.
+	 * Configuration for the system progress notification.
 	 * 
 	 * If this option is omitted, the operation will be performed silently without any notification.  
 	 * If specified, a progress notification will be displayed in the Android status bar during the operation. 
@@ -408,7 +403,7 @@ export type AndroidOpenWriteFileStreamOptions = {
 	create?: boolean,
 
 	/**
-	 * Configuration for the system progress notification on status bar.
+	 * Configuration for the system progress notification.
 	 * 
 	 * If this option is omitted, the operation will be performed silently without any notification.  
 	 * If specified, a progress notification will be displayed in the Android status bar during the operation. 
@@ -1317,7 +1312,7 @@ export type AndroidProgressNotificationTemplate = {
 	 * use `titleProgress`, `titleCompletion`, and `titleFailure`.
 	 *
 	 * The following placeholders are supported:
-	 * - `"{{fileName}}"`: The file name
+	 * - `"{{fileName}}"`: Name of the file
 	 * - `"{{progress}}"`: Formatted number of bytes processed so far (e.g. `"2.2 KB"`, `"100.1 MB"`)
 	 * - `"{{progressMax}}"`: Formatted total number of bytes (e.g. `"5.0 MB"`, or `"--"` if `expectedByteLength` is undefined)
 	 * - `"{{percentage}}"`: Progress percentage from 0 to 100 (e.g. `"45"`, or `"--"` if `expectedByteLength` is undefined)
@@ -1331,7 +1326,7 @@ export type AndroidProgressNotificationTemplate = {
 	 * Title of the notification while the process is in progress.
 	 * 
 	 * The following placeholders are supported:
-	 * - `"{{fileName}}"`: The file name
+	 * - `"{{fileName}}"`: Name of the file
 	 * - `"{{progress}}"`: Formatted number of bytes processed so far (e.g. `"2.2 KB"`, `"100.1 MB"`)
 	 * - `"{{progressMax}}"`: Formatted total number of bytes (e.g. `"5.0 MB"`, or `"--"` if `expectedByteLength` is undefined)
 	 * - `"{{percentage}}"`: Progress percentage from 0 to 100 (e.g. `"45"`, or `"--"` if `expectedByteLength` is undefined)
@@ -1345,7 +1340,7 @@ export type AndroidProgressNotificationTemplate = {
 	 * Title of the notification upon successful completion.
 	 * 
 	 * The following placeholders are supported:
-	 * - `"{{fileName}}"`: The file name
+	 * - `"{{fileName}}"`: Name of the file
 	 * - `"{{progress}}"`: Formatted number of bytes processed so far (e.g. `"2.2 KB"`, `"100.1 MB"`)
 	 * - `"{{progressMax}}"`: Formatted total number of bytes (always same as `{{progress}}`)
 	 * - `"{{percentage}}"`: Progress percentage from 0 to 100 (always `"100"`)
@@ -1359,7 +1354,7 @@ export type AndroidProgressNotificationTemplate = {
 	 * Title of the notification when the process fails.
 	 * 
 	 * The following placeholders are supported:
-	 * - `"{{fileName}}"`: The file name
+	 * - `"{{fileName}}"`: Name of the file
 	 * - `"{{progress}}"`: Formatted number of bytes processed so far (e.g. `"2.2 KB"`, `"100.1 MB"`)
 	 * - `"{{progressMax}}"`: Formatted total number of bytes (e.g. `"5.0 MB"`, or `"--"` if `expectedByteLength` is undefined)
 	 * - `"{{percentage}}"`: Progress percentage from 0 to 100 (e.g. `"45"`, or `"--"` if `expectedByteLength` is undefined)
@@ -1376,7 +1371,7 @@ export type AndroidProgressNotificationTemplate = {
 	 * use `textProgress`, `textCompletion`, and `textFailure`.
 	 * 
 	 * The following placeholders are supported:
-	 * - `"{{fileName}}"`: The file name
+	 * - `"{{fileName}}"`: Name of the file
 	 * - `"{{progress}}"`: Formatted number of bytes processed so far (e.g. `"2.2 KB"`, `"100.1 MB"`)
 	 * - `"{{progressMax}}"`: Formatted total number of bytes (e.g. `"5.0 MB"`, or `"--"` if `expectedByteLength` is undefined)
 	 * - `"{{percentage}}"`: Progress percentage from 0 to 100 (e.g. `"45"`, or `"--"` if `expectedByteLength` is undefined)
@@ -1390,7 +1385,7 @@ export type AndroidProgressNotificationTemplate = {
 	 * Message body of the notification while the process is in progress.
 	 * 
 	 * The following placeholders are supported:
-	 * - `"{{fileName}}"`: The file name
+	 * - `"{{fileName}}"`: Name of the file
 	 * - `"{{progress}}"`: Formatted number of bytes processed so far (e.g. `"2.2 KB"`, `"100.1 MB"`)
 	 * - `"{{progressMax}}"`: Formatted total number of bytes (e.g. `"5.0 MB"`, or `"--"` if `expectedByteLength` is undefined)
 	 * - `"{{percentage}}"`: Progress percentage from 0 to 100 (e.g. `"45"`, or `"--"` if `expectedByteLength` is undefined)
@@ -1404,7 +1399,7 @@ export type AndroidProgressNotificationTemplate = {
 	 * Message body of the notification upon successful completion.
 	 * 
 	 * The following placeholders are supported:
-	 * - `"{{fileName}}"`: The file name
+	 * - `"{{fileName}}"`: Name of the file
 	 * - `"{{progress}}"`: Formatted number of bytes processed so far (e.g. `"2.2 KB"`, `"100.1 MB"`)
 	 * - `"{{progressMax}}"`: Formatted total number of bytes (always same as `{{progress}}`)
 	 * - `"{{percentage}}"`: Progress percentage from 0 to 100 (always `"100"`)
@@ -1418,7 +1413,7 @@ export type AndroidProgressNotificationTemplate = {
 	 * Message body of the notification when the process fails.
 	 * 
 	 * The following placeholders are supported:
-	 * - `"{{fileName}}"`: The file name
+	 * - `"{{fileName}}"`: Name of the file
 	 * - `"{{progress}}"`: Formatted number of bytes processed so far (e.g. `"2.2 KB"`, `"100.1 MB"`)
 	 * - `"{{progressMax}}"`: Formatted total number of bytes (e.g. `"5.0 MB"`, or `"--"` if `expectedByteLength` is undefined)
 	 * - `"{{percentage}}"`: Progress percentage from 0 to 100 (e.g. `"45"`, or `"--"` if `expectedByteLength` is undefined)
@@ -1435,7 +1430,7 @@ export type AndroidProgressNotificationTemplate = {
 	 * use `subTextProgress`, `subTextCompletion`, and `subTextFailure`.
 	 * 
 	 * The following placeholders are supported:
-	 * - `"{{fileName}}"`: The file name
+	 * - `"{{fileName}}"`: Name of the file
 	 * - `"{{progress}}"`: Formatted number of bytes processed so far (e.g. `"2.2 KB"`, `"100.1 MB"`)
 	 * - `"{{progressMax}}"`: Formatted total number of bytes (e.g. `"5.0 MB"`, or `"--"` if `expectedByteLength` is undefined)
 	 * - `"{{percentage}}"`: Progress percentage from 0 to 100 (e.g. `"45"`, or `"--"` if `expectedByteLength` is undefined)
@@ -1449,7 +1444,7 @@ export type AndroidProgressNotificationTemplate = {
 	 * Sub text of the notification while the process is in progress.
 	 * 
 	 * The following placeholders are supported:
-	 * - `"{{fileName}}"`: The file name
+	 * - `"{{fileName}}"`: Name of the file
 	 * - `"{{progress}}"`: Formatted number of bytes processed so far (e.g. `"2.2 KB"`, `"100.1 MB"`)
 	 * - `"{{progressMax}}"`: Formatted total number of bytes (e.g. `"5.0 MB"`, or `"--"` if `expectedByteLength` is undefined)
 	 * - `"{{percentage}}"`: Progress percentage from 0 to 100 (e.g. `"45"`, or `"--"` if `expectedByteLength` is undefined)
@@ -1463,7 +1458,7 @@ export type AndroidProgressNotificationTemplate = {
 	 * Sub text of the notification upon successful completion.
 	 * 
 	 * The following placeholders are supported:
-	 * - `"{{fileName}}"`: The file name
+	 * - `"{{fileName}}"`: Name of the file
 	 * - `"{{progress}}"`: Formatted number of bytes processed so far (e.g. `"2.2 KB"`, `"100.1 MB"`)
 	 * - `"{{progressMax}}"`: Formatted total number of bytes (always same as `{{progress}}`)
 	 * - `"{{percentage}}"`: Progress percentage from 0 to 100 (always `"100"`)
@@ -1477,7 +1472,7 @@ export type AndroidProgressNotificationTemplate = {
 	 * Sub text of the notification when the process fails.
 	 * 
 	 * The following placeholders are supported:
-	 * - `"{{fileName}}"`: The file name
+	 * - `"{{fileName}}"`: Name of the file
 	 * - `"{{progress}}"`: Formatted number of bytes processed so far (e.g. `"2.2 KB"`, `"100.1 MB"`)
 	 * - `"{{progressMax}}"`: Formatted total number of bytes (e.g. `"5.0 MB"`, or `"--"` if `expectedByteLength` is undefined)
 	 * - `"{{percentage}}"`: Progress percentage from 0 to 100 (e.g. `"45"`, or `"--"` if `expectedByteLength` is undefined)
@@ -3093,14 +3088,6 @@ export class AndroidFs {
 	 */
 	public static async releaseAllPersistedPickerUriPermissions(): Promise<void> {
 		return await invoke("plugin:android-fs|release_all_persisted_picker_uri_permissions")
-	}
-
-
-	/**
-	 * @deprecated Use `AndroidFs.checkPublicFilesPermission` instead.
-	 */
-	public static async hasPublicFilesPermission(): Promise<boolean> {
-		return await invoke('plugin:android-fs|has_public_files_permission')
 	}
 }
 

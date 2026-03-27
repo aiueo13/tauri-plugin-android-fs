@@ -1,4 +1,4 @@
-#[path = "src/cmds/scope.rs"]
+#[path = "src/scope/mod.rs"]
 mod scope;
 
 const COMMANDS: &'static [&'static str] = &[
@@ -22,7 +22,6 @@ const COMMANDS: &'static [&'static str] = &[
     "set_public_file_pending",
     "request_public_files_permission",
     "check_public_files_permission",
-    "has_public_files_permission",
     "create_new_file",
     "create_dir",
     "truncate_file",
@@ -60,7 +59,7 @@ const COMMANDS: &'static [&'static str] = &[
 fn main() {
     tauri_plugin::Builder::new(COMMANDS)
         .android_path("android")
-        .global_scope_schema(schemars::schema_for!(scope::ScopeSchema))
+        .global_scope_schema(schemars::schema_for!(scope::Scope))
         .build();
 
     let mut permissions = Vec::new();

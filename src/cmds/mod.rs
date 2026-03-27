@@ -1,8 +1,8 @@
+#![cfg(feature = "commands")]
+
 mod utils;
-mod scope;
 mod state;
 
-use scope::*;
 use utils::*;
 use serde::{Deserialize, Serialize};
 use crate::*;
@@ -28,8 +28,8 @@ pub async fn get_android_api_level<R: tauri::Runtime>(
 pub async fn get_name<R: tauri::Runtime>(
     uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>,
-    cmd_scope: tauri::ipc::CommandScope<Scope>,
-    global_scope: tauri::ipc::GlobalScope<Scope>,
+    cmd_scope: tauri::ipc::CommandScope<AfsScope>,
+    global_scope: tauri::ipc::GlobalScope<AfsScope>,
 ) -> Result<String> {
 
     #[cfg(not(target_os = "android"))] {
@@ -50,8 +50,8 @@ pub async fn get_name<R: tauri::Runtime>(
 pub async fn get_byte_length<R: tauri::Runtime>(
     uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>,
-    cmd_scope: tauri::ipc::CommandScope<Scope>,
-    global_scope: tauri::ipc::GlobalScope<Scope>,
+    cmd_scope: tauri::ipc::CommandScope<AfsScope>,
+    global_scope: tauri::ipc::GlobalScope<AfsScope>,
 ) -> Result<u64> {
 
     #[cfg(not(target_os = "android"))] {
@@ -72,8 +72,8 @@ pub async fn get_byte_length<R: tauri::Runtime>(
 pub async fn get_mime_type<R: tauri::Runtime>(
     uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>,
-    cmd_scope: tauri::ipc::CommandScope<Scope>,
-    global_scope: tauri::ipc::GlobalScope<Scope>,
+    cmd_scope: tauri::ipc::CommandScope<AfsScope>,
+    global_scope: tauri::ipc::GlobalScope<AfsScope>,
 ) -> Result<String> {
 
     #[cfg(not(target_os = "android"))] {
@@ -94,8 +94,8 @@ pub async fn get_mime_type<R: tauri::Runtime>(
 pub async fn get_type<R: tauri::Runtime>(
     uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>,
-    cmd_scope: tauri::ipc::CommandScope<Scope>,
-    global_scope: tauri::ipc::GlobalScope<Scope>,
+    cmd_scope: tauri::ipc::CommandScope<AfsScope>,
+    global_scope: tauri::ipc::GlobalScope<AfsScope>,
 ) -> Result<EntryType> {
 
     #[cfg(not(target_os = "android"))] {
@@ -116,8 +116,8 @@ pub async fn get_type<R: tauri::Runtime>(
 pub async fn get_metadata<R: tauri::Runtime>(
     uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>,
-    cmd_scope: tauri::ipc::CommandScope<Scope>,
-    global_scope: tauri::ipc::GlobalScope<Scope>,
+    cmd_scope: tauri::ipc::CommandScope<AfsScope>,
+    global_scope: tauri::ipc::GlobalScope<AfsScope>,
 ) -> Result<impl Serialize> {
 
     #[cfg(not(target_os = "android"))] {
@@ -187,8 +187,8 @@ pub async fn get_thumbnail<R: tauri::Runtime>(
     height: f64,
     format: String,
     app: tauri::AppHandle<R>,
-    cmd_scope: tauri::ipc::CommandScope<Scope>,
-    global_scope: tauri::ipc::GlobalScope<Scope>,
+    cmd_scope: tauri::ipc::CommandScope<AfsScope>,
+    global_scope: tauri::ipc::GlobalScope<AfsScope>,
 ) -> Result<tauri::ipc::Response> {
 
     #[cfg(not(target_os = "android"))] {
@@ -219,8 +219,8 @@ pub async fn get_thumbnail_as_bytes<R: tauri::Runtime>(
     height: f64,
     format: String,
     app: tauri::AppHandle<R>,
-    cmd_scope: tauri::ipc::CommandScope<Scope>,
-    global_scope: tauri::ipc::GlobalScope<Scope>,
+    cmd_scope: tauri::ipc::CommandScope<AfsScope>,
+    global_scope: tauri::ipc::GlobalScope<AfsScope>,
 ) -> Result<tauri::ipc::Response> {
 
     get_thumbnail(uri, width, height, format, app, cmd_scope, global_scope).await
@@ -233,8 +233,8 @@ pub async fn get_thumbnail_as_base64<R: tauri::Runtime>(
     height: f64,
     format: String,
     app: tauri::AppHandle<R>,
-    cmd_scope: tauri::ipc::CommandScope<Scope>,
-    global_scope: tauri::ipc::GlobalScope<Scope>,
+    cmd_scope: tauri::ipc::CommandScope<AfsScope>,
+    global_scope: tauri::ipc::GlobalScope<AfsScope>,
 ) -> Result<tauri::ipc::Response> {
 
     #[cfg(not(target_os = "android"))] {
@@ -265,8 +265,8 @@ pub async fn get_thumbnail_as_data_url<R: tauri::Runtime>(
     height: f64,
     format: String,
     app: tauri::AppHandle<R>,
-    cmd_scope: tauri::ipc::CommandScope<Scope>,
-    global_scope: tauri::ipc::GlobalScope<Scope>,
+    cmd_scope: tauri::ipc::CommandScope<AfsScope>,
+    global_scope: tauri::ipc::GlobalScope<AfsScope>,
 ) -> Result<tauri::ipc::Response> {
 
     #[cfg(not(target_os = "android"))] {
@@ -571,21 +571,6 @@ pub async fn request_public_files_permission<R: tauri::Runtime>(
     }
 }
 
-// TODO: 次のメージャーアップデートで削除
-#[tauri::command]
-pub async fn has_public_files_permission<R: tauri::Runtime>(
-    app: tauri::AppHandle<R>,
-) -> Result<bool> {
-
-    #[cfg(not(target_os = "android"))] {
-        Err(Error::NOT_ANDROID)
-    }
-    #[cfg(target_os = "android")] {
-        let api = app.android_fs_async();
-        api.public_storage().check_permission().await
-    }
-}
-
 #[tauri::command]
 pub async fn check_public_files_permission<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
@@ -667,8 +652,8 @@ pub async fn count_all_file_streams<R: tauri::Runtime>(
 pub async fn open_read_file_stream<R: tauri::Runtime>(
     event: ReadFileStreamEventInput,
     app: tauri::AppHandle<R>,
-    cmd_scope: tauri::ipc::CommandScope<Scope>,
-    global_scope: tauri::ipc::GlobalScope<Scope>,
+    cmd_scope: tauri::ipc::CommandScope<AfsScope>,
+    global_scope: tauri::ipc::GlobalScope<AfsScope>,
     resources: FileStreamResourcesState<'_, R>,
 ) -> Result<tauri::ipc::Response> {
 
@@ -722,8 +707,8 @@ pub async fn open_read_file_stream<R: tauri::Runtime>(
 pub async fn open_read_text_file_lines_stream<R: tauri::Runtime>(
     event: ReadTextFileLinesStreamEventInput,
     app: tauri::AppHandle<R>,
-    cmd_scope: tauri::ipc::CommandScope<Scope>,
-    global_scope: tauri::ipc::GlobalScope<Scope>,
+    cmd_scope: tauri::ipc::CommandScope<AfsScope>,
+    global_scope: tauri::ipc::GlobalScope<AfsScope>,
     resources: FileStreamResourcesState<'_, R>,
 ) -> Result<tauri::ipc::Response> {
 
@@ -784,8 +769,8 @@ pub async fn open_read_text_file_lines_stream<R: tauri::Runtime>(
 async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
     req: tauri::ipc::Request<'_>,
     app: tauri::AppHandle<R>,
-    cmd_scope: tauri::ipc::CommandScope<Scope>,
-    global_scope: tauri::ipc::GlobalScope<Scope>,
+    cmd_scope: tauri::ipc::CommandScope<AfsScope>,
+    global_scope: tauri::ipc::GlobalScope<AfsScope>,
     resources: PluginResourcesState<'_, R, K>,
 ) -> Result<WriteFileStreamEventOutput> {
 
@@ -803,7 +788,8 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
     struct Noti<R: tauri::Runtime> {
         handler: ProgressNotificationGuard<R>,
         settings: ProgressNotificationSettings,
-        dest_file_name: String,
+        file_name: String,
+        file_uri: FileUri,
     }
 
 
@@ -832,7 +818,8 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
 
             let noti = match use_noti {
                 true => {
-                    let dest_file_name = api.get_name_or_last_path_segment(&uri).await;
+                    let file_uri = uri.clone();
+                    let file_name = api.get_name_or_last_path_segment(&uri).await;
                     let settings = options.notification.ok_or_else(|| Error::with("missing notification"))?;
 
                     let handler = {
@@ -841,7 +828,7 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
                         let progress_max = settings.expected_byte_length();
                         let resolve_placeholders = |text| resolve_pn_placeholders(
                             text,
-                            &dest_file_name, 
+                            &file_name, 
                             progress, 
                             progress_max
                         );
@@ -862,11 +849,11 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
 
                     let resolve_drop_behavior_fn = |value: Option<String>| {
                         let written = std::sync::Arc::clone(&written);
-                        let dest_file_name = dest_file_name.clone();
+                        let file_name = file_name.clone();
                         let expected_byte_len = settings.expected_byte_length();
                         move || resolve_pn_placeholders(
                             value.as_deref(),
-                            &dest_file_name,
+                            &file_name,
                             Some(written.load(std::sync::atomic::Ordering::SeqCst)),
                             expected_byte_len
                         )
@@ -877,7 +864,7 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
                         resolve_drop_behavior_fn(settings.sub_text_failure().map(|s| s.to_string())),
                     );
 
-                    Some(std::sync::Arc::new(Noti { dest_file_name, handler, settings }))
+                    Some(std::sync::Arc::new(Noti { file_name, file_uri, handler, settings }))
                 },
                 false => None
             };
@@ -920,7 +907,7 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
                             let indeterminate_progress_bar = noti.settings.force_indeterminate_progress_bar();
                             let resolve_placeholders = |text| resolve_pn_placeholders(
                                 text,
-                                &noti.dest_file_name, 
+                                &noti.file_name, 
                                 progress, 
                                 progress_max
                             );
@@ -948,7 +935,7 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
                             let written = res.written.load(std::sync::atomic::Ordering::SeqCst);
                             let resolve_placeholders = |text| resolve_pn_placeholders(
                                 text,
-                                &noti.dest_file_name, 
+                                &noti.file_name, 
                                 Some(written), 
                                 Some(written)
                             );
@@ -957,6 +944,7 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
                                 resolve_placeholders(noti.settings.title_completion()).as_deref(),
                                 resolve_placeholders(noti.settings.text_completion()).as_deref(),
                                 resolve_placeholders(noti.settings.sub_text_completion()).as_deref(),
+                                Some(&noti.file_uri)
                             );
                         }
                     }
@@ -972,8 +960,8 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
 pub async fn open_write_file_stream<R: tauri::Runtime>(
     req: tauri::ipc::Request<'_>,
     app: tauri::AppHandle<R>,
-    cmd_scope: tauri::ipc::CommandScope<Scope>,
-    global_scope: tauri::ipc::GlobalScope<Scope>,
+    cmd_scope: tauri::ipc::CommandScope<AfsScope>,
+    global_scope: tauri::ipc::GlobalScope<AfsScope>,
     resources: FileStreamResourcesState<'_, R>,
 ) -> Result<WriteFileStreamEventOutput> {
 
@@ -989,8 +977,8 @@ pub async fn open_write_file_stream<R: tauri::Runtime>(
 pub async fn write_file<R: tauri::Runtime>(
     req: tauri::ipc::Request<'_>,
     app: tauri::AppHandle<R>,
-    cmd_scope: tauri::ipc::CommandScope<Scope>,
-    global_scope: tauri::ipc::GlobalScope<Scope>,
+    cmd_scope: tauri::ipc::CommandScope<AfsScope>,
+    global_scope: tauri::ipc::GlobalScope<AfsScope>,
     resources: FileWriterResourcesState<'_, R>,
 ) -> Result<WriteFileStreamEventOutput> {
 
@@ -1006,8 +994,8 @@ pub async fn write_file<R: tauri::Runtime>(
 pub async fn write_text_file<R: tauri::Runtime>(
     req: tauri::ipc::Request<'_>,
     app: tauri::AppHandle<R>,
-    cmd_scope: tauri::ipc::CommandScope<Scope>,
-    global_scope: tauri::ipc::GlobalScope<Scope>,
+    cmd_scope: tauri::ipc::CommandScope<AfsScope>,
+    global_scope: tauri::ipc::GlobalScope<AfsScope>,
     resources: FileWriterResourcesState<'_, R>,
 ) -> Result<WriteFileStreamEventOutput> {
 
@@ -1023,8 +1011,8 @@ pub async fn write_text_file<R: tauri::Runtime>(
 pub async fn read_file<R: tauri::Runtime>(
     uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>,
-    cmd_scope: tauri::ipc::CommandScope<Scope>,
-    global_scope: tauri::ipc::GlobalScope<Scope>,
+    cmd_scope: tauri::ipc::CommandScope<AfsScope>,
+    global_scope: tauri::ipc::GlobalScope<AfsScope>,
 ) -> Result<tauri::ipc::Response> {
 
     #[cfg(not(target_os = "android"))] {
@@ -1045,8 +1033,8 @@ pub async fn read_file<R: tauri::Runtime>(
 pub async fn read_file_as_base64<R: tauri::Runtime>(
     uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>,
-    cmd_scope: tauri::ipc::CommandScope<Scope>,
-    global_scope: tauri::ipc::GlobalScope<Scope>,
+    cmd_scope: tauri::ipc::CommandScope<AfsScope>,
+    global_scope: tauri::ipc::GlobalScope<AfsScope>,
 ) -> Result<tauri::ipc::Response> {
 
     #[cfg(not(target_os = "android"))] {
@@ -1073,8 +1061,8 @@ pub async fn read_file_as_data_url<R: tauri::Runtime>(
     uri: AfsUriOrFsPath,
     mime_type: Option<String>,
     app: tauri::AppHandle<R>,
-    cmd_scope: tauri::ipc::CommandScope<Scope>,
-    global_scope: tauri::ipc::GlobalScope<Scope>,
+    cmd_scope: tauri::ipc::CommandScope<AfsScope>,
+    global_scope: tauri::ipc::GlobalScope<AfsScope>,
 ) -> Result<tauri::ipc::Response> {
 
     #[cfg(not(target_os = "android"))] {
@@ -1104,8 +1092,8 @@ pub async fn read_file_as_data_url<R: tauri::Runtime>(
 pub async fn read_text_file<R: tauri::Runtime>(
     uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>,
-    cmd_scope: tauri::ipc::CommandScope<Scope>,
-    global_scope: tauri::ipc::GlobalScope<Scope>,
+    cmd_scope: tauri::ipc::CommandScope<AfsScope>,
+    global_scope: tauri::ipc::GlobalScope<AfsScope>,
 ) -> Result<tauri::ipc::Response> {
 
     #[cfg(not(target_os = "android"))] {
@@ -1129,8 +1117,8 @@ pub async fn copy_file<R: tauri::Runtime>(
     create: bool,
     notification: Option<ProgressNotificationSettings>,
     app: tauri::AppHandle<R>,
-    cmd_scope: tauri::ipc::CommandScope<Scope>,
-    global_scope: tauri::ipc::GlobalScope<Scope>,
+    cmd_scope: tauri::ipc::CommandScope<AfsScope>,
+    global_scope: tauri::ipc::GlobalScope<AfsScope>,
 ) -> Result<()> {
 
     #[cfg(not(target_os = "android"))] {
@@ -1221,6 +1209,7 @@ pub async fn copy_file<R: tauri::Runtime>(
             resolve_placeholders(noti_settings.title_completion()).as_deref(),
             resolve_placeholders(noti_settings.text_completion()).as_deref(),
             resolve_placeholders(noti_settings.sub_text_completion()).as_deref(),
+            Some(&dest_uri)
         );
 
         Ok(())

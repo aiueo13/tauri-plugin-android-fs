@@ -33,7 +33,7 @@ struct SharedTaskState {
 
 impl SleepManager {
 
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             inner: Arc::new((
                 Mutex::new(ManagerState {
@@ -45,7 +45,7 @@ impl SleepManager {
         }
     }
 
-    pub fn sleep(&self, time: Duration) -> impl Future<Output = ()> {
+    fn sleep(&self, time: Duration) -> SleepFuture {
         let shared_task_state = Arc::new(Mutex::new(SharedTaskState {
             completed: false,
             waker: None,
@@ -64,6 +64,8 @@ impl SleepManager {
         if !state.thread_running {
             state.thread_running = true;
             let inner_clone = self.inner.clone();
+
+            drop(state);
 
             tauri::async_runtime::spawn_blocking(move || {
                 let (lock, cvar) = &*inner_clone;
@@ -105,6 +107,8 @@ impl SleepManager {
             });
         }
         else {
+            drop(state);
+
             // すでにスレッドが待機中の場合、新しく追加したタスクの期限が
             // 既存のタスクより早い可能性があるので、一度スレッドを起こして再計算させる
             cvar.notify_one();
