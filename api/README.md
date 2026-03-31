@@ -10,7 +10,7 @@ First, install this plugin to your Tauri project:
 
 ```toml
 [dependencies]
-tauri-plugin-android-fs = { version = "=28.0.1", features = [
+tauri-plugin-android-fs = { version = "=28.0.2", features = [
     # For `AndroidFs.createNewPublicFile` and related APIs on Android 9 or lower
     "legacy_storage_permission",
     # For notification options
@@ -46,11 +46,11 @@ Then, set the APIs that can be called from the Javascript:
 Finally, install the JavaScript Guest bindings using whichever JavaScript package manager you prefer:
 
 ```bash
-pnpm add tauri-plugin-android-fs-api@28.0.1 -E
+pnpm add tauri-plugin-android-fs-api@28.0.2 -E
 # or
-npm install tauri-plugin-android-fs-api@28.0.1 --save-exact
+npm install tauri-plugin-android-fs-api@28.0.2 --save-exact
 # or
-yarn add tauri-plugin-android-fs-api@28.0.1 --exact
+yarn add tauri-plugin-android-fs-api@28.0.2 --exact
 ```
 
 **NOTE**: Please make sure that the Rust-side `tauri-plugin-android-fs` and the JavaScript-side `tauri-plugin-android-fs-api` versions match exactly.
@@ -120,15 +120,12 @@ async function download(
     };
 
     // Writes data to the file
-    if (data instanceof Uint8Array) {
-      await AndroidFs.writeFile(uri, data, { notification });
-    }
-    else if (data instanceof ReadableStream) {
+    if (data instanceof ReadableStream) {
       const writer = await AndroidFs.openWriteFileStream(uri, { notification });
       await data.pipeTo(writer);
     }
     else {
-      throw new TypeError("Unsupported data type");
+      await AndroidFs.writeFile(uri, data, { notification });
     }
 
     // Makes the file visible in other apps and gallery

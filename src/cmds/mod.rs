@@ -767,7 +767,7 @@ pub async fn open_read_text_file_lines_stream<R: tauri::Runtime>(
 
 #[cfg(target_os = "android")]
 async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
-    req: tauri::ipc::Request<'_>,
+    event: WriteFileStreamEventInput,
     app: tauri::AppHandle<R>,
     cmd_scope: tauri::ipc::CommandScope<AfsScope>,
     global_scope: tauri::ipc::GlobalScope<AfsScope>,
@@ -781,7 +781,6 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
     
     struct FileResourceInner<R: tauri::Runtime> {
         file: std::fs::File,
-        written: std::sync::Arc<std::sync::atomic::AtomicU64>,
         noti: Option<std::sync::Arc<Noti<R>>>,
     }
 
@@ -789,14 +788,14 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
         handler: ProgressNotificationGuard<R>,
         settings: ProgressNotificationSettings,
         throttler: Throttler,
-        need_update: bool,
+        need_update_progress: bool,
         file_name: String,
         file_uri: FileUri,
+        written: std::sync::Arc<std::sync::atomic::AtomicU64>,
     }
 
 
     let resources = std::sync::Arc::clone(&resources);
-    let event: WriteFileStreamEventInput = req.try_into()?;
 
     match event {
         WriteFileStreamEventInput::Open { uri, options, supports_raw_ipc_request_body, } => {
@@ -816,18 +815,17 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
                 options.notification.is_some() &&
                 api.utils().request_notification_permission().await?;
 
-            let written = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
-
             let noti = match use_noti {
                 true => {
                     let file_uri = uri.clone();
                     let file_name = api.get_name_or_last_path_segment(&uri).await;
                     let settings = options.notification.ok_or_else(|| Error::with("missing notification"))?;
+                    let written = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
 
                     let handler = {
-                        let indeterminate_progress_bar = settings.force_indeterminate_progress_bar();
-                        let progress = Some(written.load(std::sync::atomic::Ordering::SeqCst));
+                        let progress = Some(0);
                         let progress_max = settings.expected_byte_length();
+                        let indeterminate_progress_bar = settings.force_indeterminate_progress_bar();
                         let resolve_placeholders = |text| resolve_pn_placeholders(
                             text,
                             &file_name, 
@@ -876,17 +874,18 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
                     Some(std::sync::Arc::new(Noti { 
                         file_name, 
                         file_uri, 
-                        need_update,
+                        need_update_progress: need_update,
                         handler, 
                         settings, 
-                        throttler 
+                        throttler,
+                        written
                     }))
                 },
                 false => None
             };
 
             tauri::async_runtime::spawn_blocking(move || {
-                let res = FileResourceInner { file, noti, written };
+                let res = FileResourceInner { file, noti };
                 let res: FileResource<R> = std::sync::Mutex::new(res);
                 let id = resources.add(res)?;
                 Ok(WriteFileStreamEventOutput::Open { id, supports_raw_ipc_request_body })
@@ -894,24 +893,21 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
         },
         WriteFileStreamEventInput::Write { id, data } => {
             tauri::async_runtime::spawn_blocking(move || {
-                let (written, noti) = {
+                let noti = {
                     let res = resources.get::<FileResource<R>>(id)?;
                     let mut locked_res = res.lock()?;
-
                     locked_res.file.write_all(&data)?;
-                    let written = {
-                        let addend = data.len() as u64;
-                        let prev = locked_res.written.fetch_add(addend, std::sync::atomic::Ordering::SeqCst);
-                        prev + addend
-                    };
-
-                    let noti = locked_res.noti.as_ref().map(std::sync::Arc::clone);
-
-                    (written, noti)
+                    locked_res.noti.as_ref().map(std::sync::Arc::clone)
                 };
 
                 if let Some(noti) = noti {
-                    if noti.need_update && noti.throttler.try_acquire() {
+                    let written = {
+                        let addend = data.len() as u64;
+                        let prev = noti.written.fetch_add(addend, std::sync::atomic::Ordering::SeqCst);
+                        prev + addend
+                    };
+
+                    if noti.need_update_progress && noti.throttler.try_acquire() {
                         tauri::async_runtime::spawn(async move {
                             let progress = Some(written);
                             let progress_max = noti.settings.expected_byte_length();
@@ -943,19 +939,23 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
                     let mut res = res.lock()?;
                     if let Some(noti) = res.noti.take() {
                         if !error {
-                            let written = res.written.load(std::sync::atomic::Ordering::SeqCst);
+                            let written = noti.written.load(std::sync::atomic::Ordering::SeqCst);
                             let resolve_placeholders = |text| resolve_pn_placeholders(
                                 text,
                                 &noti.file_name, 
                                 Some(written), 
                                 Some(written)
                             );
+                            let share_src = match noti.file_uri.is_content_scheme() {
+                                true => Some(&noti.file_uri),
+                                false => None,
+                            };
 
                             noti.handler.set_drop_behavior_to_complete(
                                 resolve_placeholders(noti.settings.title_completion()).as_deref(),
                                 resolve_placeholders(noti.settings.text_completion()).as_deref(),
                                 resolve_placeholders(noti.settings.sub_text_completion()).as_deref(),
-                                Some(&noti.file_uri)
+                                share_src
                             );
                         }
                     }
@@ -980,7 +980,7 @@ pub async fn open_write_file_stream<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        write_file_stream(req, app, cmd_scope, global_scope, resources).await
+        write_file_stream(req.try_into()?, app, cmd_scope, global_scope, resources).await
     }
 }
 
@@ -997,7 +997,7 @@ pub async fn write_file<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        write_file_stream(req, app, cmd_scope, global_scope, resources).await
+        write_file_stream(req.try_into()?, app, cmd_scope, global_scope, resources).await
     }
 }
 
@@ -1014,7 +1014,7 @@ pub async fn write_text_file<R: tauri::Runtime>(
         Err(Error::NOT_ANDROID)
     }
     #[cfg(target_os = "android")] {
-        write_file_stream(req, app, cmd_scope, global_scope, resources).await
+        write_file_stream(req.try_into()?, app, cmd_scope, global_scope, resources).await
     }
 }
 
@@ -1210,6 +1210,10 @@ pub async fn copy_file<R: tauri::Runtime>(
             Ok(written as u64)
         }).await??;
 
+        let share_src = match dest_uri.is_content_scheme() {
+            true => Some(&dest_uri),
+            false => None,
+        };
         let resolve_placeholders = |text| resolve_pn_placeholders(
             text,
             &dest_file_name, 
@@ -1220,7 +1224,7 @@ pub async fn copy_file<R: tauri::Runtime>(
             resolve_placeholders(noti_settings.title_completion()).as_deref(),
             resolve_placeholders(noti_settings.text_completion()).as_deref(),
             resolve_placeholders(noti_settings.sub_text_completion()).as_deref(),
-            Some(&dest_uri)
+            share_src
         );
 
         Ok(())

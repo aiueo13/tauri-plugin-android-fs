@@ -195,22 +195,24 @@ class AFNotification {
                 if (shareSrc != null) {
                     try {
                         val uri = Uri.parse(shareSrc.uri)
-                        val mimeType = AFUtils.getFileMimeType(shareSrc, ctx)
-                        val intentChooser = ShareCompat.IntentBuilder(ctx)
-                            .setType(mimeType)
-                            .setStream(uri)
-                            .createChooserIntent().apply {
-                                if (ctx is Activity) {
-                                    putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(ctx.componentName))
+                        if (uri.scheme == "content") {
+                            val mimeType = AFUtils.getFileMimeType(shareSrc, ctx)
+                            val intentChooser = ShareCompat.IntentBuilder(ctx)
+                                .setType(mimeType)
+                                .setStream(uri)
+                                .createChooserIntent().apply {
+                                    if (ctx is Activity) {
+                                        putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(ctx.componentName))
+                                    }
                                 }
-                            }
 
-                        builder.setContentIntent(PendingIntent.getActivity(
-                            ctx,
-                            id,
-                            intentChooser,
-                            PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                        ))
+                            builder.setContentIntent(PendingIntent.getActivity(
+                                ctx,
+                                id,
+                                intentChooser,
+                                PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                            ))
+                        }
                     }
                     catch (ignore: Exception) { }
                 }
