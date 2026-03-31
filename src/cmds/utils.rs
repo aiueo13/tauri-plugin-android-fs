@@ -318,6 +318,35 @@ pub fn format_byte_len(bytes: u64) -> String {
     }
 }
 
+#[cfg(target_os = "android")]
+pub struct Throttler {
+    next_allowed: std::sync::Mutex<std::time::Instant>,
+    interval: std::time::Duration,
+}
+
+#[cfg(target_os = "android")]
+impl Throttler {
+
+    pub fn new(interval: std::time::Duration) -> Self {
+        Self {
+            next_allowed: std::sync::Mutex::new(std::time::Instant::now()),
+            interval,
+        }
+    }
+
+    pub fn try_acquire(&self) -> bool {
+        let mut next_allowed = self.next_allowed.lock().unwrap_or_else(|e| e.into_inner());
+        let now = std::time::Instant::now();
+        
+        if now < *next_allowed {
+            return false
+        }
+
+        *next_allowed = now + self.interval;
+        true
+    }
+}
+
 #[cfg_attr(not(target_os = "android"), allow(unused))]
 pub enum WriteFileStreamEventInput {
     Open {

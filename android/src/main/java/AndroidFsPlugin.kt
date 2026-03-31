@@ -343,6 +343,8 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 if (!granted) throw Exception("No notification permission")
                 val args = invoke.parseArgs(Args::class.java)
 
+                AFNotification.initProgressNotificationManager(scope, activity)
+
                 val id = AFNotification.startProgressNotification(
                     args.iconType,
                     args.title,
@@ -351,7 +353,6 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     args.progressMax,
                     args.progress,
                     activity,
-                    scope,
                 )
 
                 invoke.resolve(JSObject().apply { put("id", id) })

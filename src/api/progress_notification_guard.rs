@@ -20,7 +20,7 @@ pub struct ProgressNotificationGuard<R: tauri::Runtime> {
 impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
 
     #[maybe_async]
-    pub(crate) fn start_new_notification(
+    pub(crate) fn with_new_notification(
         icon: ProgressNotificationIcon,
         title: Option<String>,
         text: Option<String>,
@@ -60,7 +60,6 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
                     share_src: None,
                     error: true,
                 }),
-                update_throttler: Throttler::with_delay(std::time::Duration::from_millis(1100)),
                 id,
                 icon,
                 handle,
@@ -416,20 +415,18 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
     #[cfg(target_os = "android")] 
     #[maybe_async]
     fn update_notification(&self) -> Result<()> {
-        if self.inner.update_throttler.check_and_mark() {
-            let state = self.inner.lock_current_state().clone();
-            let (progress, progress_max) = normalize_progress_and_max(state.progress, state.progress_max);
+        let state = self.inner.lock_current_state().clone();
+        let (progress, progress_max) = normalize_progress_and_max(state.progress, state.progress_max);
             
-            self.impls().update_progress_notification(
-                self.inner.id,
-                self.inner.icon, 
-                state.title.as_deref(),
-                state.text.as_deref(), 
-                state.sub_text.as_deref(), 
-                progress,
-                progress_max,
-            ).await?;
-        }
+        self.impls().update_progress_notification(
+            self.inner.id,
+            self.inner.icon, 
+            state.title.as_deref(),
+            state.text.as_deref(), 
+            state.sub_text.as_deref(), 
+            progress,
+            progress_max,
+        ).await?;
 
         Ok(())
     }
@@ -443,7 +440,6 @@ struct Inner<R: tauri::Runtime> {
     is_finished: bool,
     drop_behavior: std::sync::Mutex<DropBehavior>,
     current_state: std::sync::Mutex<CurrentState>,
-    update_throttler: Throttler,
     handle: tauri::plugin::PluginHandle<R>,
 }
 
@@ -506,35 +502,6 @@ impl<R: tauri::Runtime> Drop for Inner<R> {
                 error
             ).await.ok();
         });
-    }
-}
-
-#[cfg(target_os = "android")]
-struct Throttler {
-    next: std::sync::Mutex<std::time::Instant>,
-    interval: std::time::Duration,
-}
-
-#[cfg(target_os = "android")]
-impl Throttler {
-
-    pub fn with_delay(interval: std::time::Duration) -> Self {
-        Self {
-            next: std::sync::Mutex::new(std::time::Instant::now() + interval),
-            interval,
-        }
-    }
-
-    pub fn check_and_mark(&self) -> bool {
-        let mut next = self.next.lock().unwrap_or_else(|e| e.into_inner());
-        let now = std::time::Instant::now();
-        
-        if now < *next {
-            return false
-        }
-
-        *next = now + self.interval;
-        true
     }
 }
 

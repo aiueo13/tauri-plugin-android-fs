@@ -788,6 +788,8 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
     struct Noti<R: tauri::Runtime> {
         handler: ProgressNotificationGuard<R>,
         settings: ProgressNotificationSettings,
+        throttler: Throttler,
+        need_update: bool,
         file_name: String,
         file_uri: FileUri,
     }
@@ -864,7 +866,21 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
                         resolve_drop_behavior_fn(settings.sub_text_failure().map(|s| s.to_string())),
                     );
 
-                    Some(std::sync::Arc::new(Noti { file_name, file_uri, handler, settings }))
+                    let need_update = 
+                        has_pn_progress_or_percentage_placeholder(settings.title_progress()) ||
+                        has_pn_progress_or_percentage_placeholder(settings.text_progress()) ||
+                        has_pn_progress_or_percentage_placeholder(settings.sub_text_progress());
+
+                    let throttler = Throttler::new(std::time::Duration::from_millis(500));
+
+                    Some(std::sync::Arc::new(Noti { 
+                        file_name, 
+                        file_uri, 
+                        need_update,
+                        handler, 
+                        settings, 
+                        throttler 
+                    }))
                 },
                 false => None
             };
@@ -895,12 +911,7 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
                 };
 
                 if let Some(noti) = noti {
-                    let need_update_noti = 
-                        has_pn_progress_or_percentage_placeholder(noti.settings.title_progress()) ||
-                        has_pn_progress_or_percentage_placeholder(noti.settings.text_progress()) ||
-                        has_pn_progress_or_percentage_placeholder(noti.settings.sub_text_progress());
-
-                    if need_update_noti {
+                    if noti.need_update && noti.throttler.try_acquire() {
                         tauri::async_runtime::spawn(async move {
                             let progress = Some(written);
                             let progress_max = noti.settings.expected_byte_length();

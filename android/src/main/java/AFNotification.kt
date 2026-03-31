@@ -17,6 +17,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -33,28 +35,6 @@ class AFNotification {
 
         @Volatile
         private var notificationQueueManager: NotificationQueueManager? = null
-
-        @Synchronized
-        private fun getOrInitNotificationQueueManager(scope: CoroutineScope): NotificationQueueManager {
-            return notificationQueueManager ?: NotificationQueueManager(scope).also { notificationQueueManager = it }
-        }
-
-        @Synchronized
-        private fun setProgressNotificationChannelIfNeed(ctx: Context) {
-            if (isNotifiedProgressChannel) return
-
-            if (Build.VERSION_CODES.O <= Build.VERSION.SDK_INT) {
-                val name = "Progress Notification"
-                val description = "Notifies the progress and completion"
-                val importance = NotificationManager.IMPORTANCE_LOW
-                val channel = NotificationChannel(CHANNEL_ID, name, importance)
-                channel.description = description
-
-                val notificationManager = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                notificationManager.createNotificationChannel(channel)
-            }
-            isNotifiedProgressChannel = true
-        }
 
         @InvokeArg
         enum class ProgressNotificationIconType {
@@ -77,8 +57,29 @@ class AFNotification {
             }
         }
 
+        @Synchronized
+        fun initProgressNotificationManager(scope: CoroutineScope, ctx: Context) {
+            if (!isNotifiedProgressChannel) {
+                if (Build.VERSION_CODES.O <= Build.VERSION.SDK_INT) {
+                    val name = "Progress Notification"
+                    val description = "Notifies the progress and completion"
+                    val importance = NotificationManager.IMPORTANCE_LOW
+                    val channel = NotificationChannel(CHANNEL_ID, name, importance)
+                    channel.description = description
+
+                    val notificationManager = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    notificationManager.createNotificationChannel(channel)
+                }
+                isNotifiedProgressChannel = true
+            }
+
+            if (notificationQueueManager == null) {
+                notificationQueueManager = NotificationQueueManager(scope)
+            }
+        }
+
         @SuppressLint("MissingPermission")
-        fun startProgressNotification(
+        suspend fun startProgressNotification(
             iconType: ProgressNotificationIconType,
             title: String?,
             text: String?,
@@ -86,15 +87,12 @@ class AFNotification {
             progressMax: Int?,
             progress: Int?,
             ctx: Context,
-            scope: CoroutineScope,
         ): Int {
-
-            setProgressNotificationChannelIfNeed(ctx)
 
             val id = notificationIdCounter.incrementAndGet()
             notifications.add(id)
 
-            getOrInitNotificationQueueManager(scope).add(NotificationEvent.Start {
+            notificationQueueManager?.add(id, NotificationEventType.Progress) {
                 val builder = NotificationCompat.Builder(ctx, CHANNEL_ID)
                     .setSmallIcon(getIcon(iconType, ctx))
                     .setContentTitle(title.takeIf { !title.isNullOrEmpty() } ?: ctx.getString(android.R.string.unknownName))
@@ -117,13 +115,13 @@ class AFNotification {
                 }
 
                 NotificationManagerCompat.from(ctx).notify(id, builder.build())
-            })
+            }
 
             return id
         }
 
         @SuppressLint("MissingPermission")
-        fun updateProgressNotification(
+        suspend fun updateProgressNotification(
             id: Int,
             iconType: ProgressNotificationIconType,
             title: String?,
@@ -138,8 +136,8 @@ class AFNotification {
                 return
             }
 
-            notificationQueueManager?.add(NotificationEvent.Update {
-                if (!notifications.contains(id)) return@Update
+            notificationQueueManager?.add(id, NotificationEventType.Progress) {
+                if (!notifications.contains(id)) return@add
 
                 val builder = NotificationCompat.Builder(ctx, CHANNEL_ID)
                     .setSmallIcon(getIcon(iconType, ctx))
@@ -162,13 +160,13 @@ class AFNotification {
                     builder.setSubText(subText)
                 }
 
-                if (!notifications.contains(id)) return@Update
+                if (!notifications.contains(id)) return@add
                 NotificationManagerCompat.from(ctx).notify(id, builder.build())
-            })
+            }
         }
 
         @SuppressLint("MissingPermission")
-        fun finishProgressNotification(
+        suspend fun finishProgressNotification(
             id: Int,
             iconType: ProgressNotificationIconType,
             title: String?,
@@ -181,7 +179,7 @@ class AFNotification {
 
             notifications.remove(id)
 
-            notificationQueueManager?.add(NotificationEvent.Finish {
+            notificationQueueManager?.add(id, NotificationEventType.ProgressFinish) {
                 val icon = when (error) {
                     true -> android.R.drawable.stat_notify_error
                     else -> getIcon(iconType, ctx)
@@ -229,17 +227,15 @@ class AFNotification {
                 }
 
                 NotificationManagerCompat.from(ctx).notify(id, builder.build())
-            })
+            }
         }
     }
 }
 
-private sealed class NotificationEvent {
-    abstract val run: () -> Unit
 
-    data class Start(override val run: () -> Unit): NotificationEvent()
-    data class Update(override val run: () -> Unit): NotificationEvent()
-    data class Finish(override val run: () -> Unit): NotificationEvent()
+private enum class NotificationEventType {
+    Progress,
+    ProgressFinish,
 }
 
 /**
@@ -248,21 +244,39 @@ private sealed class NotificationEvent {
  * https://saket.me/android-7-nougat-rate-limiting-notifications/
  */
 private class NotificationQueueManager(scope: CoroutineScope) {
-    private val channel = Channel<NotificationEvent>(Channel.UNLIMITED)
-    private val pendingCount = AtomicInteger(0)
+    private val queue = Channel<Pair<Int, NotificationEventType>>(Channel.UNLIMITED)
+    private val notifications = HashMap<Pair<Int, NotificationEventType>, () -> Unit>()
+    private val lock = Mutex()
 
     init {
         scope.launch {
-            for (event in channel) {
-                val pc = pendingCount.getAndDecrement()
-
-                // イベントが Update で、かつ未処理のイベントが一定以上ある場合はスキップ
-                if (event is NotificationEvent.Update && 3 < pc) {
-                    continue
-                }
-
+            for (key in queue) {
                 try {
-                    event.run()
+                    val notificationTask = lock.withLock {
+                        val notificationId = key.first
+                        val notificationType = key.second
+                        val notificationTask = notifications.remove(key) ?: return@withLock null
+                        val remainingEvents = notifications.size
+
+                        // Progress イベントは優先度が低いので必要に応じてスキップする。
+                        if (notificationType == NotificationEventType.Progress) {
+                            // 同じ通知に対して Finish イベントがあればそれを使用する。
+                            val finishKey = Pair(notificationId, NotificationEventType.ProgressFinish)
+                            val finishNotificationTask = notifications.remove(finishKey)
+                            if (finishNotificationTask != null) {
+                                return@withLock finishNotificationTask
+                            }
+
+                            // 待機中のイベントが多い場合はスキップする。
+                            if (2 < remainingEvents) {
+                                return@withLock null
+                            }
+                        }
+
+                        notificationTask
+                    } ?: continue
+
+                    notificationTask()
                 }
                 catch (ignore: Exception) {}
 
@@ -271,10 +285,18 @@ private class NotificationQueueManager(scope: CoroutineScope) {
         }
     }
 
-    fun add(event: NotificationEvent) {
-        pendingCount.incrementAndGet()
-        if (!channel.trySend(event).isSuccess) {
-            pendingCount.decrementAndGet()
+    suspend fun add(
+        notificationId: Int,
+        notificationType: NotificationEventType,
+        notificationTask: () -> Unit
+    ) {
+
+        lock.withLock {
+            val key = Pair(notificationId, notificationType)
+
+            if (notifications.put(key, notificationTask) == null) {
+                queue.send(key)
+            }
         }
     }
 }

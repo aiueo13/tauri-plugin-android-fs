@@ -26,6 +26,10 @@ pub mod utils {
 
     #[maybe_async]
     pub fn sleep(time: std::time::Duration) {
+        if time == std::time::Duration::ZERO {
+            return
+        }
+
         #[if_async] {
             // NOTE:
             // tokio の sleep は使わない。

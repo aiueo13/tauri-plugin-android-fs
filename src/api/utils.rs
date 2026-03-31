@@ -71,7 +71,7 @@ impl<'a, R: tauri::Runtime> Utils<'a, R> {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
-            ProgressNotificationGuard::start_new_notification(
+            ProgressNotificationGuard::with_new_notification(
                 icon,
                 title.map(|s| s.to_string()), 
                 text.map(|s| s.to_string()),
