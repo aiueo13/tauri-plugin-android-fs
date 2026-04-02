@@ -57,6 +57,10 @@ class AFNotification {
             }
         }
 
+        private fun nextNotificationId(): Int {
+            return notificationIdCounter.incrementAndGet()
+        }
+
         @Synchronized
         fun initProgressNotificationManager(scope: CoroutineScope, ctx: Context) {
             if (!isNotifiedProgressChannel) {
@@ -89,7 +93,7 @@ class AFNotification {
             ctx: Context,
         ): Int {
 
-            val id = notificationIdCounter.incrementAndGet()
+            val id = nextNotificationId()
             notifications.add(id)
 
             notificationQueueManager?.add(id, NotificationEventType.Progress) {
@@ -201,6 +205,7 @@ class AFNotification {
                                 .setType(mimeType)
                                 .setStream(uri)
                                 .createChooserIntent().apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                     if (ctx is Activity) {
                                         putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(ctx.componentName))
                                     }
@@ -231,6 +236,18 @@ class AFNotification {
                 NotificationManagerCompat.from(ctx).notify(id, builder.build())
             }
         }
+
+        suspend fun cancelNotification(id: Int, ctx: Context) {
+            notifications.remove(id)
+            notificationQueueManager?.cancel(id)
+            NotificationManagerCompat.from(ctx).cancel(id)
+        }
+
+        suspend fun cancelAllNotifications(ctx: Context) {
+            notifications.clear()
+            notificationQueueManager?.cancelAll()
+            NotificationManagerCompat.from(ctx).cancelAll()
+        }
     }
 }
 
@@ -258,7 +275,6 @@ private class NotificationQueueManager(scope: CoroutineScope) {
                         val notificationId = key.first
                         val notificationType = key.second
                         val notificationTask = notifications.remove(key) ?: return@withLock null
-                        val remainingEvents = notifications.size
 
                         // Progress イベントは優先度が低いので必要に応じてスキップする。
                         if (notificationType == NotificationEventType.Progress) {
@@ -267,11 +283,6 @@ private class NotificationQueueManager(scope: CoroutineScope) {
                             val finishNotificationTask = notifications.remove(finishKey)
                             if (finishNotificationTask != null) {
                                 return@withLock finishNotificationTask
-                            }
-
-                            // 待機中のイベントが多い場合はスキップする。
-                            if (2 < remainingEvents) {
-                                return@withLock null
                             }
                         }
 
@@ -298,6 +309,20 @@ private class NotificationQueueManager(scope: CoroutineScope) {
 
             if (notifications.put(key, notificationTask) == null) {
                 queue.send(key)
+            }
+        }
+    }
+
+    suspend fun cancelAll() {
+        lock.withLock {
+            notifications.clear()
+        }
+    }
+
+    suspend fun cancel(id: Int) {
+        lock.withLock {
+            for (t in NotificationEventType.values()) {
+                notifications.remove(Pair(id, t))
             }
         }
     }

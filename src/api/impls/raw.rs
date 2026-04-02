@@ -1051,6 +1051,20 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
+    pub fn cancel_notification(&self, id: i32) -> Result<()> {
+        impl_se!(struct Req { id: i32 });
+            
+        self.invoke::<()>("cancelNotification", Req { id })
+            .await
+    }
+
+    #[maybe_async]
+    pub fn cancel_all_notifications(&self) -> Result<()> {
+        self.invoke::<()>("cancelAllNotifications", ())
+            .await
+    }
+
+    #[maybe_async]
     pub fn request_notification_permission(&self) -> Result<bool> {
         impl_de!(struct Res { granted: bool, prompted: bool });
 

@@ -38,10 +38,11 @@ impl<'a, R: tauri::Runtime> Utils<'a, R> {
     /// The returned [`ProgressNotificationGuard`] can be used to manage the notification.
     /// - Calling [`ProgressNotificationGuard::update`] will update the notification.  
     /// - Calling [`ProgressNotificationGuard::complete`] will finish the notification as a "success".  
-    /// - Calling [`ProgressNotificationGuard::fail`] will finish the notification as a "failure".  
+    /// - Calling [`ProgressNotificationGuard::fail`] will finish the notification as a "failure".
+    /// - Calling [`ProgressNotificationGuard::cancel`] will finish and close the notification.  
     /// 
-    /// By default, [`ProgressNotificationGuard`] finishes the notification as a "failure" when dropped.   
-    /// You can change the drop behavior by using [`ProgressNotificationGuard::set_drop_behavior_to_complete`] or [`ProgressNotificationGuard::set_drop_behavior_to_fail`].  
+    /// By default, it finishes the notification as a "failure" when dropped.   
+    /// You can change the drop behavior by using `ProgressNotificationGuard::set_drop_behavior_to_*`.  
     /// 
     /// # Note
     /// This needs two steps: 
@@ -80,6 +81,16 @@ impl<'a, R: tauri::Runtime> Utils<'a, R> {
                 progress_max,
                 self.handle.clone()
             ).await
+        }
+    }
+
+    #[maybe_async]
+    pub fn cancel_all_notifications(&self) -> Result<()> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().cancel_all_notifications().await
         }
     }
 

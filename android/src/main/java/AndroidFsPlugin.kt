@@ -439,6 +439,40 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
+    fun cancelNotification(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            var id: Int? = null
+        }
+
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val id = args.id ?: throw Exception("Empty id")
+
+                AFNotification.cancelNotification(id, activity)
+                invoke.resolve()
+            }
+            catch (e: Exception) {
+                invoke.reject(e.message ?: "unknown error: $e")
+            }
+        }
+    }
+
+    @Command
+    fun cancelAllNotifications(invoke: Invoke) {
+        scope.launch {
+            try {
+                AFNotification.cancelAllNotifications(activity)
+                invoke.resolve()
+            }
+            catch (e: Exception) {
+                invoke.reject(e.message ?: "unknown error: $e")
+            }
+        }
+    }
+
+    @Command
     fun requestNotificationPermission(invoke: Invoke) {
         try {
             val granted = when {

@@ -47,23 +47,20 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
         Ok(Self {
             inner: Inner {
                 current_state: std::sync::Mutex::new(CurrentState {
-                    title: title.clone(),
+                    title,
                     text,
                     sub_text,
                     progress,
                     progress_max
                 }),
-                drop_behavior: std::sync::Mutex::new(DropBehavior { 
+                drop_behavior: std::sync::Mutex::new(Some(DropBehavior::Fail { 
                     title: None,
                     text: None,
                     sub_text: None,
-                    share_src: None,
-                    error: true,
-                }),
+                })),
                 id,
                 icon,
                 handle,
-                is_finished: false,
             }
         })
     }
@@ -281,13 +278,14 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
             let sub_text = sub_text.map(|s| s.to_string());
             let share_src = share_src.map(|s| s.clone());
 
-            *self.inner.lock_drop_behavior() = DropBehavior { 
-                title: Some(Box::new(move || title)),
-                text: Some(Box::new(move || text)),
-                sub_text: Some(Box::new(move || sub_text)),
-                share_src: Some(Box::new(move || share_src)),
-                error: false,
-            };
+            if let Some(drop_behavior) = self.inner.lock_drop_behavior().as_mut() {
+                *drop_behavior = DropBehavior::Complete { 
+                    title: Some(Box::new(move || title)),
+                    text: Some(Box::new(move || text)),
+                    sub_text: Some(Box::new(move || sub_text)),
+                    share_src: Some(Box::new(move || share_src)),
+                };
+            }
         }
     }
 
@@ -301,13 +299,14 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
     ) {
         
         #[cfg(target_os = "android")] {
-            *self.inner.lock_drop_behavior() = DropBehavior { 
-                title: Some(Box::new(title)),
-                text: Some(Box::new(text)),
-                sub_text: Some(Box::new(sub_text)),
-                share_src: Some(Box::new(share_src)),
-                error: false,
-            };
+            if let Some(drop_behavior) = self.inner.lock_drop_behavior().as_mut() {
+                *drop_behavior = DropBehavior::Complete { 
+                    title: Some(Box::new(title)),
+                    text: Some(Box::new(text)),
+                    sub_text: Some(Box::new(sub_text)),
+                    share_src: Some(Box::new(share_src)),
+                };
+            }
         }
     }
 
@@ -324,13 +323,13 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
             let text = text.map(|s| s.to_string());
             let sub_text = sub_text.map(|s| s.to_string());
 
-            *self.inner.lock_drop_behavior() = DropBehavior { 
-                title: Some(Box::new(move || title)),
-                text: Some(Box::new(move || text)),
-                sub_text: Some(Box::new(move || sub_text)),
-                share_src: None,
-                error: true,
-            };
+            if let Some(drop_behavior) = self.inner.lock_drop_behavior().as_mut() {
+                *drop_behavior = DropBehavior::Fail { 
+                    title: Some(Box::new(move || title)),
+                    text: Some(Box::new(move || text)),
+                    sub_text: Some(Box::new(move || sub_text)),
+                };
+            }
         }
     }
 
@@ -343,13 +342,22 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
     ) {
         
         #[cfg(target_os = "android")] {
-            *self.inner.lock_drop_behavior() = DropBehavior { 
-                title: Some(Box::new(title)),
-                text: Some(Box::new(text)),
-                sub_text: Some(Box::new(sub_text)),
-                share_src: None,
-                error: true,
-            };
+            if let Some(drop_behavior) = self.inner.lock_drop_behavior().as_mut() {
+                *drop_behavior = DropBehavior::Fail { 
+                    title: Some(Box::new(title)),
+                    text: Some(Box::new(text)),
+                    sub_text: Some(Box::new(sub_text)),
+                };
+            }
+        }
+    }
+
+    #[always_sync]
+    pub fn set_drop_behavior_to_cancel(&self) {
+        #[cfg(target_os = "android")] {
+            if let Some(drop_behavior) = self.inner.lock_drop_behavior().as_mut() {
+                *drop_behavior = DropBehavior::Cancel;
+            }
         }
     }
 
@@ -385,12 +393,22 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
             self.finish_notification(title, text, sub_text, None, true).await
         }
     }
+
+    #[maybe_async]
+    pub fn cancel(self) -> Result<()> {
+        #[cfg(not(target_os = "android"))] {
+            Ok(())
+        }
+        #[cfg(target_os = "android")] { 
+            self.cancel_notification().await
+        }
+    }
     
     
     #[cfg(target_os = "android")] 
     #[maybe_async]
     fn finish_notification(
-        mut self,
+        self,
         title: Option<&str>, 
         text: Option<&str>,
         sub_text: Option<&str>,
@@ -408,7 +426,15 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
             error,
         ).await?;
             
-        self.inner.is_finished = true;
+        *self.inner.lock_drop_behavior() = None;
+        Ok(())
+    }
+
+    #[cfg(target_os = "android")] 
+    #[maybe_async]
+    fn cancel_notification(self) -> Result<()> {  
+        self.impls().cancel_notification(self.inner.id).await?;
+        *self.inner.lock_drop_behavior() = None;
         Ok(())
     }
 
@@ -437,19 +463,25 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
 struct Inner<R: tauri::Runtime> {
     id: i32,
     icon: ProgressNotificationIcon,
-    is_finished: bool,
-    drop_behavior: std::sync::Mutex<DropBehavior>,
+    drop_behavior: std::sync::Mutex<Option<DropBehavior>>,
     current_state: std::sync::Mutex<CurrentState>,
     handle: tauri::plugin::PluginHandle<R>,
 }
 
 #[cfg(target_os = "android")]
-struct DropBehavior {
-    title: Option<Box<dyn Send + 'static + FnOnce() -> Option<String>>>,
-    text: Option<Box<dyn Send + 'static + FnOnce() -> Option<String>>>,
-    sub_text: Option<Box<dyn Send + 'static + FnOnce() -> Option<String>>>,
-    share_src: Option<Box<dyn Send + 'static + FnOnce() -> Option<FileUri>>>,
-    error: bool,
+enum DropBehavior {
+    Complete {
+        title: Option<Box<dyn Send + 'static + FnOnce() -> Option<String>>>,
+        text: Option<Box<dyn Send + 'static + FnOnce() -> Option<String>>>,
+        sub_text: Option<Box<dyn Send + 'static + FnOnce() -> Option<String>>>,
+        share_src: Option<Box<dyn Send + 'static + FnOnce() -> Option<FileUri>>>,
+    },
+    Fail {
+        title: Option<Box<dyn Send + 'static + FnOnce() -> Option<String>>>,
+        text: Option<Box<dyn Send + 'static + FnOnce() -> Option<String>>>,
+        sub_text: Option<Box<dyn Send + 'static + FnOnce() -> Option<String>>>,
+    },
+    Cancel
 }
 
 #[cfg(target_os = "android")]
@@ -465,7 +497,7 @@ struct CurrentState {
 #[cfg(target_os = "android")]
 impl<R: tauri::Runtime> Inner<R> {
 
-    fn lock_drop_behavior<'a>(&'a self) -> std::sync::MutexGuard<'a, DropBehavior> {
+    fn lock_drop_behavior<'a>(&'a self) -> std::sync::MutexGuard<'a, Option<DropBehavior>> {
         self.drop_behavior.lock().unwrap_or_else(|e| e.into_inner())
     }
 
@@ -478,29 +510,44 @@ impl<R: tauri::Runtime> Inner<R> {
 impl<R: tauri::Runtime> Drop for Inner<R> {
 
     fn drop(&mut self) {
-        if self.is_finished {
-            return
-        }
+        let Some(drop_behavior) = self.lock_drop_behavior().take() else {
+            return;
+        };
 
         let handle = self.handle.clone();
         let id = self.id;
         let icon = self.icon;
-        let (error, title, text, sub_text, share_src) = {
-            let mut d = self.lock_drop_behavior();
-            (d.error, d.title.take(), d.text.take(), d.sub_text.take(), d.share_src.take())
-        };
-
+        
         tauri::async_runtime::spawn(async move {
             let impls = impls::AsyncImpls { handle: &handle };
-            impls.finish_progress_notification(
-                id, 
-                icon,
-                title.and_then(|f| f()).as_deref(),
-                text.and_then(|f| f()).as_deref(),
-                sub_text.and_then(|f| f()).as_deref(),
-                share_src.and_then(|f| f()).as_ref(),
-                error
-            ).await.ok();
+
+            match drop_behavior {
+                DropBehavior::Complete { title, text, sub_text, share_src } => {
+                    impls.finish_progress_notification(
+                        id, 
+                        icon,
+                        title.and_then(|f| f()).as_deref(),
+                        text.and_then(|f| f()).as_deref(),
+                        sub_text.and_then(|f| f()).as_deref(),
+                        share_src.and_then(|f| f()).as_ref(),
+                        false
+                    ).await.ok();
+                },
+                DropBehavior::Fail { title, text, sub_text } => {
+                    impls.finish_progress_notification(
+                        id, 
+                        icon,
+                        title.and_then(|f| f()).as_deref(),
+                        text.and_then(|f| f()).as_deref(),
+                        sub_text.and_then(|f| f()).as_deref(),
+                        None,
+                        true
+                    ).await.ok();
+                },
+                DropBehavior::Cancel => {
+                    impls.cancel_notification(id).await.ok();
+                },
+            }
         });
     }
 }
