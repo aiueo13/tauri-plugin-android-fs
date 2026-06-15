@@ -3460,8 +3460,9 @@ export class AndroidFs {
 
 	/**
 	 * Relinquishes a persisted permission of a URI granted via {@link AndroidFs.persistPickerUriPermission}.
-	 * * @param uri - URI of the target file or directory.
-	 * * @returns Promise that resolves to a boolean; `true` if a persisted permission exists for the specified URI and was successfully released, or `false` if no persisted permission existed.
+	 * 
+	 * @param uri - URI of the target file or directory.
+	 * @returns Promise that resolves to a boolean; `true` if a persisted permission exists for the specified URI and was successfully released, or `false` if no persisted permission existed.
 	 *
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FilePicker.html#method.release_persisted_picker_uri_permission | FilePicker::release_persisted_picker_uri_permission}
 	 * @since 24.1.0
@@ -3472,8 +3473,10 @@ export class AndroidFs {
 
 	/**
 	 * Relinquishes all persisted permissions of URIs granted via {@link AndroidFs.persistPickerUriPermission}.
-	 * * @returns Promise that resolves when the operation is complete.
-	 * * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FilePicker.html#method.release_all_persisted_picker_uri_permissions | FilePicker::release_all_persisted_picker_uri_permissions}
+	 * 
+	 * @returns Promise that resolves when the operation is complete.
+	 * 
+	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FilePicker.html#method.release_all_persisted_picker_uri_permissions | FilePicker::release_all_persisted_picker_uri_permissions}
 	 * @since 24.1.0
 	 */
 	public static async releaseAllPersistedPickerUriPermissions(): Promise<void> {
