@@ -59,9 +59,9 @@ pub struct ContentProtocolCacheConfig {
     #[serde(default)]
     pub max_files: Option<usize>,
 
-    /// Time-to-live (TTL) for each cached entry in milliseconds.
+    /// Time-to-live (TTL) for each cached entry in seconds.
     ///
     /// If not specified, cached entries do not expire based on time.
     #[serde(default)]
-    pub ttl_ms: Option<u64>,
+    pub ttl: Option<u64>,
 }*/

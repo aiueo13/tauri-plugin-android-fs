@@ -226,6 +226,32 @@ Denies the create_dir command without any pre-configured scope.
 <tr>
 <td>
 
+`android-fs:allow-create-new-dir`
+
+</td>
+<td>
+
+Enables the create_new_dir command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-create-new-dir`
+
+</td>
+<td>
+
+Denies the create_new_dir command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `android-fs:allow-create-new-file`
 
 </td>

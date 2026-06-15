@@ -128,11 +128,13 @@ async fn create_response<R: tauri::Runtime>(
 
     let Some(config): Option<ProtocolConfigState> = app.try_state() else {
         return Err(ProtocolError::InternalServerError { 
-            msg: "Missing protocol-content feature".into()
+            msg: "Missing protocol config state".into()
         })
     };
 
-    if !config.enable_content {
+    let config = &config.content;
+
+    if !config.enable {
         return Err(ProtocolError::Forbidden)
     }
 
@@ -147,7 +149,7 @@ async fn create_response<R: tauri::Runtime>(
     };
     
     if let Some(path) = uri.to_path() {
-        if !config.content_scope.as_ref().is_some_and(|s| s.is_allowed(path)) {
+        if !config.scope.as_ref().is_some_and(|s| s.is_allowed(path)) {
             return Err(ProtocolError::Forbidden)
         }
     }

@@ -11,13 +11,19 @@ interface FileController {
 
     fun getLen(uri: AFUri): Long
 
+    fun getLastModified(uri: AFUri): Long
+
     fun readDir(dirUri: AFUri, options: ReadDirEntryOptions, offset: ULong, limit: ULong?): JSArray
 
     fun getMetadata(uri: AFUri): JSObject
 
-    fun createFile(dirUri: AFUri, relativePath: String, mimeType: String): JSObject
+    fun createNewFile(dirUri: AFUri, relativePath: String, mimeType: String): JSObject
 
-    fun createFileAndReturnRelativePath(dirUri: AFUri, relativePath: String, mimeType: String): JSObject
+    fun createNewFileAndReturnRelativePath(dirUri: AFUri, relativePath: String, mimeType: String): JSObject
+
+    fun createNewDir(dirUri: AFUri, relativePath: String): JSObject
+
+    fun createNewDirAndReturnRelativePath(dirUri: AFUri, relativePath: String): JSObject
 
     fun createDirAll(dirUri: AFUri, relativePath: String): JSObject
 

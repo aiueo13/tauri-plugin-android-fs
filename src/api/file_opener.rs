@@ -59,7 +59,7 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
     /// URIs converted directly from a path, such as via [`FileUri::from_path`], can **not** be used.   
     /// 
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     /// 
     /// # References
     /// - <https://developer.android.com/reference/android/content/Intent#ACTION_SEND_MULTIPLE>
@@ -93,7 +93,7 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
     /// URIs converted directly from a path, such as via [`FileUri::from_path`], can **not** be used.  
     /// 
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     /// 
     /// # References
     /// - <https://developer.android.com/reference/android/content/Intent#ACTION_SEND>
@@ -126,7 +126,7 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
     /// URIs converted directly from a path, such as via [`FileUri::from_path`], can **not** be used.  
     /// 
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     /// 
     /// # References
     /// - <https://developer.android.com/reference/android/content/Intent#ACTION_VIEW>
@@ -158,7 +158,7 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
     /// URIs converted directly from a path, such as via [`FileUri::from_path`], can **not** be used.  
     /// 
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     /// 
     /// # References
     /// - <https://developer.android.com/reference/android/content/Intent#ACTION_VIEW>
@@ -196,7 +196,7 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
     /// URIs converted directly from a path, such as via [`FileUri::from_path`], can **not** be used.  
     /// 
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     /// 
     /// # References
     /// - <https://developer.android.com/reference/android/content/Intent#ACTION_EDIT>

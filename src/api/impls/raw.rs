@@ -247,6 +247,40 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
+    pub fn create_new_dir(
+        &self,
+        dir: &FileUri, 
+        relative_path: impl AsRef<std::path::Path>, 
+    ) -> Result<FileUri> {
+
+        impl_se!(struct Req<'a> { dir: &'a FileUri,relative_path: &'a str });
+        
+        let relative_path = validate_relative_path(relative_path.as_ref())?;
+        let relative_path = relative_path.to_string_lossy();
+                
+        self.invoke::<FileUri>("createNewDir", Req { dir, relative_path: relative_path.as_ref() })
+            .await
+    }
+
+    #[maybe_async]
+    pub fn create_new_dir_and_return_relative_path(
+        &self,
+        dir: &FileUri, 
+        relative_path: impl AsRef<std::path::Path>, 
+    ) -> Result<(FileUri, std::path::PathBuf)> {
+
+        impl_se!(struct Req<'a> { dir: &'a FileUri,relative_path: &'a str });
+        impl_de!(struct Res { uri: FileUri, relative_path: std::path::PathBuf });
+        
+        let relative_path = validate_relative_path(relative_path.as_ref())?;
+        let relative_path = relative_path.to_string_lossy();
+                
+        self.invoke::<Res>("createNewDirAndReturnRelativePath", Req { dir, relative_path: relative_path.as_ref() })
+            .await
+            .map(|v| (v.uri, v.relative_path))
+    }
+
+    #[maybe_async]
     pub fn read_dir(
         &self, 
         uri: &FileUri, 
@@ -272,7 +306,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         });
 
         let map_entry = move |v: Obj| -> OptionalEntry {
-            let map_time = |millis: i64| -> std::time::SystemTime {
+             let map_time = |millis: i64| -> std::time::SystemTime {
                 use std::time::{UNIX_EPOCH, Duration};
                 
                 UNIX_EPOCH + Duration::from_millis(i64::max(0, millis) as u64)
@@ -346,13 +380,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         });
         impl_de!(struct Res { value: bool });
 
-        let (quality, format) = match format {
-            ImageFormat::Png => (1.0, "Png"),
-            ImageFormat::Jpeg => (0.75, "Jpeg"),
-            ImageFormat::Webp => (0.7, "Webp"),
-            ImageFormat::JpegWith { quality } => (quality, "Jpeg"),
-            ImageFormat::WebpWith { quality } => (quality, "Webp"),
-        };
+        let (quality, format) = format.to_quality_and_format_str();
         let quality = (quality * 100.0).clamp(0.0, 100.0) as u8;
         let Size { width, height } = preferred_size;
         
@@ -378,13 +406,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         });
         impl_de!(struct Res { bytes: Option<String> });
 
-        let (quality, format) = match format {
-            ImageFormat::Png => (1.0, "Png"),
-            ImageFormat::Jpeg => (0.75, "Jpeg"),
-            ImageFormat::Webp => (0.7, "Webp"),
-            ImageFormat::JpegWith { quality } => (quality, "Jpeg"),
-            ImageFormat::WebpWith { quality } => (quality, "Webp"),
-        };
+        let (quality, format) = format.to_quality_and_format_str();
         let quality = (quality * 100.0).clamp(0.0, 100.0) as u8;
         let Size { width, height } = preferred_size;
         

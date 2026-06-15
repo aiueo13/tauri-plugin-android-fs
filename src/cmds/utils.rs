@@ -35,6 +35,9 @@ pub async fn resolve_picker_initial_location<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
 ) -> Result<FileUri> {
 
+    use std::str::FromStr as _;
+    
+
     let api = app.android_fs_async();
     let map_volume_id = |id: Option<&str>| -> Result<Option<StorageVolumeId>> {
         match id {
@@ -45,6 +48,50 @@ pub async fn resolve_picker_initial_location<R: tauri::Runtime>(
 
     match initial_location {
         PickerInitialLocation::Any { uri } => {
+            // SAF 以外の URI は無視されるので
+            // Media Store の URI が与えられた場合は SAF の URI への変換を試みる。
+            if uri.uri.starts_with("content://media") {
+                #[allow(deprecated)]
+                if let Ok(path) = api.public_storage().get_path(&uri).await {
+                    if let Ok(volumes) = api.public_storage().get_volumes().await {
+                        for volume in volumes {
+                            let Some(volume_path) = volume.id.top_dir_path.as_ref() else {
+                                continue;
+                            };
+                            
+                            let Ok(relative_path) = path.strip_prefix(volume_path) else {
+                                continue;
+                            };
+                            let (base_dir, relative_path) = {
+                                let mut stems = relative_path.components();
+
+                                let Some(base_dir) = stems.next()
+                                    .map(|s| s.as_os_str().to_string_lossy())
+                                    .and_then(|s| PublicDir::from_str(&s).ok()) else {
+
+                                    break;
+                                };
+
+                                // Media Store の URI はファイルを必ず指すので
+                                // 親ディレクトリを対象とするようにする。
+                                stems.next_back();
+
+                                let relative_path = stems.collect::<std::path::PathBuf>();
+
+                                (base_dir, relative_path)
+                            };
+
+                            return api.public_storage().resolve_initial_location(
+                                Some(&volume.id), 
+                                base_dir, 
+                                relative_path, 
+                                true,
+                            ).await
+                        }
+                    }
+                }
+            }
+
             Ok(uri)
         },
         PickerInitialLocation::VolumeTop { volume_id } => {
@@ -368,6 +415,7 @@ pub enum WriteFileStreamEventInput {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(not(target_os = "android"), allow(unused))]
 pub struct WriteFileStreamEventInputOptions {
+    pub append: bool,
     pub create: bool,
     pub notification: Option<ProgressNotificationSettings>,
 }

@@ -603,6 +603,23 @@ pub async fn create_dir<R: tauri::Runtime>(
 }
 
 #[tauri::command]
+pub async fn create_new_dir<R: tauri::Runtime>(
+    base_dir_uri: AfsUriOrFsPath,
+    relative_path: String,
+    app: tauri::AppHandle<R>
+) -> Result<FileUri> {
+
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        let base_dir_uri = base_dir_uri.try_into_content_uri()?;
+        let api = app.android_fs_async();
+        api.create_new_dir(&base_dir_uri, relative_path).await
+    }
+}
+
+#[tauri::command]
 pub async fn create_new_file<R: tauri::Runtime>(
     base_dir_uri: AfsUriOrFsPath,
     relative_path: String,
@@ -809,11 +826,14 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
             }
 
             let api = app.android_fs_async();
-            let file = api.open_file_writable(&uri).await?;
+            let file = match options.append {
+                true => api.open_file(&uri, FileAccessMode::WriteAppend).await?,
+                false => api.open_file_writable(&uri).await?
+            };
 
             let use_noti = 
                 options.notification.is_some() &&
-                api.utils().request_notification_permission().await?;
+                api.utils().request_notification_permission().await.unwrap_or(false);
 
             let noti = match use_noti {
                 true => {
@@ -1154,7 +1174,7 @@ pub async fn copy_file<R: tauri::Runtime>(
 
         let use_noti = 
             notification.is_some() &&
-            api.utils().request_notification_permission().await?;
+            api.utils().request_notification_permission().await.unwrap_or(false);
 
         if !use_noti {
             api.copy(&src_uri, &dest_uri).await?;

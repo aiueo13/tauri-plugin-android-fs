@@ -23,6 +23,7 @@ const COMMANDS: &'static [&'static str] = &[
     "request_public_files_permission",
     "check_public_files_permission",
     "create_new_file",
+    "create_new_dir",
     "create_dir",
     "truncate_file",
     "copy_file",
@@ -80,7 +81,7 @@ fn main() {
     tauri_plugin::mobile::update_android_manifest(
         "ANDROID FS PLUGIN",
         "manifest",
-        // 空の文字列の場合でも書き込むことで使われなくなった宣言を上書きして消すことができる。
+        // 空の文字列の場合でも、書き込むことで古い宣言を上書きして消すことができる。
         permissions.join("\n"),
     ).expect("failed to rewrite AndroidManifest.xml");
 }

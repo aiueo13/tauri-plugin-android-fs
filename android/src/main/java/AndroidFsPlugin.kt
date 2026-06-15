@@ -1093,7 +1093,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 val fileName = args.relativePath.substringAfterLast('/', args.relativePath)
                 val mimeType = args.mimeType ?: AFUtils.getMimeTypeFromName(fileName)
                 val res = getFileController(args.dir)
-                    .createFile(args.dir, args.relativePath, mimeType)
+                    .createNewFile(args.dir, args.relativePath, mimeType)
 
                 invoke.resolve(res)
             }
@@ -1119,7 +1119,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 val fileName = args.relativePath.substringAfterLast('/', args.relativePath)
                 val mimeType = args.mimeType ?: AFUtils.getMimeTypeFromName(fileName)
                 val res = getFileController(args.dir)
-                    .createFileAndReturnRelativePath(args.dir, args.relativePath, mimeType)
+                    .createNewFileAndReturnRelativePath(args.dir, args.relativePath, mimeType)
 
                 invoke.resolve(res)
             }
@@ -1164,6 +1164,50 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 val args = invoke.parseArgs(Args::class.java)
                 val res = getFileController(args.dir)
                     .createDirAllAndReturnRelativePath(args.dir, args.relativePath)
+
+                invoke.resolve(res)
+            }
+            catch (e: Exception) {
+                invoke.reject(e.message ?: "unknown error: $e")
+            }
+        }
+    }
+
+    @Command
+    fun createNewDir(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var dir: AFUri
+            lateinit var relativePath: String
+        }
+
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val res = getFileController(args.dir)
+                    .createNewDir(args.dir, args.relativePath)
+
+                invoke.resolve(res)
+            }
+            catch (e: Exception) {
+                invoke.reject(e.message ?: "unknown error: $e")
+            }
+        }
+    }
+
+    @Command
+    fun createNewDirAndReturnRelativePath(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var dir: AFUri
+            lateinit var relativePath: String
+        }
+
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val res = getFileController(args.dir)
+                    .createNewDirAndReturnRelativePath(args.dir, args.relativePath)
 
                 invoke.resolve(res)
             }

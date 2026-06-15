@@ -17,7 +17,7 @@ pub fn protocol<R: tauri::Runtime>(
         responder.respond(match create_response(app, request).await {
             Ok(ProtocolResponse::Ok { body, content_type, content_len }) => http::Response::builder()
                 .status(http::StatusCode::OK)
-			    .header(http::header::CONTENT_TYPE, content_type)
+			    .header(http::header::CONTENT_TYPE, content_type.as_ref())
                 .header(http::header::CONTENT_LENGTH, content_len)
                 .body(body)
                 .unwrap_or_default(),
@@ -62,7 +62,7 @@ pub fn protocol<R: tauri::Runtime>(
 enum ProtocolResponse {
 	Ok {
 		body: Vec<u8>,
-		content_type: String,
+		content_type: std::borrow::Cow<'static, str>,
         content_len: u64,
 	},
 }
@@ -83,16 +83,18 @@ enum ProtocolError {
 
 async fn create_response<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
-    request: http::Request<Vec<u8>>
+    request: http::Request<Vec<u8>>,
 ) -> std::result::Result<ProtocolResponse, ProtocolError> {
 
     let Some(config): Option<ProtocolConfigState> = app.try_state() else {
         return Err(ProtocolError::InternalServerError { 
-            msg: "Missing protocol-thumbnail feature".into()
+            msg: "Missing protocol config state".into()
         })
     };
 
-    if !config.enable_thumbnail {
+    let config = &config.thumbnail;
+
+    if !config.enable {
         return Err(ProtocolError::Forbidden)
     }
 
@@ -107,13 +109,19 @@ async fn create_response<R: tauri::Runtime>(
     };
     
     if let Some(path) = uri.to_path() {
-        if !config.thumbnail_scope.as_ref().is_some_and(|s| s.is_allowed(path)) {
+        if !config.scope.as_ref().is_some_and(|s| s.is_allowed(path)) {
             return Err(ProtocolError::Forbidden)
         }
     }
-    
-    let method = request.method();
-    let headers = request.headers();
+
+    let is_head_method = match request.method() {
+        &http::Method::GET => false,
+        &http::Method::HEAD => true,
+        _ => return Err(ProtocolError::MethodNotAllowed { 
+            allow: resolve_allow_header([http::Method::GET, http::Method::HEAD]) 
+        })
+    };
+
     let query = request.uri()
         .query()
         .unwrap_or("")
@@ -145,105 +153,25 @@ async fn create_response<R: tauri::Runtime>(
     let format = query
         .get("f")
         .and_then(|s| ImageFormat::from_name(&s))
-        .unwrap_or_else(|| 
-            headers
-                .get(http::header::ACCEPT)
-                .and_then(|accept| get_best_mime_type_from_accept_header(
-                    accept.as_bytes(), 
-                    &["image/jpeg", "image/jpg", "image/webp", "image/png"]
-                ))
-                .and_then(|m| ImageFormat::from_mime_type(m))
-                .unwrap_or(ImageFormat::Jpeg)
-        );
-        
-    let api = app.android_fs_async();
-    let thumbnail = api
-        .get_thumbnail(&uri, Size { width, height }, format).await
-        .map_err(|_| ProtocolError::NotFound)?
-        .ok_or_else(|| ProtocolError::NotFound)?;
-    
-    match method {
-        &http::Method::GET => Ok(ProtocolResponse::Ok { 
-            content_type: format.mime_type().into(), 
-            content_len: thumbnail.len() as u64,
-            body: thumbnail, 
-        }),
-        &http::Method::HEAD => Ok(ProtocolResponse::Ok { 
-            content_type: format.mime_type().into(), 
-            content_len: thumbnail.len() as u64, 
-            body: Vec::new(), 
-        }),
-        _ => Err(ProtocolError::MethodNotAllowed { 
-            allow: resolve_allow_header([http::Method::GET, http::Method::HEAD]) 
-        })
-    }
-}
+        .unwrap_or(ImageFormat::Webp);
 
-fn get_best_mime_type_from_accept_header<'a>(
-    accept_header_value: &[u8],
-    supported: &[&'a str],
-) -> Option<&'a str> {
+    let Some(thumbnail) = app
+        .android_fs_async()
+        .impls()
+        .get_file_thumbnail(&uri, Size { width, height }, format).await
+        .map_err(|_| ProtocolError::NotFound)? else {
 
-    let mut best: Option<&'a str> = None;
-    let mut best_q = 0.0;
+        return Err(ProtocolError::NotFound)
+    };
 
-    for &s in supported {
-        let mut current_q = 0.0;
-        let mut highest_spec = 0;
-
-        for item in accept_header_value.split(|&b| b == b',').take(64) {
-            let Ok(item_str) = std::str::from_utf8(item) else {
-                continue;
-            };
-
-            let mut parts = item_str.split(';').map(str::trim);
-            let mime = match parts.next() {
-                Some(v) => v,
-                None => continue,
-            };
-
-            let spec = if mime.eq_ignore_ascii_case(s) {
-                3
-            }
-            else if mime.ends_with("/*") {
-                let prefix = &mime[..mime.len() - 1];
-                if prefix.len() <= s.len() && s[..prefix.len()].eq_ignore_ascii_case(prefix) {
-                    2
-                } 
-                else {
-                    0
-                }
-            } 
-            else if mime == "*/*" {
-                1
-            } 
-            else {
-                0
-            };
-
-            if highest_spec < spec {
-                let mut q = 1.0;
-                for p in parts {
-                    if let Some(v) = p.strip_prefix("q=") {
-                        if let Ok(parsed) = v.parse::<f32>() {
-                            if parsed.is_finite() && 0.0 <= parsed && parsed <= 1.0 {
-                                q = parsed;
-                            }
-                        }
-                    }
-                }
-                highest_spec = spec;
-                current_q = q;
-            }
-        }
-
-        if 0.0 < current_q && best_q < current_q {
-            best_q = current_q;
-            best = Some(s);
-        }
-    }
-
-    best
+    Ok(ProtocolResponse::Ok { 
+        content_type: format.mime_type().into(), 
+        content_len: thumbnail.len() as u64, 
+        body: match is_head_method {
+            true => Vec::new(),
+            false => thumbnail
+        }, 
+    })
 }
 
 fn f64_to_u32_for_size(v: f64) -> Option<u32> {

@@ -130,7 +130,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// In other words, it provides a separate area for each user in a multi-user environment.
     /// 
     /// # Support
-    /// All Android version.  
+    /// All Android versions supported by Tauri.  
     #[maybe_async]
     pub fn get_volumes(&self) -> Result<Vec<StorageVolume>> {
         #[cfg(not(target_os = "android"))] {
@@ -158,7 +158,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// In other words, it provides a separate area for each user in a multi-user environment.
     /// 
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     #[maybe_async]
     pub fn get_primary_volume(&self) -> Result<Option<StorageVolume>> {
         #[cfg(not(target_os = "android"))] {
@@ -223,7 +223,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// If that also fails, `application/octet-stream` will be used.
     /// 
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     ///
     /// Note :  
     /// - [`PublicAudioDir::Audiobooks`] is not available on Android 9 (API level 28) and lower.
@@ -315,7 +315,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// If that also fails, `application/octet-stream` will be used.
     /// 
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     ///
     /// Note :  
     /// - [`PublicAudioDir::Audiobooks`] is not available on Android 9 (API level 28) and lower.
@@ -379,7 +379,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// Note that sanitize-path operation may vary depending on the device model and Android version.  
     ///
     /// # Support
-    /// All Android Version.
+    /// All Android versions supported by Tauri.
     ///
     /// Note :  
     /// - [`PublicAudioDir::Audiobooks`] is not available on Android 9 (API level 28) and lower.
@@ -452,7 +452,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// Contents.
     /// 
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     ///
     /// Note :  
     /// - [`PublicAudioDir::Audiobooks`] is not available on Android 9 (API level 28) and lower.
@@ -542,7 +542,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// If that also fails, `application/octet-stream` will be used.
     /// 
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     #[maybe_async]
     pub fn scan_by_path(
         &self, 
@@ -578,7 +578,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     ///     - [`PublicStorage::scan_by_path`]
     /// 
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     /// 
     /// # References
     /// - <https://developer.android.com/reference/android/provider/MediaStore.MediaColumns#IS_PENDING>
@@ -611,7 +611,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     ///     - [`PublicStorage::scan_by_path`]
     /// 
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     #[deprecated = "File operations via paths may result in unstable behaviour and inconsistent outcomes."]
     #[maybe_async]
     pub fn get_path(
@@ -701,7 +701,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// One of [`PublicImageDir`], [`PublicVideoDir`], [`PublicAudioDir`], [`PublicGeneralPurposeDir`].  
     ///  
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     /// 
     /// Note :  
     /// - [`PublicAudioDir::Audiobooks`] is not available on Android 9 (API level 28) and lower.
@@ -750,7 +750,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// If error occurs, it will be ignored.
     ///  
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     ///
     /// Note :  
     /// - [`PublicAudioDir::Audiobooks`] is not available on Android 9 (API level 28) and lower.
@@ -781,7 +781,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// If on Android 9 (API level 28) and lower, this returns false.  
     /// 
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     #[always_sync]
     pub fn is_audiobooks_dir_available(&self) -> Result<bool> {
         #[cfg(not(target_os = "android"))] {
@@ -798,7 +798,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// If on Android 11 (API level 30) and lower, this returns false.  
     /// 
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     #[always_sync]
     pub fn is_recordings_dir_available(&self) -> Result<bool> {
         #[cfg(not(target_os = "android"))] {

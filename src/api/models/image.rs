@@ -78,4 +78,14 @@ impl ImageFormat {
             None
         }
     }
+
+    pub(crate) fn to_quality_and_format_str(&self) -> (f32, &'static str) {
+        match self {
+            ImageFormat::Png => (1.0, "Png"),
+            ImageFormat::Jpeg => (0.75, "Jpeg"),
+            ImageFormat::Webp => (0.7, "Webp"),
+            ImageFormat::JpegWith { quality } => (*quality, "Jpeg"),
+            ImageFormat::WebpWith { quality } => (*quality, "Webp"),
+        }
+    }
 }

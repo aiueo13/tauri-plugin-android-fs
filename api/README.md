@@ -10,10 +10,10 @@ First, install this plugin to your Tauri project:
 
 ```toml
 [dependencies]
-tauri-plugin-android-fs = { version = "=28.1.0", features = [
-    # For `AndroidFs.createNewPublicFile` and related APIs on Android 9 or lower
+tauri-plugin-android-fs = { version = "=28.2.0", features = [
+    # To access public files on older Android versions
     "legacy_storage_permission",
-    # For notification options
+    # To enable notification features
     "notification_permission"
 ] }
 ```
@@ -46,14 +46,16 @@ Then, set the APIs that can be called from the Javascript:
 Finally, install the JavaScript Guest bindings using whichever JavaScript package manager you prefer:
 
 ```bash
-pnpm add tauri-plugin-android-fs-api@28.1.0 -E
+pnpm add tauri-plugin-android-fs-api@28.2.0 -E
 # or
-npm install tauri-plugin-android-fs-api@28.1.0 --save-exact
+npm install tauri-plugin-android-fs-api@28.2.0 --save-exact
 # or
-yarn add tauri-plugin-android-fs-api@28.1.0 --exact
+yarn add tauri-plugin-android-fs-api@28.2.0 --exact
 ```
 
 **NOTE**: Please make sure that the Rust-side `tauri-plugin-android-fs` and the JavaScript-side `tauri-plugin-android-fs-api` versions match exactly.
+
+[![crates.io](https://img.shields.io/crates/v/tauri-plugin-android-fs.svg?color=yellow)](https://crates.io/crates/tauri-plugin-android-fs) [![npm version](https://img.shields.io/npm/v/tauri-plugin-android-fs-api.svg?color=red)](https://www.npmjs.com/package/tauri-plugin-android-fs-api)
 
 # Usage
 This plugin operates on files and directories via URIs rather than paths.  
@@ -154,11 +156,13 @@ This plugin provides following APIs:
 - `AndroidFs.showSaveFilePicker` 
 - `AndroidFs.readDir` 
 - `AndroidFs.createNewFile` 
+- `AndroidFs.createNewDir` 
 - `AndroidFs.createDir` 
 - `AndroidFs.createNewPublicFile` 
 - `AndroidFs.createNewPublicImageFile` 
 - `AndroidFs.createNewPublicVideoFile` 
 - `AndroidFs.createNewPublicAudioFile` 
+- `AndroidFs.listVolumes`
 
 ### 2. APIs to operate entries
 - `AndroidFs.copyFile`
@@ -187,18 +191,20 @@ This plugin provides following APIs:
 - `AndroidFs.convertFileSrc`
 - `AndroidFs.convertThumbnailSrc`
 
-### 5. APIs to read files
-- `AndroidFs.openReadFileStream`
-- `AndroidFs.openReadTextFileLinesStream`
+### 5. APIs to read/write files
 - `AndroidFs.readFile`
 - `AndroidFs.readFileAsBase64`
 - `AndroidFs.readFileAsDataURL`
 - `AndroidFs.readTextFile`
-
-### 6. APIs to write to files
-- `AndroidFs.openWriteFileStream`
 - `AndroidFs.writeFile`
 - `AndroidFs.writeTextFile`
+
+### 6. APIs to stream files
+- `AndroidFs.openReadFileStream`
+- `AndroidFs.openReadTextFileLinesStream`
+- `AndroidFs.openWriteFileStream`
+- `AndroidFs.closeAllFileStreams`
+- `AndroidFs.countAllFileStreams`
 
 ### 7. APIs to send entries to other apps
 - `AndroidFs.showViewFileDialog`
@@ -217,9 +223,6 @@ This plugin provides following APIs:
 ### 9. Helper
 - `isAndroid`
 - `getAndroidApiLevel`
-
-
-For simplicity, some features and detailed options of the API have been omitted. If you need them, please consider using the [`tauri-plugin-android-fs`](https://crates.io/crates/tauri-plugin-android-fs) on the Rust side.
 
 # License
 This project is licensed under either of

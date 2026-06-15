@@ -391,6 +391,18 @@
           "markdownDescription": "Denies the create_dir command without any pre-configured scope."
         },
         {
+          "description": "Enables the create_new_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-create-new-dir",
+          "markdownDescription": "Enables the create_new_dir command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the create_new_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-create-new-dir",
+          "markdownDescription": "Denies the create_new_dir command without any pre-configured scope."
+        },
+        {
           "description": "Enables the create_new_file command without any pre-configured scope.",
           "type": "string",
           "const": "allow-create-new-file",

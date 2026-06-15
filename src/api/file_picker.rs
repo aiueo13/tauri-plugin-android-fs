@@ -80,7 +80,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// Indicates whether only entry located on the local device should be selectable, without requiring it to be downloaded from a remote service when opened.
     ///  
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     /// 
     /// # References
     /// - <https://developer.android.com/reference/android/content/Intent#ACTION_OPEN_DOCUMENT>
@@ -137,7 +137,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// Indicates whether only entry located on the local device should be selectable, without requiring it to be downloaded from a remote service when opened.
     ///  
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     /// 
     /// # References
     /// - <https://developer.android.com/reference/android/content/Intent#ACTION_OPEN_DOCUMENT>
@@ -273,7 +273,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If left empty, all file types will be available (equivalent to `["*/*"]`).  
     ///  
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     /// 
     /// # References
     /// - <https://developer.android.com/reference/android/content/Intent#ACTION_GET_CONTENT>
@@ -308,7 +308,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If left empty, all file types will be available (equivalent to `["*/*"]`).  
     ///  
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     /// 
     /// # References
     /// - <https://developer.android.com/reference/android/content/Intent#ACTION_GET_CONTENT>
@@ -360,7 +360,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// Indicates whether only entry located on the local device should be selectable, without requiring it to be downloaded from a remote service when opened.
     ///  
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     /// 
     /// # References
     /// - <https://developer.android.com/reference/android/content/Intent#ACTION_OPEN_DOCUMENT_TREE>
@@ -425,7 +425,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// Indicates whether only entry located on the local device should be selectable.
     ///  
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     /// 
     /// # References
     /// - <https://developer.android.com/reference/android/content/Intent#ACTION_CREATE_DOCUMENT>
@@ -449,7 +449,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// Verify whether [`FilePicker::pick_visual_medias`] is available on a given device.
     /// 
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     #[maybe_async]
     pub fn is_visual_media_picker_available(&self) -> Result<bool> {
         #[cfg(not(target_os = "android"))] {
@@ -472,7 +472,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// 
     /// 
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     #[maybe_async]
     pub fn check_uri_permission(
         &self, 
@@ -514,7 +514,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     ///     Because the permissions and validity period of the descendant entry URIs depend on the origin directory.   
     /// 
     /// # Support
-    /// All Android version. 
+    /// All Android versions supported by Tauri. 
     #[maybe_async]
     pub fn persist_uri_permission(&self, uri: &FileUri) -> Result<()> {
         #[cfg(not(target_os = "android"))] {
@@ -546,7 +546,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// The permission you want to check.  
     /// 
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     #[maybe_async]
     pub fn check_persisted_uri_permission(
         &self, 
@@ -565,7 +565,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// Return list of all persisted URIs that have been persisted by [`FilePicker::persist_uri_permission`] and currently valid.   
     /// 
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     #[maybe_async]
     pub fn get_all_persisted_uri_permissions(&self) -> Result<Vec<PersistedUriPermissionState>> {
         #[cfg(not(target_os = "android"))] {
@@ -589,7 +589,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// URI of the target file or directory.  
     ///
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     #[maybe_async]
     pub fn release_persisted_uri_permission(&self, uri: &FileUri) -> Result<bool> {
         #[cfg(not(target_os = "android"))] {
@@ -604,7 +604,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// Non-persistent permissions are not released.   
     /// 
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     #[maybe_async]
     pub fn release_all_persisted_uri_permissions(&self) -> Result<()> {
         #[cfg(not(target_os = "android"))] {

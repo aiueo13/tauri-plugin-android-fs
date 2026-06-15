@@ -1,6 +1,6 @@
 [package]
 name = "tauri-plugin-android-fs"
-version = "28.1.0"
+version = "28.2.0"
 edition = "2021"
 rust-version = "1.77.2"
 links = "tauri-plugin-android-fs"
@@ -33,11 +33,17 @@ ios = { level = "none", notes = "" }
 [features]
 default = ["commands"]
 commands = []
-protocol-content = ["dep:getrandom", "dep:http-range"]
-protocol-thumbnail = []
+protocol_content = ["dep:getrandom", "dep:http-range"]
+protocol_thumbnail = []
 notification_permission = []
 legacy_storage_permission = []
 legacy_storage_permission_include_android_10 = []
+# 以下は互換性の為に残す
+protocol-content = ["protocol_content"]
+protocol-thumbnail = ["protocol_thumbnail"]
+notification-permission = ["notification_permission"]
+legacy-storage-permission = ["legacy_storage_permission"]
+legacy-storage-permission-include-android-10 = ["legacy_storage_permission_include_android_10"]
 
 [dependencies]
 tauri = { version = "^2.8.2", default-features = false }

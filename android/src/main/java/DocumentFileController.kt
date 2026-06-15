@@ -76,6 +76,27 @@ class DocumentFileController(private val activity: Activity): FileController {
         throw Exception("No permission or file: ${uri.uri}")
     }
 
+    override fun getLastModified(uri: AFUri): Long {
+        activity.contentResolver.query(
+            Uri.parse(uri.uri),
+            arrayOf(
+                DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+            ),
+            null,
+            null,
+            null
+        )?.use {
+
+            val lastModifiedColumnIndex = it.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+
+            if (it.moveToFirst()) {
+                return it.getLongOrNull(lastModifiedColumnIndex) ?: 0
+            }
+        }
+
+        throw Exception("No permission or file: ${uri.uri}")
+    }
+
     override fun readDir(dirUri: AFUri, options: ReadDirEntryOptions, offset: ULong, limit: ULong?): JSArray {
         val queryTarget = mutableListOf(DocumentsContract.Document.COLUMN_MIME_TYPE)
         if (options.uri) queryTarget.add(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
@@ -189,7 +210,7 @@ class DocumentFileController(private val activity: Activity): FileController {
     }
 
     @Synchronized
-    override fun createFile(dirUri: AFUri, relativePath: String, mimeType: String): JSObject {
+    override fun createNewFile(dirUri: AFUri, relativePath: String, mimeType: String): JSObject {
         if (relativePath.endsWith('/')) {
             throw Exception("Illegal file path format, ends with '/'. $relativePath")
         }
@@ -217,7 +238,7 @@ class DocumentFileController(private val activity: Activity): FileController {
     }
 
     @Synchronized
-    override fun createFileAndReturnRelativePath(dirUri: AFUri, relativePath: String, mimeType: String): JSObject {
+    override fun createNewFileAndReturnRelativePath(dirUri: AFUri, relativePath: String, mimeType: String): JSObject {
         if (relativePath.endsWith('/')) {
             throw Exception("Illegal file path format, ends with '/'. $relativePath")
         }
@@ -239,6 +260,69 @@ class DocumentFileController(private val activity: Activity): FileController {
             mimeType,
             fileName
         ) ?: throw Exception("Failed to create file: { parent: $parentUri, fileName: $fileName, mimeType: $mimeType }")
+        val actualFileName = _getName(uri)
+        val actualRelativePath = "${parentActualRelativePath.trim('/')}/${actualFileName}"
+
+        return JSObject().apply {
+            put("relativePath", actualRelativePath)
+            put("uri", JSObject().apply {
+                put("uri", uri)
+                put("documentTopTreeUri", dirUri.documentTopTreeUri)
+            })
+        }
+    }
+
+    @Synchronized
+    override fun createNewDir(dirUri: AFUri, relativePath: String): JSObject {
+        if (relativePath.endsWith('/')) {
+            throw Exception("Illegal file path format, ends with '/'. $relativePath")
+        }
+        if (relativePath.isEmpty()) {
+            throw Exception("Relative path is empty.")
+        }
+
+        val _relativePath = relativePath.trimStart('/')
+        val relativeDirPath = _relativePath.substringBeforeLast("/", "")
+        val fileName = _relativePath.substringAfterLast("/", _relativePath)
+
+        val parentUri = createOrGetDir(dirUri, relativeDirPath)
+
+        val uri =  DocumentsContract.createDocument(
+            activity.contentResolver,
+            parentUri,
+            DocumentsContract.Document.MIME_TYPE_DIR,
+            fileName
+        ) ?: throw Exception("Failed to create dir: { parent: $parentUri, fileName: $fileName }")
+
+        val res = JSObject()
+        res.put("uri", uri)
+        res.put("documentTopTreeUri", dirUri.documentTopTreeUri)
+        return res
+    }
+
+    @Synchronized
+    override fun createNewDirAndReturnRelativePath(dirUri: AFUri, relativePath: String): JSObject {
+        if (relativePath.endsWith('/')) {
+            throw Exception("Illegal file path format, ends with '/'. $relativePath")
+        }
+        if (relativePath.isEmpty()) {
+            throw Exception("Relative path is empty.")
+        }
+
+        val _relativePath = relativePath.trimStart('/')
+        val relativeDirPath = _relativePath.substringBeforeLast("/", "")
+        val fileName = _relativePath.substringAfterLast("/", _relativePath)
+
+        val entry = createOrGetDirAndReturnRelativePath(dirUri, relativeDirPath)
+        val parentUri = entry.first
+        val parentActualRelativePath = entry.second
+
+        val uri = DocumentsContract.createDocument(
+            activity.contentResolver,
+            parentUri,
+            DocumentsContract.Document.MIME_TYPE_DIR,
+            fileName
+        ) ?: throw Exception("Failed to create dir: { parent: $parentUri, fileName: $fileName }")
         val actualFileName = _getName(uri)
         val actualRelativePath = "${parentActualRelativePath.trim('/')}/${actualFileName}"
 

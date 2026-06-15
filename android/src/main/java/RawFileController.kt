@@ -24,6 +24,11 @@ class RawFileController: FileController {
         return entry.length()
     }
 
+    override fun getLastModified(uri: AFUri): Long {
+        val entry = File(Uri.parse(uri.uri).path!!)
+        return entry.lastModified()
+    }
+
     override fun readDir(dirUri: AFUri, options: ReadDirEntryOptions, offset: ULong, limit: ULong?): JSArray {
         val dir = File(Uri.parse(dirUri.uri).path!!)
         val buffer = JSArray()
@@ -88,7 +93,7 @@ class RawFileController: FileController {
 
     // この関数が返すUriは他のアプリに共有できない
     @Synchronized
-    override fun createFile(dirUri: AFUri, relativePath: String, mimeType: String): JSObject {
+    override fun createNewFile(dirUri: AFUri, relativePath: String, mimeType: String): JSObject {
         val dir = File(Uri.parse(dirUri.uri).path!!)
         val baseFile = File(dir.path + "/" + relativePath.trimStart('/'))
         val fileName = baseFile.nameWithoutExtension
@@ -118,7 +123,7 @@ class RawFileController: FileController {
     }
 
     @Synchronized
-    override fun createFileAndReturnRelativePath(
+    override fun createNewFileAndReturnRelativePath(
         dirUri: AFUri,
         relativePath: String,
         mimeType: String
@@ -147,6 +152,63 @@ class RawFileController: FileController {
 
         file.parentFile?.mkdirs()
         file.createNewFile()
+
+        return JSObject().apply {
+            put("relativePath", actualRelativePath)
+            put("uri", JSObject().apply {
+                put("uri", Uri.fromFile(file))
+                put("documentTopTreeUri", null)
+            })
+        }
+    }
+
+    @Synchronized
+    override fun createNewDir(dirUri: AFUri, relativePath: String): JSObject {
+        val parentDir = File(Uri.parse(dirUri.uri).path!!)
+        val baseDir = File(parentDir.path + "/" + relativePath.trimStart('/'))
+        val dirName = baseDir.name
+
+        var dir = baseDir
+        var counter = 1
+
+        // 同じ名前のファイルが既に存在する場合、連番を追加してファイル名を変更
+        while (dir.exists()) {
+            val newFileName = "$dirName($counter)"
+            dir = File(baseDir.parentFile, newFileName)
+            counter++
+        }
+
+        dir.mkdirs()
+
+        val res = JSObject()
+        res.put("uri", Uri.fromFile(dir))
+        res.put("documentTopTreeUri", null)
+        return res
+    }
+
+    @Synchronized
+    override fun createNewDirAndReturnRelativePath(
+        dirUri: AFUri,
+        relativePath: String,
+    ): JSObject {
+
+        val dir = File(Uri.parse(dirUri.uri).path!!)
+        val baseFile = File(dir.path + "/" + relativePath.trimStart('/'))
+        val fileName = baseFile.name
+
+        var file = baseFile
+        var counter = 1
+        var actualRelativePath = relativePath
+
+        // 同じ名前のファイルが既に存在する場合、連番を追加してファイル名を変更
+        while (file.exists()) {
+            val newFileName = "$fileName($counter)"
+            file = File(baseFile.parentFile, newFileName)
+            actualRelativePath = file.absolutePath
+            counter++
+        }
+
+        file.mkdirs()
 
         return JSObject().apply {
             put("relativePath", actualRelativePath)

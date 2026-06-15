@@ -46,7 +46,7 @@ pub mod utils {
 #[derive(serde::Deserialize)]
 #[serde(untagged)]
 #[cfg_attr(not(target_os = "android"), allow(unused))]
-#[cfg(any(feature = "commands", feature = "protocol-content", feature = "protocol-thumbnail"))]
+#[cfg(any(feature = "commands", feature = "protocol_content", feature = "protocol_thumbnail"))]
 pub enum AfsUriOrFsPath {
     AfsUri(FileUri),
     FsPath(tauri_plugin_fs::FilePath),
@@ -54,7 +54,7 @@ pub enum AfsUriOrFsPath {
 
 #[cfg(all(
     target_os = "android",
-    any(feature = "commands", feature = "protocol-content", feature = "protocol-thumbnail")
+    any(feature = "commands", feature = "protocol_content", feature = "protocol_thumbnail")
 ))]
 impl AfsUriOrFsPath {
 

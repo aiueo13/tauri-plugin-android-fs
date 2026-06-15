@@ -56,7 +56,7 @@ impl<'a, R: tauri::Runtime> Utils<'a, R> {
     ///     you can request the permissions from the user at runtime.  
     /// 
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     #[maybe_async]
     pub fn create_progress_notification(
         &self,

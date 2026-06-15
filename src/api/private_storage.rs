@@ -66,7 +66,7 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     /// This provides a separate area for each user in a multi-user environment.
     /// 
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     #[maybe_async]
     pub fn resolve_path(
         &self, 

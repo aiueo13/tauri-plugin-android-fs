@@ -1,9 +1,9 @@
-#![cfg(all(target_os = "android", any(feature = "protocol-content", feature = "protocol-thumbnail")))]
+#![cfg(all(target_os = "android", any(feature = "protocol_content", feature = "protocol_thumbnail")))]
 
-#[cfg(feature = "protocol-content")]
+#[cfg(feature = "protocol_content")]
 pub mod protocol_content;
 
-#[cfg(feature = "protocol-thumbnail")]
+#[cfg(feature = "protocol_thumbnail")]
 pub mod protocol_thumbnail;
 
 mod state;

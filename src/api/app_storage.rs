@@ -67,7 +67,7 @@ impl<'a, R: tauri::Runtime> AppStorage<'a, R> {
     /// In other words, it provides a separate area for each user in a multi-user environment.
     /// 
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     #[maybe_async]
     pub fn get_volumes(&self) -> Result<Vec<StorageVolume>> {
         #[cfg(not(target_os = "android"))] {
@@ -94,7 +94,7 @@ impl<'a, R: tauri::Runtime> AppStorage<'a, R> {
     /// In other words, it provides a separate area for each user in a multi-user environment.
     /// 
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     #[maybe_async]
     pub fn get_primary_volume(&self) -> Result<Option<StorageVolume>> {
         #[cfg(not(target_os = "android"))] {
@@ -158,7 +158,7 @@ impl<'a, R: tauri::Runtime> AppStorage<'a, R> {
     /// If `None` is provided, [`the primary storage volume`](AppStorage::get_primary_volume) will be used.  
     /// 
     /// # Support
-    /// All Android version. 
+    /// All Android versions supported by Tauri. 
     #[maybe_async]
     pub fn resolve_path(
         &self, 
@@ -208,7 +208,7 @@ impl<'a, R: tauri::Runtime> AppStorage<'a, R> {
     /// If that also fails, `application/octet-stream` will be used.
     /// 
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     #[maybe_async]
     pub fn scan_public_media_by_path(
         &self,
@@ -232,7 +232,7 @@ impl<'a, R: tauri::Runtime> AppStorage<'a, R> {
     /// This must be a URI obtained from [`AppStorage::scan_public_media_by_path`].
     /// 
     /// # Support
-    /// All Android version.
+    /// All Android versions supported by Tauri.
     #[maybe_async]
     pub fn get_public_media_path(
         &self,

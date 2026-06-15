@@ -45,7 +45,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R, Option<config:
                     app.manage(cmds::new_file_writer_resources_state(app.app_handle().clone()));
                 }
 
-                #[cfg(any(feature = "protocol-content", feature = "protocol-thumbnail"))] {
+                #[cfg(any(feature = "protocol_content", feature = "protocol_thumbnail"))] {
                     app.manage(protocols::new_config_state(api.config().as_ref(), app));
                 }
             }
@@ -87,6 +87,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R, Option<config:
             cmds::request_public_files_permission,
             cmds::check_public_files_permission,
             cmds::create_new_file,
+            cmds::create_new_dir,
             cmds::create_dir,
             cmds::count_all_file_streams,
             cmds::close_all_file_streams,
@@ -120,14 +121,14 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R, Option<config:
             cmds::show_view_dir_dialog,
         ]);
 
-    #[cfg(all(target_os = "android", feature = "protocol-thumbnail"))]
+    #[cfg(all(target_os = "android", feature = "protocol_thumbnail"))]
     let builder = builder
         .register_asynchronous_uri_scheme_protocol(
             protocols::protocol_thumbnail::URI_SCHEME, 
             protocols::protocol_thumbnail::protocol,
         );
 
-    #[cfg(all(target_os = "android", feature = "protocol-content"))]
+    #[cfg(all(target_os = "android", feature = "protocol_content"))]
     let builder = builder
         .register_asynchronous_uri_scheme_protocol(
             protocols::protocol_content::URI_SCHEME, 
@@ -139,8 +140,12 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R, Option<config:
 
 pub trait AndroidFsExt<R: tauri::Runtime> {
 
+    /// Provides an API for accessing the Android file system.
+    /// 
+    /// It is a blocking-based API. If you need an asynchronous API, use [`AndroidFsExt::android_fs_async`].
     fn android_fs(&self) -> &api::api_sync::AndroidFs<R>;
 
+    /// Provides an asynchronous API for accessing the Android file system.
     fn android_fs_async(&self) -> &api::api_async::AndroidFs<R>;
 }
 
