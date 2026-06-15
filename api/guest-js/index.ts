@@ -543,7 +543,7 @@ export type AndroidOpenReadTextFileLinesStreamItem = {
 	 * Text of the current line.
 	 * 
 	 * @remarks
-	 * This value excluding line break characters.
+	 * This value excludes line break characters.
 	 * If needed, use `lineBreak`.
 	 */
 	line: string,
