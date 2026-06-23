@@ -424,18 +424,24 @@ pub struct WriteFileStreamEventInputOptions {
 impl<'a> TryInto<WriteFileStreamEventInput> for tauri::ipc::Request<'a> {
     type Error = Error;
 
-    fn try_into(self) -> Result<WriteFileStreamEventInput> {
-        let get_header_value = |header_name: &str| -> Result<std::borrow::Cow<'_, str>> {
-            self.headers()
-                .get(header_name)
-                .ok_or_else(|| Error::missing_value(header_name))
-                .map(|s| percent_encoding::percent_decode(s.as_ref()))
-                .and_then(|s| s.decode_utf8().map_err(Into::into))
-        };
+    fn try_into(self) -> std::result::Result<WriteFileStreamEventInput, Self::Error> {
+        macro_rules! get_args {
+            () => {
+                self.headers()
+                    .get("tpafs-cmd-args")
+                    .ok_or_else(|| Error::missing_value("tpafs-cmd-args"))
+                    .map(|s| percent_encoding::percent_decode(s.as_ref()))
+                    .and_then(|s| s.decode_utf8().map_err(Into::into))
+                    .and_then(|s| serde_json::from_str(&s).map_err(Into::into))
+            };
+        }
         
-        let event_type = get_header_value("eventType")?;
+        let cmd_type = self.headers()
+            .get("tpafs-cmd-type")
+            .ok_or_else(|| Error::missing_value("tpafs-cmd-type"))?
+            .to_str()?;
 
-        match event_type.as_ref() {
+        match cmd_type {
             "Open" => {
                 // 呼び出し時に body として与えられた判定用の payload をチェックして
                 // 生の body を受け取り可能かどうかを調べる。
@@ -445,14 +451,22 @@ impl<'a> TryInto<WriteFileStreamEventInput> for tauri::ipc::Request<'a> {
                     tauri::ipc::InvokeBody::Raw(_) => true,
                 };
 
-                let uri = serde_json::from_str(&get_header_value("uri")?)?;
-                let options = serde_json::from_str(&get_header_value("options")?)?;
-              
-                Ok(WriteFileStreamEventInput::Open { uri, options, supports_raw_ipc_request_body })
+                #[derive(serde::Deserialize)]
+                #[serde(rename_all = "camelCase")]
+                struct Args {
+                    uri: AfsUriOrFsPath,
+                    #[serde(flatten)]
+                    options: WriteFileStreamEventInputOptions,
+                }
+                let args: Args = get_args!()?;
+
+                Ok(WriteFileStreamEventInput::Open {
+                    uri: args.uri, 
+                    supports_raw_ipc_request_body,
+                    options: args.options,
+                })
             },
             "Write" => {
-                let id = get_header_value("id")?.parse::<u32>()?;
-
                 let data = match self.body() {
                     tauri::ipc::InvokeBody::Raw(body) => {
                         body.clone()
@@ -486,15 +500,30 @@ impl<'a> TryInto<WriteFileStreamEventInput> for tauri::ipc::Request<'a> {
                     },
                 };
 
+                #[derive(serde::Deserialize)]
+                #[serde(rename_all = "camelCase")]
+                struct Args {
+                    id: tauri::ResourceId,
+                }
+                let args: Args = get_args!()?;
+                let id = args.id;
+
                 Ok(WriteFileStreamEventInput::Write { id, data })
             },
             "Close" => {
-                let id = get_header_value("id")?.parse::<u32>()?;
-                let error = get_header_value("error")?.parse::<bool>()?;
+                #[derive(serde::Deserialize)]
+                #[serde(rename_all = "camelCase")]
+                struct Args {
+                    id: tauri::ResourceId,
+                    error: bool
+                }
+                let args: Args = get_args!()?;
+                let id = args.id;
+                let error = args.error;
 
                 Ok(WriteFileStreamEventInput::Close { id, error })
             },
-            value => Err(Error::invalid_value(value))
+            _ => Err(Error::invalid_value("tpafs-cmd-type"))
         }
     }
 }
@@ -514,7 +543,7 @@ pub enum WriteFileStreamEventOutput {
 }
 
 #[derive(serde::Deserialize)]
-#[serde(tag = "type")]
+#[serde(tag = "type", content = "args")]
 #[cfg_attr(not(target_os = "android"), allow(unused))]
 pub enum ReadFileStreamEventInput {
     Open {
@@ -600,7 +629,7 @@ impl FileChunkReader {
 }
 
 #[derive(serde::Deserialize)]
-#[serde(tag = "type")]
+#[serde(tag = "type", content = "args")]
 #[cfg_attr(not(target_os = "android"), allow(unused))]
 pub enum ReadTextFileLinesStreamEventInput {
     Open {

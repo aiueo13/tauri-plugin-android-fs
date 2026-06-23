@@ -10,12 +10,15 @@ First, install this plugin to your Tauri project:
 
 ```toml
 [dependencies]
-tauri-plugin-android-fs = { version = "=28.2.1", features = [
+tauri-plugin-android-fs = {
+  version = "=28.2.2",
+  features = [
     # To access public files on older Android versions
     "legacy_storage_permission",
-    # To enable notification features
+    # To enable notification options
     "notification_permission"
-] }
+  ]
+}
 ```
 
 Next, register this plugin in your Tauri project:
@@ -46,11 +49,11 @@ Then, set the APIs that can be called from the Javascript:
 Finally, install the JavaScript Guest bindings using whichever JavaScript package manager you prefer:
 
 ```bash
-pnpm add tauri-plugin-android-fs-api@28.2.1 -E
+pnpm add tauri-plugin-android-fs-api@28.2.2 -E
 # or
-npm install tauri-plugin-android-fs-api@28.2.1 --save-exact
+npm install tauri-plugin-android-fs-api@28.2.2 --save-exact
 # or
-yarn add tauri-plugin-android-fs-api@28.2.1 --exact
+yarn add tauri-plugin-android-fs-api@28.2.2 --exact
 ```
 
 **NOTE**: Please make sure that the Rust-side `tauri-plugin-android-fs` and the JavaScript-side `tauri-plugin-android-fs-api` versions match exactly.
@@ -83,7 +86,7 @@ You can set a global scope for the plugin, or assign specific scopes to individu
 }
 ```
 
-# Examples
+# Example
 
 ```typescript
 import { 
@@ -147,7 +150,20 @@ async function download(
 }
 ```
 
-# APIs
+```json
+{
+    "permissions": [
+        "android-fs:allow-create-new-public-file",
+        "android-fs:allow-open-write-file-stream",
+        "android-fs:allow-write-file",
+        "android-fs:allow-set-public-file-pending",
+        "android-fs:allow-scan-public-file",
+        "android-fs:allow-remove-file"
+    ]
+}
+```
+
+# API
 This plugin provides following APIs:
 
 ### 1. APIs to get entries such as files and directories

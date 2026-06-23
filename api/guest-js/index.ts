@@ -278,7 +278,7 @@ export type AndroidReadTextFileOptions = {
 	/**
 	 * Text encoding used to decode the data, such as `"utf-8"`, `"shift_jis"`, or `"iso-8859-2"`.
 	 * 
-	 * @see {@link https://developer.mozilla.org/ja/docs/Web/API/Encoding_API/Encodings | available encodings}
+	 * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/Encoding_API/Encodings | available encodings}
 	 * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/TextDecoder#label | TextDecoder's label option}
 	 * 
 	 * @defaultValue `"utf-8"`.
@@ -326,7 +326,7 @@ export type AndroidWriteFileOptions = {
 	 * This option is only valid for files specified by a path. 
 	 * It is ignored for files specified by a URI.
 	 *
-	 * @defaultValue `false`
+	 * @defaultValue `true`
 	 */
 	create?: boolean,
 
@@ -374,7 +374,7 @@ export type AndroidWriteTextFileOptions = {
 	 * This option is only valid for files specified by a path. 
 	 * It is ignored for files specified by a URI.
 	 * 
-	 * @defaultValue `false`
+	 * @defaultValue `true`
 	 */
 	create?: boolean,
 
@@ -422,7 +422,7 @@ export type AndroidCopyFileOptions = {
 	 * This option is only valid for files specified by a path. 
 	 * It is ignored for files specified by a URI.
 	 * 
-	 * @defaultValue `false`
+	 * @defaultValue `true`
 	 */
 	create?: boolean,
 
@@ -475,7 +475,7 @@ export type AndroidOpenWriteFileStreamOptions = {
 	 * This option is only valid for files specified by a path. 
 	 * It is ignored for files specified by a URI.
 	 * 
-	 * @defaultValue `false`
+	 * @defaultValue `true`
 	 */
 	create?: boolean,
 
@@ -528,7 +528,7 @@ export type AndroidOpenReadFileStreamOptions = {
 	bufferByteLength?: number,
 
 	/**
-	 * `AbortSignal` that allows the write operation to be aborted.
+	 * `AbortSignal` that allows the read operation to be aborted.
 	 * 
 	 * @remarks
 	 * When aborted, the stream enters an errored state, all subsequent read operations fail,
@@ -568,7 +568,7 @@ export type AndroidOpenReadTextFileLinesStreamOptions = {
 	/**
 	 * Text encoding used to decode the data, such as `"utf-8"`, `"shift_jis"`, or `"iso-8859-2"`.
 	 * 
-	 * @see {@link https://developer.mozilla.org/ja/docs/Web/API/Encoding_API/Encodings | available encodings}
+	 * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/Encoding_API/Encodings | available encodings}
 	 * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/TextDecoder#label | TextDecoder's label option}
 	 * 
 	 * @defaultValue `"utf-8"`.
@@ -619,7 +619,7 @@ export type AndroidOpenReadTextFileLinesStreamOptions = {
 	bufferByteLength?: number,
 
 	/**
-	 * `AbortSignal` that allows the write operation to be aborted.
+	 * `AbortSignal` that allows the read operation to be aborted.
 	 * 
 	 * @remarks
 	 * When aborted, the stream enters an errored state, all subsequent read operations fail,
@@ -2511,18 +2511,19 @@ export class AndroidFs {
 	}
 
 	/**
-	 * Opens a file in read mode and resolves to a {@link https://developer.mozilla.org/ja/docs/Web/API/ReadableStream | ReadableStream}.
+	 * Opens a file in read mode and resolves to a {@link https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream | ReadableStream}.
 	 * 
 	 * @remarks
 	 * The caller is responsible for releasing the returned stream.
-	 * Failure to do so may lead to resource leaks.
-	 * 
-	 * The stream is considered released in the following cases:
+	 * The stream is released in the following cases:
 	 * - When the stream or its reader is canceled. 
 	 * - When all data has been successfully read from the stream.
 	 * - When a read operation fails with an error. 
-	 * - When the provided `AbortSignal` is aborted.
+	 * - When an abort event is received from the provided `AbortSignal`.
 	 * - When `AndroidFs.closeAllFileStreams` is called.
+	 * 
+	 * The stream provides a {@link https://developer.mozilla.org/en-US/docs/Web/API/ReadableStreamDefaultReader | ReadableStreamDefaultReader}
+	 * and a {@link https://developer.mozilla.org/en-US/docs/Web/API/ReadableStreamBYOBReader | ReadableStreamBYOBReader}.
 	 * 
 	 * There is also {@link https://crates.io/crates/tauri-plugin-fs-stream | tauri-plugin-fs-stream}, which provides APIs not only for Android but for all platforms.
 	 * 
@@ -2548,14 +2549,13 @@ export class AndroidFs {
 
 		throwIfAborted(options?.signal)
 		const bufferByteLength = mapBufferByteLengthForInput(options?.bufferByteLength)
-		const { open, read, close } = await resolveReadFileStreamEvents(
-			"plugin:android-fs|open_read_file_stream",
-			mapFsPathForInput(uri),
-		)
-		throwIfAborted(options?.signal)
+		const { open, read, close } = resolveCmdReadFileStream("plugin:android-fs|open_read_file_stream")
 
 		try {
-			await open()
+			await open({
+				uri: mapFsPathForInput(uri)
+			})
+
 			return createReadableStream(
 				{
 					read: () => read(bufferByteLength),
@@ -2571,17 +2571,18 @@ export class AndroidFs {
 	}
 
 	/**
-	 * Opens a file in read mode and resolves to a {@link https://developer.mozilla.org/ja/docs/Web/API/ReadableStream | ReadableStream} of text lines.
+	 * Opens a file in read mode and resolves to a {@link https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream | ReadableStream} of text lines.
 	 * 
 	 * @remarks
 	 * The returned stream yields decoded text line by line.
 	 * For the structure of each item, see `AndroidOpenReadTextFileLinesStreamItem`.
 	 * 
-	 * The stream is considered released in the following cases:
+	 * The caller is responsible for releasing the stream.
+	 * The stream is released in the following cases:
 	 * - When the stream or its reader is canceled. 
 	 * - When all data has been successfully read from the stream.
 	 * - When a read operation fails with an error. 
-	 * - When the provided `AbortSignal` is aborted.
+	 * - When an abort event is received from the provided `AbortSignal`.
 	 * - When `AndroidFs.closeAllFileStreams` is called.
 	 * 
 	 * There is also {@link https://crates.io/crates/tauri-plugin-fs-stream | tauri-plugin-fs-stream}, which provides APIs not only for Android but for all platforms.
@@ -2612,14 +2613,16 @@ export class AndroidFs {
 		const label = mapEncodingLabelForInput(options?.encoding)
 		const fatal = options?.fatal ?? false
 		const ignoreBOM = options?.ignoreBOM ?? false
-		const { open, read, close } = await resolveReadFileStreamEvents(
-			"plugin:android-fs|open_read_text_file_lines_stream",
-			mapFsPathForInput(uri),
-		)
-		throwIfAborted(options?.signal)
+		const { open, read, close } = resolveCmdReadFileStream("plugin:android-fs|open_read_text_file_lines_stream")
 
 		try {
-			await open({ label, maxLineByteLength, ignoreBOM })
+			await open({
+				uri: mapFsPathForInput(uri),
+				label,
+				maxLineByteLength, 
+				ignoreBOM 
+			})
+
 			return createTextLinesReadableStream(
 				{
 					read: () => read(bufferByteLength),
@@ -2636,17 +2639,15 @@ export class AndroidFs {
 	}
 
 	/**
-	 * Opens a file in write mode and resolves to a {@link https://developer.mozilla.org/ja/docs/Web/API/WritableStream | WritableStream}.  
+	 * Opens a file in write mode and resolves to a {@link https://developer.mozilla.org/en-US/docs/Web/API/WritableStream | WritableStream}.  
 	 * 
 	 * @remarks
 	 * The caller is responsible for releasing the returned stream.
-	 * Failure to do so may lead to resource leaks.
-	 * 
-	 * The stream is considered released in the following cases:
+	 * The stream is released in the following cases:
 	 * - When the stream or its writer is closed.
 	 * - When the stream or its writer is aborted.
 	 * - When a write operation fails with an error.
-	 * - When the provided `AbortSignal` is aborted.
+	 * - When an abort event is received from the provided `AbortSignal`.
 	 * - When `AndroidFs.closeAllFileStreams` is called.
 	 * 
 	 * There is also {@link https://crates.io/crates/tauri-plugin-fs-stream | tauri-plugin-fs-stream}, which provides APIs not only for Android but for all platforms.
@@ -2676,19 +2677,17 @@ export class AndroidFs {
 	): Promise<WritableStream<Uint8Array<ArrayBufferLike>>> {
 
 		throwIfAborted(options?.signal)
-		const append = options?.append ?? false
-		const create = options?.create ?? false
-		const notification = options?.notification ?? null
 		const bufferByteLength = mapBufferByteLengthForInput(options?.bufferByteLength)
-		const { open, write, close } = await resolveWriteFileStreamEvents(
-			"plugin:android-fs|open_write_file_stream",
-			mapFsPathForInput(uri),
-			{ append, create, notification }
-		)
-		throwIfAborted(options?.signal)
+		const { open, write, close } = resolveCmdWriteFileStream("plugin:android-fs|open_write_file_stream")
 
 		try {
-			await open()
+			await open({ 
+				uri: mapFsPathForInput(uri),
+				append: options?.append ?? false, 
+				create: options?.create ?? true, 
+				notification: options?.notification ?? null
+			})
+
 			return createWritableStream(
 				{
 					write,
@@ -2717,12 +2716,15 @@ export class AndroidFs {
 	 * 
 	 * After this operation,
 	 * any read or write attempts on existing streams will result in an error, 
-	 * except for operations on data already buffered in the frontend.
+	 * except for buffering in the frontend
 	 * 
 	 * This affects streams created by the following methods:
 	 * - `AndroidFs.openReadFileStream`
 	 * - `AndroidFs.openReadTextFileLinesStream`
 	 * - `AndroidFs.openWriteFileStream`
+	 * 
+	 * This is intended for debugging or testing. 
+	 * Instead, use the stream's APIs or abort the associated {@link https://developer.mozilla.org/en-US/docs/Web/API/AbortController | AbortController}.
 	 * 
 	 * @returns Promise that resolves when the operation completes successfully.
 	 *
@@ -2781,7 +2783,7 @@ export class AndroidFs {
 	}
 
 	/**
-	 * Reads the entire file contents as a {@link https://developer.mozilla.org/ja/docs/Glossary/Base64 | Base64-encoded string}.
+	 * Reads the entire file contents as a {@link https://developer.mozilla.org/en-US/docs/Glossary/Base64 | Base64-encoded string}.
 	 *
 	 * @param uri - URI or path of the target file.
 	 *
@@ -2808,9 +2810,8 @@ export class AndroidFs {
 		return decodeUtf8(base64)
 	}
 
-
 	/**
-	 * Reads the entire file contents as a {@link https://developer.mozilla.org/ja/docs/Web/URI/Reference/Schemes/data | Data URL}.
+	 * Reads the entire file contents as a {@link https://developer.mozilla.org/en-US/docs/Web/URI/Reference/Schemes/data | Data URL}.
 	 *
 	 * @param uri - URI or path of the target file.
 	 * @param options - Optional settings: `mimeType`. See `AndroidReadFileAsDataUrlOptions` for details.
@@ -2859,7 +2860,7 @@ export class AndroidFs {
 	 * - When an unexpected error occurred.
 	 *
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_readable | AndroidFs::open_file_readable}
-	 * @see {@link https://developer.mozilla.org/ja/docs/Web/API/TextDecoder | WebAPI TextDecoder}
+	 * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder | WebAPI TextDecoder}
 	 * @since 25.1.0
 	 */
 	public static async readTextFile(
@@ -2912,16 +2913,15 @@ export class AndroidFs {
 
 		const n = options?.notification
 		const notification = n != null ? { ...n, forceIndeterminateProgressBar: true } : null
-		const append = options?.append ?? false
-		const create = options?.create ?? false
-		const { open, write, close } = await resolveWriteFileStreamEvents(
-			"plugin:android-fs|write_file",
-			mapFsPathForInput(uri),
-			{ append, create, notification }
-		)
+		const { open, write, close } = resolveCmdWriteFileStream("plugin:android-fs|write_file")
 
 		try {
-			await open()
+			await open({
+				uri: mapFsPathForInput(uri),
+				append: options?.append ?? false, 
+				create: options?.create ?? true, 
+				notification
+			})
 			await write(data)
 			await close("Ok")
 		}
@@ -2962,16 +2962,15 @@ export class AndroidFs {
 
 		const n = options?.notification
 		const notification = n != null ? { ...n, forceIndeterminateProgressBar: true } : null
-		const append = options?.append ?? false
-		const create = options?.create ?? false
-		const { open, write, close } = await resolveWriteFileStreamEvents(
-			"plugin:android-fs|write_text_file",
-			mapFsPathForInput(uri),
-			{ append, create, notification }
-		)
+		const { open, write, close } = resolveCmdWriteFileStream("plugin:android-fs|write_text_file")
 
 		try {
-			await open()
+			await open({
+				uri: mapFsPathForInput(uri),
+				append: options?.append ?? false, 
+				create: options?.create ?? true, 
+				notification
+			})
 			await write(data)
 			await close("Ok")
 		}
@@ -3525,99 +3524,85 @@ function encodeUtf8(text: string): Uint8Array<ArrayBuffer> {
 	return UTF8_ENCODER.encode(text)
 }
 
-type ReadFileStreamEvents = {
-	open: (options?: Record<any, any>) => Promise<void>
-	read: (len: number, options?: Record<any, any>) => Promise<Uint8Array<ArrayBuffer> | null>,
-	close: (options?: Record<any, any>) => Promise<void>,
+type CmdReadFileStreamHandler = {
+	open: (args: Record<string, unknown>) => Promise<void>
+	read: (len: number) => Promise<Uint8Array<ArrayBuffer> | null>,
+	close: () => Promise<void>,
 }
-async function resolveReadFileStreamEvents(
-	cmd: string,
-	uri: string | AndroidFsUri,
-): Promise<ReadFileStreamEvents> {
-
+function resolveCmdReadFileStream(cmdName: string): CmdReadFileStreamHandler {
+	// Tauri IPC の制約により、戻り値は全て ArrayBuffer 型となる。
 	type CmdEvents = {
-		Open: { uri: string | AndroidFsUri },
+		Open: Record<string, unknown>,
 		Read: { id: number, len: number },
 		Close: { id: number },
 	}
 	type CmdType = keyof CmdEvents
-	type CmdInput<T extends CmdType> = CmdEvents[T]
-	function dispatch<T extends CmdType>(type: T, input: CmdInput<T>): Promise<ArrayBuffer> {
-		return invoke(cmd, { event: { type, ...input } })
+	type CmdArgs<T extends CmdType> = CmdEvents[T]
+	function cmd<T extends CmdType>(type: T, args: CmdArgs<T>): Promise<ArrayBuffer> {
+		return invoke(cmdName, { event: { type, args } })
 	}
 
 
 	let id: Promise<number> | null = null
 
 	return {
-		open: async (ops) => {
+		open: async (args) => {
 			if (id !== null) throw new Error("File already opened")
-			id = dispatch("Open", { ...ops, uri }).then(ridFromBytes)
+			id = cmd("Open", args).then(ridFromBytes)
 			await id
 		},
 
-		read: async (len, ops) => {
+		read: async (len) => {
 			if (id === null) throw new Error("File not opened")
-			const data = await dispatch("Read", { ...ops, id: await id, len, })
+			const data = await cmd("Read", { id: await id, len, })
 			return data.byteLength === 0 ? null : new Uint8Array(data)
 		},
 
-		close: async (ops) => {
+		close: async () => {
 			if (id === null) return
-			await dispatch("Close", { ...ops, id: await id })
+			await cmd("Close", { id: await id })
 		}
 	}
 }
 
-type WriteFileStreamEvents = {
-	open: () => Promise<void>,
+type CmdWriteFileStreamHandler = {
+	open: (args: Record<string, unknown>) => Promise<void>,
 	write: (data: Uint8Array<ArrayBufferLike> | string) => Promise<void>,
-	close: (type: "Err" | "Ok") => Promise<void>,
+	close: (result: "Err" | "Ok") => Promise<void>,
 }
-async function resolveWriteFileStreamEvents(
-	cmd: string,
-	uri: string | AndroidFsUri,
-	options: {
-		create: boolean,
-		append: boolean,
-		notification: AndroidProgressNotificationTemplate | null
-	}
-): Promise<WriteFileStreamEvents> {
-
+function resolveCmdWriteFileStream(cmdName: string): CmdWriteFileStreamHandler {
+	// Tauri IPC の制約により、大きいバイトを送る際は body で、それ以外の値は headers で送信する。
 	type CmdEvents = {
-		Open: { body: Uint8Array, headers: { uri: string, options: string }, out: { id: number, supportsRawIpcRequestBody: boolean } },
-		Write: { body: Uint8Array | { data: string, format: "dataUrlToDecodedData" | "textToUtf8" }, headers: { id: string }, out: void },
-		Close: { body: {}, headers: { id: string, error: string }, out: void },
+		Open: { in: { body: Uint8Array, args: Record<string, unknown> }, out: { id: number, supportsRawIpcRequestBody: boolean } },
+		Write: { in: { body: Uint8Array | { data: string, format: "dataUrlToDecodedData" | "textToUtf8" }, args: { id: number } }, out: void },
+		Close: { in: { body: {}, args: { id: number, error: boolean } }, out: void },
 	}
 	type CmdType = keyof CmdEvents
-	type CmdInputBody<T extends CmdType> = CmdEvents[T]["body"]
-	type CmdInputHeaders<T extends CmdType> = CmdEvents[T]["headers"]
+	type CmdInputBody<T extends CmdType> = CmdEvents[T]["in"]["body"]
+	type CmdInputArgs<T extends CmdType> = CmdEvents[T]["in"]["args"]
 	type CmdOutput<T extends CmdType> = CmdEvents[T]["out"]
-	function dispatch<T extends CmdType>(type: T, body: CmdInputBody<T>, headers: CmdInputHeaders<T>): Promise<CmdOutput<T>> {
-		return invoke(cmd, body, { headers: { eventType: type, ...headers } })
+	function cmd<T extends CmdType>(type: T, body: CmdInputBody<T>, args: CmdInputArgs<T>): Promise<CmdOutput<T>> {
+		return invoke(cmdName, body, {
+			headers: {
+				"tpafs-cmd-type": type,
+				"tpafs-cmd-args": encodeURIComponent(JSON.stringify(args))
+			}
+		})
 	}
 
 
 	const PAYLOAD_FOR_CHECKING_RAW_IPC_REQUEST_BODY_SUPPORTED = new Uint8Array([0]);
 
-	let state: Promise<{ id: string, supportsRawIpcRequestBody: boolean }> | null = null
+	let state: Promise<{ id: number, supportsRawIpcRequestBody: boolean }> | null = null
 
 	return {
-		open: async () => {
+		open: async (args) => {
 			if (state !== null) throw new Error("File already opened")
-			state = dispatch(
+			state = cmd(
 				"Open",
 				PAYLOAD_FOR_CHECKING_RAW_IPC_REQUEST_BODY_SUPPORTED,
-				{
-					uri: encodeURIComponent(JSON.stringify(uri)),
-					options: encodeURIComponent(JSON.stringify(options)),
-				}
-			).then(res => {
-				return {
-					id: res.id.toString(),
-					supportsRawIpcRequestBody: res.supportsRawIpcRequestBody
-				}
-			})
+				args
+			)
 			await state
 		},
 
@@ -3630,26 +3615,42 @@ async function resolveWriteFileStreamEvents(
 					? encodeUtf8(chunk)
 					: chunk
 
-				await dispatch("Write", data, { id })
+				await cmd("Write", data, { id })
 			}
 			else {
 				if (typeof chunk === "string") {
-					await dispatch("Write", { data: chunk, format: "textToUtf8" }, { id })
+					await cmd(
+						"Write", 
+						{
+							data: chunk, 
+							format: "textToUtf8" 
+						},
+						{ id }
+					)
 				}
-				// IPC のリクエストで raw Body を送れない場合、
-				// 大きな配列に対して非常に非効率な形式にシリアライズされる。
-				// よって、まだマシな dataURL としてデータを送る。
-				// Data URL を用いる理由は web API の FileReader で比較的効率的に作成できるため。
-				// <https://github.com/tauri-apps/tauri/issues/10573>
 				else {
-					await dispatch("Write", { data: await bytesToDataUrl(chunk), format: "dataUrlToDecodedData" }, { id })
+					// IPC のリクエストで raw Body を送れない場合、
+					// 大きな配列に対して非常に非効率な形式にシリアライズされる。
+					// よって、まだマシな dataURL としてデータを送る。
+					// Data URL を用いる理由は web API の FileReader で比較的効率的に作成できるため。
+					// <https://github.com/tauri-apps/tauri/issues/10573>
+					await cmd(
+						"Write", 
+						{ 
+							data: await bytesToDataUrl(chunk), 
+							format: "dataUrlToDecodedData"
+						}, 
+						{ id }
+					)
 				}
 			}
 		},
 
-		close: async (t) => {
+		close: async (result) => {
 			if (state === null) return
-			await dispatch("Close", {}, { id: (await state).id, error: (t === "Err").toString() })
+			const { id } = await state
+			const error = result === "Err"
+			await cmd("Close", {}, { id, error })
 		},
 	}
 }
