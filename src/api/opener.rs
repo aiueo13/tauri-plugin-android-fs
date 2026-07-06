@@ -15,7 +15,7 @@ use super::*;
 /// }
 /// ```
 #[sync_async]
-pub struct FileOpener<'a, R: tauri::Runtime> {
+pub struct Opener<'a, R: tauri::Runtime> {
     #[cfg(target_os = "android")]
     pub(crate) handle: &'a tauri::plugin::PluginHandle<R>,
 
@@ -29,7 +29,7 @@ pub struct FileOpener<'a, R: tauri::Runtime> {
     use(if_sync) impls::SyncImpls as Impls;
     use(if_async) impls::AsyncImpls as Impls;
 )]
-impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
+impl<'a, R: tauri::Runtime> Opener<'a, R> {
     
     #[always_sync]
     fn impls(&self) -> Impls<'_, R> {
@@ -38,10 +38,10 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
 }
 
 #[sync_async(
-    use(if_async) api_async::{AndroidFs, FilePicker, PrivateStorage, PublicStorage};
-    use(if_sync) api_sync::{AndroidFs, FilePicker, PrivateStorage, PublicStorage};
+    use(if_async) api_async::{AndroidFs, Picker, PrivateStorage, PublicStorage};
+    use(if_sync) api_sync::{AndroidFs, Picker, PrivateStorage, PublicStorage};
 )]
-impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
+impl<'a, R: tauri::Runtime> Opener<'a, R> {
 
     /// Show app chooser for sharing files with other apps.   
     /// This function returns immediately after requesting to open the app chooser, 
@@ -67,7 +67,7 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
     #[maybe_async]
     pub fn share_files<'b>(
         &self, 
-        uris: impl IntoIterator<Item = &'b FileUri>, 
+        uris: impl IntoIterator<Item = &'b FsUri>, 
     ) -> Result<()> {
 
         #[cfg(not(target_os = "android"))] {
@@ -100,7 +100,7 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
     #[maybe_async]
     pub fn share_file(
         &self, 
-        uri: &FileUri,
+        uri: &FsUri,
     ) -> Result<()> {
         
         #[cfg(not(target_os = "android"))] {
@@ -133,7 +133,7 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
     #[maybe_async]
     pub fn open_file(
         &self, 
-        uri: &FileUri,
+        uri: &FsUri,
     ) -> Result<()> {
 
         #[cfg(not(target_os = "android"))] {
@@ -165,7 +165,7 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
     #[maybe_async]
     pub fn open_dir(
         &self, 
-        uri: &FileUri,
+        uri: &FsUri,
     ) -> Result<()> {
 
         #[cfg(not(target_os = "android"))] {
@@ -187,7 +187,7 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
     /// # Note
     /// I think that this may be the least commonly used request for sending file to app.  
     /// Even if you want to open an image or video editing app, 
-    /// [`FileOpener::open_file`] allows you to choose from a wider range of apps in many cases.
+    /// [`Opener::open_file`] allows you to choose from a wider range of apps in many cases.
     /// 
     /// # Args
     /// - ***uri*** :  
@@ -203,7 +203,7 @@ impl<'a, R: tauri::Runtime> FileOpener<'a, R> {
     #[maybe_async]
     pub fn edit_file(
         &self, 
-        uri: &FileUri,
+        uri: &FsUri,
     ) -> Result<()> {
 
         #[cfg(not(target_os = "android"))] {

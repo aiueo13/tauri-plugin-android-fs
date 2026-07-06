@@ -48,7 +48,7 @@ pub mod utils {
 #[cfg_attr(not(target_os = "android"), allow(unused))]
 #[cfg(any(feature = "commands", feature = "protocol_content", feature = "protocol_thumbnail"))]
 pub enum AfsUriOrFsPath {
-    AfsUri(FileUri),
+    AfsUri(FsUri),
     FsPath(tauri_plugin_fs::FilePath),
 }
 
@@ -58,7 +58,7 @@ pub enum AfsUriOrFsPath {
 ))]
 impl AfsUriOrFsPath {
 
-    pub fn try_into_content_or_safe_file_scheme_uri(self) -> Result<FileUri> {
+    pub fn try_into_content_or_safe_file_scheme_uri(self) -> Result<FsUri> {
         match self {
             AfsUriOrFsPath::AfsUri(uri) => {
                 if !uri.is_content_scheme() {
@@ -69,13 +69,13 @@ impl AfsUriOrFsPath {
             AfsUriOrFsPath::FsPath(path) => {
                 match path {
                     tauri_plugin_fs::FilePath::Path(path) => {
-                        Ok(FileUri::from_path(tauri::path::SafePathBuf::new(path)?))
+                        Ok(FsUri::from_path(tauri::path::SafePathBuf::new(path)?))
                     },
                     tauri_plugin_fs::FilePath::Url(url) => {
                         if url.scheme() != "content" {
                             return Err(Error::invalid_uri_scheme(url))
                         }
-                        Ok(FileUri::from_uri(url))
+                        Ok(FsUri::from_uri(url))
                     }
                 }
             },
@@ -86,7 +86,7 @@ impl AfsUriOrFsPath {
 #[cfg(all(target_os = "android", feature = "commands"))]
 impl AfsUriOrFsPath {
 
-    pub fn try_into_content_uri(self) -> Result<FileUri> {
+    pub fn try_into_content_uri(self) -> Result<FsUri> {
         match self {
             AfsUriOrFsPath::AfsUri(uri) => {
                 if !uri.is_content_scheme() {
@@ -103,7 +103,7 @@ impl AfsUriOrFsPath {
                         if url.scheme() != "content" {
                             return Err(Error::invalid_uri_scheme(url))
                         }
-                        Ok(FileUri::from_uri(url))
+                        Ok(FsUri::from_uri(url))
                     }
                 }
             },

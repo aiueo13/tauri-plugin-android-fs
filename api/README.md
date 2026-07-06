@@ -1,17 +1,17 @@
-Note: **I’m using a translation tool, so there may be some inappropriate expressions.**
+Note: **I’m using a translation tool, so some expressions may be awkward or inaccurate.**
 
 # Overview
-This plugin provides a unified file system API for all Android versions supported by Tauri.
+This plugin provides a unified file system API across all Android versions supported by Tauri.
 
 # Setup
-First, install this plugin to your Tauri project:
+First, install the plugin to your Tauri project:
 
 `src-tauri/Cargo.toml`
 
 ```toml
 [dependencies]
 tauri-plugin-android-fs = {
-  version = "=28.2.2",
+  version = "=28.3.0",
   features = [
     # To access public files on older Android versions
     "legacy_storage_permission",
@@ -21,7 +21,7 @@ tauri-plugin-android-fs = {
 }
 ```
 
-Next, register this plugin in your Tauri project:
+Next, register the plugin:
 
 `src-tauri/src/lib.rs`
 
@@ -35,7 +35,7 @@ pub fn run() {
 }
 ```
 
-Then, set the APIs that can be called from the Javascript:
+Then, configure the APIs that can be called from the frontend JavaScript bindings:
 
 `src-tauri/capabilities/*.json`
 ```json
@@ -46,17 +46,17 @@ Then, set the APIs that can be called from the Javascript:
 }
 ```
 
-Finally, install the JavaScript Guest bindings using whichever JavaScript package manager you prefer:
+Finally, install the frontend JavaScript bindings:
 
 ```bash
-pnpm add tauri-plugin-android-fs-api@28.2.2 -E
+pnpm add tauri-plugin-android-fs-api@28.3.0 -E
 # or
-npm install tauri-plugin-android-fs-api@28.2.2 --save-exact
+npm install tauri-plugin-android-fs-api@28.3.0 --save-exact
 # or
-yarn add tauri-plugin-android-fs-api@28.2.2 --exact
+yarn add tauri-plugin-android-fs-api@28.3.0 --exact
 ```
 
-**NOTE**: Please make sure that the Rust-side `tauri-plugin-android-fs` and the JavaScript-side `tauri-plugin-android-fs-api` versions match exactly.
+**NOTE**: Please ensure that the backend package, `tauri-plugin-android-fs` (crates io), and the frontend package, `tauri-plugin-android-fs-api` (npm), have exactly matching versions.
 
 [![crates.io](https://img.shields.io/crates/v/tauri-plugin-android-fs.svg?color=yellow)](https://crates.io/crates/tauri-plugin-android-fs) [![npm version](https://img.shields.io/npm/v/tauri-plugin-android-fs-api.svg?color=red)](https://www.npmjs.com/package/tauri-plugin-android-fs-api)
 

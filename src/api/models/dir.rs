@@ -3,7 +3,7 @@ use std::str::FromStr;
 use crate::*;
 
 
-/// The application specific directory.  
+/// Directory for the app’s use only.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[non_exhaustive]
 pub enum PrivateDir {
@@ -55,7 +55,7 @@ pub enum PrivateDir {
     NoBackupData,
 }
 
-/// The directory for the app.  
+/// Directory for the app’s use.  
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[non_exhaustive]
 pub enum AppDir {
@@ -64,10 +64,10 @@ pub enum AppDir {
     /// 
     /// This will be deleted when the app is uninstalled and may also be deleted at the user’s request.  
     ///
-    /// Please note that, unlike [`PrivateDir::Data`], it may be accessible by other apps.
+    /// This may be accessible by other apps.
     /// 
     /// e.g. 
-    /// - `/storage/emulated/0/Android/data/{app-package-name}/files`
+    /// - `/storage/emulated/{user-id}/Android/data/{app-package-name}/files`
     /// - `/storage/{sd-card-id}/Android/data/{app-package-name}/files`
     ///
     /// <https://developer.android.com/reference/android/content/Context#getExternalFilesDirs(java.lang.String)>
@@ -77,10 +77,10 @@ pub enum AppDir {
     /// 
     /// This will be deleted when the app is uninstalled and may also be deleted at the user’s request. 
     ///
-    /// Please note that, unlike [`PrivateDir::Cache`], it may be accessible by other apps.
+    /// This may be accessible by other apps.
     /// 
     /// e.g. 
-    /// - `/storage/emulated/0/Android/data/{app-package-name}/cache`
+    /// - `/storage/emulated/{user-id}/Android/data/{app-package-name}/cache`
     /// - `/storage/{sd-card-id}/Android/data/{app-package-name}/cache`
     ///
     /// <https://developer.android.com/reference/android/content/Context#getExternalCacheDirs()>
@@ -92,10 +92,10 @@ pub enum AppDir {
     ///
     /// For Android 11 (API level 30) or higher, 
     /// this has been marked as deprecated. 
-    /// It still works, but you should consider migrating to [`PublicDir`] of [`PublicStorage`](crate::api::api_async::PublicStorage).
+    /// It still works, but you should consider migrating to [`PublicStorage`](crate::api::api_async::PublicStorage).
     ///
     /// e.g. 
-    /// - `/storage/emulated/0/Android/media/{app-package-name}`
+    /// - `/storage/emulated/{user-id}/Android/media/{app-package-name}`
     /// - `/storage/{sd-card-id}/Android/media/{app-package-name}`
     /// 
     /// <https://developer.android.com/reference/android/content/Context#getExternalMediaDirs()>
@@ -103,6 +103,7 @@ pub enum AppDir {
     PublicMedia
 }
 
+/// Directory in which to place files that are available to other applications and users. 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[non_exhaustive]
 pub enum PublicDir {

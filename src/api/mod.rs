@@ -2,8 +2,8 @@
 mod impls;
 
 mod android_fs;
-mod file_opener;
-mod file_picker;
+mod opener;
+mod picker;
 mod app_storage;
 mod private_storage;
 mod public_storage;
@@ -15,22 +15,34 @@ pub(crate) mod consts;
 
 pub mod api_async {
     pub use crate::api::android_fs::AsyncAndroidFs as AndroidFs;
-    pub use crate::api::file_opener::AsyncFileOpener as FileOpener;
-    pub use crate::api::file_picker::AsyncFilePicker as FilePicker;
+    pub use crate::api::opener::AsyncOpener as Opener;
+    pub use crate::api::picker::AsyncPicker as Picker;
     pub use crate::api::app_storage::AsyncAppStorage as AppStorage;
     pub use crate::api::private_storage::AsyncPrivateStorage as PrivateStorage;
     pub use crate::api::public_storage::AsyncPublicStorage as PublicStorage;
     pub use crate::api::utils::AsyncUtils as Utils;
     pub use crate::api::progress_notification_guard::AsyncProgressNotificationGuard as ProgressNotificationGuard;
+
+    #[deprecated = "Use `Opener` instead."]
+    pub type FileOpener<'a, R> = crate::api::opener::AsyncOpener<'a, R>;
+
+    #[deprecated = "Use `Picker` instead."]
+    pub type FilePicker<'a, R> = crate::api::picker::AsyncPicker<'a, R>;
 }
 
 pub mod api_sync {
     pub use crate::api::android_fs::SyncAndroidFs as AndroidFs;
-    pub use crate::api::file_opener::SyncFileOpener as FileOpener;
-    pub use crate::api::file_picker::SyncFilePicker as FilePicker;
+    pub use crate::api::opener::SyncOpener as Opener;
+    pub use crate::api::picker::SyncPicker as Picker;
     pub use crate::api::app_storage::SyncAppStorage as AppStorage;
     pub use crate::api::private_storage::SyncPrivateStorage as PrivateStorage;
     pub use crate::api::public_storage::SyncPublicStorage as PublicStorage;
     pub use crate::api::utils::SyncUtils as Utils;
     pub use crate::api::progress_notification_guard::SyncProgressNotificationGuard as ProgressNotificationGuard;
+
+    #[deprecated = "Use `Opener` instead."]
+    pub type FileOpener<'a, R> = crate::api::opener::SyncOpener<'a, R>;
+
+    #[deprecated = "Use `Picker` instead."]
+    pub type FilePicker<'a, R> = crate::api::picker::SyncPicker<'a, R>;
 }

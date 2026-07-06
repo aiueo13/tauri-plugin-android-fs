@@ -10,8 +10,8 @@ use super::*;
 impl<'a, R: tauri::Runtime> Impls<'a, R> {
 
     #[maybe_async]
-    pub fn get_entry_name(&self, uri: &FileUri) -> Result<String> {
-        impl_se!(struct Req<'a> { uri: &'a FileUri });
+    pub fn get_entry_name(&self, uri: &FsUri) -> Result<String> {
+        impl_se!(struct Req<'a> { uri: &'a FsUri });
         impl_de!(struct Res { name: String });
 
         self.invoke::<Res>("getName", Req { uri })
@@ -20,8 +20,8 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn get_entry_type(&self, uri: &FileUri) -> Result<EntryType> {
-        impl_se!(struct Req<'a> { uri: &'a FileUri });
+    pub fn get_entry_type(&self, uri: &FsUri) -> Result<EntryType> {
+        impl_se!(struct Req<'a> { uri: &'a FsUri });
         impl_de!(struct Res { value: Option<String> });
 
         self.invoke::<Res>("getMimeType", Req { uri })
@@ -33,10 +33,10 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn get_entry_info(&self, uri: &FileUri) -> Result<Entry> {
-        impl_se!(struct Req<'a> { uri: &'a FileUri });
+    pub fn get_entry_info(&self, uri: &FsUri) -> Result<Entry> {
+        impl_se!(struct Req<'a> { uri: &'a FsUri });
         impl_de!(struct Res {
-            uri: FileUri,
+            uri: FsUri,
             mime_type: Option<String>,
             name: String,
             last_modified: i64,
@@ -64,8 +64,8 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn get_file_len(&self, uri: &FileUri) -> Result<u64> {
-        impl_se!(struct Req<'a> { uri: &'a FileUri });
+    pub fn get_file_len(&self, uri: &FsUri) -> Result<u64> {
+        impl_se!(struct Req<'a> { uri: &'a FsUri });
         impl_de!(struct Res { len: i64 });
 
         self.invoke::<Res>("getLen", Req { uri })
@@ -76,10 +76,10 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn get_file_resource_for_content_protocol(
         &self, 
-        uri: &FileUri
+        uri: &FsUri
     ) -> Result<(std::fs::File, Option<String>, Option<u64>)> {
 
-        impl_se!(struct Req<'a> { uri: &'a FileUri });
+        impl_se!(struct Req<'a> { uri: &'a FsUri });
         impl_de!(struct Res { fd: std::os::fd::RawFd, mime_type: Option<String>, len: Option<u64> });
 
         self.invoke::<Res>("getFileResourceForContentProtocol", Req { uri })
@@ -94,8 +94,8 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn open_file(&self, uri: &FileUri, mode: FileAccessMode) -> Result<std::fs::File> {
-        impl_se!(struct Req<'a> { uri: &'a FileUri, mode: &'a str });
+    pub fn open_file(&self, uri: &FsUri, mode: FileAccessMode) -> Result<std::fs::File> {
+        impl_se!(struct Req<'a> { uri: &'a FsUri, mode: &'a str });
         impl_de!(struct Res { fd: std::os::fd::RawFd });
     
         let mode = mode.to_mode();
@@ -111,11 +111,11 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn open_file_with_fallback(
         &self, 
-        uri: &FileUri, 
+        uri: &FsUri, 
         candidate_modes: impl IntoIterator<Item = FileAccessMode>
     ) -> Result<(std::fs::File, FileAccessMode)> {
 
-        impl_se!(struct Req<'a> { uri: &'a FileUri, modes: Vec<&'a str> });
+        impl_se!(struct Req<'a> { uri: &'a FsUri, modes: Vec<&'a str> });
         impl_de!(struct Res { fd: std::os::fd::RawFd, mode: String });
     
         let modes = candidate_modes.into_iter().map(|m| m.to_mode()).collect::<Vec<_>>();
@@ -137,18 +137,18 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn rename_entry(&self, uri: &FileUri, new_name: impl AsRef<str>) -> Result<FileUri> {
-        impl_se!(struct Req<'a> { uri: &'a FileUri, new_name: &'a str });
+    pub fn rename_entry(&self, uri: &FsUri, new_name: impl AsRef<str>) -> Result<FsUri> {
+        impl_se!(struct Req<'a> { uri: &'a FsUri, new_name: &'a str });
 
         let new_name = new_name.as_ref();
 
-        self.invoke::<FileUri>("rename", Req { uri, new_name })
+        self.invoke::<FsUri>("rename", Req { uri, new_name })
             .await
     }
 
     #[maybe_async]
-    pub fn remove_file(&self, uri: &FileUri) -> Result<()> {
-        impl_se!(struct Req<'a> { uri: &'a FileUri });
+    pub fn remove_file(&self, uri: &FsUri) -> Result<()> {
+        impl_se!(struct Req<'a> { uri: &'a FsUri });
         impl_de!(struct Res;);
     
         self.invoke::<Res>("deleteFile", Req { uri })
@@ -157,8 +157,8 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn remove_dir_if_empty(&self, uri: &FileUri) -> Result<()> {
-        impl_se!(struct Req<'a> { uri: &'a FileUri });
+    pub fn remove_dir_if_empty(&self, uri: &FsUri) -> Result<()> {
+        impl_se!(struct Req<'a> { uri: &'a FsUri });
         impl_de!(struct Res;);
         
         self.invoke::<Res>("deleteEmptyDir", Req { uri })
@@ -167,8 +167,8 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn remove_dir_all(&self, uri: &FileUri) -> Result<()> {
-        impl_se!(struct Req<'a> { uri: &'a FileUri });
+    pub fn remove_dir_all(&self, uri: &FsUri) -> Result<()> {
+        impl_se!(struct Req<'a> { uri: &'a FsUri });
         impl_de!(struct Res;);
         
         self.invoke::<Res>("deleteDirAll", Req { uri })
@@ -179,30 +179,30 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn create_new_file(
         &self,
-        dir: &FileUri, 
+        dir: &FsUri, 
         relative_path: impl AsRef<std::path::Path>, 
         mime_type: Option<&str>
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
 
-        impl_se!(struct Req<'a> { dir: &'a FileUri, mime_type: Option<&'a str>, relative_path: &'a str });
+        impl_se!(struct Req<'a> { dir: &'a FsUri, mime_type: Option<&'a str>, relative_path: &'a str });
         
         let relative_path = validate_relative_path(relative_path.as_ref())?;
         let relative_path = relative_path.to_string_lossy();
                 
-        self.invoke::<FileUri>("createFile", Req { dir, mime_type, relative_path: relative_path.as_ref() })
+        self.invoke::<FsUri>("createFile", Req { dir, mime_type, relative_path: relative_path.as_ref() })
             .await
     }
 
     #[maybe_async]
     pub fn create_new_file_and_retrun_relative_path(
         &self,
-        dir: &FileUri, 
+        dir: &FsUri, 
         relative_path: impl AsRef<std::path::Path>, 
         mime_type: Option<&str>
-    ) -> Result<(FileUri, std::path::PathBuf)> {
+    ) -> Result<(FsUri, std::path::PathBuf)> {
 
-        impl_se!(struct Req<'a> { dir: &'a FileUri, mime_type: Option<&'a str>, relative_path: &'a str });
-        impl_de!(struct Res { uri: FileUri, relative_path: std::path::PathBuf });
+        impl_se!(struct Req<'a> { dir: &'a FsUri, mime_type: Option<&'a str>, relative_path: &'a str });
+        impl_de!(struct Res { uri: FsUri, relative_path: std::path::PathBuf });
 
         let relative_path = validate_relative_path(relative_path.as_ref())?;
         let relative_path = relative_path.to_string_lossy();
@@ -215,28 +215,28 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn create_dir_all(
         &self,
-        dir: &FileUri, 
+        dir: &FsUri, 
         relative_path: impl AsRef<std::path::Path>, 
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
 
-        impl_se!(struct Req<'a> { dir: &'a FileUri,relative_path: &'a str });
+        impl_se!(struct Req<'a> { dir: &'a FsUri,relative_path: &'a str });
         
         let relative_path = validate_relative_path(relative_path.as_ref())?;
         let relative_path = relative_path.to_string_lossy();
                 
-        self.invoke::<FileUri>("createDirAll", Req { dir, relative_path: relative_path.as_ref() })
+        self.invoke::<FsUri>("createDirAll", Req { dir, relative_path: relative_path.as_ref() })
             .await
     }
 
     #[maybe_async]
     pub fn create_dir_all_and_return_relative_path(
         &self,
-        dir: &FileUri, 
+        dir: &FsUri, 
         relative_path: impl AsRef<std::path::Path>, 
-    ) -> Result<(FileUri, std::path::PathBuf)> {
+    ) -> Result<(FsUri, std::path::PathBuf)> {
 
-        impl_se!(struct Req<'a> { dir: &'a FileUri,relative_path: &'a str });
-        impl_de!(struct Res { uri: FileUri, relative_path: std::path::PathBuf });
+        impl_se!(struct Req<'a> { dir: &'a FsUri,relative_path: &'a str });
+        impl_de!(struct Res { uri: FsUri, relative_path: std::path::PathBuf });
         
         let relative_path = validate_relative_path(relative_path.as_ref())?;
         let relative_path = relative_path.to_string_lossy();
@@ -249,28 +249,28 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn create_new_dir(
         &self,
-        dir: &FileUri, 
+        dir: &FsUri, 
         relative_path: impl AsRef<std::path::Path>, 
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
 
-        impl_se!(struct Req<'a> { dir: &'a FileUri,relative_path: &'a str });
+        impl_se!(struct Req<'a> { dir: &'a FsUri,relative_path: &'a str });
         
         let relative_path = validate_relative_path(relative_path.as_ref())?;
         let relative_path = relative_path.to_string_lossy();
                 
-        self.invoke::<FileUri>("createNewDir", Req { dir, relative_path: relative_path.as_ref() })
+        self.invoke::<FsUri>("createNewDir", Req { dir, relative_path: relative_path.as_ref() })
             .await
     }
 
     #[maybe_async]
     pub fn create_new_dir_and_return_relative_path(
         &self,
-        dir: &FileUri, 
+        dir: &FsUri, 
         relative_path: impl AsRef<std::path::Path>, 
-    ) -> Result<(FileUri, std::path::PathBuf)> {
+    ) -> Result<(FsUri, std::path::PathBuf)> {
 
-        impl_se!(struct Req<'a> { dir: &'a FileUri,relative_path: &'a str });
-        impl_de!(struct Res { uri: FileUri, relative_path: std::path::PathBuf });
+        impl_se!(struct Req<'a> { dir: &'a FsUri,relative_path: &'a str });
+        impl_de!(struct Res { uri: FsUri, relative_path: std::path::PathBuf });
         
         let relative_path = validate_relative_path(relative_path.as_ref())?;
         let relative_path = relative_path.to_string_lossy();
@@ -283,12 +283,12 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn read_dir(
         &self, 
-        uri: &FileUri, 
+        uri: &FsUri, 
         options: EntryOptions,
         range: impl std::ops::RangeBounds<u64>
     ) -> Result<impl Iterator<Item = OptionalEntry>> {
         
-        impl_se!(struct Req<'a> { uri: &'a FileUri, options: Ops, offset: &'a str, limit: Option<&'a str>, });
+        impl_se!(struct Req<'a> { uri: &'a FsUri, options: Ops, offset: &'a str, limit: Option<&'a str>, });
         // ファイルかフォルダかを知るために mime_type は常に取得する。
         impl_se!(struct Ops {
             uri: bool,
@@ -298,7 +298,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         });
         impl_de!(struct Res { entries: Vec<Obj> });
         impl_de!(struct Obj {
-            uri: Option<FileUri>,
+            uri: Option<FsUri>,
             mime_type: Option<String>,
             name: Option<String>,
             last_modified: Option<i64>,
@@ -364,15 +364,15 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn get_file_thumbnail_to_file(
         &self, 
-        src: &FileUri,
-        dest: &FileUri,
+        src: &FsUri,
+        dest: &FsUri,
         preferred_size: Size,
         format: ImageFormat,
     ) -> Result<bool> {
 
         impl_se!(struct Req<'a> {
-            src: &'a FileUri, 
-            dest: &'a FileUri,
+            src: &'a FsUri, 
+            dest: &'a FsUri,
             format: &'a str,
             quality: u8,
             width: u32,
@@ -392,13 +392,13 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn get_file_thumbnail_base64(
         &self, 
-        uri: &FileUri,
+        uri: &FsUri,
         preferred_size: Size,
         format: ImageFormat,
     ) -> Result<Option<String>> {
 
         impl_se!(struct Req<'a> {
-            uri: &'a FileUri, 
+            uri: &'a FsUri, 
             format: &'a str,
             quality: u8,
             width: u32,
@@ -503,11 +503,11 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn set_media_store_file_pending(
         &self,
-        uri: &FileUri,
+        uri: &FsUri,
         is_pending: bool
     ) -> Result<()> {
 
-        impl_se!(struct Req<'a> { uri: &'a FileUri, pending: bool });
+        impl_se!(struct Req<'a> { uri: &'a FsUri, pending: bool });
         impl_de!(struct Res;);
 
         self.invoke::<Res>("setMediaStoreFilePending", Req { uri, pending: is_pending })
@@ -523,7 +523,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         relative_path: impl AsRef<std::path::Path>, 
         mime_type: Option<&str>,
         is_pending: bool,
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
 
         impl_se!(struct Req<'a> { 
             volume_name: Option<&'a str>, 
@@ -531,7 +531,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             mime_type: Option<&'a str>,
             pending: bool
         });
-        impl_de!(struct Res { uri: FileUri });
+        impl_de!(struct Res { uri: FsUri });
 
         let consts = self.consts()?;
         let relative_path = {
@@ -556,19 +556,19 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn show_pick_file_dialog(
         &self,
-        initial_location: Option<&FileUri>,
+        initial_location: Option<&FsUri>,
         mime_types: &[&str],
         multiple: bool,
         local_only: bool,
-    ) -> Result<Vec<FileUri>> {
+    ) -> Result<Vec<FsUri>> {
 
         impl_se!(struct Req<'a> { 
             mime_types: &'a [&'a str],
             multiple: bool,
-            initial_location: Option<&'a FileUri>,
+            initial_location: Option<&'a FsUri>,
             local_only: bool
         });
-        impl_de!(struct Res { uris: Vec<FileUri> });
+        impl_de!(struct Res { uris: Vec<FsUri> });
     
         let result = self.invoke::<Res>("showOpenFileDialog", Req { mime_types, multiple, initial_location, local_only })
             .await
@@ -589,10 +589,10 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         target: VisualMediaTarget<'_>,
         multiple: bool,
         local_only: bool,
-    ) -> Result<Vec<FileUri>> {
+    ) -> Result<Vec<FsUri>> {
 
         impl_se!(struct Req<'a> { multiple: bool, target: &'a str, local_only: bool });
-        impl_de!(struct Res { uris: Vec<FileUri> });
+        impl_de!(struct Res { uris: Vec<FsUri> });
 
         let target = match target {
             VisualMediaTarget::ImageOnly => "image/*",
@@ -623,10 +623,10 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         &self,
         mime_types: &[&str],
         multiple: bool
-    ) -> Result<Vec<FileUri>> {
+    ) -> Result<Vec<FsUri>> {
 
         impl_se!(struct Req<'a> { mime_types: &'a [&'a str], multiple: bool });
-        impl_de!(struct Res { uris: Vec<FileUri> });
+        impl_de!(struct Res { uris: Vec<FsUri> });
 
         let result = self.invoke::<Res>("showOpenContentDialog", Req { mime_types, multiple })
             .await
@@ -641,12 +641,12 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn show_pick_dir_dialog(
         &self,
-        initial_location: Option<&FileUri>,
+        initial_location: Option<&FsUri>,
         local_only: bool
-    ) -> Result<Option<FileUri>> {
+    ) -> Result<Option<FsUri>> {
 
-        impl_se!(struct Req<'a> { initial_location: Option<&'a FileUri>, local_only: bool });
-        impl_de!(struct Res { uri: Option<FileUri> });
+        impl_se!(struct Req<'a> { initial_location: Option<&'a FsUri>, local_only: bool });
+        impl_de!(struct Res { uri: Option<FsUri> });
 
         let result = self.invoke::<Res>("showManageDirDialog", Req { initial_location, local_only })
             .await
@@ -661,19 +661,19 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn show_save_file_dialog(
         &self,
-        initial_location: Option<&FileUri>,
+        initial_location: Option<&FsUri>,
         initial_file_name: impl AsRef<str>,
         mime_type: Option<&str>,
         local_only: bool,
-    ) -> Result<Option<FileUri>> {
+    ) -> Result<Option<FsUri>> {
         
         impl_se!(struct Req<'a> {
             initial_file_name: &'a str, 
             mime_type: Option<&'a str>, 
-            initial_location: Option<&'a FileUri>,
+            initial_location: Option<&'a FsUri>,
             local_only: bool,
         });
-        impl_de!(struct Res { uri: Option<FileUri> });
+        impl_de!(struct Res { uri: Option<FsUri> });
     
         let initial_file_name = initial_file_name.as_ref();
         
@@ -699,10 +699,10 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn show_share_file_app_chooser<'b>(
         &self, 
-        uris: impl IntoIterator<Item = &'b FileUri>, 
+        uris: impl IntoIterator<Item = &'b FsUri>, 
     ) -> Result<()> {
 
-        impl_se!(struct Req<'a> { uris: Vec<&'a FileUri> });
+        impl_se!(struct Req<'a> { uris: Vec<&'a FsUri> });
         impl_de!(struct Res;);
 
         let uris = uris.into_iter().collect::<Vec<_>>();
@@ -720,10 +720,10 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn show_open_file_app_chooser(
         &self, 
-        uri: &FileUri,
+        uri: &FsUri,
     ) -> Result<()> {
 
-        impl_se!(struct Req<'a> { uri: &'a FileUri });
+        impl_se!(struct Req<'a> { uri: &'a FsUri });
         impl_de!(struct Res;);
     
         let result = self.invoke::<Res>("viewFile", Req { uri })
@@ -739,10 +739,10 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn show_open_dir_app_chooser(
         &self, 
-        uri: &FileUri,
+        uri: &FsUri,
     ) -> Result<()> {
 
-        impl_se!(struct Req<'a> { uri: &'a FileUri });
+        impl_se!(struct Req<'a> { uri: &'a FsUri });
         impl_de!(struct Res;);
 
         let result = self.invoke::<Res>("viewDir", Req { uri })
@@ -758,10 +758,10 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn show_edit_file_app_chooser(
         &self, 
-        uri: &FileUri,
+        uri: &FsUri,
     ) -> Result<()> {
 
-        impl_se!(struct Req<'a> { uri: &'a FileUri });
+        impl_se!(struct Req<'a> { uri: &'a FsUri });
         impl_de!(struct Res;);
 
         let result = self.invoke::<Res>("editFile", Req { uri })
@@ -811,38 +811,38 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn find_saf_file_uri(
         &self,
-        parent_uri: &FileUri,
+        parent_uri: &FsUri,
         relative_path: impl AsRef<std::path::Path>,
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
         
-        impl_se!(struct Req<'a> { parent_uri: &'a FileUri, relative_path: &'a std::path::Path });
+        impl_se!(struct Req<'a> { parent_uri: &'a FsUri, relative_path: &'a std::path::Path });
             
         let relative_path = validate_relative_path(relative_path.as_ref())?;
 
-        self.invoke::<FileUri>("findSafFileUri", Req { parent_uri, relative_path }).await
+        self.invoke::<FsUri>("findSafFileUri", Req { parent_uri, relative_path }).await
     }
 
     #[maybe_async]
     pub fn find_saf_dir_uri(
         &self,
-        parent_uri: &FileUri,
+        parent_uri: &FsUri,
         relative_path: impl AsRef<std::path::Path>,
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
         
-        impl_se!(struct Req<'a> { parent_uri: &'a FileUri, relative_path: &'a std::path::Path });
+        impl_se!(struct Req<'a> { parent_uri: &'a FsUri, relative_path: &'a std::path::Path });
             
         let relative_path = validate_relative_path(relative_path.as_ref())?;
 
-        self.invoke::<FileUri>("findSafDirUri", Req { parent_uri, relative_path }).await
+        self.invoke::<FsUri>("findSafDirUri", Req { parent_uri, relative_path }).await
     }
 
     #[maybe_async]
     pub fn scan_media_store_file(
         &self,
-        uri: &FileUri,
+        uri: &FsUri,
     ) -> Result<()> {
         
-        impl_se!(struct Req<'a> { uri: &'a FileUri });
+        impl_se!(struct Req<'a> { uri: &'a FsUri });
             
         self.invoke::<()>("scanMediaStoreFile", Req { uri }).await
     }
@@ -850,10 +850,10 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn scan_media_store_file_for_result(
         &self,
-        uri: &FileUri,
+        uri: &FsUri,
     ) -> Result<()> {
         
-        impl_se!(struct Req<'a> { uri: &'a FileUri });
+        impl_se!(struct Req<'a> { uri: &'a FsUri });
             
         self.invoke::<()>("scanMediaStoreFileForResult", Req { uri }).await
     }
@@ -863,10 +863,10 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         &self, 
         path: impl AsRef<std::path::Path>,
         mime_type: Option<&str>,
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
        
         impl_se!(struct Req<'a> { path: &'a std::path::Path, mime_type: Option<&'a str>, });
-        impl_de!(struct Res { uri: FileUri });
+        impl_de!(struct Res { uri: FsUri });
 
         let path = path.as_ref();
             
@@ -878,10 +878,10 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn get_media_store_file_path(
         &self,
-        uri: &FileUri
+        uri: &FsUri
     ) -> Result<std::path::PathBuf> {
 
-        impl_se!(struct Req<'a> { uri: &'a FileUri });
+        impl_se!(struct Req<'a> { uri: &'a FsUri });
         impl_de!(struct Res { path: std::path::PathBuf });
       
         self.invoke::<Res>("getMediaStoreFileAbsolutePath", Req { uri })
@@ -892,11 +892,11 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn check_picker_uri_permission(
         &self,
-        uri: &FileUri,
+        uri: &FsUri,
         permission: UriPermission
     ) -> Result<bool> {
 
-        impl_se!(struct Req<'a> { uri: &'a FileUri });
+        impl_se!(struct Req<'a> { uri: &'a FsUri });
         impl_de!(struct Res { can_write: bool, can_read: bool });
 
         let p = self.invoke::<Res>("getPickerUriPermission", Req { uri }).await?;
@@ -912,11 +912,11 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn check_persisted_picker_uri_permission(
         &self,
-        uri: &FileUri,
+        uri: &FsUri,
         permission: UriPermission
     ) -> Result<bool> {
 
-        impl_se!(struct Req<'a> { uri: &'a FileUri });
+        impl_se!(struct Req<'a> { uri: &'a FsUri });
         impl_de!(struct Res { can_write: bool, can_read: bool });
 
         let p = self.invoke::<Res>("getPersistedPickerUriPermission", Req { uri }).await?;
@@ -932,10 +932,10 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn persist_picker_uri_permission(
         &self,
-        uri: &FileUri,
+        uri: &FsUri,
     ) -> Result<()> {
 
-        impl_se!(struct Req<'a> { uri: &'a FileUri });
+        impl_se!(struct Req<'a> { uri: &'a FsUri });
 
         self.invoke::<()>("persistPickerUriPermission", Req { uri }).await
     }
@@ -943,10 +943,10 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn release_persisted_picker_uri_permission(
         &self,
-        uri: &FileUri,
+        uri: &FsUri,
     ) -> Result<bool> {
 
-        impl_se!(struct Req<'a> { uri: &'a FileUri });
+        impl_se!(struct Req<'a> { uri: &'a FsUri });
         impl_de!(struct Res { is_released: bool });
 
         self.invoke::<Res>("releasePersistedPickerUriPermission", Req { uri })
@@ -967,7 +967,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         &self,
     ) -> Result<impl Iterator<Item = PersistedUriPermissionState>> {
 
-        impl_de!(struct Obj { uri: FileUri, r: bool, w: bool, d: bool });
+        impl_de!(struct Obj { uri: FsUri, r: bool, w: bool, d: bool });
         impl_de!(struct Res { items: Vec<Obj> });
     
         self.invoke::<Res>("getAllPersistedPickerUriPermissions", ())
@@ -1062,11 +1062,11 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         title: Option<&str>,
         text: Option<&str>,
         sub_text: Option<&str>,
-        share_src: Option<&FileUri>,
+        share_src: Option<&FsUri>,
         error: bool,
     ) -> Result<()> {
 
-        impl_se!(struct Req<'a> { id: i32, icon_type: ProgressNotificationIcon, title: Option<&'a str>, text: Option<&'a str>, sub_text: Option<&'a str>, error: bool, share_src: Option<&'a FileUri> });
+        impl_se!(struct Req<'a> { id: i32, icon_type: ProgressNotificationIcon, title: Option<&'a str>, text: Option<&'a str>, sub_text: Option<&'a str>, error: bool, share_src: Option<&'a FsUri> });
             
         self.invoke::<()>("finishProgressNotification", Req { id, icon_type, title, text, sub_text, error, share_src })
             .await

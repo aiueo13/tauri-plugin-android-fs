@@ -7,11 +7,104 @@ use super::*;
 /// 
 /// # Examples
 /// ```no_run
-/// fn example(app: &tauri::AppHandle) {
-///     use tauri_plugin_android_fs::AndroidFsExt as _;
+/// use tauri_plugin_android_fs::{AndroidFsExt, Error, PublicGeneralPurposeDir, PublicImageDir, Result};
+///
+/// async fn example(app: &tauri::AppHandle<impl tauri::Runtime>) -> Result<()> {
+///     let api = app.android_fs_async();
+///
+///     // Request permission to access public storage.
+///     //
+///     // NOTE:
+///     // Enable the `legacy_storage_permission` feature
+///     // when supporting Android 9 (API level 28) or lower.
+///     if !api.public_storage().request_permission().await? {
+///         return Err(Error::with("Permission denied by user"));
+///     }
+///
+///     // Save a new file.
+///     //
+///     // Destination:
+///     // ~/Pictures/MyApp/my-image.png
+///     api.public_storage().write_new(
+///         // Storage volume (e.g. internal storage or SD card).
+///         // If `None`, uses the primary storage volume.
+///         None,
+///
+///         // Base directory.
+///         // One of:
+///         // `PublicImageDir`, `PublicVideoDir`,
+///         // `PublicAudioDir`, `PublicGeneralPurposeDir`.
+///         PublicImageDir::Pictures,
+///
+///         // Relative file path.
+///         // Parent directories will be created recursively if necessary.
+///         "MyApp/my-image.png",
+///
+///         // MIME type.
+///         Some("image/png"),
+///
+///         // File contents.
+///         &[],
+///     )
+///     .await?;
+///
 /// 
-///     let api = app.android_fs();
-///     let public_storage = api.public_storage();
+///     // Select a writable SD card if available;
+///     // otherwise, pass `None` to use the primary storage volume.
+///     let volume = api
+///         .public_storage()
+///         .get_volumes()
+///         .await?
+///         .into_iter()
+///         .filter(|v| !v.is_readonly)
+///         .filter(|v| v.is_stable)
+///         .filter(|v| v.is_removable)
+///         .next();
+///
+///     // Create an empty file and mark it as pending,
+///     // making it invisible to other apps until writing is complete.
+///     let uri = api
+///         .public_storage()
+///         .create_new_file_with_pending(
+///             volume.as_ref().map(|v| &v.id),
+///             PublicGeneralPurposeDir::Documents,
+///             "MyApp/2025-9-14/data.txt",
+///             Some("text/plain"),
+///         )
+///         .await?;
+///
+///     // Open the file for writing.
+///     // 
+///     // NOTE:
+///     // Existing contents will be truncated.
+///     let mut file: std::fs::File = api.open_file_writable(&uri).await?;
+///
+///     // Write the file contents on a blocking thread.
+///     let result = tauri::async_runtime::spawn_blocking(move || -> Result<()> {
+///         use std::io::Write;
+///
+///         // Write the file contents.
+///         file.write_all(&[])?;
+///
+///         Ok(())
+///     })
+///     .await
+///     .map_err(Into::into)
+///     .and_then(|r| r);
+///
+///     // Delete the incomplete file if writing failed.
+///     if let Err(err) = result {
+///         api.remove_file(&uri).await.ok();
+///         return Err(err);
+///     }
+///
+///     // Make the file visible to other apps.
+///     api.public_storage().set_pending(&uri, false).await?;
+///
+///     // Notify the media scanner about the new file.
+///     api.public_storage().scan(&uri).await?;
+///
+///     Ok(())
 /// }
 /// ```
 #[sync_async]
@@ -38,8 +131,8 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
 }
 
 #[sync_async(
-    use(if_async) api_async::{AndroidFs, FileOpener, FilePicker, AppStorage, PrivateStorage};
-    use(if_sync) api_sync::{AndroidFs, FileOpener, FilePicker, AppStorage, PrivateStorage};
+    use(if_async) api_async::{AndroidFs, Opener, Picker, AppStorage, PrivateStorage};
+    use(if_sync) api_sync::{AndroidFs, Opener, Picker, AppStorage, PrivateStorage};
 )]
 impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
 
@@ -238,7 +331,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         base_dir: impl Into<PublicDir>,
         relative_path: impl AsRef<std::path::Path>, 
         mime_type: Option<&str>
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
@@ -330,7 +423,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         base_dir: impl Into<PublicDir>,
         relative_path: impl AsRef<std::path::Path>, 
         mime_type: Option<&str>
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
@@ -468,7 +561,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         relative_path: impl AsRef<std::path::Path>,
         mime_type: Option<&str>,
         contents: impl AsRef<[u8]>
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
@@ -511,7 +604,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     #[maybe_async]
     pub fn scan(
         &self, 
-        uri: &FileUri,
+        uri: &FsUri,
     ) -> Result<()> {
 
         #[cfg(not(target_os = "android"))] {
@@ -548,7 +641,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         &self, 
         path: impl AsRef<std::path::Path>,
         mime_type: Option<&str>
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
@@ -584,7 +677,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// - <https://developer.android.com/reference/android/provider/MediaStore.MediaColumns#IS_PENDING>
     /// - <https://developer.android.com/training/data-storage/shared/media?hl=en#toggle-pending-status>
     #[maybe_async]
-    pub fn set_pending(&self, uri: &FileUri, is_pending: bool) -> Result<()> {
+    pub fn set_pending(&self, uri: &FsUri, is_pending: bool) -> Result<()> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -616,7 +709,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     #[maybe_async]
     pub fn get_path(
         &self,
-        uri: &FileUri,
+        uri: &FsUri,
     ) -> Result<std::path::PathBuf> {
 
         #[cfg(not(target_os = "android"))] {
@@ -725,56 +818,6 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         }
     }
 
-    /// Builds the specified directory URI.  
-    /// 
-    /// This should only be used as `initial_location` in the file picker, such as [`FilePicker::pick_files`]. 
-    /// It must not be used for any other purpose.  
-    /// 
-    /// This is useful when selecting save location, 
-    /// but when selecting existing entries, `initial_location` is often better with None.
-    /// 
-    /// # Args  
-    /// - ***volume_id*** :  
-    /// ID of the storage volume, such as internal storage, SD card, etc.  
-    /// If `None` is provided, [`the primary storage volume`](PublicStorage::get_primary_volume) will be used.  
-    /// 
-    /// - ***base_dir*** :  
-    /// The base directory.  
-    ///  
-    /// - ***relative_path*** :  
-    /// The directory path relative to the base directory.  
-    /// 
-    /// - ***create_dir_all*** :  
-    /// Creates directories if missing.  
-    /// See [`PublicStorage::create_dir_all`].
-    /// If error occurs, it will be ignored.
-    ///  
-    /// # Support
-    /// All Android versions supported by Tauri.
-    ///
-    /// Note :  
-    /// - [`PublicAudioDir::Audiobooks`] is not available on Android 9 (API level 28) and lower.
-    /// Availability on a given device can be verified by calling [`PublicStorage::is_audiobooks_dir_available`].  
-    /// - [`PublicAudioDir::Recordings`] is not available on Android 11 (API level 30) and lower.
-    /// Availability on a given device can be verified by calling [`PublicStorage::is_recordings_dir_available`].  
-    /// - Others dirs are available in all Android versions.
-    #[maybe_async]
-    pub fn resolve_initial_location(
-        &self,
-        volume_id: Option<&StorageVolumeId>,
-        base_dir: impl Into<PublicDir>,
-        relative_path: impl AsRef<std::path::Path>,
-        create_dir_all: bool
-    ) -> Result<FileUri> {
-
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().resolve_initial_location_in_public_storage(volume_id, base_dir, relative_path, create_dir_all).await
-        }
-    }
-
     /// Verify whether [`PublicAudioDir::Audiobooks`] is available on a given device.   
     /// 
     /// If on Android 10 (API level 29) or higher, this returns true.  
@@ -820,7 +863,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     #[maybe_async]
     pub fn _scan(
         &self, 
-        uri: &FileUri,
+        uri: &FsUri,
     ) -> Result<()> {
 
         #[cfg(not(target_os = "android"))] {
@@ -837,7 +880,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     #[maybe_async]
     pub fn _scan_for_result(
         &self, 
-        uri: &FileUri,
+        uri: &FsUri,
     ) -> Result<()> {
 
         #[cfg(not(target_os = "android"))] {
@@ -845,6 +888,26 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
         }
         #[cfg(target_os = "android")] {
             self.impls().scan_file_in_public_storage_for_result(uri, true).await
+        }
+    }
+
+
+
+    #[deprecated = "Use `Picker::resolve_public_storage_initial_location` instead."]
+    #[maybe_async]
+    pub fn resolve_initial_location(
+        &self,
+        volume_id: Option<&StorageVolumeId>,
+        base_dir: impl Into<PublicDir>,
+        relative_path: impl AsRef<std::path::Path>,
+        create_dir_all: bool
+    ) -> Result<FsUri> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().resolve_initial_location_in_public_storage(volume_id, base_dir, relative_path, create_dir_all).await
         }
     }
 }

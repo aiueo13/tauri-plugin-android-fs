@@ -97,12 +97,12 @@ pub enum UriPermission {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
 pub enum PersistedUriPermissionState {
     File {
-        uri: FileUri,
+        uri: FsUri,
         can_read: bool,
         can_write: bool,
     },
     Dir {
-        uri: FileUri,
+        uri: FsUri,
         can_read: bool,
         can_write: bool,
     }
@@ -110,14 +110,14 @@ pub enum PersistedUriPermissionState {
 
 impl PersistedUriPermissionState {
 
-    pub fn uri(&self) -> &FileUri {
+    pub fn uri(&self) -> &FsUri {
         match self {
             PersistedUriPermissionState::File { uri, .. } => uri,
             PersistedUriPermissionState::Dir { uri, .. } => uri,
         }
     }
 
-    pub fn into_uri(self) -> FileUri {
+    pub fn into_uri(self) -> FsUri {
         match self {
             PersistedUriPermissionState::File { uri, .. } => uri,
             PersistedUriPermissionState::Dir { uri, .. } => uri,

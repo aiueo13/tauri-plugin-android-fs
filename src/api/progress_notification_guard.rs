@@ -269,7 +269,7 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
         title: Option<&str>,
         text: Option<&str>,
         sub_text: Option<&str>,
-        share_src: Option<&FileUri>
+        share_src: Option<&FsUri>
     ) {
 
         #[cfg(target_os = "android")] {
@@ -295,7 +295,7 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
         title: impl 'static + Send + FnOnce() -> Option<String>,
         text: impl 'static + Send + FnOnce() -> Option<String>,
         sub_text: impl 'static + Send + FnOnce() -> Option<String>,
-        share_src: impl 'static + Send + FnOnce() -> Option<FileUri>,
+        share_src: impl 'static + Send + FnOnce() -> Option<FsUri>,
     ) {
         
         #[cfg(target_os = "android")] {
@@ -367,7 +367,7 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
         title: Option<&str>,
         text: Option<&str>,
         sub_text: Option<&str>,
-        share_src: Option<&FileUri>,
+        share_src: Option<&FsUri>,
     ) -> Result<()> {
 
         #[cfg(not(target_os = "android"))] {
@@ -412,7 +412,7 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
         title: Option<&str>, 
         text: Option<&str>,
         sub_text: Option<&str>,
-        share_src: Option<&FileUri>,
+        share_src: Option<&FsUri>,
         error: bool
     ) -> Result<()> {
 
@@ -474,7 +474,7 @@ enum DropBehavior {
         title: Option<Box<dyn Send + 'static + FnOnce() -> Option<String>>>,
         text: Option<Box<dyn Send + 'static + FnOnce() -> Option<String>>>,
         sub_text: Option<Box<dyn Send + 'static + FnOnce() -> Option<String>>>,
-        share_src: Option<Box<dyn Send + 'static + FnOnce() -> Option<FileUri>>>,
+        share_src: Option<Box<dyn Send + 'static + FnOnce() -> Option<FsUri>>>,
     },
     Fail {
         title: Option<Box<dyn Send + 'static + FnOnce() -> Option<String>>>,

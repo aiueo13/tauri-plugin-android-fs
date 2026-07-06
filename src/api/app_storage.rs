@@ -7,10 +7,10 @@ use super::*;
 /// 
 /// # Examples
 /// ```no_run
-/// fn example(app: &tauri::AppHandle) {
+/// async fn example(app: &tauri::AppHandle) {
 ///     use tauri_plugin_android_fs::AndroidFsExt as _;
 /// 
-///     let api = app.android_fs();
+///     let api = app.android_fs_async();
 ///     let app_storage = api.app_storage();
 /// }
 /// ```
@@ -38,8 +38,8 @@ impl<'a, R: tauri::Runtime> AppStorage<'a, R> {
 }
 
 #[sync_async(
-    use(if_async) api_async::{AndroidFs, FileOpener, FilePicker, PublicStorage, PrivateStorage};
-    use(if_sync) api_sync::{AndroidFs, FileOpener, FilePicker, PublicStorage, PrivateStorage};
+    use(if_async) api_async::{AndroidFs, Opener, Picker, PublicStorage, PrivateStorage};
+    use(if_sync) api_sync::{AndroidFs, Opener, Picker, PublicStorage, PrivateStorage};
 )]
 impl<'a, R: tauri::Runtime> AppStorage<'a, R> {
 
@@ -181,7 +181,7 @@ impl<'a, R: tauri::Runtime> AppStorage<'a, R> {
         volume_id: Option<&StorageVolumeId>,
         dir: AppDir,
         relative_path: impl AsRef<std::path::Path>
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
@@ -214,7 +214,7 @@ impl<'a, R: tauri::Runtime> AppStorage<'a, R> {
         &self,
         path: impl AsRef<std::path::Path>,
         mime_type: Option<&str>,
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
@@ -236,7 +236,7 @@ impl<'a, R: tauri::Runtime> AppStorage<'a, R> {
     #[maybe_async]
     pub fn get_public_media_path(
         &self,
-        uri: &FileUri,
+        uri: &FsUri,
     ) -> Result<std::path::PathBuf> {
 
         #[cfg(not(target_os = "android"))] {

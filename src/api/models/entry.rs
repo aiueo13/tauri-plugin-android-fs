@@ -60,7 +60,7 @@ pub enum Entry {
 
     #[non_exhaustive]
     File {
-        uri: FileUri,
+        uri: FsUri,
         name: String,
         last_modified: std::time::SystemTime,
         len: u64,
@@ -69,7 +69,7 @@ pub enum Entry {
 
     #[non_exhaustive]
     Dir {
-        uri: FileUri,
+        uri: FsUri,
         name: String,
         last_modified: std::time::SystemTime,
     }
@@ -85,7 +85,7 @@ impl Entry {
         matches!(self, Self::Dir { .. })
     }
 
-    pub fn uri(&self) -> &FileUri {
+    pub fn uri(&self) -> &FsUri {
         match self {
             Entry::File { uri, .. } => uri,
             Entry::Dir { uri, .. } => uri,
@@ -145,7 +145,7 @@ pub enum OptionalEntry {
     File {
         /// If `EntryOptions { uri, .. }` is set to `true`, 
         /// this will never be `None`.
-        uri: Option<FileUri>,
+        uri: Option<FsUri>,
 
         /// If `EntryOptions { name, .. }` is set to `true`, 
         /// this will never be `None`.
@@ -168,7 +168,7 @@ pub enum OptionalEntry {
     Dir {
         /// If `EntryOptions { uri, .. }` is set to `true`, 
         /// this will never be `None`.
-        uri: Option<FileUri>,
+        uri: Option<FsUri>,
 
         /// If `EntryOptions { name, .. }` is set to `true`, 
         /// this will never be `None`.
@@ -192,7 +192,7 @@ impl OptionalEntry {
 
     /// If `EntryOptions { uri, .. }` is set to `true`, 
     /// this will never be `None`.
-    pub fn into_uri(self) -> Option<FileUri> {
+    pub fn into_uri(self) -> Option<FsUri> {
         match self {
             Self::File { uri, .. } => uri,
             Self::Dir { uri, .. } => uri,
@@ -201,13 +201,13 @@ impl OptionalEntry {
     
     /// If `EntryOptions { uri, .. }` is set to `true`, 
     /// this will never be error.
-    pub fn into_uri_or_err(self) -> Result<FileUri> {
+    pub fn into_uri_or_err(self) -> Result<FsUri> {
         self.into_uri().ok_or_else(|| Error::missing_value("uri"))
     }
 
     /// If `EntryOptions { uri, .. }` is set to `true`, 
     /// this will never be error.
-    pub fn uri_or_err(&self) -> Result<&FileUri> {
+    pub fn uri_or_err(&self) -> Result<&FsUri> {
         self.uri().ok_or_else(|| Error::missing_value("uri"))
     }
 
@@ -237,7 +237,7 @@ impl OptionalEntry {
 
     /// If `EntryOptions { uri, .. }` is set to `true`, 
     /// this will never be `None`.
-    pub fn uri(&self) -> Option<&FileUri> {
+    pub fn uri(&self) -> Option<&FsUri> {
         match self {
             Self::File { uri, .. } => uri.as_ref(),
             Self::Dir { uri, .. } => uri.as_ref(),

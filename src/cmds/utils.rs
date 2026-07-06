@@ -33,7 +33,7 @@ pub async fn resolve_mime_type<'a, R: tauri::Runtime>(
 pub async fn resolve_picker_initial_location<R: tauri::Runtime>(
     initial_location: PickerInitialLocation,
     app: &tauri::AppHandle<R>,
-) -> Result<FileUri> {
+) -> Result<FsUri> {
 
     use std::str::FromStr as _;
     
@@ -52,7 +52,9 @@ pub async fn resolve_picker_initial_location<R: tauri::Runtime>(
             // Media Store の URI が与えられた場合は SAF の URI への変換を試みる。
             if uri.uri.starts_with("content://media") {
                 #[allow(deprecated)]
-                if let Ok(path) = api.public_storage().get_path(&uri).await {
+                let path = api.public_storage().get_path(&uri).await;
+                
+                if let Ok(path) = path {
                     if let Ok(volumes) = api.public_storage().get_volumes().await {
                         for volume in volumes {
                             let Some(volume_path) = volume.id.top_dir_path.as_ref() else {
@@ -81,7 +83,7 @@ pub async fn resolve_picker_initial_location<R: tauri::Runtime>(
                                 (base_dir, relative_path)
                             };
 
-                            return api.public_storage().resolve_initial_location(
+                            return api.picker().resolve_public_storage_initial_location(
                                 Some(&volume.id), 
                                 base_dir, 
                                 relative_path, 
@@ -95,12 +97,12 @@ pub async fn resolve_picker_initial_location<R: tauri::Runtime>(
             Ok(uri)
         },
         PickerInitialLocation::VolumeTop { volume_id } => {
-            api.resolve_root_initial_location(
+            api.picker().resolve_initial_location(
                 map_volume_id(volume_id.as_deref())?.as_ref()
             ).await
         },
         PickerInitialLocation::PublicDir { base_dir, relative_path, volume_id } => {
-            api.public_storage().resolve_initial_location(
+            api.picker().resolve_public_storage_initial_location(
                 map_volume_id(volume_id.as_deref())?.as_ref(), 
                 base_dir, 
                 relative_path.as_deref().unwrap_or(""), 
@@ -932,7 +934,7 @@ pub fn convert_rid_to_bytes(rid: tauri::ResourceId) -> Vec<u8> {
 #[serde(tag = "type")]
 pub enum PickerInitialLocation {
     Any {
-        uri: FileUri,
+        uri: FsUri,
     },
     VolumeTop {
         #[serde(rename = "volumeId")]

@@ -177,7 +177,7 @@ async fn create_response<R: tauri::Runtime>(
 
 // TODO: ファイルやメタデータをキャッシュする
 async fn resolve_content<R: tauri::Runtime>(
-    uri: FileUri,
+    uri: FsUri,
     app: tauri::AppHandle<R>,
 ) -> std::result::Result<(std::fs::File, String, u64), ProtocolError> {
 

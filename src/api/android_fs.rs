@@ -39,8 +39,8 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 }
 
 #[sync_async(
-    use(if_async) api_async::{FileOpener, FilePicker, AppStorage, PrivateStorage, PublicStorage, Utils, ProgressNotificationGuard};
-    use(if_sync) api_sync::{FileOpener, FilePicker, AppStorage, PrivateStorage, PublicStorage, Utils, ProgressNotificationGuard};
+    use(if_async) api_async::{Opener, Picker, AppStorage, PrivateStorage, PublicStorage, Utils, ProgressNotificationGuard};
+    use(if_sync) api_sync::{Opener, Picker, AppStorage, PrivateStorage, PublicStorage, Utils, ProgressNotificationGuard};
 )]
 impl<R: tauri::Runtime> AndroidFs<R> {
 
@@ -64,14 +64,14 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 
     /// API of file/dir picker.
     #[always_sync]
-    pub fn file_picker(&self) -> FilePicker<'_, R> {
-        FilePicker { handle: &self.handle }
+    pub fn picker(&self) -> Picker<'_, R> {
+        Picker { handle: &self.handle }
     }
 
     /// API of opening file/dir with other apps.
     #[always_sync]
-    pub fn file_opener(&self) -> FileOpener<'_, R> {
-        FileOpener { handle: &self.handle }
+    pub fn opener(&self) -> Opener<'_, R> {
+        Opener { handle: &self.handle }
     }
 
     /// API of utils
@@ -90,7 +90,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Support
     /// All Android versions supported by Tauri.
     #[maybe_async]
-    pub fn get_name(&self, uri: &FileUri) -> Result<String> {
+    pub fn get_name(&self, uri: &FsUri) -> Result<String> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -102,7 +102,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Gets the file or directory name,
     /// or falls back to the URI's last path segment (percent-decoded). 
     #[maybe_async]
-    pub fn get_name_or_last_path_segment(&self, uri: &FileUri) -> String {
+    pub fn get_name_or_last_path_segment(&self, uri: &FsUri) -> String {
         #[cfg(target_os = "android")] {
             if let Ok(name) = self.impls().get_entry_name(uri).await {
                 return name
@@ -135,7 +135,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Support
     /// All Android versions supported by Tauri.
     #[maybe_async]
-    pub fn get_mime_type(&self, uri: &FileUri) -> Result<String> {
+    pub fn get_mime_type(&self, uri: &FsUri) -> Result<String> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -161,7 +161,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Support
     /// All Android versions supported by Tauri.
     #[maybe_async]
-    pub fn get_type(&self, uri: &FileUri) -> Result<EntryType> {
+    pub fn get_type(&self, uri: &FsUri) -> Result<EntryType> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -180,7 +180,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Support
     /// All Android versions supported by Tauri.
     #[maybe_async]
-    pub fn get_info(&self, uri: &FileUri) -> Result<Entry> {
+    pub fn get_info(&self, uri: &FsUri) -> Result<Entry> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -199,7 +199,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Support
     /// All Android versions supported by Tauri.
     #[maybe_async]
-    pub fn get_len(&self, uri: &FileUri) -> Result<u64> {
+    pub fn get_len(&self, uri: &FsUri) -> Result<u64> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -221,7 +221,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Support
     /// All Android versions supported by Tauri.
     #[maybe_async]
-    pub fn get_metadata(&self, uri: &FileUri) -> Result<std::fs::Metadata> {
+    pub fn get_metadata(&self, uri: &FsUri) -> Result<std::fs::Metadata> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -246,7 +246,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Support
     /// All Android versions supported by Tauri.
     #[maybe_async]
-    pub fn open_file_readable(&self, uri: &FileUri) -> Result<std::fs::File> {
+    pub fn open_file_readable(&self, uri: &FsUri) -> Result<std::fs::File> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -268,7 +268,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     #[maybe_async]
     pub fn open_file_writable(
         &self, 
-        uri: &FileUri, 
+        uri: &FsUri, 
     ) -> Result<std::fs::File> {
 
         #[cfg(not(target_os = "android"))] {
@@ -311,7 +311,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Support
     /// All Android versions supported by Tauri.
     #[maybe_async]
-    pub fn open_file(&self, uri: &FileUri, mode: FileAccessMode) -> Result<std::fs::File> {
+    pub fn open_file(&self, uri: &FsUri, mode: FileAccessMode) -> Result<std::fs::File> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -328,7 +328,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     #[maybe_async]
     pub fn open_file_with_fallback(
         &self, 
-        uri: &FileUri, 
+        uri: &FsUri, 
         candidate_modes: impl IntoIterator<Item = FileAccessMode>
     ) -> Result<(std::fs::File, FileAccessMode)> {
 
@@ -350,7 +350,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Support
     /// All Android versions supported by Tauri.
     #[maybe_async]
-    pub fn read(&self, uri: &FileUri) -> Result<Vec<u8>> {
+    pub fn read(&self, uri: &FsUri) -> Result<Vec<u8>> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -369,7 +369,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Support
     /// All Android versions supported by Tauri.
     #[maybe_async]
-    pub fn read_to_string(&self, uri: &FileUri) -> Result<String> {
+    pub fn read_to_string(&self, uri: &FsUri) -> Result<String> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -389,7 +389,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Support
     /// All Android versions supported by Tauri.
     #[maybe_async]
-    pub fn write(&self, uri: &FileUri, contents: impl AsRef<[u8]>) -> Result<()> {
+    pub fn write(&self, uri: &FsUri, contents: impl AsRef<[u8]>) -> Result<()> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -413,7 +413,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Support
     /// All Android versions supported by Tauri.
     #[maybe_async]
-    pub fn copy(&self, src: &FileUri, dest: &FileUri) -> Result<()> {
+    pub fn copy(&self, src: &FsUri, dest: &FsUri) -> Result<()> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -446,7 +446,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Support
     /// All Android versions supported by Tauri.
     #[maybe_async]
-    pub fn rename(&self, uri: &FileUri, new_name: impl AsRef<str>) -> Result<FileUri> {
+    pub fn rename(&self, uri: &FsUri, new_name: impl AsRef<str>) -> Result<FsUri> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -466,7 +466,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Support
     /// All Android versions supported by Tauri.
     #[maybe_async]
-    pub fn remove_file(&self, uri: &FileUri) -> Result<()> {
+    pub fn remove_file(&self, uri: &FsUri) -> Result<()> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -486,7 +486,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Support
     /// All Android versions supported by Tauri.
     #[maybe_async]
-    pub fn remove_dir(&self, uri: &FileUri) -> Result<()> {
+    pub fn remove_dir(&self, uri: &FsUri) -> Result<()> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -506,7 +506,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Support
     /// All Android versions supported by Tauri.
     #[maybe_async]
-    pub fn remove_dir_all(&self, uri: &FileUri) -> Result<()> {
+    pub fn remove_dir_all(&self, uri: &FsUri) -> Result<()> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -519,7 +519,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Error occurs, if the file does not exist.  
     /// 
     /// The permissions and validity period of the returned URI depend on the origin directory 
-    /// (e.g., the top directory selected by [`FilePicker::pick_dir`]) 
+    /// (e.g., the top directory selected by [`Picker::pick_dir`]) 
     /// 
     /// # Note
     /// For [`AndroidFs::create_new_file`] and etc, the system may sanitize path strings as needed, so those strings may not be used as it is.
@@ -539,9 +539,9 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     #[maybe_async]
     pub fn resolve_file_uri(
         &self, 
-        dir: &FileUri, 
+        dir: &FsUri, 
         relative_path: impl AsRef<std::path::Path>
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
@@ -555,7 +555,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Error occurs, if the directory does not exist.  
     /// 
     /// The permissions and validity period of the returned URI depend on the origin directory 
-    /// (e.g., the top directory selected by [`FilePicker::pick_dir`]) 
+    /// (e.g., the top directory selected by [`Picker::pick_dir`]) 
     /// 
     /// # Note
     /// For [`AndroidFs::create_dir_all`] and etc, the system may sanitize path strings as needed, so those strings may not be used as it is.
@@ -575,9 +575,9 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     #[maybe_async]
     pub fn resolve_dir_uri(
         &self,
-        dir: &FileUri, 
+        dir: &FsUri, 
         relative_path: impl AsRef<std::path::Path>
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
@@ -593,8 +593,8 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     #[maybe_async]
     pub fn get_thumbnail_to(
         &self, 
-        src: &FileUri,
-        dest: &FileUri,
+        src: &FsUri,
+        dest: &FsUri,
         preferred_size: Size,
         format: ImageFormat,
     ) -> Result<bool> {
@@ -638,7 +638,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     #[maybe_async]
     pub fn get_thumbnail(
         &self,
-        uri: &FileUri,
+        uri: &FsUri,
         preferred_size: Size,
         format: ImageFormat,
     ) -> Result<Option<Vec<u8>>> {
@@ -686,7 +686,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     #[maybe_async]
     pub fn get_thumbnail_base64(
         &self,
-        uri: &FileUri,
+        uri: &FsUri,
         preferred_size: Size,
         format: ImageFormat,
     ) -> Result<Option<String>> {
@@ -702,7 +702,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Creates a new empty file in the specified location and returns a URI.   
     /// 
     /// The permissions and validity period of the returned URIs depend on the origin directory 
-    /// (e.g., the top directory selected by [`FilePicker::pick_dir`]) 
+    /// (e.g., the top directory selected by [`Picker::pick_dir`]) 
     /// 
     /// # Args  
     /// - ***dir*** :  
@@ -727,10 +727,10 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     #[maybe_async]
     pub fn create_new_file(
         &self,
-        dir: &FileUri, 
+        dir: &FsUri, 
         relative_path: impl AsRef<std::path::Path>, 
         mime_type: Option<&str>
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
@@ -748,7 +748,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// available for [`AndroidFs::resolve_file_uri`].
     /// 
     /// The permissions and validity period of the returned URIs depend on the origin directory 
-    /// (e.g., the top directory selected by [`FilePicker::pick_dir`]) 
+    /// (e.g., the top directory selected by [`Picker::pick_dir`]) 
     /// 
     /// # Args  
     /// - ***dir*** :  
@@ -773,10 +773,10 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     #[maybe_async]
     pub fn create_new_file_and_return_relative_path(
         &self,
-        dir: &FileUri, 
+        dir: &FsUri, 
         relative_path: impl AsRef<std::path::Path>, 
         mime_type: Option<&str>
-    ) -> Result<(FileUri, std::path::PathBuf)> {
+    ) -> Result<(FsUri, std::path::PathBuf)> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
@@ -808,9 +808,9 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     #[maybe_async]
     pub fn create_dir_all(
         &self,
-        dir: &FileUri, 
+        dir: &FsUri, 
         relative_path: impl AsRef<std::path::Path>, 
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
@@ -846,9 +846,9 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     #[maybe_async]
     pub fn create_dir_all_and_return_relative_path(
         &self,
-        dir: &FileUri, 
+        dir: &FsUri, 
         relative_path: impl AsRef<std::path::Path>, 
-    ) -> Result<(FileUri, std::path::PathBuf)> {
+    ) -> Result<(FsUri, std::path::PathBuf)> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
@@ -863,9 +863,9 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     #[maybe_async]
     pub fn create_new_dir(
         &self,
-        dir: &FileUri, 
+        dir: &FsUri, 
         relative_path: impl AsRef<std::path::Path>, 
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
@@ -880,9 +880,9 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     #[maybe_async]
     pub fn create_new_dir_and_return_relative_path(
         &self,
-        dir: &FileUri, 
+        dir: &FsUri, 
         relative_path: impl AsRef<std::path::Path>, 
-    ) -> Result<(FileUri, std::path::PathBuf)> {
+    ) -> Result<(FsUri, std::path::PathBuf)> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
@@ -896,7 +896,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// The order of the entries depends on the file provider.  
     /// 
     /// The permissions and validity period of the returned URIs depend on the origin directory 
-    /// (e.g., the top directory selected by [`FilePicker::pick_dir`])  
+    /// (e.g., the top directory selected by [`Picker::pick_dir`])  
     /// 
     /// # Args
     /// - ***uri*** :  
@@ -906,7 +906,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// # Support
     /// All Android versions supported by Tauri.
     #[maybe_async]
-    pub fn read_dir(&self, uri: &FileUri) -> Result<Vec<Entry>> {
+    pub fn read_dir(&self, uri: &FsUri) -> Result<Vec<Entry>> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -922,7 +922,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// The order of the entries depends on the file provider.  
     /// 
     /// The permissions and validity period of the returned URIs depend on the origin directory 
-    /// (e.g., the top directory selected by [`FilePicker::pick_dir`])  
+    /// (e.g., the top directory selected by [`Picker::pick_dir`])  
     /// 
     /// # Args
     /// - ***uri*** :  
@@ -934,7 +934,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     #[maybe_async]
     pub fn read_dir_with_range(
         &self, 
-        uri: &FileUri, 
+        uri: &FsUri, 
         range: impl std::ops::RangeBounds<u64>
     ) -> Result<Vec<Entry>> {
         
@@ -953,7 +953,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// The order of the entries depends on the file provider.  
     /// 
     /// The permissions and validity period of the returned URIs depend on the origin directory 
-    /// (e.g., the top directory selected by [`FilePicker::pick_dir`])  
+    /// (e.g., the top directory selected by [`Picker::pick_dir`])  
     /// 
     /// # Args
     /// - ***uri*** :  
@@ -965,7 +965,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     #[maybe_async]
     pub fn read_dir_with_options(
         &self, 
-        uri: &FileUri, 
+        uri: &FsUri, 
         options: EntryOptions
     ) -> Result<Vec<OptionalEntry>> {
         
@@ -983,7 +983,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// The order of the entries depends on the file provider.  
     /// 
     /// The permissions and validity period of the returned URIs depend on the origin directory 
-    /// (e.g., the top directory selected by [`FilePicker::pick_dir`])  
+    /// (e.g., the top directory selected by [`Picker::pick_dir`])  
     /// 
     /// # Args
     /// - ***uri*** :  
@@ -995,7 +995,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     #[maybe_async]
     pub fn read_dir_with_options_and_range(
         &self, 
-        uri: &FileUri, 
+        uri: &FsUri, 
         options: EntryOptions,
         range: impl std::ops::RangeBounds<u64>
     ) -> Result<Vec<OptionalEntry>> {
@@ -1035,31 +1035,6 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         }
         #[cfg(target_os = "android")] {
             self.impls().get_primary_storage_volume_if_available().await
-        }
-    }
-
-    /// Builds the storage volume root URI.  
-    /// 
-    /// This should only be used as `initial_location` in the file picker, such as [`FilePicker::pick_files`]. 
-    /// It must not be used for any other purpose.  
-    /// 
-    /// This is useful when selecting save location, 
-    /// but when selecting existing entries, `initial_location` is often better with None.
-    /// 
-    /// # Args  
-    /// - ***volume_id*** :  
-    /// ID of the storage volume, such as internal storage, SD card, etc.  
-    /// If `None` is provided, [`the primary storage volume`](AndroidFs::get_primary_volume) will be used.  
-    /// 
-    /// # Support
-    /// All Android versions supported by Tauri.
-    #[maybe_async]
-    pub fn resolve_root_initial_location(&self, volume_id: Option<&StorageVolumeId>) -> Result<FileUri> {
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().resolve_root_initial_location(volume_id).await
         }
     }
 
@@ -1132,9 +1107,9 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     #[maybe_async]
     pub fn _resolve_file_uri(
         &self, 
-        dir: &FileUri, 
+        dir: &FsUri, 
         relative_path: impl AsRef<std::path::Path>
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
@@ -1155,15 +1130,40 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     #[maybe_async]
     pub fn _resolve_dir_uri(
         &self, 
-        dir: &FileUri, 
+        dir: &FsUri, 
         relative_path: impl AsRef<std::path::Path>
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
         #[cfg(target_os = "android")] {
             self.impls().resolve_dir_uri(dir, relative_path, true).await
+        }
+    }
+
+
+
+    #[deprecated = "Use `opener()` instead."]
+    #[always_sync]
+    pub fn file_opener(&self) -> Opener<'_, R> {
+        Opener { handle: &self.handle }
+    }
+
+    #[deprecated = "Use `picker()` instead."]
+    #[always_sync]
+    pub fn file_picker(&self) -> Picker<'_, R> {
+        Picker { handle: &self.handle }
+    }
+
+    #[deprecated = "Use `Picker::resolve_initial_location` instead."]
+    #[maybe_async]
+    pub fn resolve_root_initial_location(&self, volume_id: Option<&StorageVolumeId>) -> Result<FsUri> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().resolve_root_initial_location(volume_id).await
         }
     }
 }

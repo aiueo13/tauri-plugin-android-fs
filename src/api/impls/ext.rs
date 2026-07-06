@@ -21,25 +21,25 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn get_file_mime_type(&self, uri: &FileUri) -> Result<String> {
+    pub fn get_file_mime_type(&self, uri: &FsUri) -> Result<String> {
         self.get_entry_type(uri).await?.into_file_mime_type_or_err()
     }
 
     #[maybe_async]
-    pub fn get_entry_metadata(&self, uri: &FileUri) -> Result<std::fs::Metadata> {
+    pub fn get_entry_metadata(&self, uri: &FsUri) -> Result<std::fs::Metadata> {
         let file = self.open_file_readable(uri).await?;
         run_blocking(move || Ok(file.metadata()?)).await
     }
 
     #[maybe_async]
-    pub fn open_file_readable(&self, uri: &FileUri) -> Result<std::fs::File> {
+    pub fn open_file_readable(&self, uri: &FsUri) -> Result<std::fs::File> {
         self.open_file(uri, FileAccessMode::Read).await
     }
 
     #[maybe_async]
     pub fn open_file_writable(
         &self, 
-        uri: &FileUri, 
+        uri: &FsUri, 
     ) -> Result<std::fs::File> {
 
         if self.api_level()? <= api_level::ANDROID_9 {
@@ -80,7 +80,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn read_file(&self, uri: &FileUri) -> Result<Vec<u8>> {
+    pub fn read_file(&self, uri: &FsUri) -> Result<Vec<u8>> {
         let mut file = self.open_file_readable(uri).await?;
         run_blocking(move || {
             let mut buf = file.metadata().ok()
@@ -94,7 +94,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn read_file_to_string(&self, uri: &FileUri) -> Result<String> {
+    pub fn read_file_to_string(&self, uri: &FsUri) -> Result<String> {
         let mut file = self.open_file_readable(uri).await?;
         run_blocking(move || {
             let mut buf = file.metadata().ok()
@@ -110,7 +110,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn write_file(
         &self,
-        uri: &FileUri, 
+        uri: &FsUri, 
         contents: impl AsRef<[u8]>,
     ) -> Result<()> {
 
@@ -127,7 +127,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn copy_file(&self, src: &FileUri, dest: &FileUri) -> Result<()> {
+    pub fn copy_file(&self, src: &FsUri, dest: &FsUri) -> Result<()> {
         let mut src = self.open_file_readable(src).await?;
         let mut dest = self.open_file_writable(dest).await?;
         run_blocking(move || std::io::copy(&mut src, &mut dest).map_err(Into::into)).await?;
@@ -137,7 +137,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn get_file_thumbnail(
         &self, 
-        uri: &FileUri,
+        uri: &FsUri,
         preferred_size: Size,
         format: ImageFormat,
     ) -> Result<Option<Vec<u8>>> {
@@ -151,7 +151,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn is_dir(&self, uri: &FileUri) -> Result<bool> {
+    pub fn is_dir(&self, uri: &FsUri) -> Result<bool> {
         if let Some(path) = uri.to_path() {
             return run_blocking(move || Ok(std::fs::metadata(&path)?.is_dir())).await
         }
@@ -160,7 +160,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     }
 
     #[maybe_async]
-    pub fn is_file(&self, uri: &FileUri) -> Result<bool> {
+    pub fn is_file(&self, uri: &FsUri) -> Result<bool> {
         if let Some(path) = uri.to_path() {
             return run_blocking(move || Ok(std::fs::metadata(&path)?.is_file())).await
         }
@@ -171,10 +171,10 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn resolve_file_uri(
         &self, 
-        dir: &FileUri, 
+        dir: &FsUri, 
         relative_path: impl AsRef<std::path::Path>,
         allow_unchecked: bool
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
 
         let mut uri = None;
         if let Some(built_uri) = self.try_build_path_uri(dir, relative_path.as_ref())? {
@@ -197,10 +197,10 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn resolve_dir_uri(
         &self,
-        dir: &FileUri, 
+        dir: &FsUri, 
         relative_path: impl AsRef<std::path::Path>,
         allow_unchecked: bool
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
 
         let mut uri = None;
         if let Some(built_uri) = self.try_build_path_uri(dir, relative_path.as_ref())? {
@@ -223,15 +223,15 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[always_sync]
     pub fn try_build_path_uri(
         &self,
-        dir: &FileUri,
+        dir: &FsUri,
         relative_path: impl AsRef<std::path::Path>
-    ) -> Result<Option<FileUri>> {
+    ) -> Result<Option<FsUri>> {
 
         let relative_path = validate_relative_path(relative_path.as_ref())?;
 
         // file:// 形式の URI
         if let Some(path) = dir.to_path() {
-            let uri = FileUri::from_path(path.join(relative_path));
+            let uri = FsUri::from_path(path.join(relative_path));
             return Ok(Some(uri))
         }
 
@@ -241,15 +241,15 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[always_sync]
     pub fn try_build_saf_external_storage_provider_uri(
         &self,
-        dir: &FileUri,
+        dir: &FsUri,
         relative_path: impl AsRef<std::path::Path>
-    ) -> Result<Option<FileUri>> {
+    ) -> Result<Option<FsUri>> {
 
         let relative_path = validate_relative_path(relative_path.as_ref())?;
         let relative_path = relative_path.to_string_lossy();
         
         if dir.uri.starts_with("content://com.android.externalstorage.documents/tree/") {
-            let uri = FileUri {
+            let uri = FsUri {
                 document_top_tree_uri: dir.document_top_tree_uri.clone(),
                 uri: format!("{}%2F{}", &dir.uri, encode_android_uri_component(relative_path))
             };
@@ -304,7 +304,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         relative_path: impl AsRef<std::path::Path>, 
         mime_type: Option<&str>,
         is_pending: bool,
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
 
         self.create_new_media_store_file(volume_id, base_dir, relative_path, mime_type, is_pending).await
     }
@@ -317,7 +317,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         relative_path: impl AsRef<std::path::Path>, 
         mime_type: Option<&str>,
         contents: impl AsRef<[u8]>,
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
 
         let uri = self.create_new_file_in_public_storage(
             volume_id, 
@@ -380,7 +380,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn scan_file_in_public_storage(
         &self,
-        uri: &FileUri,
+        uri: &FsUri,
         force: bool,
     ) -> Result<()> {
         
@@ -394,7 +394,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn scan_file_in_public_storage_for_result(
         &self,
-        uri: &FileUri,
+        uri: &FsUri,
         force: bool,
     ) -> Result<()> {
         
@@ -410,7 +410,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         &self,
         path: impl AsRef<std::path::Path>,
         mime_type: Option<&str>,
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
 
         self.scan_file_to_media_store_by_path(path, mime_type).await
     }
@@ -418,7 +418,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn get_file_path_in_public_storage(
         &self,
-        uri: &FileUri,
+        uri: &FsUri,
     ) -> Result<std::path::PathBuf> {
 
         self.get_media_store_file_path(uri).await
@@ -427,7 +427,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn set_file_pending_in_public_storage(
         &self,
-        uri: &FileUri,
+        uri: &FsUri,
         is_pending: bool
     ) -> Result<()> {
 
@@ -476,7 +476,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         base_dir: impl Into<PublicDir>,
         relative_path: impl AsRef<std::path::Path>,
         create_dir_all: bool
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
 
         let base_dir = base_dir.into();
         let relative_path = validate_relative_path(relative_path.as_ref())?;
@@ -494,7 +494,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
             uri.push_str("%3A");
             uri.push_str(&encode_android_uri_component(relative_path_from_volume_root.to_string_lossy()));
       
-            FileUri { uri, document_top_tree_uri: None }
+            FsUri { uri, document_top_tree_uri: None }
         };
 
         if create_dir_all {
@@ -512,7 +512,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     pub fn resolve_root_initial_location(
         &self,
         volume_id: Option<&StorageVolumeId>
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
 
         let volume_id = volume_id
             .and_then(|v| v.uid.as_deref())
@@ -521,12 +521,12 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         if api_level::ANDROID_10 <= self.api_level()? {
             let base = "content://com.android.externalstorage.documents/root";
             let uri = format!("{base}/{volume_id}");
-            Ok(FileUri { uri, document_top_tree_uri: None })
+            Ok(FsUri { uri, document_top_tree_uri: None })
         }
         else {
             let base = "content://com.android.externalstorage.documents/document";
             let uri = format!("{base}/{volume_id}%3A");
-            Ok(FileUri { uri, document_top_tree_uri: None })
+            Ok(FsUri { uri, document_top_tree_uri: None })
         }
     }
 
@@ -575,7 +575,7 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn get_public_media_file_path_in_app_storage(
         &self,
-        uri: &FileUri,
+        uri: &FsUri,
     ) -> Result<std::path::PathBuf> {
 
         self.get_media_store_file_path(uri).await

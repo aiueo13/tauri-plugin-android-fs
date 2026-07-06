@@ -84,17 +84,16 @@ export const AndroidApiLevel = Object.freeze({
 } as const);
 
 /**
- * URI or path of the file or directory.
+ * URI or path for a file or directory.
  *
  * @remarks
  * A single entry may have multiple representations.
  * 
  * This value can be a `string` or a `URL` instance.
- * - `URL`: values must be Android Content URIs.
- * - `string`: values accept both file paths and Android Content URIs.
+ * - `URL`: Values must be Android Content URIs.
+ * - `string`: Values accept both file paths and Android Content URIs.
  *
- * This corresponds to {@link https://docs.rs/tauri-plugin-fs/2/tauri_plugin_fs/enum.FilePath.html | tauri_plugin_fs::FilePath} or
- * the path type used by {@link https://v2.tauri.app/ja/plugin/file-system/ | @tauri-apps/plugin-fs }.
+ * This corresponds to the path type used by {@link https://v2.tauri.app/ja/plugin/file-system/ | @tauri-apps/plugin-fs }.
  */
 export type FsPath = string | URL;
 
@@ -103,13 +102,13 @@ function mapFsPathForInput(uri: FsPath | AndroidFsUri): string | AndroidFsUri {
 }
 
 /**
- * URI of the file or directory on Android.
+ * URI for a file or directory on Android.
  *
  * @remarks
  * A single entry may have multiple URI representations.
  * Additionally, this must refer to an existing entry unlike a file path.
  * 
- * Corresponds to {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/struct.FileUri.html | tauri_plugin_android_fs::FileUri}.
+ * This corresponds to {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/struct.FsUri.html | tauri_plugin_android_fs::FsUri}.
  */
 export type AndroidFsUri = {
 
@@ -126,9 +125,6 @@ export type AndroidFsUri = {
 	documentTopTreeUri: string | null
 }
 
-/**
- * Type of the file or directory on Android.
- */
 export type AndroidEntryType =
 	| {
 		type: "Dir"
@@ -142,9 +138,6 @@ export type AndroidEntryType =
 		mimeType: string
 	}
 
-/**
- * Image format of thumbnail.
- */
 export type AndroidThumbnailFormat = "jpeg" | "png" | "webp"
 
 /**
@@ -153,7 +146,7 @@ export type AndroidThumbnailFormat = "jpeg" | "png" | "webp"
 export type AndroidGetThumbnailOptions = {
 
 	/**
-	 * Image format of the thumbnail.  
+	 * Image format of a thumbnail.  
 	 * 
 	 * @remarks
 	 * One of: `"jpeg"`, `"png"`, `"webp"`.
@@ -169,17 +162,17 @@ export type AndroidGetThumbnailOptions = {
 export type AndroidConvertThumbnailSrcOptions = {
 
 	/**
-	 * Preferred width in pixels of the thumbnail. 
+	 * Preferred thumbnail width in pixels.
 	 */
 	width?: number,
 
 	/**
-	 * Preferred height in pixels of the thumbnail. 
+	 * Preferred thumbnail height in pixels.
 	 */
 	height?: number,
 
 	/**
-	 * Image format of the thumbnail.  
+	 * Image format of a thumbnail.  
 	 * 
 	 * @remarks
 	 * One of: `"jpeg"`, `"png"`, `"webp"`. 
@@ -210,23 +203,14 @@ export type AndroidReadDirOptions = {
 	limit?: number,
 }
 
-/**
- * Metadata of the file or directory on Android.
- */
 export type AndroidEntryMetadata = AndroidDirMetadata | AndroidFileMetadata
 
-/**
- * Metadata of the directory on Android.
- */
 export type AndroidDirMetadata = {
 	type: "Dir",
 	name: string,
 	lastModified: Date,
 }
 
-/**
- * Metadata of the file on Android.
- */
 export type AndroidFileMetadata = {
 	type: "File",
 	name: string,
@@ -250,7 +234,7 @@ type AndroidEntryMetadataInner =
 	};
 
 /**
- * Metadata and URI of the file or directory on Android.
+ * Metadata and URI for a file or directory on Android.
  */
 export type AndroidEntryMetadataWithUri = AndroidEntryMetadata & { uri: AndroidFsUri }
 
@@ -262,7 +246,7 @@ type AndroidEntryMetadataWithUriInner = AndroidEntryMetadataInner & { uri: Andro
 export type AndroidReadFileAsDataUrlOptions = {
 
 	/**
-	 * MIME type of the file used as the media type of the Data URL.
+	 * MIME type for the Data URL.
 	 *
 	 * @remarks
 	 * If not specified, the MIME type provided by a provider of the file will be used.
@@ -279,7 +263,7 @@ export type AndroidReadTextFileOptions = {
 	 * Text encoding used to decode the data, such as `"utf-8"`, `"shift_jis"`, or `"iso-8859-2"`.
 	 * 
 	 * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/Encoding_API/Encodings | available encodings}
-	 * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/TextDecoder#label | TextDecoder's label option}
+	 * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/TextDecoder#label | WebAPI TextDecoder's label option}
 	 * 
 	 * @defaultValue `"utf-8"`.
 	 */
@@ -537,10 +521,13 @@ export type AndroidOpenReadFileStreamOptions = {
 	signal?: AbortSignal,
 }
 
+/**
+ * Item yielded by the stream returned by `AndroidFs.openReadTextFileLinesStream`.
+ */
 export type AndroidOpenReadTextFileLinesStreamItem = {
 
 	/**
-	 * Text of the current line.
+	 * Text of a line.
 	 * 
 	 * @remarks
 	 * This value excludes line break characters.
@@ -549,13 +536,13 @@ export type AndroidOpenReadTextFileLinesStreamItem = {
 	line: string,
 
 	/**
-	 * Line break characters at the end of the current line.
+	 * Line break characters at the end of a line.
 	 * 
 	 * @remarks
 	 * One of: `"\n"`, `"\r\n"`, `null`.
 	 * 
 	 * This value is `null` 
-	 * if the current line is the last line and does not end with a line break.
+	 * only if the line is the last line and does not end with a line break.
 	 */
 	lineBreak: "\n" | "\r\n" | null
 }
@@ -569,7 +556,7 @@ export type AndroidOpenReadTextFileLinesStreamOptions = {
 	 * Text encoding used to decode the data, such as `"utf-8"`, `"shift_jis"`, or `"iso-8859-2"`.
 	 * 
 	 * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/Encoding_API/Encodings | available encodings}
-	 * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/TextDecoder#label | TextDecoder's label option}
+	 * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/TextDecoder#label | WebAPI TextDecoder's label option}
 	 * 
 	 * @defaultValue `"utf-8"`.
 	 */
@@ -642,7 +629,7 @@ export type AndroidOpenReadTextFileLinesStreamOptions = {
 }
 
 /**
- * Options of file picker on Android.
+ * Options of File Picker on Android.
  */
 export type AndroidOpenFilePickerOptions = {
 
@@ -699,7 +686,7 @@ export type AndroidOpenFilePickerOptions = {
 }
 
 /**
- * Options of file picker on Android.
+ * Options of Directory Picker on Android.
  */
 export type AndroidOpenDirPickerOptions = {
 
@@ -726,7 +713,7 @@ export type AndroidOpenDirPickerOptions = {
 }
 
 /**
- * Options of file picker on Android.
+ * Options of File Saver on Android.
  */
 export type AndroidSaveFilePickerOptions = {
 
@@ -1686,7 +1673,7 @@ export class AndroidFs {
 	 * The returned Promise rejects with an error in the following cases:
 	 * - When the entry does not exist.
 	 * - When the app does not have read permissions for the entry.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_name | AndroidFs::get_name}
 	 * @since 22.0.0
@@ -1709,7 +1696,7 @@ export class AndroidFs {
 	 * - When the entry is a directory, not a file.
 	 * - When the file does not exist.
 	 * - When the app does not have read permissions for the file.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_len | AndroidFs::get_len}
 	 * @since 22.2.0
@@ -1731,7 +1718,7 @@ export class AndroidFs {
 	 * The returned Promise rejects with an error in the following cases:
 	 * - When the entry does not exist.
 	 * - When the app does not have read permissions for the entry.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_type | AndroidFs::get_type}
 	 * @since 22.0.0
@@ -1754,7 +1741,7 @@ export class AndroidFs {
 	 * - When the entry is a directory, not a file.
 	 * - When the file does not exist.
 	 * - When the app does not have read permissions for the file.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_mime_type | AndroidFs::get_mime_type}
 	 * @since 22.0.0
@@ -1776,7 +1763,7 @@ export class AndroidFs {
 	 * The returned Promise rejects with an error in the following cases:
 	 * - When the entry does not exist.
 	 * - When the app does not have read permissions for the entry.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_info | AndroidFs::get_info}
 	 * @since 22.0.0
@@ -1799,8 +1786,8 @@ export class AndroidFs {
 	 * This does not perform caching.
 	 *
 	 * @param uri - URI or path of the target file.
-	 * @param width - Preferred width of the thumbnail in pixels. 
-	 * @param height - Preferred height of the thumbnail in pixels.
+	 * @param width - Preferred thumbnail width in pixels.
+	 * @param height - Preferred thumbnail height in pixels.
 	 * @param options - Optional settings: `format`. See `AndroidGetThumbnailOptions` for details.
 	 * 
 	 * @returns Promise that resolves to a Data URL string of the thumbnail, or `null` if none exists. The actual dimensions will not exceed approximately twice the specified width or height, while always maintaining the original aspect ratio.
@@ -1810,7 +1797,7 @@ export class AndroidFs {
 	 * - When the entry is a directory, not a file.
 	 * - When the file does not exist.
 	 * - When the app does not have read permissions for the file.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_thumbnail | AndroidFs::get_thumbnail}
 	 * @since 26.1.0
@@ -1840,8 +1827,8 @@ export class AndroidFs {
 	 * This does not perform caching.
 	 *
 	 * @param uri - URI or path of the target file.
-	 * @param width - Preferred width of the thumbnail in pixels. 
-	 * @param height - Preferred height of the thumbnail in pixels.
+	 * @param width - Preferred thumbnail width in pixels.
+	 * @param height - Preferred thumbnail height in pixels.
 	 * @param options - Optional settings: `format`. See `AndroidGetThumbnailOptions` for details.
 	 * 
 	 * @returns Promise that resolves to a base64-encoded string of the thumbnail, or `null` if none exists. The actual dimensions will not exceed approximately twice the specified width or height, while always maintaining the original aspect ratio.
@@ -1851,7 +1838,7 @@ export class AndroidFs {
 	 * - When the entry is a directory, not a file.
 	 * - When the file does not exist.
 	 * - When the app does not have read permissions for the file.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_thumbnail | AndroidFs::get_thumbnail}
 	 * @since 26.1.0
@@ -1881,8 +1868,8 @@ export class AndroidFs {
 	 * This does not perform caching.
 	 *
 	 * @param uri - URI or path of the target file.
-	 * @param width - Preferred width of the thumbnail in pixels. 
-	 * @param height - Preferred height of the thumbnail in pixels.
+	 * @param width - Preferred thumbnail width in pixels.
+	 * @param height - Preferred thumbnail height in pixels.
 	 * @param options - Optional settings: `format`. See `AndroidGetThumbnailOptions` for details.
 	 * 
 	 * @returns Promise that resolves to bytes of the thumbnail, or `null` if none exists. The actual dimensions will not exceed approximately twice the specified width or height, while always maintaining the original aspect ratio.
@@ -1892,7 +1879,7 @@ export class AndroidFs {
 	 * - When the entry is a directory, not a file.
 	 * - When the file does not exist.
 	 * - When the app does not have read permissions for the file.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_thumbnail | AndroidFs::get_thumbnail}
 	 * @since 26.1.0
@@ -1922,8 +1909,8 @@ export class AndroidFs {
 	 * This does not perform caching.
 	 *
 	 * @param uri - URI or path of the target file.
-	 * @param width - Preferred width of the thumbnail in pixels. 
-	 * @param height - Preferred height of the thumbnail in pixels.
+	 * @param width - Preferred thumbnail width in pixels.
+	 * @param height - Preferred thumbnail height in pixels.
 	 * @param options - Optional settings: `format`. See `AndroidGetThumbnailOptions` for details.
 	 * 
 	 * @returns Promise that resolves to bytes of the thumbnail, or `null` if none exists. The actual dimensions will not exceed approximately twice the specified width or height, while always maintaining the original aspect ratio.
@@ -1933,7 +1920,7 @@ export class AndroidFs {
 	 * - When the entry is a directory, not a file.
 	 * - When the file does not exist.
 	 * - When the app does not have read permissions for the file.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_thumbnail | AndroidFs::get_thumbnail}
 	 * @since 26.1.0
@@ -2202,7 +2189,7 @@ export class AndroidFs {
 	 * - When the file does not exist.
 	 * - When a provider of the file is not the Android MediaStore.
 	 * - When the app does not have read/write permissions for the file.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.scan | PublicStorage::scan}
 	 * @since 22.0.0
@@ -2234,7 +2221,7 @@ export class AndroidFs {
 	 * - When the file does not exist.
 	 * - When a provider of the file is not the Android MediaStore.
 	 * - When the app does not have read/write permissions for the file.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.set_pending | PublicStorage::set_pending}
 	 * @since 25.0.0
@@ -2264,7 +2251,7 @@ export class AndroidFs {
 	 * The returned Promise rejects with an error in the following cases:
 	 * - When the storage volume is currently unavailable
 	 * - When the app does not have read/write permissions for the public files.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.create_new_file | PublicStorage::create_new_file}
 	 * @since 22.0.0
@@ -2305,7 +2292,7 @@ export class AndroidFs {
 	 * - When the storage volume is currently unavailable
 	 * - When the app does not have read/write permissions for the public files.
 	 * - When the MIME type is not an image type.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.create_new_file | PublicStorage::create_new_file}
 	 * @since 22.0.0
@@ -2346,7 +2333,7 @@ export class AndroidFs {
 	 * - When the storage volume is currently unavailable
 	 * - When the app does not have read/write permissions for the public files.
 	 * - When the MIME type is not a video type.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.create_new_file | PublicStorage::create_new_file}
 	 * @since 22.0.0
@@ -2387,7 +2374,7 @@ export class AndroidFs {
 	 * - When the storage volume is currently unavailable
 	 * - When the app does not have read/write permissions for the public files.
 	 * - When the MIME type is not an audio type.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.create_new_file | PublicStorage::create_new_file}
 	 * @since 22.0.0
@@ -2428,7 +2415,7 @@ export class AndroidFs {
 	 * - When the base directory does not exist.
 	 * - When the app does not have read/write permissions for the base directory.
 	 * - When a provider of the base directory via Directory Picker does not support the create-file or read-directory operations.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.create_new_file | AndroidFs::create_new_file}
 	 * @since 22.0.0
@@ -2461,7 +2448,7 @@ export class AndroidFs {
 	 * - When the base directory does not exist.
 	 * - When the app does not have read/write permissions for the base directory.
 	 * - When a provider of the base directory via Directory Picker does not support the create-directory or read-directory operations.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.create_new_dir | AndroidFs::create_new_dir}
 	 * @since 28.2.0
@@ -2494,7 +2481,7 @@ export class AndroidFs {
 	 * - When the base directory does not exist.
 	 * - When the app does not have read/write permissions for the base directory.
 	 * - When a provider of the base directory via Directory Picker does not support the create-directory or read-directory operations.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.create_dir_all | AndroidFs::create_dir_all}
 	 * @since 26.1.0
@@ -2537,7 +2524,7 @@ export class AndroidFs {
 	 * - When the entry is a directory, not a file.
 	 * - When the file does not exist.
 	 * - When the app does not have read permissions for the file.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_readable | AndroidFs::open_file_readable}
 	 * @since 25.1.0
@@ -2597,7 +2584,7 @@ export class AndroidFs {
 	 * - When the entry is a directory, not a file.
 	 * - When the file does not exist.
 	 * - When the app does not have read permissions for the file.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_readable | AndroidFs::open_file_readable}
 	 * @since 25.1.0
@@ -2663,7 +2650,7 @@ export class AndroidFs {
 	 * - When the app does not have write permissions for the file.
 	 * - When `options.create` is `false` or a URI is specified, and the file does not exist.
 	 * - When `options.append` is `true`, and a provider of the file via File/Directory Picker does not support append mode.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_writable | AndroidFs::open_file_writable}
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file | AndroidFs::open_file}
@@ -2766,7 +2753,7 @@ export class AndroidFs {
 	 * - When the entry is a directory, not a file.
 	 * - When the file does not exist.
 	 * - When the app does not have read permissions for the file.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 *
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.read_file | AndroidFs::read_file}
 	 * @since 25.1.0
@@ -2794,7 +2781,7 @@ export class AndroidFs {
 	 * - When the entry is a directory, not a file.
 	 * - When the file does not exist.
 	 * - When the app does not have read permissions for the file.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 *
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.read_file | AndroidFs::read_file}
 	 * @since 26.1.0
@@ -2823,7 +2810,7 @@ export class AndroidFs {
 	 * - When the entry is a directory, not a file.
 	 * - When the file does not exist.
 	 * - When the app does not have read permissions for the file.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 *
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.read_file | AndroidFs::read_file}
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_mime_type | AndroidFs::get_mime_type}
@@ -2857,7 +2844,7 @@ export class AndroidFs {
 	 * - When the file does not exist.
 	 * - When the app does not have read permissions for the file.
 	 * - When `options.fatal` is `true`, and the file contains an invalid byte sequence for `options.encoding`.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 *
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_readable | AndroidFs::open_file_readable}
 	 * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder | WebAPI TextDecoder}
@@ -2897,7 +2884,7 @@ export class AndroidFs {
 	 * - When the app does not have write permissions for the file.
 	 * - When `options.create` is `false` or a URI is specified, and the file does not exist.
 	 * - When `options.append` is `true`, and a provider of the file via File/Directory Picker does not support append mode.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_writable | AndroidFs::open_file_writable}
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file | AndroidFs::open_file}
@@ -2946,7 +2933,7 @@ export class AndroidFs {
 	 * - When the app does not have write permissions for the file.
 	 * - When `options.create` is `false` or a URI is specified, and the file does not exist.
 	 * - When `options.append` is `true`, and a provider of the file via File/Directory Picker does not support append mode.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_writable | AndroidFs::open_file_writable}
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file | AndroidFs::open_file}
@@ -2999,7 +2986,7 @@ export class AndroidFs {
 	 * - When `options.create` is `false` or a URI is specified, and the dest file does not exist.
 	 * - When the app does not have read permissions for the src file.
 	 * - When the app does not have write permissions for the dest file.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.copy | AndroidFs::copy}
 	 * @since 22.0.0
@@ -3034,7 +3021,7 @@ export class AndroidFs {
 	 * - When the file does not exist.
 	 * - When the app does not have write permissions for the file.
 	 * - When a provider of the file via File/Directory Picker does not support the truncate operation.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_writable | AndroidFs::open_file_writable}
 	 * @since 22.0.0
@@ -3061,7 +3048,7 @@ export class AndroidFs {
 	 * - When the file does not exist.
 	 * - When the app does not have write permissions for the file.
 	 * - When a provider of the file via File/Directory Picker does not support the rename operation.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.rename | AndroidFs::rename}
 	 * @since 24.1.0
@@ -3095,7 +3082,7 @@ export class AndroidFs {
 	 * - When the directory does not exist.
 	 * - When the app does not have write permissions for the directory.
 	 * - When a provider of the directory via Directory Picker does not support the rename operation.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.rename | AndroidFs::rename}
 	 * @since 24.1.0
@@ -3124,7 +3111,7 @@ export class AndroidFs {
 	 * - When the file does not exist.
 	 * - When the app does not have write permissions for the file.
 	 * - When a provider of the file via File/Directory Picker does not support the remove operation.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.remove_file | AndroidFs::remove_file}
 	 * @since 22.0.0
@@ -3146,7 +3133,7 @@ export class AndroidFs {
 	 * - When the directory does not exist.
 	 * - When the app does not have read/write permissions for the directory.
 	 * - When a provider of the directory via Directory Picker does not support the remove or read-directory operations.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.remove_dir_all | AndroidFs::remove_dir_all}
 	 * @since 22.0.0
@@ -3169,7 +3156,7 @@ export class AndroidFs {
 	 * - When the directory is not empty.
 	 * - When the app does not have read/write permissions for the directory.
 	 * - When a provider of the directory via Directory Picker does not support the remove or read-directory operations.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.remove_dir | AndroidFs::remove_dir}
 	 * @since 22.0.0
@@ -3192,7 +3179,7 @@ export class AndroidFs {
 	 * - When the directory does not exist.
 	 * - When the app does not have read permissions for the directory.
 	 * - When a provider of the directory via Directory Picker does not support the read-directory operation.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.read_dir | AndroidFs::read_dir}
 	 * @since 22.0.0
@@ -3429,7 +3416,7 @@ export class AndroidFs {
 	 * - When the entry does not exist.
 	 * - When the app does not have any permissions for the entry.
 	 * - When a provider of the entry via File/Directory Picker does not support the persist-permissions operation.
-	 * - When an unexpected error occurred.
+	 * - When an unexpected error occurs.
 	 * 
 	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FilePicker.html#method.persist_picker_uri_permission | FilePicker::persist_picker_uri_permission}
 	 * @see {@link https://stackoverflow.com/questions/71099575/should-i-release-persistableuripermission-when-a-new-storage-location-is-chosen/71100621#71100621 | Android Persistable URI Permission Limit Discussion}

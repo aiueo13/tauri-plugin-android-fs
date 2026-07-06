@@ -7,11 +7,24 @@ use super::*;
 /// 
 /// # Examples
 /// ```no_run
-/// fn example(app: &tauri::AppHandle) {
+/// async fn example(app: &tauri::AppHandle) {
 ///     use tauri_plugin_android_fs::AndroidFsExt as _;
 /// 
-///     let api = app.android_fs();
-///     let private_storage = api.private_storage();
+///     let api = app.android_fs_async();
+///     let ps = api.private_storage();
+/// 
+///     // Resolve the absolute paths.
+///     // Files and directories in these locations can be fully managed using `std::fs`.
+///     let cache_dir_path: std::path::PathBuf = ps.resolve_path(PrivateDir::Cache).await?;
+///     let data_dir_path: std::path::PathBuf = ps.resolve_path(PrivateDir::Data).await?;
+///     let nobackup_data_dir_path: std::path::PathBuf = ps.resolve_path(PrivateDir::NoBackupData).await?;
+///
+///     // These directories may also contain files created by other Tauri plugins
+///     // or the WebView runtime. To avoid conflicts, it is recommended to use
+///     // a uniquely named subdirectory for your application.
+///     let cache_dir_path = cache_dir_path.join("01K6049FVCD4SAGMAB6X20SA5S");
+///     let data_dir_path = data_dir_path.join("01K6049FVCD4SAGMAB6X20SA5S");
+///     let nobackup_data_dir_path = nobackup_data_dir_path.join("01K6049FVCD4SAGMAB6X20SA5S");
 /// }
 /// ```
 #[sync_async]
@@ -38,8 +51,8 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
 }
 
 #[sync_async(
-    use(if_async) api_async::{AndroidFs, FileOpener, FilePicker, PublicStorage};
-    use(if_sync) api_sync::{AndroidFs, FileOpener, FilePicker, PublicStorage};
+    use(if_async) api_async::{AndroidFs, Opener, Picker, PublicStorage};
+    use(if_sync) api_sync::{AndroidFs, Opener, Picker, PublicStorage};
 )]
 impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
 
@@ -87,7 +100,7 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
         &self, 
         dir: PrivateDir,
         relative_path: impl AsRef<std::path::Path>
-    ) -> Result<FileUri> {
+    ) -> Result<FsUri> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)

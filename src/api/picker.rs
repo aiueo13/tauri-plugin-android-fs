@@ -3,19 +3,130 @@ use crate::*;
 use super::*;
 
 
-/// API of file/dir picker.
+/// API of File/Directory Picker.
 /// 
 /// # Examples
 /// ```no_run
-/// fn example(app: &tauri::AppHandle) {
-///     use tauri_plugin_android_fs::AndroidFsExt as _;
-/// 
-///     let api = app.android_fs();
-///     let file_picker = api.file_picker();
+/// use tauri_plugin_android_fs::{AndroidFsExt, Entry, ImageFormat, PublicImageDir, Result, Size};
+///
+/// async fn file_picker_example(app: &tauri::AppHandle<impl tauri::Runtime>) -> Result<()> {
+///     let api = app.android_fs_async();
+///
+///     let selected_files = api
+///         .picker()
+///         .pick_files(
+///             None, // Initial location
+///             &["*/*"], // Target MIME types
+///             false, // If true, only local files can be selected
+///         )
+///         .await?;
+///
+///     if !selected_files.is_empty() {
+///         for uri in selected_files {
+///             let file: std::fs::File = api.open_file_readable(&uri).await?;
+///             let file_path: tauri_plugin_fs::FilePath = uri.clone().into();
+///
+///             let file_type = api.get_mime_type(&uri).await?;
+///             let file_name = api.get_name(&uri).await?;
+///             let file_thumbnail = api.get_thumbnail(
+///                 &uri,
+///                 Size { width: 200, height: 200 },
+///                 ImageFormat::Jpeg,
+///             ).await?;
+///         }
+///     }
+///     else {
+///         // User cancelled the picker.
+///     }
+///
+///     Ok(())
+/// }
+///
+/// async fn file_saver_example(app: &tauri::AppHandle<impl tauri::Runtime>) -> Result<()> {
+///     let api = app.android_fs_async();
+///
+///     // Initial directory when the file saver opens.
+///     // Resolves to `~/Pictures/MyApp/2025-10-22/`.
+///     let initial_location = api
+///         .picker()
+///         .resolve_public_storage_initial_location(
+///             None, // Storage volume (e.g. internal storage or SD card). If `None`, uses the primary volume
+///             PublicImageDir::Pictures, // Base directory
+///             "MyApp/2025-10-22", // Relative path
+///             true, // Creates missing directories
+///         )
+///         .await?;
+///
+///     let selected_file = api
+///         .picker()
+///         .save_file(
+///             Some(&initial_location), // Initial location
+///             "my-image.jpg", // Initial file name
+///             Some("image/jpeg"), // MIME type
+///             false, // If true, only local files can be selected
+///         )
+///         .await?;
+///
+///     if let Some(uri) = selected_file {
+///         // Open the file for writing.
+///         // 
+///         // NOTE:
+///         // Existing contents will be truncated.
+///         let file: std::fs::File = api.open_file_writable(&uri).await?;
+///     }
+///     else {
+///         // User cancelled the picker.
+///     }
+///
+///     Ok(())
+/// }
+///
+/// async fn dir_picker_example(app: &tauri::AppHandle<impl tauri::Runtime>) -> Result<()> {
+///     let api = app.android_fs_async();
+///
+///     let selected = api
+///         .picker()
+///         .pick_dir(
+///             None, // Initial location
+///             false, // If true, restricts selection to directories on the local device
+///         )
+///         .await?;
+///
+///     if let Some(dir_uri) = selected {
+///         // Persist access permission across app/device restarts.
+///         api.picker().persist_uri_permission(&dir_uri).await?;
+///
+///         // Read the directory.
+///         for entry in api.read_dir(&dir_uri).await? {
+///             match entry {
+///                 Entry::File { uri, name, .. } => {
+///                     // Handle a file.
+///                 }
+///                 Entry::Dir { uri, name, .. } => {
+///                     // Handle a directory.
+///                 }
+///             }
+///         }
+///
+///         // Create a new file.
+///         // Parent directories are created recursively if necessary.
+///         let file_uri = api
+///             .create_new_file(
+///                 &dir_uri,
+///                 "MyApp/2025-1021/file.txt",
+///                 Some("text/plain"),
+///             )
+///             .await?;
+///     }
+///     else {
+///         // User cancelled the picker.
+///     }
+///
+///     Ok(())
 /// }
 /// ```
 #[sync_async]
-pub struct FilePicker<'a, R: tauri::Runtime> {
+pub struct Picker<'a, R: tauri::Runtime> {
     #[cfg(target_os = "android")]
     pub(crate) handle: &'a tauri::plugin::PluginHandle<R>,
 
@@ -29,7 +140,7 @@ pub struct FilePicker<'a, R: tauri::Runtime> {
     use(if_sync) impls::SyncImpls as Impls;
     use(if_async) impls::AsyncImpls as Impls;
 )]
-impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
+impl<'a, R: tauri::Runtime> Picker<'a, R> {
     
     #[always_sync]
     fn impls(&self) -> Impls<'_, R> {
@@ -38,16 +149,16 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
 }
 
 #[sync_async(
-    use(if_async) api_async::{AndroidFs, FileOpener, PrivateStorage, PublicStorage};
-    use(if_sync) api_sync::{AndroidFs, FileOpener, PrivateStorage, PublicStorage};
+    use(if_async) api_async::{AndroidFs, Opener, PrivateStorage, PublicStorage};
+    use(if_sync) api_sync::{AndroidFs, Opener, PrivateStorage, PublicStorage};
 )]
-impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
+impl<'a, R: tauri::Runtime> Picker<'a, R> {
 
     /// Opens a system file picker and returns a **read-write** URIs.  
     /// If no file is selected or the user cancels, an empty vec is returned.  
     /// 
     /// By default, returned URI is valid until the app or device is terminated. 
-    /// If you want to persist it across app or device restarts, use [`FilePicker::persist_uri_permission`].
+    /// If you want to persist it across app or device restarts, use [`Picker::persist_uri_permission`].
     /// 
     /// This provides a standardized file explorer-style interface, 
     /// and also allows file selection from part of third-party apps or cloud storage.
@@ -64,12 +175,12 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// if it's a directory, or the directory that contains the specified file if not.  
     /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.  
     /// This must be a URI taken from following or it's derivative :   
-    ///     - [`PublicStorage::resolve_initial_location`]
-    ///     - [`AndroidFs::resolve_root_initial_location`]
-    ///     - [`FilePicker::pick_files`]
-    ///     - [`FilePicker::pick_file`]
-    ///     - [`FilePicker::pick_dir`]
-    ///     - [`FilePicker::save_file`]
+    ///     - [`Picker::resolve_public_storage_initial_location`]
+    ///     - [`Picker::resolve_initial_location`]
+    ///     - [`Picker::pick_files`]
+    ///     - [`Picker::pick_file`]
+    ///     - [`Picker::pick_dir`]
+    ///     - [`Picker::save_file`]
     /// 
     /// - ***mime_types*** :  
     /// The MIME types of the file to be selected.  
@@ -87,10 +198,10 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     #[maybe_async]
     pub fn pick_files(
         &self,
-        initial_location: Option<&FileUri>,
+        initial_location: Option<&FsUri>,
         mime_types: &[&str],
         local_only: bool,
-    ) -> Result<Vec<FileUri>> {
+    ) -> Result<Vec<FsUri>> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
@@ -104,7 +215,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If no file is selected or the user cancels, None is returned.  
     /// 
     /// By default, returned URI is valid until the app or device is terminated. 
-    /// If you want to persist it across app or device restarts, use [`FilePicker::persist_uri_permission`].
+    /// If you want to persist it across app or device restarts, use [`Picker::persist_uri_permission`].
     /// 
     /// This provides a standardized file explorer-style interface, 
     /// and also allows file selection from part of third-party apps or cloud storage.
@@ -121,12 +232,12 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// if it's a directory, or the directory that contains the specified file if not.  
     /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.  
     /// This must be a URI taken from following or it's derivative :   
-    ///     - [`PublicStorage::resolve_initial_location`]
-    ///     - [`AndroidFs::resolve_root_initial_location`]
-    ///     - [`FilePicker::pick_files`]
-    ///     - [`FilePicker::pick_file`]
-    ///     - [`FilePicker::pick_dir`]
-    ///     - [`FilePicker::save_file`]
+    ///     - [`Picker::resolve_public_storage_initial_location`]
+    ///     - [`Picker::resolve_initial_location`]
+    ///     - [`Picker::pick_files`]
+    ///     - [`Picker::pick_file`]
+    ///     - [`Picker::pick_dir`]
+    ///     - [`Picker::save_file`]
     /// 
     /// - ***mime_types*** :  
     /// The MIME types of the file to be selected.  
@@ -144,10 +255,10 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     #[maybe_async]
     pub fn pick_file(
         &self,
-        initial_location: Option<&FileUri>,
+        initial_location: Option<&FsUri>,
         mime_types: &[&str],
         local_only: bool
-    ) -> Result<Option<FileUri>> {
+    ) -> Result<Option<FsUri>> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
@@ -163,7 +274,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If no file is selected or the user cancels, an empty vec is returned.  
     ///  
     /// By default, returned URI is valid until the app or device is terminated. 
-    /// If you want to persist it across app or device restarts, use [`FilePicker::persist_uri_permission`].
+    /// If you want to persist it across app or device restarts, use [`Picker::persist_uri_permission`].
     ///  
     /// This media picker provides a gallery, 
     /// sorted by date from newest to oldest. 
@@ -187,8 +298,8 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// - Running Android 11 (API level 30) or higher  
     /// - Receive changes to Modular System Components through Google System Updates  
     ///  
-    /// Availability on a given device can be verified by calling [`FilePicker::is_visual_media_picker_available`].  
-    /// If not supported, this function behaves the same as [`FilePicker::pick_files`].  
+    /// Availability on a given device can be verified by calling [`Picker::is_visual_media_picker_available`].  
+    /// If not supported, this function behaves the same as [`Picker::pick_files`].  
     /// 
     /// # References
     /// - <https://developer.android.com/training/data-storage/shared/photopicker>
@@ -197,7 +308,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
         &self,
         target: VisualMediaTarget<'_>,
         local_only: bool
-    ) -> Result<Vec<FileUri>> {
+    ) -> Result<Vec<FsUri>> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
@@ -211,7 +322,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If no file is selected or the user cancels, None is returned.  
     ///  
     /// By default, returned URI is valid until the app or device is terminated. 
-    /// If you want to persist it across app or device restarts, use [`FilePicker::persist_uri_permission`].
+    /// If you want to persist it across app or device restarts, use [`Picker::persist_uri_permission`].
     ///  
     /// This media picker provides a gallery, 
     /// sorted by date from newest to oldest. 
@@ -235,8 +346,8 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// - Running Android 11 (API level 30) or higher  
     /// - Receive changes to Modular System Components through Google System Updates  
     ///  
-    /// Availability on a given device can be verified by calling [`FilePicker::is_visual_media_picker_available`].  
-    /// If not supported, this function behaves the same as [`FilePicker::pick_file`].  
+    /// Availability on a given device can be verified by calling [`Picker::is_visual_media_picker_available`].  
+    /// If not supported, this function behaves the same as [`Picker::pick_file`].  
     /// 
     /// # References
     /// - <https://developer.android.com/training/data-storage/shared/photopicker>
@@ -245,7 +356,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
         &self,
         target: VisualMediaTarget<'_>,
         local_only: bool
-    ) -> Result<Option<FileUri>> {
+    ) -> Result<Option<FsUri>> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
@@ -263,7 +374,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// Returned URI is valid until the app or device is terminated. Can not persist it.
     /// 
     /// This works differently depending on the model and version.  
-    /// Recent devices often have the similar behaviour as [`FilePicker::pick_visual_medias`] or [`FilePicker::pick_files`].  
+    /// Recent devices often have the similar behaviour as [`Picker::pick_visual_medias`] or [`Picker::pick_files`].  
     /// In older versions, third-party apps often handle request instead.
     /// 
     /// # Args  
@@ -282,7 +393,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     pub fn pick_contents(
         &self,
         mime_types: &[&str],
-    ) -> Result<Vec<FileUri>> {
+    ) -> Result<Vec<FsUri>> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
@@ -298,7 +409,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// Returned URI is valid until the app or device is terminated. Can not persist it.
     /// 
     /// This works differently depending on the model and version.  
-    /// Recent devices often have the similar behaviour as [`FilePicker::pick_visual_media`] or [`FilePicker::pick_file`].  
+    /// Recent devices often have the similar behaviour as [`Picker::pick_visual_media`] or [`Picker::pick_file`].  
     /// In older versions, third-party apps often handle request instead.
     /// 
     /// # Args  
@@ -317,7 +428,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     pub fn pick_content(
         &self,
         mime_types: &[&str],
-    ) -> Result<Option<FileUri>> {
+    ) -> Result<Option<FsUri>> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
@@ -335,7 +446,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If no directory is selected or the user cancels, `None` is returned. 
     /// 
     /// By default, returned URI is valid until the app or device is terminated. 
-    /// If you want to persist it across app or device restarts, use [`FilePicker::persist_uri_permission`].
+    /// If you want to persist it across app or device restarts, use [`Picker::persist_uri_permission`].
     /// 
     /// This provides a standardized file explorer-style interface,
     /// and also allows directory selection from part of third-party apps or cloud storage.
@@ -349,12 +460,12 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// if it's a directory, or the directory that contains the specified file if not.  
     /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.   
     /// This must be a URI taken from following or it's derivative :   
-    ///     - [`PublicStorage::resolve_initial_location`]
-    ///     - [`AndroidFs::resolve_root_initial_location`]
-    ///     - [`FilePicker::pick_files`]
-    ///     - [`FilePicker::pick_file`]
-    ///     - [`FilePicker::pick_dir`]
-    ///     - [`FilePicker::save_file`]
+    ///     - [`Picker::resolve_public_storage_initial_location`]
+    ///     - [`Picker::resolve_initial_location`]
+    ///     - [`Picker::pick_files`]
+    ///     - [`Picker::pick_file`]
+    ///     - [`Picker::pick_dir`]
+    ///     - [`Picker::save_file`]
     /// 
     /// - ***local_only*** :
     /// Indicates whether only entry located on the local device should be selectable, without requiring it to be downloaded from a remote service when opened.
@@ -367,9 +478,9 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     #[maybe_async]
     pub fn pick_dir(
         &self,
-        initial_location: Option<&FileUri>,
+        initial_location: Option<&FsUri>,
         local_only: bool
-    ) -> Result<Option<FileUri>> {
+    ) -> Result<Option<FsUri>> {
 
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
@@ -385,7 +496,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// If the user cancels, `None` is returned. 
     /// 
     /// By default, returned URI is valid until the app or device is terminated. 
-    /// If you want to persist it across app or device restarts, use [`FilePicker::persist_uri_permission`].
+    /// If you want to persist it across app or device restarts, use [`Picker::persist_uri_permission`].
     /// 
     /// This provides a standardized file explorer-style interface, 
     /// and also allows file selection from part of third-party apps or cloud storage.
@@ -402,12 +513,12 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// if it's a directory, or the directory that contains the specified file if not.  
     /// If this is missing or failed to resolve the desired initial location, the initial location is system specific.   
     /// This must be a URI taken from following or it's derivative :   
-    ///     - [`PublicStorage::resolve_initial_location`]
-    ///     - [`AndroidFs::resolve_root_initial_location`]
-    ///     - [`FilePicker::pick_files`]
-    ///     - [`FilePicker::pick_file`]
-    ///     - [`FilePicker::pick_dir`]
-    ///     - [`FilePicker::save_file`]
+    ///     - [`Picker::resolve_public_storage_initial_location`]
+    ///     - [`Picker::resolve_initial_location`]
+    ///     - [`Picker::pick_files`]
+    ///     - [`Picker::pick_file`]
+    ///     - [`Picker::pick_dir`]
+    ///     - [`Picker::save_file`]
     /// 
     /// - ***initial_file_name*** :  
     /// An initial file name.  
@@ -432,11 +543,11 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     #[maybe_async]
     pub fn save_file(
         &self,
-        initial_location: Option<&FileUri>,
+        initial_location: Option<&FsUri>,
         initial_file_name: impl AsRef<str>,
         mime_type: Option<&str>,
         local_only: bool
-    ) -> Result<Option<FileUri>> {
+    ) -> Result<Option<FsUri>> {
         
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
@@ -446,7 +557,82 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
         }
     }
 
-    /// Verify whether [`FilePicker::pick_visual_medias`] is available on a given device.
+    /// Builds the specified directory URI.  
+    /// 
+    /// This should only be used as `initial_location` in the file picker, such as [`Picker::pick_files`]. 
+    /// It must not be used for any other purpose.  
+    /// 
+    /// This is useful when selecting save location, 
+    /// but when selecting existing entries, `initial_location` is often better with None.
+    /// 
+    /// # Args  
+    /// - ***volume_id*** :  
+    /// ID of the storage volume, such as internal storage, SD card, etc.  
+    /// If `None` is provided, [`the primary storage volume`](PublicStorage::get_primary_volume) will be used.  
+    /// 
+    /// - ***base_dir*** :  
+    /// The base directory.  
+    ///  
+    /// - ***relative_path*** :  
+    /// The directory path relative to the base directory.  
+    /// 
+    /// - ***create_dir_all*** :  
+    /// Creates directories if missing.  
+    /// See [`PublicStorage::create_dir_all`].
+    /// If error occurs, it will be ignored.
+    ///  
+    /// # Support
+    /// All Android versions supported by Tauri.
+    ///
+    /// Note :  
+    /// - [`PublicAudioDir::Audiobooks`] is not available on Android 9 (API level 28) and lower.
+    /// Availability on a given device can be verified by calling [`PublicStorage::is_audiobooks_dir_available`].  
+    /// - [`PublicAudioDir::Recordings`] is not available on Android 11 (API level 30) and lower.
+    /// Availability on a given device can be verified by calling [`PublicStorage::is_recordings_dir_available`].  
+    /// - Others dirs are available in all Android versions.
+    #[maybe_async]
+    pub fn resolve_public_storage_initial_location(
+        &self,
+        volume_id: Option<&StorageVolumeId>,
+        base_dir: impl Into<PublicDir>,
+        relative_path: impl AsRef<std::path::Path>,
+        create_dir_all: bool
+    ) -> Result<FsUri> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().resolve_initial_location_in_public_storage(volume_id, base_dir, relative_path, create_dir_all).await
+        }
+    }
+
+    /// Builds the storage volume root URI.  
+    /// 
+    /// This should only be used as `initial_location` in the file picker, such as [`Picker::pick_files`]. 
+    /// It must not be used for any other purpose.  
+    /// 
+    /// This is useful when selecting save location, 
+    /// but when selecting existing entries, `initial_location` is often better with None.
+    /// 
+    /// # Args  
+    /// - ***volume_id*** :  
+    /// ID of the storage volume, such as internal storage, SD card, etc.  
+    /// If `None` is provided, [`the primary storage volume`](AndroidFs::get_primary_volume) will be used.  
+    /// 
+    /// # Support
+    /// All Android versions supported by Tauri.
+    #[maybe_async]
+    pub fn resolve_initial_location(&self, volume_id: Option<&StorageVolumeId>) -> Result<FsUri> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            self.impls().resolve_root_initial_location(volume_id).await
+        }
+    }
+
+    /// Verify whether [`Picker::pick_visual_medias`] is available on a given device.
     /// 
     /// # Support
     /// All Android versions supported by Tauri.
@@ -476,7 +662,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     #[maybe_async]
     pub fn check_uri_permission(
         &self, 
-        uri: &FileUri, 
+        uri: &FsUri, 
         permission: UriPermission
     ) -> Result<bool> {
         
@@ -494,21 +680,21 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// This works by just calling, without displaying any confirmation to the user.
     /// 
     /// Note that [there is a limit to the total number of URI that can be made persistent by this function.](https://stackoverflow.com/questions/71099575/should-i-release-persistableuripermission-when-a-new-storage-location-is-chosen/71100621#71100621)  
-    /// Therefore, it is recommended to relinquish the unnecessary persisted URI by [`FilePicker::release_persisted_uri_permission`] or [`FilePicker::release_all_persisted_uri_permissions`].  
+    /// Therefore, it is recommended to relinquish the unnecessary persisted URI by [`Picker::release_persisted_uri_permission`] or [`Picker::release_all_persisted_uri_permissions`].  
     /// Persisted permissions may be relinquished by other apps, user, or by moving/removing entries.
-    /// So check by [`FilePicker::check_persisted_uri_permission`].  
-    /// And you can retrieve the list of persisted uris using [`FilePicker::get_all_persisted_uri_permissions`].
+    /// So check by [`Picker::check_persisted_uri_permission`].  
+    /// And you can retrieve the list of persisted uris using [`Picker::get_all_persisted_uri_permissions`].
     /// 
     /// # Args
     /// - **uri** :  
     /// URI of the target file or directory.   
     /// This must be a URI taken from following :  
-    ///     - [`FilePicker::pick_files`]  
-    ///     - [`FilePicker::pick_file`]  
-    ///     - [`FilePicker::pick_visual_medias`]  
-    ///     - [`FilePicker::pick_visual_media`]  
-    ///     - [`FilePicker::pick_dir`]  
-    ///     - [`FilePicker::save_file`]  
+    ///     - [`Picker::pick_files`]  
+    ///     - [`Picker::pick_file`]  
+    ///     - [`Picker::pick_visual_medias`]  
+    ///     - [`Picker::pick_visual_media`]  
+    ///     - [`Picker::pick_dir`]  
+    ///     - [`Picker::save_file`]  
     ///     - [`AndroidFs::resolve_file_uri`], [`AndroidFs::resolve_dir_uri`], [`AndroidFs::read_dir`], [`AndroidFs::create_new_file`], [`AndroidFs::create_dir_all`] :  
     ///     If use URI from thoese fucntions, the permissions of the origin directory URI is persisted, not an entry iteself by this function. 
     ///     Because the permissions and validity period of the descendant entry URIs depend on the origin directory.   
@@ -516,7 +702,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// # Support
     /// All Android versions supported by Tauri. 
     #[maybe_async]
-    pub fn persist_uri_permission(&self, uri: &FileUri) -> Result<()> {
+    pub fn persist_uri_permission(&self, uri: &FsUri) -> Result<()> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -525,19 +711,19 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
         }
     }
 
-    /// Check a persisted URI permission grant by [`FilePicker::persist_uri_permission`].  
+    /// Check a persisted URI permission grant by [`Picker::persist_uri_permission`].  
     /// Returns false if there are only non-persistent permissions or no permissions.
     /// 
     /// # Args
     /// - **uri** :  
     /// URI of the target file or directory.  
     /// This must be a URI taken from following :  
-    ///     - [`FilePicker::pick_files`]  
-    ///     - [`FilePicker::pick_file`]  
-    ///     - [`FilePicker::pick_visual_medias`]  
-    ///     - [`FilePicker::pick_visual_media`]  
-    ///     - [`FilePicker::pick_dir`]  
-    ///     - [`FilePicker::save_file`]  
+    ///     - [`Picker::pick_files`]  
+    ///     - [`Picker::pick_file`]  
+    ///     - [`Picker::pick_visual_medias`]  
+    ///     - [`Picker::pick_visual_media`]  
+    ///     - [`Picker::pick_dir`]  
+    ///     - [`Picker::save_file`]  
     ///     - [`AndroidFs::resolve_file_uri`], [`AndroidFs::resolve_dir_uri`], [`AndroidFs::read_dir`], [`AndroidFs::create_new_file`], [`AndroidFs::create_dir_all`] :  
     ///     If use URI from those functions, the permissions of the origin directory URI is checked, not an entry iteself by this function. 
     ///     Because the permissions and validity period of the descendant entry URIs depend on the origin directory.   
@@ -550,7 +736,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     #[maybe_async]
     pub fn check_persisted_uri_permission(
         &self, 
-        uri: &FileUri, 
+        uri: &FsUri, 
         permission: UriPermission
     ) -> Result<bool> {
 
@@ -562,7 +748,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
         }
     }
 
-    /// Return list of all persisted URIs that have been persisted by [`FilePicker::persist_uri_permission`] and currently valid.   
+    /// Return list of all persisted URIs that have been persisted by [`Picker::persist_uri_permission`] and currently valid.   
     /// 
     /// # Support
     /// All Android versions supported by Tauri.
@@ -578,7 +764,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
         }
     }
 
-    /// Relinquish a persisted URI permission grant by [`FilePicker::persist_uri_permission`].   
+    /// Relinquish a persisted URI permission grant by [`Picker::persist_uri_permission`].   
     /// Non-persistent permissions are not released.  
     /// 
     /// Returns true if a persisted permission exists for the specified URI and was successfully released; 
@@ -591,7 +777,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
     /// # Support
     /// All Android versions supported by Tauri.
     #[maybe_async]
-    pub fn release_persisted_uri_permission(&self, uri: &FileUri) -> Result<bool> {
+    pub fn release_persisted_uri_permission(&self, uri: &FsUri) -> Result<bool> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -600,7 +786,7 @@ impl<'a, R: tauri::Runtime> FilePicker<'a, R> {
         }
     }
 
-    /// Relinquish a all persisted uri permission grants by [`FilePicker::persist_uri_permission`].   
+    /// Relinquish a all persisted uri permission grants by [`Picker::persist_uri_permission`].   
     /// Non-persistent permissions are not released.   
     /// 
     /// # Support
