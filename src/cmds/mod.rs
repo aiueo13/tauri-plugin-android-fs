@@ -1567,6 +1567,23 @@ pub async fn show_view_dir_dialog<R: tauri::Runtime>(
 }
 
 #[tauri::command]
+pub async fn show_edit_file_dialog<R: tauri::Runtime>(
+    uri: AfsUriOrFsPath,
+    app: tauri::AppHandle<R>,
+) -> Result<()> {
+    
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        let uri = uri.try_into_content_uri()?;
+        let api = app.android_fs_async();
+        api.opener().edit_file(&uri).await?;
+        Ok(())
+    }
+}
+
+#[tauri::command]
 pub async fn show_open_file_picker<R: tauri::Runtime>(
     picker_type: Option<FilePickerType>,
     multiple: bool,

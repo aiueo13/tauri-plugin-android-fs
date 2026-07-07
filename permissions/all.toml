@@ -56,5 +56,6 @@ commands.allow = [
     "show_save_file_picker",
     "show_share_file_dialog",
     "show_view_file_dialog",
-    "show_view_dir_dialog"
+    "show_view_dir_dialog",
+    "show_edit_file_dialog"
 ]

@@ -1214,6 +1214,32 @@ Denies the set_public_file_pending command without any pre-configured scope.
 <tr>
 <td>
 
+`android-fs:allow-show-edit-file-dialog`
+
+</td>
+<td>
+
+Enables the show_edit_file_dialog command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-show-edit-file-dialog`
+
+</td>
+<td>
+
+Denies the show_edit_file_dialog command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `android-fs:allow-show-open-dir-picker`
 
 </td>

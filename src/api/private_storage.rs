@@ -7,9 +7,9 @@ use super::*;
 /// 
 /// # Examples
 /// ```no_run
-/// async fn example(app: &tauri::AppHandle) {
-///     use tauri_plugin_android_fs::AndroidFsExt as _;
+/// use tauri_plugin_android_fs::{AndroidFsExt, PrivateDir};
 /// 
+/// async fn example(app: &tauri::AppHandle) {
 ///     let api = app.android_fs_async();
 ///     let ps = api.private_storage();
 /// 
@@ -56,6 +56,33 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
 )]
 impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
 
+    /// Returns the absolute path of an app-specific directory on the internal storage.
+    ///
+    /// Files and directories in this location can be managed directly using [`std::fs`].
+    ///
+    /// This function only constructs the path and does **not** create the directory.
+    ///
+    /// Since these locations may also contain files created by other Tauri
+    /// plugins or by the WebView runtime, it is recommended to create a uniquely
+    /// named subdirectory for your application.
+    ///
+    /// # Notes
+    /// Files in these locations are removed when the app is uninstalled.
+    /// 
+    /// When using [`PrivateDir::Cache`], the system may automatically delete files
+    /// when additional storage space is needed. 
+    /// Applications should not rely on this behavior and should clear cache files explicitly.
+    /// 
+    /// These directories are inaccessible to other apps under normal circumstances.
+    /// On rooted devices or when the user has elevated privileges,
+    /// their contents may still be accessible.
+    /// 
+    /// The returned path may change if the app is moved to adopted storage.
+    /// Persist only relative paths if the path needs to be stored.
+    /// 
+    /// Each Android user has a separate app-specific directory.
+    /// 
+    /// 
     /// Get an absolute path of the app-specific directory on the internal storage.  
     /// App can fully manage entries within this directory via [`std::fs`] and etc.   
     /// 

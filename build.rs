@@ -55,6 +55,7 @@ const COMMANDS: &'static [&'static str] = &[
     "show_share_file_dialog",
     "show_view_file_dialog",
     "show_view_dir_dialog",
+    "show_edit_file_dialog",
 ];
 
 fn main() {

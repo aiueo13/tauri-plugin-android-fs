@@ -7,11 +7,11 @@ use super::*;
 /// 
 /// # Examples
 /// ```no_run
-/// fn example(app: &tauri::AppHandle) {
-///     use tauri_plugin_android_fs::AndroidFsExt as _;
+/// use tauri_plugin_android_fs::AndroidFsExt;
 /// 
-///     let api = app.android_fs();
-///     let file_sender = api.file_sender();
+/// async fn example(app: &tauri::AppHandle) {
+///     let api = app.android_fs_async();
+///     let opener = api.opener();
 /// }
 /// ```
 #[sync_async]

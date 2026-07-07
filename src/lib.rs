@@ -119,6 +119,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R, Option<config:
             cmds::show_share_file_dialog,
             cmds::show_view_file_dialog,
             cmds::show_view_dir_dialog,
+            cmds::show_edit_file_dialog,
         ]);
 
     #[cfg(all(target_os = "android", feature = "protocol_thumbnail"))]

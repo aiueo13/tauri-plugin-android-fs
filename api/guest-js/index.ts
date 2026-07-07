@@ -38,14 +38,9 @@ let cachedApiLevel: Promise<number> | null = null
  * async function isAndroid10orHigher(): Promise<boolean> {
  * 	return AndroidApiLevel.ANDROID_10 <= await getAndroidApiLevel()
  * }
- * 
  * ```
  *
- * @returns Promise that resolves to the Android API level. This value is constant during the application lifecycle and is cached on the JavaScript side.
- * 
- * @throws 
- * The returned Promise rejects with an error in the following cases:
- * - When the current runtime environment is not Android.
+ * @returns Promise that resolves to the Android API level. This value is constant during the application lifecycle.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_sync/struct.AndroidFs.html#method.api_level | AndroidFs::api_level }
  * @since 24.2.0
@@ -3218,8 +3213,8 @@ export class AndroidFs {
 	 * 
 	 * @returns Promise that resolves to an array of URIs representing the picked files, or an empty array if no files are selected. By default, the app has read access to the URIs, and this permission remains valid until the app or device is terminated. The app can gain persistent access to the files using `AndroidFs.persistPickerUriPermission`.
 	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FilePicker.html#method.pick_files | FilePicker::pick_files}
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FilePicker.html#method.pick_visual_medias | FilePicker::pick_visual_medias}
+	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.pick_files | Picker::pick_files}
+	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.pick_visual_medias | Picker::pick_visual_medias}
 	 * @since 22.0.0
 	 */
 	public static async showOpenFilePicker(
@@ -3251,7 +3246,7 @@ export class AndroidFs {
 	 * 
 	 * @returns Promise that resolves to a URI representing the picked directory (which may be newly created or already existing), or `null` if no directory is selected. By default, the app has read-write access to the URI, and this permission remains valid until the app or device is terminated. The app can gain persistent access to the directory using `AndroidFs.persistPickerUriPermission`. Permissions for derived entries, such as `AndroidFs.readDir` and `AndroidFs.createNewFile`, depend on the permissions granted to this picked directory.
 	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FilePicker.html#method.pick_dir | FilePicker::pick_dir}
+	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.pick_dir | Picker::pick_dir}
 	 * @since 22.0.0
 	 */
 	public static async showOpenDirPicker(
@@ -3276,7 +3271,7 @@ export class AndroidFs {
 	 * 
 	 * @returns Promise that resolves to a URI representing the picked file (which may be a newly created empty file or an existing file), or `null` if no file is selected. By default, the app has write access to the URI, and this permission remains valid until the app or device is terminated. The app can gain persistent access to the file using `AndroidFs.persistPickerUriPermission`.
 	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FilePicker.html#method.save_file | FilePicker::save_file}
+	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.save_file | Picker::save_file}
 	 * @since 22.0.0
 	 */
 	public static async showSaveFilePicker(
@@ -3313,7 +3308,7 @@ export class AndroidFs {
 	 * The returned Promise rejects with an error in the following cases:
 	 * - When the app does not have read permissions for the files.
 	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FileOpener.html#method.share_files | FileOpener::share_files}
+	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Opener.html#method.share_files | Opener::share_files}
 	 * @since 22.0.0
 	 */
 	public static async showShareFileDialog(
@@ -3341,7 +3336,7 @@ export class AndroidFs {
 	 * The returned Promise rejects with an error in the following cases:
 	 * - When the app does not have read permissions for the file.
 	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FileOpener.html#method.open_file | FileOpener::open_file}
+	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Opener.html#method.open_file | Opener::open_file}
 	 * @since 22.0.0
 	 */
 	public static async showViewFileDialog(uri: AndroidFsUri): Promise<void> {
@@ -3363,11 +3358,39 @@ export class AndroidFs {
 	 * The returned Promise rejects with an error in the following cases:
 	 * - When the app does not have read permissions for the directory.
 	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FileOpener.html#method.open_dir | FileOpener::open_dir}
+	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Opener.html#method.open_dir | Opener::open_dir}
 	 * @since 22.0.0
 	 */
 	public static async showViewDirDialog(uri: AndroidFsUri): Promise<void> {
 		return await invoke("plugin:android-fs|show_view_dir_dialog", { uri })
+	}
+
+	/**
+	 * Shows the app chooser for editing a file with other applications.
+	 * 
+	 * @remarks 
+	 * Available applications depend on the MIME types associated with the file.   
+	 * This does not result in an error even if no compatible applications are found; 
+	 * instead, an empty app chooser is displayed.
+	 * 
+	 * OPINION:
+	 * I think this is probably the least commonly used request for sending a file to an app.
+	 * Even if you want to open an image or video editing app,
+	 * `AndroidFs.showViewFileDialog` often lets you choose from a wider range of apps.
+	 *
+	 * @param uri - URI of the target file.
+	 * 
+	 * @returns Promise that resolves after the app chooser is launched.
+	 * 
+	 * @throws 
+	 * The returned Promise rejects with an error in the following cases:
+	 * - When the app does not have read/write permissions for the file.
+	 * 
+	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Opener.html#method.edit_file | Opener::edit_file}
+	 * @since 28.4.0
+	 */
+	public static async showEditFileDialog(uri: AndroidFsUri): Promise<void> {
+		return await invoke("plugin:android-fs|show_edit_file_dialog", { uri })
 	}
 
 	/**
@@ -3378,7 +3401,7 @@ export class AndroidFs {
 	 * 
 	 * @returns Promise that resolves to a boolean indicating whether the specified permission is granted.
 	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FilePicker.html#method.check_uri_permission | FilePicker::check_uri_permission}
+	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.check_uri_permission | Picker::check_uri_permission}
 	 * @since 24.1.0
 	 */
 	public static async checkPickerUriPermission(
@@ -3418,7 +3441,7 @@ export class AndroidFs {
 	 * - When a provider of the entry via File/Directory Picker does not support the persist-permissions operation.
 	 * - When an unexpected error occurs.
 	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FilePicker.html#method.persist_picker_uri_permission | FilePicker::persist_picker_uri_permission}
+	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.persist_picker_uri_permission | Picker::persist_picker_uri_permission}
 	 * @see {@link https://stackoverflow.com/questions/71099575/should-i-release-persistableuripermission-when-a-new-storage-location-is-chosen/71100621#71100621 | Android Persistable URI Permission Limit Discussion}
 	 * @since 24.1.0
 	 */
@@ -3434,7 +3457,7 @@ export class AndroidFs {
 	 * 
 	 * @returns Promise that resolves to a boolean; `false` if only non-persistent permissions exist or if there are no permissions.
 	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FilePicker.html#method.check_persisted_picker_uri_permission | FilePicker::check_persisted_picker_uri_permission}
+	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.check_persisted_picker_uri_permission | Picker::check_persisted_picker_uri_permission}
 	 * @since 24.1.0
 	 */
 	public static async checkPersistedPickerUriPermission(
@@ -3450,7 +3473,7 @@ export class AndroidFs {
 	 * @param uri - URI of the target file or directory.
 	 * @returns Promise that resolves to a boolean; `true` if a persisted permission exists for the specified URI and was successfully released, or `false` if no persisted permission existed.
 	 *
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FilePicker.html#method.release_persisted_picker_uri_permission | FilePicker::release_persisted_picker_uri_permission}
+	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.release_persisted_picker_uri_permission | Picker::release_persisted_picker_uri_permission}
 	 * @since 24.1.0
 	 */
 	public static async releasePersistedPickerUriPermission(uri: AndroidFsUri): Promise<boolean> {
@@ -3462,7 +3485,7 @@ export class AndroidFs {
 	 * 
 	 * @returns Promise that resolves when the operation is complete.
 	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.FilePicker.html#method.release_all_persisted_picker_uri_permissions | FilePicker::release_all_persisted_picker_uri_permissions}
+	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.release_all_persisted_picker_uri_permissions | Picker::release_all_persisted_picker_uri_permissions}
 	 * @since 24.1.0
 	 */
 	public static async releaseAllPersistedPickerUriPermissions(): Promise<void> {

@@ -11,7 +11,7 @@ First, install the plugin to your Tauri project:
 ```toml
 [dependencies]
 tauri-plugin-android-fs = {
-  version = "=28.3.0",
+  version = "=28.4.0",
   features = [
     # To access public files on older Android versions
     "legacy_storage_permission",
@@ -49,11 +49,11 @@ Then, configure the APIs that can be called from the frontend JavaScript binding
 Finally, install the frontend JavaScript bindings:
 
 ```bash
-pnpm add tauri-plugin-android-fs-api@28.3.0 -E
+pnpm add tauri-plugin-android-fs-api@28.4.0 -E
 # or
-npm install tauri-plugin-android-fs-api@28.3.0 --save-exact
+npm install tauri-plugin-android-fs-api@28.4.0 --save-exact
 # or
-yarn add tauri-plugin-android-fs-api@28.3.0 --exact
+yarn add tauri-plugin-android-fs-api@28.4.0 --exact
 ```
 
 **NOTE**: Please ensure that the backend package, `tauri-plugin-android-fs` (crates io), and the frontend package, `tauri-plugin-android-fs-api` (npm), have exactly matching versions.
@@ -92,8 +92,6 @@ You can set a global scope for the plugin, or assign specific scopes to individu
 import { 
   AndroidFs, 
   AndroidPublicGeneralPurposeDir, 
-  AndroidProgressNotificationIconType,
-  type AndroidProgressNotificationTemplate 
 } from 'tauri-plugin-android-fs-api';
 
 /** 
@@ -115,22 +113,13 @@ async function download(
       { isPending: true }
     );
 
-    // Configures a system status bar notification (optional)
-    const notification: AndroidProgressNotificationTemplate | undefined = {
-      icon: AndroidProgressNotificationIconType.Download,
-      title: "{{fileName}}",
-      textProgress: "Downloading...",
-      textCompletion: "Download complete",
-      subText: "{{progress}}"
-    };
-
     // Writes data to the file
     if (data instanceof ReadableStream) {
-      const writer = await AndroidFs.openWriteFileStream(uri, { notification });
+      const writer = await AndroidFs.openWriteFileStream(uri);
       await data.pipeTo(writer);
     }
     else {
-      await AndroidFs.writeFile(uri, data, { notification });
+      await AndroidFs.writeFile(uri, data);
     }
 
     // Makes the file visible in other apps and gallery
@@ -225,6 +214,7 @@ This plugin provides following APIs:
 ### 7. APIs to send entries to other apps
 - `AndroidFs.showViewFileDialog`
 - `AndroidFs.showViewDirDialog`
+- `AndroidFs.showEditFileDialog`
 - `AndroidFs.showShareFileDialog`
 
 ### 8. APIs to manage permissions

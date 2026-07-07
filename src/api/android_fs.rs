@@ -7,9 +7,9 @@ use super::*;
 /// 
 /// # Examples
 /// ```no_run
-/// fn example(app: &tauri::AppHandle) {
-///     use tauri_plugin_android_fs::AndroidFsExt as _;
+/// use tauri_plugin_android_fs::AndroidFsExt;
 /// 
+/// async fn example(app: &tauri::AppHandle) {
 ///     let api = app.android_fs();
 ///     let api_async = app.android_fs_async();
 /// }
