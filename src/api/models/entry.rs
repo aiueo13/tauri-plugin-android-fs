@@ -1,6 +1,16 @@
 use serde::{Deserialize, Serialize};
 use crate::*;
 
+/// Entry type
+/// 
+/// # Serialization
+/// Serialized by `serde` as the following TypeScript type:
+///
+/// ```ts
+/// type EntryType =
+///   | { type: "File", mimeType: string }
+///   | { type: "Dir" };
+/// ```
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(tag = "type")]
 pub enum EntryType {
@@ -54,8 +64,7 @@ impl EntryType {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum Entry {
 
     #[non_exhaustive]
@@ -137,8 +146,7 @@ impl Entry {
     }
  }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum OptionalEntry {
 
     #[non_exhaustive]
@@ -281,6 +289,21 @@ impl OptionalEntry {
     }
  }
 
+/// Entry options
+/// 
+/// # Serialization
+/// Serialized by `serde` as the following TypeScript type:
+///
+/// ```ts
+/// // NOTE: New properties may be added in the future
+/// type EntryOptions = {
+///     uri: boolean,
+///     name: boolean,
+///     lastModified: boolean,
+///     len: boolean,
+///     mimeType: boolean,
+/// };
+/// ```
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EntryOptions {

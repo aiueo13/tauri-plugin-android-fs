@@ -1,13 +1,23 @@
 use serde::{Deserialize, Serialize};
 
-
+/// Image size
+/// 
+/// # Serialization
+/// Serialized by `serde` as the following TypeScript type:
+///
+/// ```ts
+/// type Size = {
+///     width: number,
+///     height: number,
+/// };
+/// ```
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Size {
     pub width: u32,
     pub height: u32
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[non_exhaustive]
 pub enum ImageFormat {
 

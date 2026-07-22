@@ -47,7 +47,7 @@ pub async fn get_name<R: tauri::Runtime>(
 }
 
 #[tauri::command]
-pub async fn get_byte_length<R: tauri::Runtime>(
+pub async fn get_file_byte_length<R: tauri::Runtime>(
     uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>,
     cmd_scope: tauri::ipc::CommandScope<AfsScope>,
@@ -69,7 +69,7 @@ pub async fn get_byte_length<R: tauri::Runtime>(
 }
 
 #[tauri::command]
-pub async fn get_mime_type<R: tauri::Runtime>(
+pub async fn get_file_mime_type<R: tauri::Runtime>(
     uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>,
     cmd_scope: tauri::ipc::CommandScope<AfsScope>,
@@ -168,20 +168,7 @@ pub async fn get_metadata<R: tauri::Runtime>(
 }
 
 #[tauri::command]
-pub fn get_fs_path(uri: AfsUriOrFsPath) -> Result<tauri_plugin_fs::FilePath> {
-    #[cfg(not(target_os = "android"))] {
-        Err(Error::NOT_ANDROID)
-    }
-    #[cfg(target_os = "android")] {
-        Ok(match uri {
-            AfsUriOrFsPath::AfsUri(uri) => uri.into(),
-            AfsUriOrFsPath::FsPath(path) => path,
-        })
-    }
-}
-
-#[tauri::command]
-pub async fn get_thumbnail<R: tauri::Runtime>(
+pub async fn get_file_thumbnail<R: tauri::Runtime>(
     uri: AfsUriOrFsPath,
     width: f64,
     height: f64,
@@ -213,21 +200,7 @@ pub async fn get_thumbnail<R: tauri::Runtime>(
 }
 
 #[tauri::command]
-pub async fn get_thumbnail_as_bytes<R: tauri::Runtime>(
-    uri: AfsUriOrFsPath,
-    width: f64,
-    height: f64,
-    format: String,
-    app: tauri::AppHandle<R>,
-    cmd_scope: tauri::ipc::CommandScope<AfsScope>,
-    global_scope: tauri::ipc::GlobalScope<AfsScope>,
-) -> Result<tauri::ipc::Response> {
-
-    get_thumbnail(uri, width, height, format, app, cmd_scope, global_scope).await
-}
-
-#[tauri::command]
-pub async fn get_thumbnail_as_base64<R: tauri::Runtime>(
+pub async fn get_file_thumbnail_as_base64<R: tauri::Runtime>(
     uri: AfsUriOrFsPath,
     width: f64,
     height: f64,
@@ -259,7 +232,7 @@ pub async fn get_thumbnail_as_base64<R: tauri::Runtime>(
 }
 
 #[tauri::command]
-pub async fn get_thumbnail_as_data_url<R: tauri::Runtime>(
+pub async fn get_file_thumbnail_as_data_url<R: tauri::Runtime>(
     uri: AfsUriOrFsPath,
     width: f64,
     height: f64,
@@ -1512,7 +1485,7 @@ pub async fn release_all_persisted_picker_uri_permissions<R: tauri::Runtime>(
 }
 
 #[tauri::command]
-pub async fn show_share_file_dialog<R: tauri::Runtime>(
+pub async fn show_share_file_app_chooser<R: tauri::Runtime>(
     uris: Vec<AfsUriOrFsPath>,
     app: tauri::AppHandle<R>,
 ) -> Result<()> {
@@ -1533,7 +1506,7 @@ pub async fn show_share_file_dialog<R: tauri::Runtime>(
 }
 
 #[tauri::command]
-pub async fn show_view_file_dialog<R: tauri::Runtime>(
+pub async fn show_view_file_app_chooser<R: tauri::Runtime>(
     uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>,
 ) -> Result<()> {
@@ -1550,7 +1523,7 @@ pub async fn show_view_file_dialog<R: tauri::Runtime>(
 }
 
 #[tauri::command]
-pub async fn show_view_dir_dialog<R: tauri::Runtime>(
+pub async fn show_view_dir_app_chooser<R: tauri::Runtime>(
     uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>,
 ) -> Result<()> {
@@ -1567,7 +1540,7 @@ pub async fn show_view_dir_dialog<R: tauri::Runtime>(
 }
 
 #[tauri::command]
-pub async fn show_edit_file_dialog<R: tauri::Runtime>(
+pub async fn show_edit_file_app_chooser<R: tauri::Runtime>(
     uri: AfsUriOrFsPath,
     app: tauri::AppHandle<R>,
 ) -> Result<()> {

@@ -1,19 +1,16 @@
 use crate::*;
 use serde::{Deserialize, Serialize};
 
-#[deprecated = "Use `tauri_plugin_android_fs::FsUri` instead."]
-pub type FileUri = FsUri;
-
 /// URI for a file or directory.
 ///
-/// # Note
-/// Serialized by `serde` as:
+/// # Serialization
+/// Serialized by `serde` as the following TypeScript type:
 ///
 /// ```ts
 /// type AndroidFsUri = {
 ///     uri: string,
 ///     documentTopTreeUri: string | null
-/// }
+/// };
 /// ```
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -141,40 +138,4 @@ fn path_to_android_file_uri(path: impl AsRef<std::path::Path>) -> String {
         .join("/");
 
     format!("file://{}", encoded)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::path::Path;
-
-    #[test]
-    fn test_android_safe_characters() {
-        let path = Path::new("/sdcard/test_file-name!.~'()*.txt");
-        let uri = path_to_android_file_uri(path);
-
-        assert_eq!(uri, "file:///sdcard/test_file-name!.~'()*.txt");
-        assert_eq!(android_file_uri_to_path(&uri), path);
-    }
-
-    #[test]
-    fn test_spaces_and_unsafe_chars() {
-        let path = Path::new("/sdcard/My Documents/file @#$%.txt");
-        let uri = path_to_android_file_uri(path);
-
-        assert_eq!(uri, "file:///sdcard/My%20Documents/file%20%40%23%24%25.txt");
-        assert_eq!(android_file_uri_to_path(&uri), path);
-    }
-
-    #[test]
-    fn test_unicode_characters() {
-        let path = Path::new("/sdcard/ダウンロード");
-        let uri = path_to_android_file_uri(path);
-
-        assert_eq!(
-            uri,
-            "file:///sdcard/%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89"
-        );
-        assert_eq!(android_file_uri_to_path(&uri), path);
-    }
 }

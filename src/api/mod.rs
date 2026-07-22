@@ -22,12 +22,6 @@ pub mod api_async {
     pub use crate::api::public_storage::AsyncPublicStorage as PublicStorage;
     pub use crate::api::utils::AsyncUtils as Utils;
     pub use crate::api::progress_notification_guard::AsyncProgressNotificationGuard as ProgressNotificationGuard;
-
-    #[deprecated = "Use `Opener` instead."]
-    pub type FileOpener<'a, R> = crate::api::opener::AsyncOpener<'a, R>;
-
-    #[deprecated = "Use `Picker` instead."]
-    pub type FilePicker<'a, R> = crate::api::picker::AsyncPicker<'a, R>;
 }
 
 pub mod api_sync {
@@ -39,10 +33,4 @@ pub mod api_sync {
     pub use crate::api::public_storage::SyncPublicStorage as PublicStorage;
     pub use crate::api::utils::SyncUtils as Utils;
     pub use crate::api::progress_notification_guard::SyncProgressNotificationGuard as ProgressNotificationGuard;
-
-    #[deprecated = "Use `Opener` instead."]
-    pub type FileOpener<'a, R> = crate::api::opener::SyncOpener<'a, R>;
-
-    #[deprecated = "Use `Picker` instead."]
-    pub type FilePicker<'a, R> = crate::api::picker::SyncPicker<'a, R>;
 }

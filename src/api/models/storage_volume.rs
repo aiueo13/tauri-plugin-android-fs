@@ -2,6 +2,26 @@ use serde::{Deserialize, Serialize};
 use crate::*;
 
 
+/// Storage volume metadata
+/// 
+/// # Serialization
+/// Serialized by `serde` as the following TypeScript type:
+///
+/// ```ts
+/// type StorageVolume = {
+///     description: string,
+///     isPrimary: boolean,
+///     isRemovable: boolean,
+///     isStable: boolean,
+///     isEmulated: boolean,
+///     isReadonly: boolean,
+///     isAvailableForAppStorage: boolean,
+///     isAvailableForPublicStorage: boolean,
+///     id: StorageVolumeId
+/// };
+/// 
+/// type StorageVolumeId = unknown;
+/// ```
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StorageVolume {

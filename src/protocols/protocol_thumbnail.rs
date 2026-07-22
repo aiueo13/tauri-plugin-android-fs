@@ -134,20 +134,20 @@ async fn create_response<R: tauri::Runtime>(
         .and_then(|s| s.parse().ok())
         .map(|n| f64::ceil(n))
         .and_then(|n| f64_to_u32_for_size(n))
-        .map(|n| u32::min(n, 1024));
+        .map(|n| u32::min(n, 2048));
         
     let height = query
         .get("h")
         .and_then(|s| s.parse().ok())
         .map(|n| f64::ceil(n))
         .and_then(|n| f64_to_u32_for_size(n))
-        .map(|n| u32::min(n, 1024));
+        .map(|n| u32::min(n, 2048));
 
     let (width, height) = match (width, height) {
         (Some(width), Some(height)) => (width, height),
         (Some(width), None) => (width, width),
         (None, Some(height)) => (height, height),
-        (None, None) => (256, 256)
+        (None, None) => (512, 512)
     };
 
     let format = query

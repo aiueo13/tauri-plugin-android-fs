@@ -408,25 +408,12 @@ Denies the get_android_api_level command without any pre-configured scope.
 <tr>
 <td>
 
-`android-fs:allow-get-byte-length`
+`android-fs:allow-get-file-byte-length`
 
 </td>
 <td>
 
-Enables the get_byte_length command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-fs:deny-get-byte-length`
-
-</td>
-<td>
-
-Denies the get_byte_length command without any pre-configured scope.
+Enables the get_file_byte_length command without any pre-configured scope.
 
 </td>
 </tr>
@@ -434,12 +421,12 @@ Denies the get_byte_length command without any pre-configured scope.
 <tr>
 <td>
 
-`android-fs:allow-get-fs-path`
+`android-fs:deny-get-file-byte-length`
 
 </td>
 <td>
 
-Enables the get_fs_path command without any pre-configured scope.
+Denies the get_file_byte_length command without any pre-configured scope.
 
 </td>
 </tr>
@@ -447,12 +434,103 @@ Enables the get_fs_path command without any pre-configured scope.
 <tr>
 <td>
 
-`android-fs:deny-get-fs-path`
+`android-fs:allow-get-file-mime-type`
 
 </td>
 <td>
 
-Denies the get_fs_path command without any pre-configured scope.
+Enables the get_file_mime_type command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-get-file-mime-type`
+
+</td>
+<td>
+
+Denies the get_file_mime_type command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-get-file-thumbnail`
+
+</td>
+<td>
+
+Enables the get_file_thumbnail command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-get-file-thumbnail`
+
+</td>
+<td>
+
+Denies the get_file_thumbnail command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-get-file-thumbnail-as-base64`
+
+</td>
+<td>
+
+Enables the get_file_thumbnail_as_base64 command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-get-file-thumbnail-as-base64`
+
+</td>
+<td>
+
+Denies the get_file_thumbnail_as_base64 command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-get-file-thumbnail-as-data-url`
+
+</td>
+<td>
+
+Enables the get_file_thumbnail_as_data_url command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-get-file-thumbnail-as-data-url`
+
+</td>
+<td>
+
+Denies the get_file_thumbnail_as_data_url command without any pre-configured scope.
 
 </td>
 </tr>
@@ -486,32 +564,6 @@ Denies the get_metadata command without any pre-configured scope.
 <tr>
 <td>
 
-`android-fs:allow-get-mime-type`
-
-</td>
-<td>
-
-Enables the get_mime_type command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-fs:deny-get-mime-type`
-
-</td>
-<td>
-
-Denies the get_mime_type command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
 `android-fs:allow-get-name`
 
 </td>
@@ -538,110 +590,6 @@ Denies the get_name command without any pre-configured scope.
 <tr>
 <td>
 
-`android-fs:allow-get-thumbnail`
-
-</td>
-<td>
-
-Enables the get_thumbnail command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-fs:deny-get-thumbnail`
-
-</td>
-<td>
-
-Denies the get_thumbnail command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-fs:allow-get-thumbnail-as-base64`
-
-</td>
-<td>
-
-Enables the get_thumbnail_as_base64 command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-fs:deny-get-thumbnail-as-base64`
-
-</td>
-<td>
-
-Denies the get_thumbnail_as_base64 command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-fs:allow-get-thumbnail-as-bytes`
-
-</td>
-<td>
-
-Enables the get_thumbnail_as_bytes command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-fs:deny-get-thumbnail-as-bytes`
-
-</td>
-<td>
-
-Denies the get_thumbnail_as_bytes command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-fs:allow-get-thumbnail-as-data-url`
-
-</td>
-<td>
-
-Enables the get_thumbnail_as_data_url command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-fs:deny-get-thumbnail-as-data-url`
-
-</td>
-<td>
-
-Denies the get_thumbnail_as_data_url command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
 `android-fs:allow-get-type`
 
 </td>
@@ -661,32 +609,6 @@ Enables the get_type command without any pre-configured scope.
 <td>
 
 Denies the get_type command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-fs:allow-has-public-files-permission`
-
-</td>
-<td>
-
-Enables the has_public_files_permission command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-fs:deny-has-public-files-permission`
-
-</td>
-<td>
-
-Denies the has_public_files_permission command without any pre-configured scope.
 
 </td>
 </tr>
@@ -1214,12 +1136,12 @@ Denies the set_public_file_pending command without any pre-configured scope.
 <tr>
 <td>
 
-`android-fs:allow-show-edit-file-dialog`
+`android-fs:allow-show-edit-file-app-chooser`
 
 </td>
 <td>
 
-Enables the show_edit_file_dialog command without any pre-configured scope.
+Enables the show_edit_file_app_chooser command without any pre-configured scope.
 
 </td>
 </tr>
@@ -1227,12 +1149,12 @@ Enables the show_edit_file_dialog command without any pre-configured scope.
 <tr>
 <td>
 
-`android-fs:deny-show-edit-file-dialog`
+`android-fs:deny-show-edit-file-app-chooser`
 
 </td>
 <td>
 
-Denies the show_edit_file_dialog command without any pre-configured scope.
+Denies the show_edit_file_app_chooser command without any pre-configured scope.
 
 </td>
 </tr>
@@ -1318,25 +1240,12 @@ Denies the show_save_file_picker command without any pre-configured scope.
 <tr>
 <td>
 
-`android-fs:allow-show-share-file-dialog`
+`android-fs:allow-show-share-file-app-chooser`
 
 </td>
 <td>
 
-Enables the show_share_file_dialog command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-fs:deny-show-share-file-dialog`
-
-</td>
-<td>
-
-Denies the show_share_file_dialog command without any pre-configured scope.
+Enables the show_share_file_app_chooser command without any pre-configured scope.
 
 </td>
 </tr>
@@ -1344,25 +1253,12 @@ Denies the show_share_file_dialog command without any pre-configured scope.
 <tr>
 <td>
 
-`android-fs:allow-show-view-dir-dialog`
+`android-fs:deny-show-share-file-app-chooser`
 
 </td>
 <td>
 
-Enables the show_view_dir_dialog command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-fs:deny-show-view-dir-dialog`
-
-</td>
-<td>
-
-Denies the show_view_dir_dialog command without any pre-configured scope.
+Denies the show_share_file_app_chooser command without any pre-configured scope.
 
 </td>
 </tr>
@@ -1370,12 +1266,12 @@ Denies the show_view_dir_dialog command without any pre-configured scope.
 <tr>
 <td>
 
-`android-fs:allow-show-view-file-dialog`
+`android-fs:allow-show-view-dir-app-chooser`
 
 </td>
 <td>
 
-Enables the show_view_file_dialog command without any pre-configured scope.
+Enables the show_view_dir_app_chooser command without any pre-configured scope.
 
 </td>
 </tr>
@@ -1383,12 +1279,38 @@ Enables the show_view_file_dialog command without any pre-configured scope.
 <tr>
 <td>
 
-`android-fs:deny-show-view-file-dialog`
+`android-fs:deny-show-view-dir-app-chooser`
 
 </td>
 <td>
 
-Denies the show_view_file_dialog command without any pre-configured scope.
+Denies the show_view_dir_app_chooser command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-show-view-file-app-chooser`
+
+</td>
+<td>
+
+Enables the show_view_file_app_chooser command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-show-view-file-app-chooser`
+
+</td>
+<td>
+
+Denies the show_view_file_app_chooser command without any pre-configured scope.
 
 </td>
 </tr>

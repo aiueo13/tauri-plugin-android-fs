@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-show-view-dir-app-chooser"
+description = "Enables the show_view_dir_app_chooser command without any pre-configured scope."
+commands.allow = ["show_view_dir_app_chooser"]
+
+[[permission]]
+identifier = "deny-show-view-dir-app-chooser"
+description = "Denies the show_view_dir_app_chooser command without any pre-configured scope."
+commands.deny = ["show_view_dir_app_chooser"]

@@ -60,11 +60,11 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     ///
     /// Files and directories in this location can be managed directly using [`std::fs`].
     ///
-    /// This function only constructs the path and does **not** create the directory.
+    /// This function does not guarantee directory creation. 
     ///
-    /// Since these locations may also contain files created by other Tauri
-    /// plugins or by the WebView runtime, it is recommended to create a uniquely
-    /// named subdirectory for your application.
+    /// Since these locations may also contain files created
+    /// by other Tauri plugins or by the WebView runtime, 
+    /// it is recommended to create a uniquely named subdirectory for your application.
     ///
     /// # Notes
     /// Files in these locations are removed when the app is uninstalled.
@@ -81,29 +81,6 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
     /// Persist only relative paths if the path needs to be stored.
     /// 
     /// Each Android user has a separate app-specific directory.
-    /// 
-    /// 
-    /// Get an absolute path of the app-specific directory on the internal storage.  
-    /// App can fully manage entries within this directory via [`std::fs`] and etc.   
-    /// 
-    /// This function does **not** create any directories; it only constructs the path.
-    /// 
-    /// Since these locations may contain files created by other Tauri plugins or webview systems, 
-    /// it is recommended to add a subdirectory with a unique name.
-    ///
-    /// These entries will be deleted when the app is uninstalled and may also be deleted at the user’s initialising request.  
-    /// 
-    /// When using [`PrivateDir::Cache`], the system will automatically delete entries as disk space is needed elsewhere on the device. 
-    /// But you should not rely on this. The cache should be explicitly cleared by yourself.
-    /// 
-    /// The system prevents other apps and user from accessing these locations. 
-    /// In cases where the device is rooted or the user has special permissions, the user may be able to access this.   
-    /// 
-    /// Since the returned paths can change when the app is moved to an [adopted storage](https://source.android.com/docs/core/storage/adoptable), 
-    /// only relative paths should be stored.
-    /// 
-    /// # Note
-    /// This provides a separate area for each user in a multi-user environment.
     /// 
     /// # Support
     /// All Android versions supported by Tauri.

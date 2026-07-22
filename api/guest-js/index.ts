@@ -1,7 +1,10 @@
-import { convertFileSrc, invoke } from '@tauri-apps/api/core'
+import { convertFileSrc as convertCustomProtocolSrc, invoke } from '@tauri-apps/api/core'
 import { createReadableStream, createWritableStream } from 'create-web-stream'
 
-/** @ignore */
+/**
+ * @ignore
+ * @internal
+ */
 declare global {
 	interface Window {
 		__TAURI_ANDROID_FS_PLUGIN_INTERNALS__?: {
@@ -23,7 +26,7 @@ export function isAndroid(): boolean {
 		return isAndroid
 	}
 
-	throw Error("tauri-plugin-android-fs may be not set up; see https://github.com/aiueo13/tauri-plugin-android-fs/blob/main/api/README.md")
+	throw new Error("tauri-plugin-android-fs may be not set up; see https://github.com/aiueo13/tauri-plugin-android-fs/blob/main/api/README.md")
 }
 
 let cachedApiLevel: Promise<number> | null = null
@@ -33,10 +36,10 @@ let cachedApiLevel: Promise<number> | null = null
  * 
  * @example
  * ```ts
- * import { getAndroidApiLevel, AndroidApiLevel } from 'tauri-plugin-android-fs-api';
+ * import * as AndroidFs from 'tauri-plugin-android-fs-api';
  * 
  * async function isAndroid10orHigher(): Promise<boolean> {
- * 	return AndroidApiLevel.ANDROID_10 <= await getAndroidApiLevel()
+ * 	return AndroidFs.AndroidApiLevel.ANDROID_10 <= await AndroidFs.getAndroidApiLevel()
  * }
  * ```
  *
@@ -79,33 +82,15 @@ export const AndroidApiLevel = Object.freeze({
 } as const);
 
 /**
- * URI or path for a file or directory.
- *
- * @remarks
- * A single entry may have multiple representations.
- * 
- * This value can be a `string` or a `URL` instance.
- * - `URL`: Values must be Android Content URIs.
- * - `string`: Values accept both file paths and Android Content URIs.
- *
- * This corresponds to the path type used by {@link https://v2.tauri.app/ja/plugin/file-system/ | @tauri-apps/plugin-fs }.
- */
-export type FsPath = string | URL;
-
-function mapFsPathForInput(uri: FsPath | AndroidFsUri): string | AndroidFsUri {
-	return uri instanceof URL ? uri.toString() : uri
-}
-
-/**
  * URI for a file or directory on Android.
  *
  * @remarks
  * A single entry may have multiple URI representations.
- * Additionally, this must refer to an existing entry unlike a file path.
+ * Additionally, unlike a file path, a URI must refer to an existing entry.
  * 
  * This corresponds to {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/struct.FsUri.html | tauri_plugin_android_fs::FsUri}.
  */
-export type AndroidFsUri = {
+export type FsUri = {
 
 	/**
 	 * @remarks
@@ -120,7 +105,27 @@ export type AndroidFsUri = {
 	documentTopTreeUri: string | null
 }
 
-export type AndroidEntryType =
+/**
+ * @since 29.0.0
+ */
+export function isFsUri(value: unknown): value is FsUri {
+	if (typeof value !== "object" || value === null) {
+		return false
+	}
+
+	const obj = value as Record<string, unknown>
+
+	return (
+		typeof obj.uri === "string" &&
+		(typeof obj.documentTopTreeUri === "string" || obj.documentTopTreeUri === null)
+	);
+}
+
+function mapFsPathForInput(uri: FsUri | string | URL): string | FsUri {
+	return uri instanceof URL ? uri.toString() : uri
+}
+
+export type EntryType =
 	| {
 		type: "Dir"
 	}
@@ -133,12 +138,29 @@ export type AndroidEntryType =
 		mimeType: string
 	}
 
-export type AndroidThumbnailFormat = "jpeg" | "png" | "webp"
+export const ThumbnailFormat = Object.freeze({
+	Jpeg: "jpeg",
+	Png: "png",
+	Webp: "webp",
+} as const)
 
-/**
- * Options of `AndroidFs.getThumbnail` and its related functions.
- */
-export type AndroidGetThumbnailOptions = {
+export type ThumbnailFormat = (typeof ThumbnailFormat)[keyof typeof ThumbnailFormat]
+
+export type GetThumbnailOptions = {
+
+	/**
+	 * Preferred thumbnail width in pixels.
+	 * 
+	 * @defaultValue `512` (or same as `height` if specified)
+	 */
+	width?: number,
+
+	/**
+	 * Preferred thumbnail height in pixels.
+	 * 
+	 * @defaultValue `512` (or same as `width` if specified)
+	 */
+	height?: number,
 
 	/**
 	 * Image format of a thumbnail.  
@@ -146,23 +168,24 @@ export type AndroidGetThumbnailOptions = {
 	 * @remarks
 	 * One of: `"jpeg"`, `"png"`, `"webp"`.
 	 * 
-	 * @defaultValue `"jpeg"`.  
+	 * @defaultValue `"webp"`.  
 	 */
-	format?: AndroidThumbnailFormat
+	format?: ThumbnailFormat
 }
 
-/**
- * Options of `AndroidFs.convertThumbnailSrc`.
- */
-export type AndroidConvertThumbnailSrcOptions = {
+export type ConvertThumbnailSrcOptions = {
 
 	/**
 	 * Preferred thumbnail width in pixels.
+	 * 
+	 * @defaultValue `512` (or same as `height` if specified)
 	 */
 	width?: number,
 
 	/**
 	 * Preferred thumbnail height in pixels.
+	 * 
+	 * @defaultValue `512` (or same as `width` if specified)
 	 */
 	height?: number,
 
@@ -172,15 +195,12 @@ export type AndroidConvertThumbnailSrcOptions = {
 	 * @remarks
 	 * One of: `"jpeg"`, `"png"`, `"webp"`. 
 	 * 
-	 * @defaultValue `"jpeg"`
+	 * @defaultValue `"webp"`
 	 */
-	format?: AndroidThumbnailFormat
+	format?: ThumbnailFormat
 }
 
-/**
- * Options of `AndroidFs.readDir`
- */
-export type AndroidReadDirOptions = {
+export type ReadDirOptions = {
 
 	/**
 	 * Number of entries to skip from the beginning.
@@ -198,15 +218,15 @@ export type AndroidReadDirOptions = {
 	limit?: number,
 }
 
-export type AndroidEntryMetadata = AndroidDirMetadata | AndroidFileMetadata
+export type EntryMetadata = DirMetadata | FileMetadata
 
-export type AndroidDirMetadata = {
+export type DirMetadata = {
 	type: "Dir",
 	name: string,
 	lastModified: Date,
 }
 
-export type AndroidFileMetadata = {
+export type FileMetadata = {
 	type: "File",
 	name: string,
 	lastModified: Date,
@@ -214,7 +234,7 @@ export type AndroidFileMetadata = {
 	mimeType: string,
 };
 
-type AndroidEntryMetadataInner =
+type EntryMetadataInner =
 	| {
 		type: "Dir",
 		name: string,
@@ -228,17 +248,27 @@ type AndroidEntryMetadataInner =
 		mimeType: string,
 	};
 
+function mutateEntryMetadata<T>(entry: EntryMetadataInner & T): EntryMetadata & T {
+	(entry as any).lastModified = new Date(entry.lastModified)
+	return entry as unknown as EntryMetadata & T
+}
+
+function mutateEntryMetadataArray<T>(entries: Array<EntryMetadataInner & T>): Array<EntryMetadata & T> {
+	for (let i = 0; i < entries.length; i++) {
+		(entries[i] as any).lastModified = new Date(entries[i].lastModified)
+	}
+
+	return entries as unknown as Array<EntryMetadata & T>
+}
+
 /**
  * Metadata and URI for a file or directory on Android.
  */
-export type AndroidEntryMetadataWithUri = AndroidEntryMetadata & { uri: AndroidFsUri }
+export type EntryMetadataWithUri = EntryMetadata & { uri: FsUri }
 
-type AndroidEntryMetadataWithUriInner = AndroidEntryMetadataInner & { uri: AndroidFsUri }
+type EntryMetadataWithUriInner = EntryMetadataInner & { uri: FsUri }
 
-/**
- * Options of `AndroidFs.readFileAsDataUrl`
- */
-export type AndroidReadFileAsDataUrlOptions = {
+export type ReadFileAsDataUrlOptions = {
 
 	/**
 	 * MIME type for the Data URL.
@@ -249,10 +279,7 @@ export type AndroidReadFileAsDataUrlOptions = {
 	mimeType?: string
 }
 
-/**
- * Options of `AndroidFs.readTextFile`
- */
-export type AndroidReadTextFileOptions = {
+export type ReadTextFileOptions = {
 
 	/**
 	 * Text encoding used to decode the data, such as `"utf-8"`, `"shift_jis"`, or `"iso-8859-2"`.
@@ -293,10 +320,7 @@ export type AndroidReadTextFileOptions = {
 	ignoreBOM?: boolean,
 }
 
-/**
- * Options of `AndroidFs.writeFile`
- */
-export type AndroidWriteFileOptions = {
+export type WriteFileOptions = {
 
 	/**
 	 * Indicates whether to create a new file if it does not exist.
@@ -333,18 +357,15 @@ export type AndroidWriteFileOptions = {
 	 * - Specified: A progress notification is displayed in the Android status bar during the operation.
 	 * 
 	 * Accepts a custom configuration object or one of the predefined presets: 
-	 * - `AndroidProgressNotificationTemplate.Default`
-	 * - `AndroidProgressNotificationTemplate.DefaultDownload`
-	 * - `AndroidProgressNotificationTemplate.DefaultUpload`
-	 * - `AndroidProgressNotificationTemplate.DefaultSave`
+	 * - `ProgressNotificationTemplate.Default`
+	 * - `ProgressNotificationTemplate.DefaultDownload`
+	 * - `ProgressNotificationTemplate.DefaultUpload`
+	 * - `ProgressNotificationTemplate.DefaultSave`
 	 */
-	notification?: AndroidProgressNotificationTemplate,
+	notification?: ProgressNotificationTemplate,
 }
 
-/**
- * Options of `AndroidFs.writeTextFile`
- */
-export type AndroidWriteTextFileOptions = {
+export type WriteTextFileOptions = {
 
 	/**
 	 * Indicates whether to create a new file if it does not exist.
@@ -381,18 +402,15 @@ export type AndroidWriteTextFileOptions = {
 	 * - Specified: A progress notification is displayed in the Android status bar during the operation.
 	 * 
 	 * Accepts a custom configuration object or one of the predefined presets: 
-	 * - `AndroidProgressNotificationTemplate.Default`
-	 * - `AndroidProgressNotificationTemplate.DefaultDownload`
-	 * - `AndroidProgressNotificationTemplate.DefaultUpload`
-	 * - `AndroidProgressNotificationTemplate.DefaultSave`
+	 * - `ProgressNotificationTemplate.Default`
+	 * - `ProgressNotificationTemplate.DefaultDownload`
+	 * - `ProgressNotificationTemplate.DefaultUpload`
+	 * - `ProgressNotificationTemplate.DefaultSave`
 	 */
-	notification?: AndroidProgressNotificationTemplate,
+	notification?: ProgressNotificationTemplate,
 }
 
-/**
- * Options of `AndroidFs.copyFile`
- */
-export type AndroidCopyFileOptions = {
+export type CopyFileOptions = {
 
 	/**
 	 * Indicates whether to create a new file if it does not exist.
@@ -414,18 +432,15 @@ export type AndroidCopyFileOptions = {
 	 * - Specified: A progress notification is displayed in the Android status bar during the operation.
 	 * 
 	 * Accepts a custom configuration object or one of the predefined presets: 
-	 * - `AndroidProgressNotificationTemplate.Default`
-	 * - `AndroidProgressNotificationTemplate.DefaultDownload`
-	 * - `AndroidProgressNotificationTemplate.DefaultUpload`
-	 * - `AndroidProgressNotificationTemplate.DefaultSave`
+	 * - `ProgressNotificationTemplate.Default`
+	 * - `ProgressNotificationTemplate.DefaultDownload`
+	 * - `ProgressNotificationTemplate.DefaultUpload`
+	 * - `ProgressNotificationTemplate.DefaultSave`
 	 */
-	notification?: AndroidProgressNotificationTemplate,
+	notification?: ProgressNotificationTemplate,
 }
 
-/**
- * Options of `AndroidFs.openWriteFileStream`
- */
-export type AndroidOpenWriteFileStreamOptions = {
+export type OpenWriteFileStreamOptions = {
 
 	/**
 	 * Buffer size, in bytes, used when sending data from the frontend to the backend.
@@ -482,18 +497,15 @@ export type AndroidOpenWriteFileStreamOptions = {
 	 * - Specified: A progress notification is displayed in the Android status bar during the operation.
 	 * 
 	 * Accepts a custom configuration object or one of the predefined presets: 
-	 * - `AndroidProgressNotificationTemplate.Default`
-	 * - `AndroidProgressNotificationTemplate.DefaultDownload`
-	 * - `AndroidProgressNotificationTemplate.DefaultUpload`
-	 * - `AndroidProgressNotificationTemplate.DefaultSave`
+	 * - `ProgressNotificationTemplate.Default`
+	 * - `ProgressNotificationTemplate.DefaultDownload`
+	 * - `ProgressNotificationTemplate.DefaultUpload`
+	 * - `ProgressNotificationTemplate.DefaultSave`
 	 */
-	notification?: AndroidProgressNotificationTemplate,
+	notification?: ProgressNotificationTemplate,
 }
 
-/**
- * Options of `AndroidFs.openReadFileStream`
- */
-export type AndroidOpenReadFileStreamOptions = {
+export type OpenReadFileStreamOptions = {
 
 	/**
 	 * Buffer size, in bytes, used when sending data from the backend to the frontend.
@@ -516,10 +528,7 @@ export type AndroidOpenReadFileStreamOptions = {
 	signal?: AbortSignal,
 }
 
-/**
- * Item yielded by the stream returned by `AndroidFs.openReadTextFileLinesStream`.
- */
-export type AndroidOpenReadTextFileLinesStreamItem = {
+export type OpenReadTextFileLinesStreamItem = {
 
 	/**
 	 * Text of a line.
@@ -542,10 +551,7 @@ export type AndroidOpenReadTextFileLinesStreamItem = {
 	lineBreak: "\n" | "\r\n" | null
 }
 
-/**
- * Options of `AndroidFs.openReadTextFileLinesStream`
- */
-export type AndroidOpenReadTextFileLinesStreamOptions = {
+export type OpenReadTextFileLinesStreamOptions = {
 
 	/**
 	 * Text encoding used to decode the data, such as `"utf-8"`, `"shift_jis"`, or `"iso-8859-2"`.
@@ -623,10 +629,7 @@ export type AndroidOpenReadTextFileLinesStreamOptions = {
 	maxLineByteLength?: number,
 }
 
-/**
- * Options of File Picker on Android.
- */
-export type AndroidOpenFilePickerOptions = {
+export type OpenFilePickerOptions = {
 
 	/**
 	 * MIME types of the files to pick.   
@@ -673,17 +676,14 @@ export type AndroidOpenFilePickerOptions = {
 	 * the initial location is system-specific.
 	 * 
 	 * One of: 
-	 * - `AndroidPickerInitialLocation.Any(...)` 
-	 * - `AndroidPickerInitialLocation.VolumeTop(...)`   
-	 * - `AndroidPickerInitialLocation.PublicDir(...)`
+	 * - `PickerInitialLocation.Any(...)` 
+	 * - `PickerInitialLocation.VolumeTop(...)`   
+	 * - `PickerInitialLocation.PublicDir(...)`
 	 */
-	initialLocation?: AndroidPickerInitialLocation
+	initialLocation?: PickerInitialLocation
 }
 
-/**
- * Options of Directory Picker on Android.
- */
-export type AndroidOpenDirPickerOptions = {
+export type OpenDirPickerOptions = {
 
 	/**
 	 * Indicates whether only directories located on the local device are pickable.
@@ -700,17 +700,14 @@ export type AndroidOpenDirPickerOptions = {
 	 * the initial location is system-specific.
 	 * 
 	 * One of: 
-	 * - `AndroidPickerInitialLocation.Any(...)` 
-	 * - `AndroidPickerInitialLocation.VolumeTop(...)`   
-	 * - `AndroidPickerInitialLocation.PublicDir(...)`
+	 * - `PickerInitialLocation.Any(...)` 
+	 * - `PickerInitialLocation.VolumeTop(...)`   
+	 * - `PickerInitialLocation.PublicDir(...)`
 	 */
-	initialLocation?: AndroidPickerInitialLocation
+	initialLocation?: PickerInitialLocation
 }
 
-/**
- * Options of File Saver on Android.
- */
-export type AndroidSaveFilePickerOptions = {
+export type SaveFilePickerOptions = {
 
 	/**
 	 * Indicates whether only files located on the local device are pickable.
@@ -727,17 +724,14 @@ export type AndroidSaveFilePickerOptions = {
 	 * the initial location is system-specific.
 	 * 
 	 * One of: 
-	 * - `AndroidPickerInitialLocation.Any(...)` 
-	 * - `AndroidPickerInitialLocation.VolumeTop(...)`   
-	 * - `AndroidPickerInitialLocation.PublicDir(...)`
+	 * - `PickerInitialLocation.Any(...)` 
+	 * - `PickerInitialLocation.VolumeTop(...)`   
+	 * - `PickerInitialLocation.PublicDir(...)`
 	 */
-	initialLocation?: AndroidPickerInitialLocation
+	initialLocation?: PickerInitialLocation
 }
 
-/**
- * Options of `AndroidFs.createNewPublicFile` and etc.
- */
-export type AndroidCreateNewPublicFileOptions = {
+export type CreateNewPublicFileOptions = {
 
 	/**
 	 * Indicates whether to prompt the user for permissions to access public files if it has not already been granted. 
@@ -751,14 +745,14 @@ export type AndroidCreateNewPublicFileOptions = {
 	 * 
 	 * @defaultValue {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.get_primary_volume | Primary storage volume}
 	 */
-	volumeId?: AndroidStorageVolumeId,
+	volumeId?: StorageVolumeId,
 
 	/**
 	 * Indicates whether the file is marked as pending.  
 	 * 
 	 * @remarks
 	 * When set to `true`, the app has exclusive access to the file, 
-	 * making it invisible to other apps until `AndroidFs.setPublicFilePending(..., false)` is called. 
+	 * making it invisible to other apps until `setPublicFilePending(..., false)` is called. 
 	 * 
 	 * If the file remains pending for more than 7 days, 
 	 * the system automatically deletes it.  
@@ -771,13 +765,10 @@ export type AndroidCreateNewPublicFileOptions = {
 	isPending?: boolean
 }
 
-/**
- * Android public directories for general-purpose files.
- */
-export const AndroidPublicGeneralPurposeDir = Object.freeze({
+export const PublicGeneralPurposeDir = Object.freeze({
 
 	/**
-	 * `~/Documents` folder.  
+	 * Standard directory for user-accessible documents.
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
@@ -789,7 +780,7 @@ export const AndroidPublicGeneralPurposeDir = Object.freeze({
 	Documents: "Documents",
 
 	/**
-	 * `~/Download` folder.  
+	 * Standard directory for user-accessible downloaded files.
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.  
@@ -804,10 +795,10 @@ export const AndroidPublicGeneralPurposeDir = Object.freeze({
 /**
  * Android public directories for image files.
  */
-export const AndroidPublicImageDir = Object.freeze({
+export const PublicImageDir = Object.freeze({
 
 	/**
-	 * `~/Pictures` folder.  
+	 * Standard directory for user-accessible pictures.
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
@@ -819,7 +810,7 @@ export const AndroidPublicImageDir = Object.freeze({
 	Pictures: "Pictures",
 
 	/**
-	 * `~/DCIM` folder.  
+	 * Standard directory for user-accessible pictures and videos captured when the device is mounted as a camera.
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
@@ -834,14 +825,13 @@ export const AndroidPublicImageDir = Object.freeze({
 /**
  * Android public directories for video files.
  */
-export const AndroidPublicVideoDir = Object.freeze({
+export const PublicVideoDir = Object.freeze({
 
 	/**
-	 * `~/Movies` folder.  
+	 * Standard directory for user-accessible movies.
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
-	 * 
 	 * 
 	 * e.g.
 	 * - `/storage/emulated/{user-id}/Movies`
@@ -850,7 +840,7 @@ export const AndroidPublicVideoDir = Object.freeze({
 	Movies: "Movies",
 
 	/**
-	 * `~/DCIM` folder.  
+	 * Standard directory for user-accessible pictures and videos captured when the device is mounted as a camera.
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
@@ -860,15 +850,27 @@ export const AndroidPublicVideoDir = Object.freeze({
 	 * - `/storage/{sd-card-id}/DCIM`
 	 */
 	DCIM: "DCIM",
+
+	/**
+	 * Standard directory for user-accessible pictures.
+	 *
+	 * @remarks
+	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
+	 *
+	 * e.g.
+	 * - `/storage/emulated/{user-id}/Pictures`
+	 * - `/storage/{sd-card-id}/Pictures`
+	 */
+	Pictures: "Pictures",
 } as const);
 
 /**
  * Android public directories for audio files.
  */
-export const AndroidPublicAudioDir = Object.freeze({
+export const PublicAudioDir = Object.freeze({
 
 	/**
-	 * `~/Music` folder.  
+	 * Standard directory for user-accessible regular music.
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
@@ -880,7 +882,7 @@ export const AndroidPublicAudioDir = Object.freeze({
 	Music: "Music",
 
 	/**
-	 * `~/Alarms` folder.  
+	 * Standard directory for user-accessible alams (not as regular music).
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
@@ -892,7 +894,7 @@ export const AndroidPublicAudioDir = Object.freeze({
 	Alarms: "Alarms",
 
 	/**
-	 * `~/Audiobooks` folder.  
+	 * Standard directory for user-accessible audiobooks (not as regular music).
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
@@ -907,7 +909,7 @@ export const AndroidPublicAudioDir = Object.freeze({
 	Audiobooks: "Audiobooks",
 
 	/**
-	 * `~/Notifications` folder.  
+	 * Standard directory for user-accessible notifications (not as regular music).
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
@@ -919,7 +921,7 @@ export const AndroidPublicAudioDir = Object.freeze({
 	Notifications: "Notifications",
 
 	/**
-	 * `~/Podcasts` folder.  
+	 * Standard directory for user-accessible podcasts (not as regular music).
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
@@ -931,7 +933,7 @@ export const AndroidPublicAudioDir = Object.freeze({
 	Podcasts: "Podcasts",
 
 	/**
-	 * `~/Ringtones` folder.  
+	 * Standard directory for user-accessible ringtones (not as regular music).
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
@@ -943,7 +945,7 @@ export const AndroidPublicAudioDir = Object.freeze({
 	Ringtones: "Ringtones",
 
 	/**
-	 * `~/Recordings` folder.  
+	 * Standard directory for user-accessible recordings (not as regular music).
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
@@ -961,10 +963,10 @@ export const AndroidPublicAudioDir = Object.freeze({
 /**
  * Android public directories.
  */
-export const AndroidPublicDir = Object.freeze({
+export const PublicDir = Object.freeze({
 
 	/**
-	 * `~/Documents` folder.  
+	 * Standard directory for user-accessible documents.
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
@@ -976,7 +978,7 @@ export const AndroidPublicDir = Object.freeze({
 	Documents: "Documents",
 
 	/**
-	 * `~/Download` folder.  
+	 * Standard directory for user-accessible downloaded files.
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.  
@@ -988,7 +990,7 @@ export const AndroidPublicDir = Object.freeze({
 	Download: "Download",
 
 	/**
-	 * `~/Pictures` folder.  
+	 * Standard directory for user-accessible pictures.
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
@@ -1000,11 +1002,10 @@ export const AndroidPublicDir = Object.freeze({
 	Pictures: "Pictures",
 
 	/**
-	 * `~/Movies` folder.  
+	 * Standard directory for user-accessible movies.
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
-	 * 
 	 * 
 	 * e.g.
 	 * - `/storage/emulated/{user-id}/Movies`
@@ -1013,7 +1014,7 @@ export const AndroidPublicDir = Object.freeze({
 	Movies: "Movies",
 
 	/**
-	 * `~/DCIM` folder.  
+	 * Standard directory for user-accessible pictures and videos captured when the device is mounted as a camera.
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
@@ -1025,7 +1026,7 @@ export const AndroidPublicDir = Object.freeze({
 	DCIM: "DCIM",
 
 	/**
-	 * `~/Music` folder.  
+	 * Standard directory for user-accessible regular music.
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
@@ -1037,7 +1038,7 @@ export const AndroidPublicDir = Object.freeze({
 	Music: "Music",
 
 	/**
-	 * `~/Alarms` folder.  
+	 * Standard directory for user-accessible alams (not as regular music).
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
@@ -1049,7 +1050,7 @@ export const AndroidPublicDir = Object.freeze({
 	Alarms: "Alarms",
 
 	/**
-	 * `~/Audiobooks` folder.  
+	 * Standard directory for user-accessible audiobooks (not as regular music).
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
@@ -1057,14 +1058,14 @@ export const AndroidPublicDir = Object.freeze({
 	 * e.g.
 	 * - `/storage/emulated/{user-id}/Audiobooks`
 	 * - `/storage/{sd-card-id}/Audiobooks`
-	 * 
+	 *
 	 * This is available for Android 10 (API level 29) and higher.  
 	 * If unavailable, the `~/Music/Audiobooks` folder will be used instead.  
 	 */
 	Audiobooks: "Audiobooks",
 
 	/**
-	 * `~/Notifications` folder.  
+	 * Standard directory for user-accessible notifications (not as regular music).
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
@@ -1076,7 +1077,7 @@ export const AndroidPublicDir = Object.freeze({
 	Notifications: "Notifications",
 
 	/**
-	 * `~/Podcasts` folder.  
+	 * Standard directory for user-accessible podcasts (not as regular music).
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
@@ -1088,7 +1089,7 @@ export const AndroidPublicDir = Object.freeze({
 	Podcasts: "Podcasts",
 
 	/**
-	 * `~/Ringtones` folder.  
+	 * Standard directory for user-accessible ringtones (not as regular music).
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
@@ -1100,7 +1101,7 @@ export const AndroidPublicDir = Object.freeze({
 	Ringtones: "Ringtones",
 
 	/**
-	 * `~/Recordings` folder.  
+	 * Standard directory for user-accessible recordings (not as regular music).
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
@@ -1115,16 +1116,13 @@ export const AndroidPublicDir = Object.freeze({
 	Recordings: "Recordings",
 } as const);
 
-export type AndroidPublicGeneralPurposeDir = (typeof AndroidPublicGeneralPurposeDir)[keyof typeof AndroidPublicGeneralPurposeDir]
-export type AndroidPublicImageDir = (typeof AndroidPublicImageDir)[keyof typeof AndroidPublicImageDir]
-export type AndroidPublicVideoDir = (typeof AndroidPublicVideoDir)[keyof typeof AndroidPublicVideoDir]
-export type AndroidPublicAudioDir = (typeof AndroidPublicAudioDir)[keyof typeof AndroidPublicAudioDir]
-export type AndroidPublicDir = (typeof AndroidPublicDir)[keyof typeof AndroidPublicDir];
+export type PublicGeneralPurposeDir = (typeof PublicGeneralPurposeDir)[keyof typeof PublicGeneralPurposeDir]
+export type PublicImageDir = (typeof PublicImageDir)[keyof typeof PublicImageDir]
+export type PublicVideoDir = (typeof PublicVideoDir)[keyof typeof PublicVideoDir]
+export type PublicAudioDir = (typeof PublicAudioDir)[keyof typeof PublicAudioDir]
+export type PublicDir = (typeof PublicDir)[keyof typeof PublicDir];
 
-/**
- * Information about the storage volume on Android.
- */
-export type AndroidStorageVolumeInfo = {
+export type StorageVolumeMetadata = {
 
 	/**
 	 * User-visible description of this storage volume.  
@@ -1201,7 +1199,7 @@ export type AndroidStorageVolumeInfo = {
 	 * Since the storage volume ID can change, 
 	 * it should not be persisted across app restarts.
 	 */
-	id: AndroidStorageVolumeId
+	id: StorageVolumeId
 }
 
 /**
@@ -1211,27 +1209,18 @@ export type AndroidStorageVolumeInfo = {
  * Since the storage volume ID can change, 
  * it should not be persisted across app restarts.
  */
-export type AndroidStorageVolumeId = string;
+export type StorageVolumeId = string;
 
-/**
- * State of the URI permission on Android.
- */
-export const AndroidUriPermissionState = Object.freeze({
+export const UriPermissionState = Object.freeze({
 	Read: "Read",
 	Write: "Write",
 	ReadAndWrite: "ReadAndWrite",
 	ReadOrWrite: "ReadOrWrite"
 } as const)
 
-/**
- * State of the URI permission on Android.
- */
-export type AndroidUriPermissionState = typeof AndroidUriPermissionState[keyof typeof AndroidUriPermissionState]
+export type UriPermissionState = typeof UriPermissionState[keyof typeof UriPermissionState]
 
-/**
- * Options of `AndroidFs.listVolumes`.
- */
-export type AndroidListVolumesOptions = {
+export type ListVolumesOptions = {
 
 	/**
 	 * Purpose for listing storage volumes.
@@ -1239,10 +1228,10 @@ export type AndroidListVolumesOptions = {
 	 * @remarks
 	 * The behavior is as follows:
 	 * - `"CreatePublicFile"`:
-	 * Lists only volumes available for `AndroidFs.createNewPublicFile` and its related functions.
+	 * Lists only volumes available for `createNewPublicFile` and its related functions.
 	 * This excludes non-writable volumes (e.g., a read-only SD card). 
-	 * Additionally, on Android 9 and below, it excludes secondary storage volumes that are inaccessible to `AndroidFs.createNewPublicFile` due to Android platform restrictions.
-	 * In other words, it returns only volumes where `isReadOnly` is `false` and `isAvailableForPublicFiles` is `true`.
+	 * Additionally, on Android 9 and below, it excludes secondary storage volumes that are inaccessible to `createNewPublicFile` due to Android platform restrictions.
+	 * In other words, it returns only volumes where `StorageVolumeMetadata.isReadOnly` is `false` and `StorageVolumeMetadata.isAvailableForPublicFiles` is `true`.
 	 * - `"PickerInitialLocation"`:
 	 * Lists all volumes available for use as an initial picker location.
 	 * This includes all detected volumes.
@@ -1252,31 +1241,31 @@ export type AndroidListVolumesOptions = {
 }
 
 /**
- * Initial location when launching File/Directory Picker.
+ * Initial location when launching File/Directory Picker on Android.
  */
-export type AndroidPickerInitialLocation =
-	| { type: "Any", uri: AndroidFsUri }
-	| { type: "VolumeTop", volumeId?: AndroidStorageVolumeId }
+export type PickerInitialLocation =
+	| { type: "Any", uri: FsUri }
+	| { type: "VolumeTop", volumeId?: StorageVolumeId }
 	| {
 		type: "PublicDir"
-		baseDir: AndroidPublicDir
+		baseDir: PublicDir
 		relativePath?: string
-		volumeId?: AndroidStorageVolumeId
+		volumeId?: StorageVolumeId
 	}
 
-type AndroidPickerInitialLocationInner =
-	| { type: "Any", uri: AndroidFsUri }
-	| { type: "VolumeTop", volumeId: AndroidStorageVolumeId | null }
+type PickerInitialLocationInner =
+	| { type: "Any", uri: FsUri }
+	| { type: "VolumeTop", volumeId: StorageVolumeId | null }
 	| {
 		type: "PublicDir"
-		baseDir: AndroidPublicDir
+		baseDir: PublicDir
 		relativePath: string | null
-		volumeId: AndroidStorageVolumeId | null
+		volumeId: StorageVolumeId | null
 	}
 
 function mapPickerInitialLocationForInput(
-	i?: AndroidPickerInitialLocation | undefined | null
-): AndroidPickerInitialLocationInner | null {
+	i?: PickerInitialLocation | undefined | null
+): PickerInitialLocationInner | null {
 
 	if (i == null) {
 		return null
@@ -1298,10 +1287,7 @@ function mapPickerInitialLocationForInput(
 	return i
 }
 
-/**
- * Options of `AndroidPickerInitialLocation.PublicDir`.
- */
-export type AndroidPickerInitialLocationPublicDirOptions = {
+export type PickerInitialLocationPublicDirOptions = {
 
 	/**
 	 * Relative path from the public directory.
@@ -1313,13 +1299,13 @@ export type AndroidPickerInitialLocationPublicDirOptions = {
 	 * 
 	 * @defaultValue {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.get_primary_volume | Primary storage volume}
 	 */
-	volumeId?: AndroidStorageVolumeId
+	volumeId?: StorageVolumeId
 }
 
 /**
- * Initial location when launching File/Directory Picker.
+ * Initial location when launching File/Directory Picker on Android.
  */
-export const AndroidPickerInitialLocation = Object.freeze({
+export const PickerInitialLocation = Object.freeze({
 
 	/**
 	 * Builds an initial picker location at the specified directory,
@@ -1327,7 +1313,7 @@ export const AndroidPickerInitialLocation = Object.freeze({
 	 * 
 	 * @param uri - URI of the target entry.
 	 */
-	Any(uri: AndroidFsUri): AndroidPickerInitialLocation {
+	Any(uri: FsUri): PickerInitialLocation {
 		return {
 			type: "Any",
 			uri,
@@ -1340,8 +1326,8 @@ export const AndroidPickerInitialLocation = Object.freeze({
 	 * @param volumeId - ID of the target storage volume. Defaults to {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.get_primary_volume | Primary storage volume}.
 	 */
 	VolumeTop(
-		volumeId?: AndroidStorageVolumeId
-	): AndroidPickerInitialLocation {
+		volumeId?: StorageVolumeId
+	): PickerInitialLocation {
 
 		return {
 			type: "VolumeTop",
@@ -1353,12 +1339,12 @@ export const AndroidPickerInitialLocation = Object.freeze({
 	 * Builds an initial picker location inside the public directory.
 	 *
 	 * @param baseDir - Target public directory. One of: `"Documents"`, `"Download"`, `"Pictures"`, `"DCIM"`, `"Movies"`, `"Music"`, `"Alarms"`, `"Audiobooks"`, `"Notifications"`, `"Podcasts"`, `"Ringtones"`, `"Recordings"`.
-	 * @param options - Optional settings: `relativePath`, `volumeId`. See `AndroidPickerInitialLocationPublicDirOptions` for details.
+	 * @param options - Optional settings: `relativePath`, `volumeId`. See `PickerInitialLocationPublicDirOptions` for details.
 	 */
 	PublicDir(
-		baseDir: AndroidPublicDir,
-		options?: AndroidPickerInitialLocationPublicDirOptions
-	): AndroidPickerInitialLocation {
+		baseDir: PublicDir,
+		options?: PickerInitialLocationPublicDirOptions
+	): PickerInitialLocation {
 
 		return {
 			type: "PublicDir",
@@ -1369,7 +1355,7 @@ export const AndroidPickerInitialLocation = Object.freeze({
 	},
 } as const)
 
-export const AndroidProgressNotificationIconType = Object.freeze({
+export const ProgressNotificationIconType = Object.freeze({
 
 	/**
 	 * Application icon
@@ -1392,52 +1378,52 @@ export const AndroidProgressNotificationIconType = Object.freeze({
 	Save: "Save",
 } as const);
 
-export type AndroidProgressNotificationIconType = (typeof AndroidProgressNotificationIconType)[keyof typeof AndroidProgressNotificationIconType]
+export type ProgressNotificationIconType = (typeof ProgressNotificationIconType)[keyof typeof ProgressNotificationIconType]
 
-export const AndroidProgressNotificationTemplate = Object.freeze({
+export const ProgressNotificationTemplate = Object.freeze({
 
 	/**
 	 * Default application notification settings.
 	 */
 	Default: Object.freeze({
-		icon: AndroidProgressNotificationIconType.App,
+		icon: ProgressNotificationIconType.App,
 		title: "{{fileName}}",
 		subTextProgress: "{{progress}}",
 		subTextCompletion: "{{progress}}"
-	} as const satisfies AndroidProgressNotificationTemplate),
+	} as const satisfies ProgressNotificationTemplate),
 
 	/**
 	 * Default download notification settings.
 	 */
 	DefaultDownload: Object.freeze({
-		icon: AndroidProgressNotificationIconType.Download,
+		icon: ProgressNotificationIconType.Download,
 		title: "{{fileName}}",
 		subTextProgress: "{{progress}}",
 		subTextCompletion: "{{progress}}"
-	} as const satisfies AndroidProgressNotificationTemplate),
+	} as const satisfies ProgressNotificationTemplate),
 
 	/**
 	 * Default upload notification settings.
 	 */
 	DefaultUpload: Object.freeze({
-		icon: AndroidProgressNotificationIconType.Upload,
+		icon: ProgressNotificationIconType.Upload,
 		title: "{{fileName}}",
 		subTextProgress: "{{progress}}",
 		subTextCompletion: "{{progress}}"
-	} as const satisfies AndroidProgressNotificationTemplate),
+	} as const satisfies ProgressNotificationTemplate),
 
 	/**
 	 * Default save notification settings.
 	 */
 	DefaultSave: Object.freeze({
-		icon: AndroidProgressNotificationIconType.Save,
+		icon: ProgressNotificationIconType.Save,
 		title: "{{fileName}}",
 		subTextProgress: "{{progress}}",
 		subTextCompletion: "{{progress}}"
-	} as const satisfies AndroidProgressNotificationTemplate),
+	} as const satisfies ProgressNotificationTemplate),
 } as const)
 
-export type AndroidProgressNotificationTemplate = {
+export type ProgressNotificationTemplate = {
 
 	/**
 	 * Icon of the notification.
@@ -1445,7 +1431,7 @@ export type AndroidProgressNotificationTemplate = {
 	 * @remarks
 	 * One of: `"App"`, `"Download"`, `"Upload"`, `"Save"`.
 	 */
-	icon: AndroidProgressNotificationIconType,
+	icon: ProgressNotificationIconType,
 
 	/**
 	 * Total length of the data in bytes.
@@ -1649,1848 +1635,1785 @@ export type AndroidProgressNotificationTemplate = {
 	subTextFailure?: string;
 };
 
-export class AndroidFs {
 
-	private constructor() { }
+/**
+ * Gets the name of a file or directory.  
+ * 
+ * @remarks
+ * Includes the file extension if present.
+ *
+ * @param uri - URI or path of the target file or directory.
+ * 
+ * @returns Promise that resolves to the name of the entry.
+ * 
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry does not exist.
+ * - When the app does not have read permissions for the entry.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_name | AndroidFs::get_name}
+ */
+export async function getName(uri: FsUri | string | URL): Promise<string> {
+	return await invoke('plugin:android-fs|get_name', {
+		uri: mapFsPathForInput(uri)
+	})
+}
 
+/**
+ * Gets the type of a file or directory.
+ *
+ * @param uri - URI or path of the target file or directory.
+ * 
+ * @returns Promise that resolves to the type of the entry. The resolved value will be an object of type `EntryType`, which can be either `{ type: "Dir" }` for directories or `{ type: "File", mimeType: string }` for files.
+ * 
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry does not exist.
+ * - When the app does not have read permissions for the entry.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_type | AndroidFs::get_type}
+ * @since 22.0.0
+ */
+export async function getType(uri: FsUri | string | URL): Promise<EntryType> {
+	return await invoke('plugin:android-fs|get_type', {
+		uri: mapFsPathForInput(uri)
+	})
+}
 
-	/**
-	 * Gets the name of a file or directory.  
-	 * 
-	 * @remarks
-	 * Includes the file extension if present.
-	 *
-	 * @param uri - URI or path of the target file or directory.
-	 * 
-	 * @returns Promise that resolves to the name of the entry.
-	 * 
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry does not exist.
-	 * - When the app does not have read permissions for the entry.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_name | AndroidFs::get_name}
-	 * @since 22.0.0
-	 */
-	public static async getName(uri: AndroidFsUri | FsPath): Promise<string> {
-		return await invoke('plugin:android-fs|get_name', {
+/**
+ * Gets metadata of a file or directory.  
+ * 
+ * @param uri - URI or path of the target file or directory.
+ * 
+ * @returns Promise that resolves to metadata of the entry. It includes the type (`"Dir"` or `"File"`), name, last modified date, and for files also byte length and MIME type.
+ * 
+ * @throws
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry does not exist.
+ * - When the app does not have read permissions for the entry.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_info | AndroidFs::get_info}
+ * @since 22.0.0
+ */
+export async function getMetadata(uri: FsUri | string | URL): Promise<EntryMetadata> {
+	const md = await invoke<EntryMetadataInner>('plugin:android-fs|get_metadata', {
+		uri: mapFsPathForInput(uri)
+	})
+
+	return mutateEntryMetadata(md)
+}
+
+/**
+ * Gets the file size in bytes of a file.  
+ *
+ * @param uri - URI or path of the target file.
+ * 
+ * @returns Promise that resolves to a non-negative integer representing the file size in bytes.
+ *
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a directory, not a file.
+ * - When the file does not exist.
+ * - When the app does not have read permissions for the file.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_len | AndroidFs::get_len}
+ */
+export async function getFileByteLength(uri: FsUri | string | URL): Promise<number> {
+	return await invoke('plugin:android-fs|get_file_byte_length', {
+		uri: mapFsPathForInput(uri)
+	})
+}
+
+/**
+ * Gets the MIME type of a file.
+ *
+ * @param uri - URI or path of the target file.
+ * 
+ * @returns Promise that resolves to the MIME type of the file.
+ *
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a directory, not a file.
+ * - When the file does not exist.
+ * - When the app does not have read permissions for the file.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_mime_type | AndroidFs::get_mime_type}
+ * @since 22.0.0
+ */
+export async function getFileMimeType(uri: FsUri | string | URL): Promise<string> {
+	return await invoke('plugin:android-fs|get_file_mime_type', {
+		uri: mapFsPathForInput(uri)
+	})
+}
+
+/**
+ * Gets the thumbnail of a file as the Data URL.  
+ * 
+ * @remarks
+ * This does not perform caching.
+ *
+ * @param uri - URI or path of the target file.
+ * @param options - Optional settings: `width`, `height`, `format`. See `GetThumbnailOptions` for details.
+ * 
+ * @returns Promise that resolves to a Data URL string of the thumbnail, or `null` if none exists. The actual dimensions will not exceed approximately twice the specified width or height, while always maintaining the original aspect ratio.
+ * 
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a directory, not a file.
+ * - When the file does not exist.
+ * - When the app does not have read permissions for the file.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_thumbnail | AndroidFs::get_thumbnail}
+ * @since 26.1.0
+ */
+export async function getFileThumbnailAsDataURL(
+	uri: FsUri | string | URL,
+	options?: GetThumbnailOptions
+): Promise<string | null> {
+
+	const format: ThumbnailFormat = options?.format ?? "webp"
+	const width = options?.width ?? options?.height ?? 512
+	const height = options?.height ?? options?.width ?? 512
+	const thumbnail = await invoke<ArrayBuffer>('plugin:android-fs|get_file_thumbnail_as_data_url', {
+		uri: mapFsPathForInput(uri),
+		width,
+		height,
+		format
+	})
+
+	return thumbnail.byteLength === 0 ? null : decodeUtf8(thumbnail)
+}
+
+/**
+ * Gets the thumbnail of a file as the base64-encoded string.  
+ * 
+ * @remarks
+ * This does not perform caching.
+ *
+ * @param uri - URI or path of the target file.
+ * @param options - Optional settings: `width`, `height`, `format`. See `GetThumbnailOptions` for details.
+ * 
+ * @returns Promise that resolves to a base64-encoded string of the thumbnail, or `null` if none exists. The actual dimensions will not exceed approximately twice the specified width or height, while always maintaining the original aspect ratio.
+ * 
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a directory, not a file.
+ * - When the file does not exist.
+ * - When the app does not have read permissions for the file.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_thumbnail | AndroidFs::get_thumbnail}
+ * @since 26.1.0
+ */
+export async function getFileThumbnailAsBase64(
+	uri: FsUri | string | URL,
+	options?: GetThumbnailOptions
+): Promise<string | null> {
+
+	const format: ThumbnailFormat = options?.format ?? "webp"
+	const width = options?.width ?? options?.height ?? 512
+	const height = options?.height ?? options?.width ?? 512
+	const thumbnail = await invoke<ArrayBuffer>('plugin:android-fs|get_file_thumbnail_as_base64', {
+		uri: mapFsPathForInput(uri),
+		width,
+		height,
+		format
+	})
+
+	return thumbnail.byteLength === 0 ? null : decodeUtf8(thumbnail)
+}
+
+/**
+ * Gets the thumbnail of a file as bytes.  
+ * 
+ * @remarks
+ * This does not perform caching.
+ *
+ * @param uri - URI or path of the target file.
+ * @param options - Optional settings: `width`, `height`, `format`. See `GetThumbnailOptions` for details.
+ * 
+ * @returns Promise that resolves to bytes of the thumbnail, or `null` if none exists. The actual dimensions will not exceed approximately twice the specified width or height, while always maintaining the original aspect ratio.
+ * 
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a directory, not a file.
+ * - When the file does not exist.
+ * - When the app does not have read permissions for the file.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_thumbnail | AndroidFs::get_thumbnail}
+ * @since 26.1.0
+ */
+export async function getFileThumbnail(
+	uri: FsUri | string | URL,
+	options?: GetThumbnailOptions
+): Promise<Uint8Array<ArrayBuffer> | null> {
+
+	const format: ThumbnailFormat = options?.format ?? "webp"
+	const width = options?.width ?? options?.height ?? 512
+	const height = options?.height ?? options?.width ?? 512
+	const thumbnail = await invoke<ArrayBuffer>('plugin:android-fs|get_file_thumbnail', {
+		uri: mapFsPathForInput(uri),
+		width,
+		height,
+		format
+	})
+
+	return thumbnail.byteLength === 0 ? null : new Uint8Array(thumbnail)
+}
+
+/**
+ * Gets the path usable with {@link https://v2.tauri.app/ja/plugin/file-system/ | @tauri-apps/plugin-fs}.
+ * 
+ * @remarks
+ * Paths **derived from this plugin's URI** are supported only for reading and writing files.
+ * No guarantees are provided for other operations or directory handling.
+ * For these paths, you do not need to configure {@link https://v2.tauri.app/reference/javascript/fs/#security | the scope configuration} of the Tauri file system.
+ * 
+ * Caution is required when using `@tauri-apps/plugin-fs` for file operations. 
+ * Writing files can occasionally be very slow. 
+ * Additionally, files obtained from third-party apps via a file picker may not be openable, readable, writable, or seekable.  
+ * 
+ * Therefore, it is strongly recommended to use the dedicated APIs provided by this plugin instead.
+ * 
+ * @param uri - URI or path of the target file or directory.
+ * @returns A string of the path. Note that while it is called a "path", it may actually be a URI that is compatible with `@tauri-apps/plugin-fs`.
+ * 
+ * @since 22.0.0
+ */
+export function getFsPath(uri: FsUri | string | URL): string {
+	if (isFsUri(uri)) {
+		return uri.uri
+	}
+	if (typeof uri === "string") {
+		return uri
+	}
+	return uri.toString()
+}
+
+/**
+ * Converts a file URI into a URL that can be used to load thumbnails in HTML `<img>` elements.
+ * 
+ * @remarks
+ * This is backed by Tauri’s custom protocol.
+ * 
+ * ## Setup
+ * This function only constructs a URL.  
+ * To actually load a file using the returned URL, follow the steps below.
+ * 
+ * #### 1. Enable protocol feature
+ * Enable protocol_thumbnail feature.
+ * 
+ * `src-tauri/Cargo.toml`
+ * ```toml
+ * [dependencies]
+ * tauri-plugin-android-fs = { features = ["protocol_thumbnail"], ... }
+ * ```
+ * 
+ * #### 2. Configuration
+ * Set the configuration to allow files to be loaded.
+ * If you are using absolute paths, you must configure the scope as with other APIs.
+ * 
+ * `src-tauri/tauri.conf.json`
+ * ```json
+ * {
+ *   "plugins": {
+ *     "android-fs": {
+ *       "thumbnailProtocol": {
+ *         "enable": true,
+ *         "scope": {
+ *           "allow": ["$APPDATA/my-data/*"],
+ *         }
+ *       }
+ *     }
+ *   }
+ * }
+ * ```
+ * 
+ * NOTE:
+ * Ensure that `serde_json` is present in your Rust dependencies.  
+ * It is included by default in Tauri project templates, but if it has been removed, add it back.  
+ * If it is missing, the project will fail to build.
+ * 
+ * #### 3. Content Security Policy (CSP)
+ * If you are using a CSP, 
+ * add `http://android-fs-thumbnail.localhost` to {@link https://v2.tauri.app/reference/config/#csp-1 | app.security.csp} in `src-tauri/tauri.conf.json`.
+ * 
+ * @param uri - URI or path of the target file.
+ * @param options - Optional settings: `width`, `height`, `format`. See `ConvertThumbnailSrcOptions` for details.
+ * 
+ * @since 27.2.0
+ */
+export function convertFileThumbnailSrc(
+	uri: FsUri | string | URL,
+	options?: ConvertThumbnailSrcOptions,
+): string {
+
+	let srcUrl = convertCustomProtocolSrc(
+		JSON.stringify(mapFsPathForInput(uri)),
+		"android-fs-thumbnail"
+	)
+
+	let sep = "?"
+	if (options?.width != null) {
+		srcUrl += sep + "w=" + options.width
+		sep = "&"
+	}
+	if (options?.height != null) {
+		srcUrl += sep + "h=" + options.height
+		sep = "&"
+	}
+	if (options?.format != null) {
+		srcUrl += sep + "f=" + options?.format
+		sep = "&"
+	}
+
+	return srcUrl
+}
+
+/**
+ * Converts a file URI into a URL that can be loaded by HTML `<img>`, `<video>`, and `<audio>` elements.
+ * 
+ * @remarks
+ * This is backed by Tauri’s custom protocol.
+ * 
+ * ## Setup
+ * This function only constructs a URL.  
+ * To actually load a file using the returned URL, follow the steps below.
+ * 
+ * #### 1. Enable protocol feature
+ * Enable protocol_content feature.
+ * 
+ * `src-tauri/Cargo.toml`
+ * ```toml
+ * [dependencies]
+ * tauri-plugin-android-fs = { features = ["protocol_content"], ... }
+ * ```
+ * 
+ * #### 2. Configuration
+ * Set the configuration to allow files to be loaded.
+ * If you are using absolute paths, you must configure the scope as with other APIs.
+ * 
+ * `src-tauri/tauri.conf.json`
+ * ```json
+ * {
+ *   "plugins": {
+ *     "android-fs": {
+ *       "contentProtocol": {
+ *         "enable": true,
+ *         "scope": {
+ *           "allow": ["$APPDATA/my-data/*"],
+ *         }
+ *       }
+ *     }
+ *   }
+ * }
+ * ```
+ * 
+ * NOTE:
+ * Ensure that `serde_json` is present in your Rust dependencies.  
+ * It is included by default in Tauri project templates, but if it has been removed, add it back.  
+ * If it is missing, the project will fail to build.
+ * 
+ * #### 3. Content Security Policy (CSP)
+ * If you are using a CSP, 
+ * add `http://android-fs-content.localhost` to {@link https://v2.tauri.app/reference/config/#csp-1 | app.security.csp} in `src-tauri/tauri.conf.json`.
+ * 
+ * ## Known Issues (As of July 20, 2026)
+ * File loading may fail. 
+ * This issue occurs frequently with `<video>` and `<audio>` elements, but is not limited to them, 
+ * because Tauri’s custom protocol currently {@link https://github.com/tauri-apps/tauri/issues/12019 | cannot handle range requests on Android}.
+ * As a workaround, you can host your own local server on the backend.
+ * 
+ * @param uri - URI or path of the target file.
+ * 
+ * @since 27.2.0
+ */
+export function convertFileSrc(uri: FsUri | string | URL): string {
+	return convertCustomProtocolSrc(
+		JSON.stringify(mapFsPathForInput(uri)),
+		"android-fs-content"
+	)
+}
+
+/**
+ * Retrieves available storage volumes (e.g., internal storage, SD cards, or USB drives).
+ * 
+ * @param options - Optional settings: `purpose`. See `ListVolumesOptions` for details.
+ * 
+ * @returns Promise that resolves to an array of the storage volumes. 
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_volumes | AndroidFs::get_volumes}
+ * 
+ * @since 22.2.0
+ */
+export async function listVolumes(
+	options?: ListVolumesOptions
+): Promise<StorageVolumeMetadata[]> {
+
+	const purpose = options?.purpose
+	const volumes = await invoke<StorageVolumeMetadata[]>('plugin:android-fs|list_volumes')
+
+	if (purpose == null || purpose === "CreatePublicFile") {
+		return volumes
+			.filter(v => !v.isReadOnly)
+			.filter(v => v.isAvailableForPublicFiles)
+	}
+	else {
+		purpose satisfies "PickerInitialLocation"
+		return volumes
+	}
+}
+
+/**
+ * Requests permission from the user to create public files and access them.  
+ * 
+ * @remarks
+ * This is intended for `createNewPublicFile` and its related functions. 
+ * However, since those functions automatically request permission by default, calling this method explicitly is usually unnecessary.
+ * 
+ * @returns Promise that resolves to a boolean indicating whether the app is allowed to create files in public storage and access them.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.request_permission | PublicStorage::request_permission}
+ * @since 22.0.0
+ */
+export async function requestPublicFilesPermission(): Promise<boolean> {
+	return await invoke('plugin:android-fs|request_public_files_permission')
+}
+
+/**
+ * Checks whether the app has permission to create public files and access them.
+ * 
+ * @remarks
+ * The app can request this permission explicitly using `requestPublicFilesPermission`.
+ * 
+ * @returns Promise that resolves to a boolean indicating whether the app is allowed to create files in public storage and access them.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.check_permission | PublicStorage::check_permission}
+ * @since 27.1.0
+ */
+export async function checkPublicFilesPermission(): Promise<boolean> {
+	return await invoke('plugin:android-fs|check_public_files_permission')
+}
+
+/**
+ * Triggers the Android MediaScanner to scan a public file,
+ * making it visible in media applications (e.g., Gallery, Music player).
+ * 
+ * @param uri - URI of the file to be scanned.  
+ * @returns Promise that resolves when the scan request has been successfully initiated.
+ * 
+ * @throws
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a directory, not a file.
+ * - When the file does not exist.
+ * - When a provider of the file is not the Android MediaStore.
+ * - When the app does not have read/write permissions for the file.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.scan | PublicStorage::scan}
+ * @since 22.0.0
+ */
+export async function scanPublicFile(uri: FsUri): Promise<void> {
+	return await invoke('plugin:android-fs|scan_public_file', {
+		uri,
+	})
+}
+
+/**
+ * Specifies whether a public file is marked as pending.  
+ * 
+ * @remarks
+ * This is available for Android 11 (API level 30) or higher.  
+ * If unavailable, this does nothing. 
+ * 
+ * @param uri - URI of the target file.  
+ * @param isPending - Indicates whether the file is pending. When `true`, the app has exclusive access and the file is invisible to others. Files pending for over 7 days are automatically deleted by the Android system.
+ * 
+ * @returns Promise that resolves when the operation is completed.
+ * 
+ * @throws
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a directory, not a file.
+ * - When the file does not exist.
+ * - When a provider of the file is not the Android MediaStore.
+ * - When the app does not have read/write permissions for the file.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.set_pending | PublicStorage::set_pending}
+ * @since 25.0.0
+ */
+export async function setPublicFilePending(
+	uri: FsUri,
+	isPending: boolean
+): Promise<void> {
+
+	await invoke('plugin:android-fs|set_public_file_pending', {
+		uri,
+		isPending
+	})
+}
+
+/**
+ * Creates a new empty file in a public directory
+ * 
+ * @param baseDir - Base directory in which to create the new file. One of: `"Documents"`, `"Download"`.
+ * @param relativePath - Relative path from the base directory. If a file with the same name already exists, a sequential number is appended to ensure uniqueness. Any missing directories in this path will be created recursively.
+ * @param mimeType - MIME type of the file to create. If `null`, it is inferred from the extension of `relativePath`.
+ * @param options - Optional settings: `requestPermission`, `volumeId`, `isPending`. See `CreateNewPublicFileOptions` for details.
+ * 
+ * @returns Promise that resolves to a URI of the created file, with persisted read/write permissions that depend on `checkPublicFilesPermission`.
+ * 
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the storage volume is currently unavailable
+ * - When the app does not have read/write permissions for the public files.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.create_new_file | PublicStorage::create_new_file}
+ * @since 22.0.0
+ */
+export async function createNewPublicFile(
+	baseDir: PublicGeneralPurposeDir,
+	relativePath: string,
+	mimeType: string | null,
+	options?: CreateNewPublicFileOptions
+): Promise<FsUri> {
+
+	const requestPermission: boolean = options?.requestPermission ?? true
+	const volumeId: StorageVolumeId | null = options?.volumeId ?? null
+	const isPending: boolean = options?.isPending ?? false
+
+	return await invoke('plugin:android-fs|create_new_public_file', {
+		volumeId,
+		baseDir,
+		relativePath,
+		mimeType,
+		requestPermission,
+		isPending
+	})
+}
+
+/**
+ * Creates a new empty image file in a public directory
+ * 
+ * @param baseDir - Base directory in which to create the new file. One of: `"Pictures"`, `"DCIM"`, `"Documents"`, `"Download"`.
+ * @param relativePath - Relative path from the base directory. If a file with the same name already exists, a sequential number is appended to ensure uniqueness. Any missing directories in this path will be created recursively.
+ * @param mimeType - MIME type of the file to create. If `null`, it is inferred from the extension of `relativePath`.
+ * @param options - Optional settings: `requestPermission`, `volumeId`, `isPending`. See `CreateNewPublicFileOptions` for details.
+ * 
+ * @returns Promise that resolves to a URI of the created file, with persisted read/write permissions that depend on `checkPublicFilesPermission`.
+ * 
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the storage volume is currently unavailable
+ * - When the app does not have read/write permissions for the public files.
+ * - When the MIME type is not an image type.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.create_new_file | PublicStorage::create_new_file}
+ * @since 22.0.0
+ */
+export async function createNewPublicImageFile(
+	baseDir: PublicImageDir | PublicGeneralPurposeDir,
+	relativePath: string,
+	mimeType: string | null,
+	options?: CreateNewPublicFileOptions
+): Promise<FsUri> {
+
+	const requestPermission: boolean = options?.requestPermission ?? true
+	const volumeId: StorageVolumeId | null = options?.volumeId ?? null
+	const isPending: boolean = options?.isPending ?? false
+
+	return await invoke('plugin:android-fs|create_new_public_image_file', {
+		volumeId,
+		baseDir,
+		relativePath,
+		mimeType,
+		requestPermission,
+		isPending
+	})
+}
+
+/**
+ * Creates a new empty video file in a public directory
+ * 
+ * @param baseDir - Base directory in which to create the new file. One of: `"Movies"`, `"DCIM"`, `"Documents"`, `"Download"`.
+ * @param relativePath - Relative path from the base directory. If a file with the same name already exists, a sequential number is appended to ensure uniqueness. Any missing directories in this path will be created recursively.
+ * @param mimeType - MIME type of the file to create. If `null`, it is inferred from the extension of `relativePath`.
+ * @param options - Optional settings: `requestPermission`, `volumeId`, `isPending`. See `CreateNewPublicFileOptions` for details.
+ * 
+ * @returns Promise that resolves to a URI of the created file, with persisted read/write permissions that depend on `checkPublicFilesPermission`.
+ * 
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the storage volume is currently unavailable
+ * - When the app does not have read/write permissions for the public files.
+ * - When the MIME type is not a video type.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.create_new_file | PublicStorage::create_new_file}
+ * @since 22.0.0
+ */
+export async function createNewPublicVideoFile(
+	baseDir: PublicVideoDir | PublicGeneralPurposeDir,
+	relativePath: string,
+	mimeType: string | null,
+	options?: CreateNewPublicFileOptions
+): Promise<FsUri> {
+
+	const requestPermission: boolean = options?.requestPermission ?? true
+	const volumeId: StorageVolumeId | null = options?.volumeId ?? null
+	const isPending: boolean = options?.isPending ?? false
+
+	return await invoke('plugin:android-fs|create_new_public_video_file', {
+		volumeId,
+		baseDir,
+		relativePath,
+		mimeType,
+		requestPermission,
+		isPending
+	})
+}
+
+/**
+ * Creates a new empty audio file in a public directory.
+ * 
+ * @param baseDir - Base directory in which to create the new file. One of: `"Music"`, `"Alarms"`, `"Audiobooks"`, `"Notifications"`, `"Podcasts"`, `"Ringtones"`, `"Recordings"`, `"Documents"`, `"Download"`.
+ * @param relativePath - Relative path from the base directory. If a file with the same name already exists, a sequential number is appended to ensure uniqueness. Any missing directories in this path will be created recursively.
+ * @param mimeType - MIME type of the file to create. If `null`, it is inferred from the extension of `relativePath`.
+ * @param options - Optional settings: `requestPermission`, `volumeId`, `isPending`. See `CreateNewPublicFileOptions` for details.
+ * 
+ * @returns Promise that resolves to a URI of the created file, with persisted read/write permissions that depend on `checkPublicFilesPermission`.
+ * 
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the storage volume is currently unavailable
+ * - When the app does not have read/write permissions for the public files.
+ * - When the MIME type is not an audio type.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.create_new_file | PublicStorage::create_new_file}
+ * @since 22.0.0
+ */
+export async function createNewPublicAudioFile(
+	baseDir: PublicAudioDir | PublicGeneralPurposeDir,
+	relativePath: string,
+	mimeType: string | null,
+	options?: CreateNewPublicFileOptions
+): Promise<FsUri> {
+
+	const requestPermission: boolean = options?.requestPermission ?? true
+	const volumeId: StorageVolumeId | null = options?.volumeId ?? null
+	const isPending: boolean = options?.isPending ?? false
+
+	return await invoke('plugin:android-fs|create_new_public_audio_file', {
+		volumeId,
+		baseDir,
+		relativePath,
+		mimeType,
+		requestPermission,
+		isPending
+	})
+}
+
+/**
+ * Creates a new empty file in a directory.  
+ * 
+ * @param baseDirUri - URI of the base directory in which to create the new file. 
+ * @param relativePath - Relative path from the base directory. If an entry with the same name already exists, a sequential number is appended to ensure uniqueness. Any missing parent directories in this path will be created recursively.
+ * @param mimeType - MIME type of the file to create. If `null`, it is inferred from the extension of `relativePath`.
+ * 
+ * @returns Promise that resolves to a URI of the created file, with permissions that depend on the base directory.
+ * 
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the base directory is a file, not a directory.
+ * - When the base directory does not exist.
+ * - When the app does not have read/write permissions for the base directory.
+ * - When a provider of the base directory via Directory Picker does not support the create-file or read-directory operations.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.create_new_file | AndroidFs::create_new_file}
+ * @since 22.0.0
+ */
+export async function createNewFile(
+	baseDirUri: FsUri,
+	relativePath: string,
+	mimeType: string | null
+): Promise<FsUri> {
+
+	return await invoke('plugin:android-fs|create_new_file', {
+		baseDirUri,
+		relativePath,
+		mimeType,
+	})
+}
+
+/**
+ * Creates a new directory in a directory.  
+ * 
+ * @param baseDirUri - URI of the base directory in which to create the new directory. 
+ * @param relativePath - Relative path from the base directory. If an entry with the same name already exists, a sequential number is appended to ensure uniqueness. Any missing parent directories in this path will be created recursively.
+ * @param mimeType - MIME type of the directory to create. If `null`, it is inferred from the extension of `relativePath`.
+ * 
+ * @returns Promise that resolves to a URI of the created directory, with permissions that depend on the base directory.
+ * 
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the base directory is a file, not a directory.
+ * - When the base directory does not exist.
+ * - When the app does not have read/write permissions for the base directory.
+ * - When a provider of the base directory via Directory Picker does not support the create-directory or read-directory operations.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.create_new_dir | AndroidFs::create_new_dir}
+ * @since 28.2.0
+*/
+export async function createNewDir(
+	baseDirUri: FsUri,
+	relativePath: string,
+): Promise<FsUri> {
+
+	return await invoke('plugin:android-fs|create_new_dir', {
+		baseDirUri,
+		relativePath,
+	})
+}
+
+/**
+ * Creates a new directory in a directory if missing.
+ * 
+ * @param baseDirUri - URI of the base directory in which to create the directory. 
+ * @param relativePath - Relative path from the base directory. Any missing parent directories in this path will be created recursively.
+ * 
+ * @returns Promise that resolves to a URI of the created or existing directory. The permissions depend on the base directory.
+ * 
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the base directory is a file, not a directory.
+ * - When the base directory does not exist.
+ * - When the app does not have read/write permissions for the base directory.
+ * - When a provider of the base directory via Directory Picker does not support the create-directory or read-directory operations.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.create_dir_all | AndroidFs::create_dir_all}
+ * @since 26.1.0
+ */
+export async function createDir(
+	baseDirUri: FsUri,
+	relativePath: string,
+): Promise<FsUri> {
+
+	return await invoke('plugin:android-fs|create_dir', {
+		baseDirUri,
+		relativePath,
+	})
+}
+
+/**
+ * Opens a file in read mode and resolves to a {@link https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream | ReadableStream}.
+ * 
+ * @remarks
+ * The caller is responsible for releasing the returned stream.
+ * The stream is released in the following cases:
+ * - When the stream or its reader is canceled. 
+ * - When all data has been successfully read from the stream.
+ * - When a read operation fails with an error. 
+ * - When an abort event is received from the provided `AbortSignal`.
+ * - When `closeAllFileStreams` is called.
+ * 
+ * The stream provides a {@link https://developer.mozilla.org/en-US/docs/Web/API/ReadableStreamDefaultReader | ReadableStreamDefaultReader}
+ * and a {@link https://developer.mozilla.org/en-US/docs/Web/API/ReadableStreamBYOBReader | ReadableStreamBYOBReader}.
+ * 
+ * There is also {@link https://crates.io/crates/tauri-plugin-fs-stream | tauri-plugin-fs-stream}, which provides APIs not only for Android but for all platforms.
+ * 
+ * @param uri - URI or path of the file to read. 
+ * @param options - Optional settings: `bufferByteLength`, `signal`. See `OpenReadFileStreamOptions` for details.
+ * 
+ * @returns Promise that resolves to a `ReadableStream<Uint8Array<ArrayBuffer>>` backed by the file opened in read-only mode. This stream maintains a one-to-one correspondence with the file descriptor.
+ * 
+ * @throws
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a directory, not a file.
+ * - When the file does not exist.
+ * - When the app does not have read permissions for the file.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_readable | AndroidFs::open_file_readable}
+ * @since 25.1.0
+ */
+export async function openReadFileStream(
+	uri: FsUri | string | URL,
+	options?: OpenReadFileStreamOptions
+): Promise<ReadableStream<Uint8Array<ArrayBuffer>>> {
+
+	throwIfAborted(options?.signal)
+	const bufferByteLength = mapBufferByteLengthForInput(options?.bufferByteLength)
+	const { open, read, close } = resolveCmdReadFileStream("plugin:android-fs|open_read_file_stream")
+
+	try {
+		await open({
 			uri: mapFsPathForInput(uri)
 		})
-	}
 
-	/**
-	 * Gets the file size in bytes of a file.  
-	 *
-	 * @param uri - URI or path of the target file.
-	 * 
-	 * @returns Promise that resolves to a non-negative integer representing the file size in bytes.
-	 *
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry is a directory, not a file.
-	 * - When the file does not exist.
-	 * - When the app does not have read permissions for the file.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_len | AndroidFs::get_len}
-	 * @since 22.2.0
-	 */
-	public static async getByteLength(uri: AndroidFsUri | FsPath): Promise<number> {
-		return await invoke('plugin:android-fs|get_byte_length', {
-			uri: mapFsPathForInput(uri)
-		})
-	}
-
-	/**
-	 * Gets the type of a file or directory.
-	 *
-	 * @param uri - URI or path of the target file or directory.
-	 * 
-	 * @returns Promise that resolves to the type of the entry. The resolved value will be an object of type `AndroidEntryType`, which can be either `{ type: "Dir" }` for directories or `{ type: "File", mimeType: string }` for files.
-	 * 
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry does not exist.
-	 * - When the app does not have read permissions for the entry.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_type | AndroidFs::get_type}
-	 * @since 22.0.0
-	 */
-	public static async getType(uri: AndroidFsUri | FsPath): Promise<AndroidEntryType> {
-		return await invoke('plugin:android-fs|get_type', {
-			uri: mapFsPathForInput(uri)
-		})
-	}
-
-	/**
-	 * Gets the MIME type of a file.
-	 *
-	 * @param uri - URI or path of the target file.
-	 * 
-	 * @returns Promise that resolves to the MIME type of the file.
-	 *
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry is a directory, not a file.
-	 * - When the file does not exist.
-	 * - When the app does not have read permissions for the file.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_mime_type | AndroidFs::get_mime_type}
-	 * @since 22.0.0
-	 */
-	public static async getMimeType(uri: AndroidFsUri | FsPath): Promise<string> {
-		return await invoke('plugin:android-fs|get_mime_type', {
-			uri: mapFsPathForInput(uri)
-		})
-	}
-
-	/**
-	 * Gets metadata of a file or directory.  
-	 * 
-	 * @param uri - URI or path of the target file or directory.
-	 * 
-	 * @returns Promise that resolves to metadata of the entry. It includes the type (`"Dir"` or `"File"`), name, last modified date, and for files also byte length and MIME type.
-	 * 
-	 * @throws
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry does not exist.
-	 * - When the app does not have read permissions for the entry.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_info | AndroidFs::get_info}
-	 * @since 22.0.0
-	 */
-	public static async getMetadata(uri: AndroidFsUri | FsPath): Promise<AndroidEntryMetadata> {
-		let md = await invoke<AndroidEntryMetadataInner>('plugin:android-fs|get_metadata', {
-			uri: mapFsPathForInput(uri)
-		})
-		const lastModified = new Date(md.lastModified)
-
-		return md.type === "Dir"
-			? { type: "Dir", name: md.name, lastModified, }
-			: { type: "File", name: md.name, lastModified, byteLength: md.byteLength, mimeType: md.mimeType };
-	}
-
-	/**
-	 * Gets the thumbnail of a file as the Data URL.  
-	 * 
-	 * @remarks
-	 * This does not perform caching.
-	 *
-	 * @param uri - URI or path of the target file.
-	 * @param width - Preferred thumbnail width in pixels.
-	 * @param height - Preferred thumbnail height in pixels.
-	 * @param options - Optional settings: `format`. See `AndroidGetThumbnailOptions` for details.
-	 * 
-	 * @returns Promise that resolves to a Data URL string of the thumbnail, or `null` if none exists. The actual dimensions will not exceed approximately twice the specified width or height, while always maintaining the original aspect ratio.
-	 * 
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry is a directory, not a file.
-	 * - When the file does not exist.
-	 * - When the app does not have read permissions for the file.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_thumbnail | AndroidFs::get_thumbnail}
-	 * @since 26.1.0
-	 */
-	public static async getThumbnailAsDataURL(
-		uri: AndroidFsUri | FsPath,
-		width: number,
-		height: number,
-		options?: AndroidGetThumbnailOptions
-	): Promise<string | null> {
-
-		const format: AndroidThumbnailFormat = options?.format ?? "jpeg"
-		const thumbnail = await invoke<ArrayBuffer>('plugin:android-fs|get_thumbnail_as_data_url', {
-			uri: mapFsPathForInput(uri),
-			width,
-			height,
-			format
-		})
-
-		return thumbnail.byteLength === 0 ? null : decodeUtf8(thumbnail)
-	}
-
-	/**
-	 * Gets the thumbnail of a file as the base64-encoded string.  
-	 * 
-	 * @remarks
-	 * This does not perform caching.
-	 *
-	 * @param uri - URI or path of the target file.
-	 * @param width - Preferred thumbnail width in pixels.
-	 * @param height - Preferred thumbnail height in pixels.
-	 * @param options - Optional settings: `format`. See `AndroidGetThumbnailOptions` for details.
-	 * 
-	 * @returns Promise that resolves to a base64-encoded string of the thumbnail, or `null` if none exists. The actual dimensions will not exceed approximately twice the specified width or height, while always maintaining the original aspect ratio.
-	 * 
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry is a directory, not a file.
-	 * - When the file does not exist.
-	 * - When the app does not have read permissions for the file.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_thumbnail | AndroidFs::get_thumbnail}
-	 * @since 26.1.0
-	 */
-	public static async getThumbnailAsBase64(
-		uri: AndroidFsUri | FsPath,
-		width: number,
-		height: number,
-		options?: AndroidGetThumbnailOptions
-	): Promise<string | null> {
-
-		const format: AndroidThumbnailFormat = options?.format ?? "jpeg"
-		const thumbnail = await invoke<ArrayBuffer>('plugin:android-fs|get_thumbnail_as_base64', {
-			uri: mapFsPathForInput(uri),
-			width,
-			height,
-			format
-		})
-
-		return thumbnail.byteLength === 0 ? null : decodeUtf8(thumbnail)
-	}
-
-	/**
-	 * Gets the thumbnail of a file as bytes.  
-	 * 
-	 * @remarks
-	 * This does not perform caching.
-	 *
-	 * @param uri - URI or path of the target file.
-	 * @param width - Preferred thumbnail width in pixels.
-	 * @param height - Preferred thumbnail height in pixels.
-	 * @param options - Optional settings: `format`. See `AndroidGetThumbnailOptions` for details.
-	 * 
-	 * @returns Promise that resolves to bytes of the thumbnail, or `null` if none exists. The actual dimensions will not exceed approximately twice the specified width or height, while always maintaining the original aspect ratio.
-	 * 
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry is a directory, not a file.
-	 * - When the file does not exist.
-	 * - When the app does not have read permissions for the file.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_thumbnail | AndroidFs::get_thumbnail}
-	 * @since 26.1.0
-	 */
-	public static async getThumbnailAsBytes(
-		uri: AndroidFsUri | FsPath,
-		width: number,
-		height: number,
-		options?: AndroidGetThumbnailOptions
-	): Promise<Uint8Array<ArrayBuffer> | null> {
-
-		const format: AndroidThumbnailFormat = options?.format ?? "jpeg"
-		const thumbnail = await invoke<ArrayBuffer>('plugin:android-fs|get_thumbnail_as_bytes', {
-			uri: mapFsPathForInput(uri),
-			width,
-			height,
-			format
-		})
-
-		return thumbnail.byteLength === 0 ? null : new Uint8Array(thumbnail)
-	}
-
-	/**
-	 * Gets the thumbnail of a file as bytes.  
-	 * 
-	 * @remarks
-	 * This does not perform caching.
-	 *
-	 * @param uri - URI or path of the target file.
-	 * @param width - Preferred thumbnail width in pixels.
-	 * @param height - Preferred thumbnail height in pixels.
-	 * @param options - Optional settings: `format`. See `AndroidGetThumbnailOptions` for details.
-	 * 
-	 * @returns Promise that resolves to bytes of the thumbnail, or `null` if none exists. The actual dimensions will not exceed approximately twice the specified width or height, while always maintaining the original aspect ratio.
-	 * 
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry is a directory, not a file.
-	 * - When the file does not exist.
-	 * - When the app does not have read permissions for the file.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_thumbnail | AndroidFs::get_thumbnail}
-	 * @since 26.1.0
-	 */
-	public static async getThumbnail(
-		uri: AndroidFsUri | FsPath,
-		width: number,
-		height: number,
-		options?: AndroidGetThumbnailOptions
-	): Promise<ArrayBuffer | null> {
-
-		const format: AndroidThumbnailFormat = options?.format ?? "jpeg"
-		const thumbnail = await invoke<ArrayBuffer>('plugin:android-fs|get_thumbnail', {
-			uri: mapFsPathForInput(uri),
-			width,
-			height,
-			format
-		})
-
-		return thumbnail.byteLength === 0 ? null : thumbnail
-	}
-
-	/**
-	 * Gets the path usable with {@link https://v2.tauri.app/ja/plugin/file-system/ | @tauri-apps/plugin-fs}.
-	 * 
-	 * @remarks
-	 * Paths **derived from this plugin's URI** are supported only for reading and writing files.
-	 * No guarantees are provided for other operations or directory handling.
-	 * For these paths, you do not need to configure {@link https://v2.tauri.app/reference/javascript/fs/#security | the scope configuration} of the Tauri file system.
-	 * 
-	 * Caution is required when using `@tauri-apps/plugin-fs` for file operations. 
-	 * Writing files can occasionally be very slow. 
-	 * Additionally, files obtained from third-party apps via a file picker may not be openable, readable, writable, or seekable.  
-	 * 
-	 * Therefore, it is strongly recommended to use the dedicated APIs provided by this plugin instead.
-	 * 
-	 * @param uri - URI or path of the target file or directory.
-	 * @returns Promise that resolves to the path. Note that while it is called a "path", it may actually be a URI that is compatible with `@tauri-apps/plugin-fs`.
-	 * 
-	 * @since 22.0.0
-	 */
-	public static async getFsPath(uri: AndroidFsUri | FsPath): Promise<string> {
-		return await invoke<string>('plugin:android-fs|get_fs_path', {
-			uri: mapFsPathForInput(uri)
-		})
-	}
-
-	/**
-	 * Converts a file URI into a URL that can be used to load thumbnails in HTML `<img>` elements.
-	 * 
-	 * @remarks
-	 * This is backed by Tauri’s custom protocol.
-	 * 
-	 * ## Setup
-	 * This function only constructs a URL.  
-	 * To actually load a file using the returned URL, follow the steps below.
-	 * 
-	 * #### 1. Enable protocol feature
-	 * Enable protocol_thumbnail feature.
-	 * 
-	 * `src-tauri/Cargo.toml`
-	 * ```toml
-	 * [dependencies]
-	 * tauri-plugin-android-fs = { features = ["protocol_thumbnail"], ... }
-	 * ```
-	 * 
-	 * #### 2. Configuration
-	 * Set the configuration to allow files to be loaded.
-	 * If you are using absolute paths, you must configure the scope as with other APIs.
-	 * 
-	 * `src-tauri/tauri.conf.json`
-	 * ```json
-	 * {
-	 *   "plugins": {
-	 *     "android-fs": {
-	 *       "thumbnailProtocol": {
-	 *         "enable": true,
-	 *         "scope": {
-	 *           "allow": ["$APPDATA/my-data/*"],
-	 *         }
-	 *       }
-	 *     }
-	 *   }
-	 * }
-	 * ```
-	 * 
-	 * NOTE:
-	 * Ensure that `serde_json` is present in your Rust dependencies.  
-	 * It is included by default in Tauri project templates, but if it has been removed, add it back.  
-	 * If it is missing, the project will fail to build.
-	 * 
-	 * #### 3. Content Security Policy (CSP)
-	 * If you are using a CSP, 
-	 * add `http://android-fs-thumbnail.localhost` to {@link https://v2.tauri.app/reference/config/#csp-1 | app.security.csp} in `src-tauri/tauri.conf.json`.
-	 * 
-	 * @param uri - URI or path of the target file.
-	 * @param options - Optional settings: `width`, `height`, `format`. See `AndroidConvertThumbnailSrcOptions` for details.
-	 * 
-	 * @since 27.2.0
-	 */
-	public static convertThumbnailSrc(
-		uri: AndroidFsUri | FsPath,
-		options?: AndroidConvertThumbnailSrcOptions,
-	): string {
-
-		let srcUrl = convertFileSrc(
-			JSON.stringify(mapFsPathForInput(uri)),
-			"android-fs-thumbnail"
-		)
-
-		let sep = "?"
-		if (options?.width != null) {
-			srcUrl += sep + "w=" + options.width
-			sep = "&"
-		}
-		if (options?.height != null) {
-			srcUrl += sep + "h=" + options.height
-			sep = "&"
-		}
-		if (options?.format != null) {
-			srcUrl += sep + "f=" + options?.format
-			sep = "&"
-		}
-
-		return srcUrl
-	}
-
-	/**
-	 * Converts a file URI into a URL that can be loaded by HTML `<img>`, `<video>`, and `<audio>` elements.
-	 * 
-	 * @remarks
-	 * This is backed by Tauri’s custom protocol.
-	 * 
-	 * ## Setup
-	 * This function only constructs a URL.  
-	 * To actually load a file using the returned URL, follow the steps below.
-	 * 
-	 * #### 1. Enable protocol feature
-	 * Enable protocol_content feature.
-	 * 
-	 * `src-tauri/Cargo.toml`
-	 * ```toml
-	 * [dependencies]
-	 * tauri-plugin-android-fs = { features = ["protocol_content"], ... }
-	 * ```
-	 * 
-	 * #### 2. Configuration
-	 * Set the configuration to allow files to be loaded.
-	 * If you are using absolute paths, you must configure the scope as with other APIs.
-	 * 
-	 * `src-tauri/tauri.conf.json`
-	 * ```json
-	 * {
-	 *   "plugins": {
-	 *     "android-fs": {
-	 *       "contentProtocol": {
-	 *         "enable": true,
-	 *         "scope": {
-	 *           "allow": ["$APPDATA/my-data/*"],
-	 *         }
-	 *       }
-	 *     }
-	 *   }
-	 * }
-	 * ```
-	 * 
-	 * NOTE:
-	 * Ensure that `serde_json` is present in your Rust dependencies.  
-	 * It is included by default in Tauri project templates, but if it has been removed, add it back.  
-	 * If it is missing, the project will fail to build.
-	 * 
-	 * #### 3. Content Security Policy (CSP)
-	 * If you are using a CSP, 
-	 * add `http://android-fs-content.localhost` to {@link https://v2.tauri.app/reference/config/#csp-1 | app.security.csp} in `src-tauri/tauri.conf.json`.
-	 * 
-	 * 
-	 * ## Known Issues (As of June 15, 2026)
-	 * File loading may fail. 
-	 * This issue occurs frequently with `<video>` and `<audio>` elements, but is not limited to them, 
-	 * because Tauri’s custom protocol currently {@link https://github.com/tauri-apps/tauri/issues/12019 | cannot handle range requests on Android}.
-	 * As a workaround, you can host your own local server on the backend.
-	 * 
-	 * @param uri - URI or path of the target file.
-	 * 
-	 * @since 27.2.0
-	 */
-	public static convertFileSrc(uri: AndroidFsUri | FsPath): string {
-		return convertFileSrc(
-			JSON.stringify(mapFsPathForInput(uri)),
-			"android-fs-content"
-		)
-	}
-
-	/**
-	 * Retrieves information about available Android storage volumes (e.g., internal storage, SD cards, or USB drives).
-	 * 
-	 * @param options - Optional settings.
-	 * @param options.purpose - Purpose of the storage volumes. One of: `"CreatePublicFile"`, `"PickerInitialLocation"`. By default, only volumes that are available for both purposes are listed.
-	 * 
-	 * @returns Promise that resolves to an array of the storage volumes. 
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_volumes | AndroidFs::get_volumes}
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.get_volumes | PublicStorage::get_volumes}
-	 * 
-	 * @since 22.2.0
-	 */
-	public static async listVolumes(
-		options?: AndroidListVolumesOptions
-	): Promise<AndroidStorageVolumeInfo[]> {
-
-		const purpose = options?.purpose
-		const volumes = await invoke<AndroidStorageVolumeInfo[]>('plugin:android-fs|list_volumes')
-
-		if (purpose == null || purpose === "CreatePublicFile") {
-			return volumes
-				.filter(v => !v.isReadOnly)
-				.filter(v => v.isAvailableForPublicFiles)
-		}
-		else {
-			purpose satisfies "PickerInitialLocation"
-			return volumes
-		}
-	}
-
-	/**
-	 * Requests permission from the user to create public files and access them.  
-	 * 
-	 * @remarks
-	 * This is intended for `AndroidFs.createNewPublicFile` and its related functions. 
-	 * However, since those functions automatically request permission by default, calling this method explicitly is usually unnecessary.
-	 * 
-	 * @returns Promise that resolves to a boolean indicating whether the app is allowed to create files in public storage and access them.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.request_permission | PublicStorage::request_permission}
-	 * @since 22.0.0
-	 */
-	public static async requestPublicFilesPermission(): Promise<boolean> {
-		return await invoke('plugin:android-fs|request_public_files_permission')
-	}
-
-	/**
-	 * Checks whether the app has permission to create public files and access them.
-	 * 
-	 * @remarks
-	 * The app can request this permission explicitly using {@link AndroidFs.requestPublicFilesPermission}.
-	 * 
-	 * @returns Promise that resolves to a boolean indicating whether the app is allowed to create files in public storage and access them.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.check_permission | PublicStorage::check_permission}
-	 * @since 27.1.0
-	 */
-	public static async checkPublicFilesPermission(): Promise<boolean> {
-		return await invoke('plugin:android-fs|check_public_files_permission')
-	}
-
-	/**
-	 * Triggers the Android MediaScanner to scan a public file,
-	 * making it visible in media applications (e.g., Gallery, Music player).
-	 * 
-	 * @param uri - URI of the file to be scanned.  
-	 * @returns Promise that resolves when the scan request has been successfully initiated.
-	 * 
-	 * @throws
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry is a directory, not a file.
-	 * - When the file does not exist.
-	 * - When a provider of the file is not the Android MediaStore.
-	 * - When the app does not have read/write permissions for the file.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.scan | PublicStorage::scan}
-	 * @since 22.0.0
-	 */
-	public static async scanPublicFile(
-		uri: AndroidFsUri
-	): Promise<void> {
-
-		return await invoke('plugin:android-fs|scan_public_file', {
-			uri,
-		})
-	}
-
-	/**
-	 * Specifies whether a public file is marked as pending.  
-	 * 
-	 * @remarks
-	 * This is available for Android 11 (API level 30) or higher.  
-	 * If unavailable, this does nothing. 
-	 * 
-	 * @param uri - URI of the target file.  
-	 * @param isPending - Indicates whether the file is pending. When `true`, the app has exclusive access and the file is invisible to others. Files pending for over 7 days are automatically deleted by the Android system.
-	 * 
-	 * @returns Promise that resolves when the operation is completed.
-	 * 
-	 * @throws
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry is a directory, not a file.
-	 * - When the file does not exist.
-	 * - When a provider of the file is not the Android MediaStore.
-	 * - When the app does not have read/write permissions for the file.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.set_pending | PublicStorage::set_pending}
-	 * @since 25.0.0
-	 */
-	public static async setPublicFilePending(
-		uri: AndroidFsUri,
-		isPending: boolean
-	): Promise<void> {
-
-		return await invoke('plugin:android-fs|set_public_file_pending', {
-			uri,
-			isPending
-		})
-	}
-
-	/**
-	 * Creates a new empty file in a public directory
-	 * 
-	 * @param baseDir - Base directory in which to create the new file. One of: `"Documents"`, `"Download"`.
-	 * @param relativePath - Relative path from the base directory. If a file with the same name already exists, a sequential number is appended to ensure uniqueness. Any missing directories in this path will be created recursively.
-	 * @param mimeType - MIME type of the file to create. If `null`, it is inferred from the extension of `relativePath`.
-	 * @param options - Optional settings: `requestPermission`, `volumeId`, `isPending`. See `AndroidCreateNewPublicFileOptions` for details.
-	 * 
-	 * @returns Promise that resolves to a URI of the created file, with persisted read/write permissions that depend on `AndroidFs.checkPublicFilesPermission`.
-	 * 
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the storage volume is currently unavailable
-	 * - When the app does not have read/write permissions for the public files.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.create_new_file | PublicStorage::create_new_file}
-	 * @since 22.0.0
-	 */
-	public static async createNewPublicFile(
-		baseDir: AndroidPublicGeneralPurposeDir,
-		relativePath: string,
-		mimeType: string | null,
-		options?: AndroidCreateNewPublicFileOptions
-	): Promise<AndroidFsUri> {
-
-		const requestPermission: boolean = options?.requestPermission ?? true
-		const volumeId: AndroidStorageVolumeId | null = options?.volumeId ?? null
-		const isPending: boolean = options?.isPending ?? false
-
-		return await invoke('plugin:android-fs|create_new_public_file', {
-			volumeId,
-			baseDir,
-			relativePath,
-			mimeType,
-			requestPermission,
-			isPending
-		})
-	}
-
-	/**
-	 * Creates a new empty image file in a public directory
-	 * 
-	 * @param baseDir - Base directory in which to create the new file. One of: `"Pictures"`, `"DCIM"`, `"Documents"`, `"Download"`.
-	 * @param relativePath - Relative path from the base directory. If a file with the same name already exists, a sequential number is appended to ensure uniqueness. Any missing directories in this path will be created recursively.
-	 * @param mimeType - MIME type of the file to create. If `null`, it is inferred from the extension of `relativePath`.
-	 * @param options - Optional settings: `requestPermission`, `volumeId`, `isPending`. See `AndroidCreateNewPublicFileOptions` for details.
-	 * 
-	 * @returns Promise that resolves to a URI of the created file, with persisted read/write permissions that depend on `AndroidFs.checkPublicFilesPermission`.
-	 * 
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the storage volume is currently unavailable
-	 * - When the app does not have read/write permissions for the public files.
-	 * - When the MIME type is not an image type.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.create_new_file | PublicStorage::create_new_file}
-	 * @since 22.0.0
-	 */
-	public static async createNewPublicImageFile(
-		baseDir: AndroidPublicImageDir | AndroidPublicGeneralPurposeDir,
-		relativePath: string,
-		mimeType: string | null,
-		options?: AndroidCreateNewPublicFileOptions
-	): Promise<AndroidFsUri> {
-
-		const requestPermission: boolean = options?.requestPermission ?? true
-		const volumeId: AndroidStorageVolumeId | null = options?.volumeId ?? null
-		const isPending: boolean = options?.isPending ?? false
-
-		return await invoke('plugin:android-fs|create_new_public_image_file', {
-			volumeId,
-			baseDir,
-			relativePath,
-			mimeType,
-			requestPermission,
-			isPending
-		})
-	}
-
-	/**
-	 * Creates a new empty video file in a public directory
-	 * 
-	 * @param baseDir - Base directory in which to create the new file. One of: `"Movies"`, `"DCIM"`, `"Documents"`, `"Download"`.
-	 * @param relativePath - Relative path from the base directory. If a file with the same name already exists, a sequential number is appended to ensure uniqueness. Any missing directories in this path will be created recursively.
-	 * @param mimeType - MIME type of the file to create. If `null`, it is inferred from the extension of `relativePath`.
-	 * @param options - Optional settings: `requestPermission`, `volumeId`, `isPending`. See `AndroidCreateNewPublicFileOptions` for details.
-	 * 
-	 * @returns Promise that resolves to a URI of the created file, with persisted read/write permissions that depend on `AndroidFs.checkPublicFilesPermission`.
-	 * 
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the storage volume is currently unavailable
-	 * - When the app does not have read/write permissions for the public files.
-	 * - When the MIME type is not a video type.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.create_new_file | PublicStorage::create_new_file}
-	 * @since 22.0.0
-	 */
-	public static async createNewPublicVideoFile(
-		baseDir: AndroidPublicVideoDir | AndroidPublicGeneralPurposeDir,
-		relativePath: string,
-		mimeType: string | null,
-		options?: AndroidCreateNewPublicFileOptions
-	): Promise<AndroidFsUri> {
-
-		const requestPermission: boolean = options?.requestPermission ?? true
-		const volumeId: AndroidStorageVolumeId | null = options?.volumeId ?? null
-		const isPending: boolean = options?.isPending ?? false
-
-		return await invoke('plugin:android-fs|create_new_public_video_file', {
-			volumeId,
-			baseDir,
-			relativePath,
-			mimeType,
-			requestPermission,
-			isPending
-		})
-	}
-
-	/**
-	 * Creates a new empty audio file in a public directory.
-	 * 
-	 * @param baseDir - Base directory in which to create the new file. One of: `"Music"`, `"Alarms"`, `"Audiobooks"`, `"Notifications"`, `"Podcasts"`, `"Ringtones"`, `"Recordings"`, `"Documents"`, `"Download"`.
-	 * @param relativePath - Relative path from the base directory. If a file with the same name already exists, a sequential number is appended to ensure uniqueness. Any missing directories in this path will be created recursively.
-	 * @param mimeType - MIME type of the file to create. If `null`, it is inferred from the extension of `relativePath`.
-	 * @param options - Optional settings: `requestPermission`, `volumeId`, `isPending`. See `AndroidCreateNewPublicFileOptions` for details.
-	 * 
-	 * @returns Promise that resolves to a URI of the created file, with persisted read/write permissions that depend on `AndroidFs.checkPublicFilesPermission`.
-	 * 
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the storage volume is currently unavailable
-	 * - When the app does not have read/write permissions for the public files.
-	 * - When the MIME type is not an audio type.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.create_new_file | PublicStorage::create_new_file}
-	 * @since 22.0.0
-	 */
-	public static async createNewPublicAudioFile(
-		baseDir: AndroidPublicAudioDir | AndroidPublicGeneralPurposeDir,
-		relativePath: string,
-		mimeType: string | null,
-		options?: AndroidCreateNewPublicFileOptions
-	): Promise<AndroidFsUri> {
-
-		const requestPermission: boolean = options?.requestPermission ?? true
-		const volumeId: AndroidStorageVolumeId | null = options?.volumeId ?? null
-		const isPending: boolean = options?.isPending ?? false
-
-		return await invoke('plugin:android-fs|create_new_public_audio_file', {
-			volumeId,
-			baseDir,
-			relativePath,
-			mimeType,
-			requestPermission,
-			isPending
-		})
-	}
-
-	/**
-	 * Creates a new empty file in a directory.  
-	 * 
-	 * @param baseDirUri - URI of the base directory in which to create the new file. 
-	 * @param relativePath - Relative path from the base directory. If an entry with the same name already exists, a sequential number is appended to ensure uniqueness. Any missing parent directories in this path will be created recursively.
-	 * @param mimeType - MIME type of the file to create. If `null`, it is inferred from the extension of `relativePath`.
-	 * 
-	 * @returns Promise that resolves to a URI of the created file, with permissions that depend on the base directory.
-	 * 
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the base directory is a file, not a directory.
-	 * - When the base directory does not exist.
-	 * - When the app does not have read/write permissions for the base directory.
-	 * - When a provider of the base directory via Directory Picker does not support the create-file or read-directory operations.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.create_new_file | AndroidFs::create_new_file}
-	 * @since 22.0.0
-	 */
-	public static async createNewFile(
-		baseDirUri: AndroidFsUri,
-		relativePath: string,
-		mimeType: string | null
-	): Promise<AndroidFsUri> {
-
-		return await invoke('plugin:android-fs|create_new_file', {
-			baseDirUri,
-			relativePath,
-			mimeType,
-		})
-	}
-
-	/**
-	 * Creates a new directory in a directory.  
-	 * 
-	 * @param baseDirUri - URI of the base directory in which to create the new directory. 
-	 * @param relativePath - Relative path from the base directory. If an entry with the same name already exists, a sequential number is appended to ensure uniqueness. Any missing parent directories in this path will be created recursively.
-	 * @param mimeType - MIME type of the directory to create. If `null`, it is inferred from the extension of `relativePath`.
-	 * 
-	 * @returns Promise that resolves to a URI of the created directory, with permissions that depend on the base directory.
-	 * 
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the base directory is a file, not a directory.
-	 * - When the base directory does not exist.
-	 * - When the app does not have read/write permissions for the base directory.
-	 * - When a provider of the base directory via Directory Picker does not support the create-directory or read-directory operations.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.create_new_dir | AndroidFs::create_new_dir}
-	 * @since 28.2.0
-	 */
-	public static async createNewDir(
-		baseDirUri: AndroidFsUri,
-		relativePath: string,
-	): Promise<AndroidFsUri> {
-
-		return await invoke('plugin:android-fs|create_new_dir', {
-			baseDirUri,
-			relativePath,
-		})
-	}
-
-	/**
-	 * Creates a new directory in a directory if missing.
-	 * 
-	 * @remarks
-	 * If the directory already exists, returns the existing directory URI.
-	 * 
-	 * @param baseDirUri - URI of the base directory in which to create the directory. 
-	 * @param relativePath - Relative path from the base directory. Any missing parent directories in this path will be created recursively.
-	 * 
-	 * @returns Promise that resolves to a URI of the created or existing directory. The permissions depend on the base directory.
-	 * 
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the base directory is a file, not a directory.
-	 * - When the base directory does not exist.
-	 * - When the app does not have read/write permissions for the base directory.
-	 * - When a provider of the base directory via Directory Picker does not support the create-directory or read-directory operations.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.create_dir_all | AndroidFs::create_dir_all}
-	 * @since 26.1.0
-	 */
-	public static async createDir(
-		baseDirUri: AndroidFsUri,
-		relativePath: string,
-	): Promise<AndroidFsUri> {
-
-		return await invoke('plugin:android-fs|create_dir', {
-			baseDirUri,
-			relativePath,
-		})
-	}
-
-	/**
-	 * Opens a file in read mode and resolves to a {@link https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream | ReadableStream}.
-	 * 
-	 * @remarks
-	 * The caller is responsible for releasing the returned stream.
-	 * The stream is released in the following cases:
-	 * - When the stream or its reader is canceled. 
-	 * - When all data has been successfully read from the stream.
-	 * - When a read operation fails with an error. 
-	 * - When an abort event is received from the provided `AbortSignal`.
-	 * - When `AndroidFs.closeAllFileStreams` is called.
-	 * 
-	 * The stream provides a {@link https://developer.mozilla.org/en-US/docs/Web/API/ReadableStreamDefaultReader | ReadableStreamDefaultReader}
-	 * and a {@link https://developer.mozilla.org/en-US/docs/Web/API/ReadableStreamBYOBReader | ReadableStreamBYOBReader}.
-	 * 
-	 * There is also {@link https://crates.io/crates/tauri-plugin-fs-stream | tauri-plugin-fs-stream}, which provides APIs not only for Android but for all platforms.
-	 * 
-	 * @param uri - URI or path of the file to read. 
-	 * @param options - Optional settings: `bufferByteLength`, `signal`. See `AndroidOpenReadFileStreamOptions` for details.
-	 * 
-	 * @returns Promise that resolves to a `ReadableStream<Uint8Array<ArrayBuffer>>` backed by the file opened in read-only mode. This stream maintains a one-to-one correspondence with the file descriptor.
-	 * 
-	 * @throws
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry is a directory, not a file.
-	 * - When the file does not exist.
-	 * - When the app does not have read permissions for the file.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_readable | AndroidFs::open_file_readable}
-	 * @since 25.1.0
-	 */
-	public static async openReadFileStream(
-		uri: AndroidFsUri | FsPath,
-		options?: AndroidOpenReadFileStreamOptions
-	): Promise<ReadableStream<Uint8Array<ArrayBuffer>>> {
-
-		throwIfAborted(options?.signal)
-		const bufferByteLength = mapBufferByteLengthForInput(options?.bufferByteLength)
-		const { open, read, close } = resolveCmdReadFileStream("plugin:android-fs|open_read_file_stream")
-
-		try {
-			await open({
-				uri: mapFsPathForInput(uri)
-			})
-
-			return createReadableStream(
-				{
-					read: () => read(bufferByteLength),
-					release: () => close()
-				},
-				{ signal: options?.signal }
-			)
-		}
-		catch (e) {
-			await close().catch(() => { })
-			throw e
-		}
-	}
-
-	/**
-	 * Opens a file in read mode and resolves to a {@link https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream | ReadableStream} of text lines.
-	 * 
-	 * @remarks
-	 * The returned stream yields decoded text line by line.
-	 * For the structure of each item, see `AndroidOpenReadTextFileLinesStreamItem`.
-	 * 
-	 * The caller is responsible for releasing the stream.
-	 * The stream is released in the following cases:
-	 * - When the stream or its reader is canceled. 
-	 * - When all data has been successfully read from the stream.
-	 * - When a read operation fails with an error. 
-	 * - When an abort event is received from the provided `AbortSignal`.
-	 * - When `AndroidFs.closeAllFileStreams` is called.
-	 * 
-	 * There is also {@link https://crates.io/crates/tauri-plugin-fs-stream | tauri-plugin-fs-stream}, which provides APIs not only for Android but for all platforms.
-	 * 
-	 * @param uri - URI or path of the file to read. 
-	 * @param options - Optional settings: `encoding`, `fatal`, `ignoreBOM`, `maxLineByteLength`, `bufferByteLength`, `signal`. See `AndroidOpenReadTextFileLinesStreamOptions` for details.
-	 * 
-	 * @returns Promise that resolves to a `ReadableStream<AndroidOpenReadTextFileLinesStreamItem>` backed by the file opened in read-only mode. This stream maintains a one-to-one correspondence with the file descriptor.
-	 *
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry is a directory, not a file.
-	 * - When the file does not exist.
-	 * - When the app does not have read permissions for the file.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_readable | AndroidFs::open_file_readable}
-	 * @since 25.1.0
-	 */
-	public static async openReadTextFileLinesStream(
-		uri: AndroidFsUri | FsPath,
-		options?: AndroidOpenReadTextFileLinesStreamOptions,
-	): Promise<ReadableStream<AndroidOpenReadTextFileLinesStreamItem>> {
-
-		throwIfAborted(options?.signal)
-		const maxLineByteLength = mapMaxLineByteLength(options?.maxLineByteLength)
-		const bufferByteLength = mapBufferByteLengthForInput(options?.bufferByteLength)
-		const label = mapEncodingLabelForInput(options?.encoding)
-		const fatal = options?.fatal ?? false
-		const ignoreBOM = options?.ignoreBOM ?? false
-		const { open, read, close } = resolveCmdReadFileStream("plugin:android-fs|open_read_text_file_lines_stream")
-
-		try {
-			await open({
-				uri: mapFsPathForInput(uri),
-				label,
-				maxLineByteLength, 
-				ignoreBOM 
-			})
-
-			return createTextLinesReadableStream(
-				{
-					read: () => read(bufferByteLength),
-					release: close
-				},
-				{ label, fatal },
-				options?.signal
-			)
-		}
-		catch (e) {
-			await close().catch(() => { })
-			throw e
-		}
-	}
-
-	/**
-	 * Opens a file in write mode and resolves to a {@link https://developer.mozilla.org/en-US/docs/Web/API/WritableStream | WritableStream}.  
-	 * 
-	 * @remarks
-	 * The caller is responsible for releasing the returned stream.
-	 * The stream is released in the following cases:
-	 * - When the stream or its writer is closed.
-	 * - When the stream or its writer is aborted.
-	 * - When a write operation fails with an error.
-	 * - When an abort event is received from the provided `AbortSignal`.
-	 * - When `AndroidFs.closeAllFileStreams` is called.
-	 * 
-	 * There is also {@link https://crates.io/crates/tauri-plugin-fs-stream | tauri-plugin-fs-stream}, which provides APIs not only for Android but for all platforms.
-	 * 
-	 * @param uri - URI or path of the file to be written.
-	 * @param options - Optional settings: `append`, `create`, `bufferByteLength`, `signal`, `notification`. See `AndroidOpenWriteFileStreamOptions` for details.
-	 * 
-	 * @returns Promise that resolves to a `WritableStream<Uint8Array<ArrayBufferLike>>` backed by the file opened in write mode. This stream maintains a one-to-one correspondence with the file descriptor.
-	 *
-	 * @throws
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry is a directory, not a file.
-	 * - When the app does not have write permissions for the file.
-	 * - When `options.create` is `false` or a URI is specified, and the file does not exist.
-	 * - When `options.append` is `true`, and a provider of the file via File/Directory Picker does not support append mode.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_writable | AndroidFs::open_file_writable}
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file | AndroidFs::open_file}
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/enum.FileAccessMode.html#variant.WriteAppend | AndroidFs::FileAccessMode::WriteAppend}
-	 * 
-	 * @since 25.1.0
-	 */
-	public static async openWriteFileStream(
-		uri: AndroidFsUri | FsPath,
-		options?: AndroidOpenWriteFileStreamOptions
-	): Promise<WritableStream<Uint8Array<ArrayBufferLike>>> {
-
-		throwIfAborted(options?.signal)
-		const bufferByteLength = mapBufferByteLengthForInput(options?.bufferByteLength)
-		const { open, write, close } = resolveCmdWriteFileStream("plugin:android-fs|open_write_file_stream")
-
-		try {
-			await open({ 
-				uri: mapFsPathForInput(uri),
-				append: options?.append ?? false, 
-				create: options?.create ?? true, 
-				notification: options?.notification ?? null
-			})
-
-			return createWritableStream(
-				{
-					write,
-					release: (t) => close(t === "Close" ? "Ok" : "Err")
-				},
-				{
-					signal: options?.signal,
-					bufferSize: bufferByteLength,
-					strictBufferSize: false,
-					useBufferView: true,
-				}
-			)
-		}
-		catch (e) {
-			await close("Err").catch(() => { })
-			throw e
-		}
-	}
-
-	/**
-	 * Forcibly disposes of all file streams.
-	 *
-	 * @remarks
-	 * All backend file resources owned by stream instances
-	 * created by this plugin are disconnected from the frontend and released.
-	 * 
-	 * After this operation,
-	 * any read or write attempts on existing streams will result in an error, 
-	 * except for buffering in the frontend
-	 * 
-	 * This affects streams created by the following methods:
-	 * - `AndroidFs.openReadFileStream`
-	 * - `AndroidFs.openReadTextFileLinesStream`
-	 * - `AndroidFs.openWriteFileStream`
-	 * 
-	 * This is intended for debugging or testing. 
-	 * Instead, use the stream's APIs or abort the associated {@link https://developer.mozilla.org/en-US/docs/Web/API/AbortController | AbortController}.
-	 * 
-	 * @returns Promise that resolves when the operation completes successfully.
-	 *
-	 * @since 26.0.0
-	 */
-	public static async closeAllFileStreams(): Promise<void> {
-		await invoke("plugin:android-fs|close_all_file_streams")
-	}
-
-	/**
-	 * Retrieves the number of currently active file streams.
-	 * 
-	 * @remarks
-	 * This counts all backend file resources owned by stream instances created by this plugin
-	 * that have not yet been disconnected from the frontend and released.
-	 * 
-	 * This applies to streams created by the following methods:
-	 * - `AndroidFs.openReadFileStream`
-	 * - `AndroidFs.openReadTextFileLinesStream`
-	 * - `AndroidFs.openWriteFileStream`
-	 * 
-	 * @returns Promise that resolves to a number of currently active file streams.
-	 *
-	 * @since 26.0.0
-	 */
-	public static async countAllFileStreams(): Promise<number> {
-		return await invoke("plugin:android-fs|count_all_file_streams")
-	}
-
-	/**
-	 * Reads the entire file contents as raw bytes.
-	 *
-	 * @param uri - URI or path of the target file.
-	 *
-	 * @returns Promise that resolves to a `Uint8Array<ArrayBuffer>` containing the entire file contents.
-	 * 
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry is a directory, not a file.
-	 * - When the file does not exist.
-	 * - When the app does not have read permissions for the file.
-	 * - When an unexpected error occurs.
-	 *
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.read_file | AndroidFs::read_file}
-	 * @since 25.1.0
-	 */
-	public static async readFile(
-		uri: AndroidFsUri | FsPath,
-	): Promise<Uint8Array<ArrayBuffer>> {
-
-		const bytes = await invoke<ArrayBuffer>('plugin:android-fs|read_file', {
-			uri: mapFsPathForInput(uri),
-		})
-
-		return new Uint8Array(bytes)
-	}
-
-	/**
-	 * Reads the entire file contents as a {@link https://developer.mozilla.org/en-US/docs/Glossary/Base64 | Base64-encoded string}.
-	 *
-	 * @param uri - URI or path of the target file.
-	 *
-	 * @returns Promise that resolves to a Base64-encoded string representing the entire file contents.
-	 * 
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry is a directory, not a file.
-	 * - When the file does not exist.
-	 * - When the app does not have read permissions for the file.
-	 * - When an unexpected error occurs.
-	 *
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.read_file | AndroidFs::read_file}
-	 * @since 26.1.0
-	 */
-	public static async readFileAsBase64(
-		uri: AndroidFsUri | FsPath,
-	): Promise<string> {
-
-		const base64 = await invoke<ArrayBuffer>('plugin:android-fs|read_file_as_base64', {
-			uri: mapFsPathForInput(uri),
-		})
-
-		return decodeUtf8(base64)
-	}
-
-	/**
-	 * Reads the entire file contents as a {@link https://developer.mozilla.org/en-US/docs/Web/URI/Reference/Schemes/data | Data URL}.
-	 *
-	 * @param uri - URI or path of the target file.
-	 * @param options - Optional settings: `mimeType`. See `AndroidReadFileAsDataUrlOptions` for details.
-	 * 
-	 * @returns Promise that resolves to a Data URL string representing the entire file contents.
-	 * 
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry is a directory, not a file.
-	 * - When the file does not exist.
-	 * - When the app does not have read permissions for the file.
-	 * - When an unexpected error occurs.
-	 *
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.read_file | AndroidFs::read_file}
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_mime_type | AndroidFs::get_mime_type}
-	 * @since 26.1.0
-	 */
-	public static async readFileAsDataURL(
-		uri: AndroidFsUri | FsPath,
-		options?: AndroidReadFileAsDataUrlOptions
-	): Promise<string> {
-
-		const mimeType = options?.mimeType ?? null
-		const dataUrl = await invoke<ArrayBuffer>('plugin:android-fs|read_file_as_data_url', {
-			uri: mapFsPathForInput(uri),
-			mimeType
-		})
-
-		return decodeUtf8(dataUrl)
-	}
-
-	/**
-	 * Reads the entire contents of a file and decodes it as text.
-	 * 
-	 * @param uri - URI or file path of the target file.
-	 * @param options - Optional settings: `encoding`, `fatal`, `ignoreBOM`. See `AndroidReadTextFileOptions` for details.
-	 * 
-	 * @returns Promise that resolves to a decoded text representing the entire file contents.
-	 * 
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry is a directory, not a file.
-	 * - When the file does not exist.
-	 * - When the app does not have read permissions for the file.
-	 * - When `options.fatal` is `true`, and the file contains an invalid byte sequence for `options.encoding`.
-	 * - When an unexpected error occurs.
-	 *
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_readable | AndroidFs::open_file_readable}
-	 * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder | WebAPI TextDecoder}
-	 * @since 25.1.0
-	 */
-	public static async readTextFile(
-		uri: AndroidFsUri | FsPath,
-		options?: AndroidReadTextFileOptions
-	): Promise<string> {
-
-		const bytes = await invoke<ArrayBuffer>('plugin:android-fs|read_text_file', {
-			uri: mapFsPathForInput(uri),
-		})
-		const decoder = new TextDecoder(
-			options?.encoding ?? "utf-8",
+		return createReadableStream(
 			{
-				fatal: options?.fatal,
-				ignoreBOM: options?.ignoreBOM
+				read: () => read(bufferByteLength),
+				release: () => close()
+			},
+			{ signal: options?.signal }
+		)
+	}
+	catch (e) {
+		await close().catch(() => { })
+		throw e
+	}
+}
+
+/**
+ * Opens a file in read mode and resolves to a {@link https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream | ReadableStream} of text lines.
+ * 
+ * @remarks
+ * The returned stream yields decoded text line by line.
+ * For the structure of each item, see `OpenReadTextFileLinesStreamItem`.
+ * 
+ * The caller is responsible for releasing the stream.
+ * The stream is released in the following cases:
+ * - When the stream or its reader is canceled. 
+ * - When all data has been successfully read from the stream.
+ * - When a read operation fails with an error. 
+ * - When an abort event is received from the provided `AbortSignal`.
+ * - When `closeAllFileStreams` is called.
+ * 
+ * There is also {@link https://crates.io/crates/tauri-plugin-fs-stream | tauri-plugin-fs-stream}, which provides APIs not only for Android but for all platforms.
+ * 
+ * @param uri - URI or path of the file to read. 
+ * @param options - Optional settings: `encoding`, `fatal`, `ignoreBOM`, `maxLineByteLength`, `bufferByteLength`, `signal`. See `OpenReadTextFileLinesStreamOptions` for details.
+ * 
+ * @returns Promise that resolves to a `ReadableStream<OpenReadTextFileLinesStreamItem>` backed by the file opened in read-only mode. This stream maintains a one-to-one correspondence with the file descriptor.
+ *
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a directory, not a file.
+ * - When the file does not exist.
+ * - When the app does not have read permissions for the file.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_readable | AndroidFs::open_file_readable}
+ * @since 25.1.0
+ */
+export async function openReadTextFileLinesStream(
+	uri: FsUri | string | URL,
+	options?: OpenReadTextFileLinesStreamOptions,
+): Promise<ReadableStream<OpenReadTextFileLinesStreamItem>> {
+
+	throwIfAborted(options?.signal)
+	const maxLineByteLength = mapMaxLineByteLengthForInput(options?.maxLineByteLength)
+	const bufferByteLength = mapBufferByteLengthForInput(options?.bufferByteLength)
+	const label = mapEncodingLabelForInput(options?.encoding)
+	const fatal = options?.fatal ?? false
+	const ignoreBOM = options?.ignoreBOM ?? false
+	const { open, read, close } = resolveCmdReadFileStream("plugin:android-fs|open_read_text_file_lines_stream")
+
+	try {
+		await open({
+			uri: mapFsPathForInput(uri),
+			label,
+			maxLineByteLength,
+			ignoreBOM
+		})
+
+		return createTextLinesReadableStream(
+			{
+				read: () => read(bufferByteLength),
+				release: close
+			},
+			{ label, fatal },
+			options?.signal
+		)
+	}
+	catch (e) {
+		await close().catch(() => { })
+		throw e
+	}
+}
+
+/**
+ * Opens a file in write mode and resolves to a {@link https://developer.mozilla.org/en-US/docs/Web/API/WritableStream | WritableStream}.  
+ * 
+ * @remarks
+ * The caller is responsible for releasing the returned stream.
+ * The stream is released in the following cases:
+ * - When the stream or its writer is closed.
+ * - When the stream or its writer is aborted.
+ * - When a write operation fails with an error.
+ * - When an abort event is received from the provided `AbortSignal`.
+ * - When `closeAllFileStreams` is called.
+ * 
+ * There is also {@link https://crates.io/crates/tauri-plugin-fs-stream | tauri-plugin-fs-stream}, which provides APIs not only for Android but for all platforms.
+ * 
+ * @param uri - URI or path of the file to be written.
+ * @param options - Optional settings: `append`, `create`, `bufferByteLength`, `signal`, `notification`. See `OpenWriteFileStreamOptions` for details.
+ * 
+ * @returns Promise that resolves to a `WritableStream<Uint8Array<ArrayBufferLike>>` backed by the file opened in write mode. This stream maintains a one-to-one correspondence with the file descriptor.
+ *
+ * @throws
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a directory, not a file.
+ * - When the app does not have write permissions for the file.
+ * - When `options.create` is `false` or a URI is specified, and the file does not exist.
+ * - When `options.append` is `true`, and a provider of the file via File/Directory Picker does not support append mode.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_writable | AndroidFs::open_file_writable}
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file | AndroidFs::open_file}
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/enum.FileAccessMode.html#variant.WriteAppend | AndroidFs::FileAccessMode::WriteAppend}
+ * 
+ * @since 25.1.0
+ */
+export async function openWriteFileStream(
+	uri: FsUri | string | URL,
+	options?: OpenWriteFileStreamOptions
+): Promise<WritableStream<Uint8Array<ArrayBufferLike>>> {
+
+	throwIfAborted(options?.signal)
+	const bufferByteLength = mapBufferByteLengthForInput(options?.bufferByteLength)
+	const { open, write, close } = resolveCmdWriteFileStream("plugin:android-fs|open_write_file_stream")
+
+	try {
+		await open({
+			uri: mapFsPathForInput(uri),
+			append: options?.append ?? false,
+			create: options?.create ?? true,
+			notification: options?.notification ?? null
+		})
+
+		return createWritableStream(
+			{
+				write,
+				release: (t) => close(t === "Close" ? "Ok" : "Err")
+			},
+			{
+				signal: options?.signal,
+				bufferSize: bufferByteLength,
+				strictBufferSize: false,
+				useBufferView: true,
 			}
 		)
-
-		return decoder.decode(bytes)
 	}
+	catch (e) {
+		await close("Err").catch(() => { })
+		throw e
+	}
+}
 
-	/**
-	 * Writes data to a file.   
-	 * 
-	 * @param uri - URI or path of the file to write to. 
-	 * @param data - Bytes to write.
-	 * @param options - Optional settings: `append`, `create`, `notification`. See `AndroidWriteFileOptions` for details.
-	 * 
-	 * @returns Promise that resolves when the operation completes successfully.
-	 * 
-	 * @throws
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry is a directory, not a file.
-	 * - When the app does not have write permissions for the file.
-	 * - When `options.create` is `false` or a URI is specified, and the file does not exist.
-	 * - When `options.append` is `true`, and a provider of the file via File/Directory Picker does not support append mode.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_writable | AndroidFs::open_file_writable}
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file | AndroidFs::open_file}
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/enum.FileAccessMode.html#variant.WriteAppend | AndroidFs::FileAccessMode::WriteAppend}
-	 * 
-	 * @since 25.1.0
-	 */
-	public static async writeFile(
-		uri: AndroidFsUri | FsPath,
-		data: Uint8Array<ArrayBufferLike>,
-		options?: AndroidWriteFileOptions
-	): Promise<void> {
+/**
+ * Forcibly disposes of all file streams.
+ *
+ * @remarks
+ * All backend file resources owned by stream instances
+ * created by this plugin are disconnected from the frontend and released.
+ * 
+ * After this operation,
+ * any read or write attempts on existing streams will result in an error, 
+ * except for buffering in the frontend
+ * 
+ * This affects streams created by the following methods:
+ * - `openReadFileStream`
+ * - `openReadTextFileLinesStream`
+ * - `openWriteFileStream`
+ * 
+ * This is intended for debugging or testing. 
+ * Instead, use the stream's APIs or abort the associated {@link https://developer.mozilla.org/en-US/docs/Web/API/AbortController | AbortController}.
+ * 
+ * @returns Promise that resolves when the operation completes successfully.
+ *
+ * @since 26.0.0
+ */
+export async function closeAllFileStreams(): Promise<void> {
+	await invoke("plugin:android-fs|close_all_file_streams")
+}
 
-		const n = options?.notification
-		const notification = n != null ? { ...n, forceIndeterminateProgressBar: true } : null
-		const { open, write, close } = resolveCmdWriteFileStream("plugin:android-fs|write_file")
+/**
+ * Retrieves the number of currently active file streams.
+ * 
+ * @remarks
+ * This counts all backend file resources owned by stream instances created by this plugin
+ * that have not yet been disconnected from the frontend and released.
+ * 
+ * This applies to streams created by the following methods:
+ * - `openReadFileStream`
+ * - `openReadTextFileLinesStream`
+ * - `openWriteFileStream`
+ * 
+ * @returns Promise that resolves to a number of currently active file streams.
+ *
+ * @since 26.0.0
+ */
+export async function countAllFileStreams(): Promise<number> {
+	return await invoke("plugin:android-fs|count_all_file_streams")
+}
 
-		try {
-			await open({
-				uri: mapFsPathForInput(uri),
-				append: options?.append ?? false, 
-				create: options?.create ?? true, 
-				notification
-			})
-			await write(data)
-			await close("Ok")
+/**
+ * Reads the entire file contents as raw bytes.
+ *
+ * @param uri - URI or path of the target file.
+ *
+ * @returns Promise that resolves to a `Uint8Array<ArrayBuffer>` containing the entire file contents.
+ * 
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a directory, not a file.
+ * - When the file does not exist.
+ * - When the app does not have read permissions for the file.
+ * - When an unexpected error occurs.
+ *
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.read_file | AndroidFs::read_file}
+ * @since 25.1.0
+ */
+export async function readFile(
+	uri: FsUri | string | URL,
+): Promise<Uint8Array<ArrayBuffer>> {
+
+	const bytes = await invoke<ArrayBuffer>('plugin:android-fs|read_file', {
+		uri: mapFsPathForInput(uri),
+	})
+
+	return new Uint8Array(bytes)
+}
+
+/**
+ * Reads the entire file contents as a {@link https://developer.mozilla.org/en-US/docs/Glossary/Base64 | Base64-encoded string}.
+ *
+ * @param uri - URI or path of the target file.
+ *
+ * @returns Promise that resolves to a Base64-encoded string representing the entire file contents.
+ * 
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a directory, not a file.
+ * - When the file does not exist.
+ * - When the app does not have read permissions for the file.
+ * - When an unexpected error occurs.
+ *
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.read_file | AndroidFs::read_file}
+ * @since 26.1.0
+ */
+export async function readFileAsBase64(
+	uri: FsUri | string | URL,
+): Promise<string> {
+
+	const base64 = await invoke<ArrayBuffer>('plugin:android-fs|read_file_as_base64', {
+		uri: mapFsPathForInput(uri),
+	})
+
+	return decodeUtf8(base64)
+}
+
+/**
+ * Reads the entire file contents as a {@link https://developer.mozilla.org/en-US/docs/Web/URI/Reference/Schemes/data | Data URL}.
+ *
+ * @param uri - URI or path of the target file.
+ * @param options - Optional settings: `mimeType`. See `ReadFileAsDataUrlOptions` for details.
+ * 
+ * @returns Promise that resolves to a Data URL string representing the entire file contents.
+ * 
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a directory, not a file.
+ * - When the file does not exist.
+ * - When the app does not have read permissions for the file.
+ * - When an unexpected error occurs.
+ *
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.read_file | AndroidFs::read_file}
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_mime_type | AndroidFs::get_mime_type}
+ * @since 26.1.0
+ */
+export async function readFileAsDataURL(
+	uri: FsUri | string | URL,
+	options?: ReadFileAsDataUrlOptions
+): Promise<string> {
+
+	const mimeType = options?.mimeType ?? null
+	const dataUrl = await invoke<ArrayBuffer>('plugin:android-fs|read_file_as_data_url', {
+		uri: mapFsPathForInput(uri),
+		mimeType
+	})
+
+	return decodeUtf8(dataUrl)
+}
+
+/**
+ * Reads the entire contents of a file and decodes it as text.
+ * 
+ * @param uri - URI or file path of the target file.
+ * @param options - Optional settings: `encoding`, `fatal`, `ignoreBOM`. See `ReadTextFileOptions` for details.
+ * 
+ * @returns Promise that resolves to a decoded text representing the entire file contents.
+ * 
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a directory, not a file.
+ * - When the file does not exist.
+ * - When the app does not have read permissions for the file.
+ * - When `options.fatal` is `true`, and the file contains an invalid byte sequence for `options.encoding`.
+ * - When an unexpected error occurs.
+ *
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_readable | AndroidFs::open_file_readable}
+ * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder | WebAPI TextDecoder}
+ * @since 25.1.0
+ */
+export async function readTextFile(
+	uri: FsUri | string | URL,
+	options?: ReadTextFileOptions
+): Promise<string> {
+
+	const bytes = await invoke<ArrayBuffer>('plugin:android-fs|read_text_file', {
+		uri: mapFsPathForInput(uri),
+	})
+	const decoder = new TextDecoder(
+		options?.encoding ?? "utf-8",
+		{
+			fatal: options?.fatal,
+			ignoreBOM: options?.ignoreBOM
 		}
-		catch (e) {
-			await close("Err").catch(() => { })
-			throw e
-		}
-	}
+	)
 
-	/**
-	 * Writes text data to a file as UTF-8.      
-	 * 
-	 * @param uri - URI or path of the file to write to. 
-	 * @param data - String to write.
-	 * @param options - Optional settings: `append`, `create`, `notification`. See `AndroidWriteTextFileOptions` for details.
-	 * 
-	 * @returns Promise that resolves when the operation completes successfully.
-	 * 
-	 * @throws
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry is a directory, not a file.
-	 * - When the app does not have write permissions for the file.
-	 * - When `options.create` is `false` or a URI is specified, and the file does not exist.
-	 * - When `options.append` is `true`, and a provider of the file via File/Directory Picker does not support append mode.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_writable | AndroidFs::open_file_writable}
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file | AndroidFs::open_file}
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/enum.FileAccessMode.html#variant.WriteAppend | AndroidFs::FileAccessMode::WriteAppend}
-	 * @see {@link https://developer.mozilla.org/en-us/docs/Web/API/TextEncoder | WebAPI TextEncoder}
-	 * @since 25.1.0
-	 */
-	public static async writeTextFile(
-		uri: AndroidFsUri | FsPath,
-		data: string,
-		options?: AndroidWriteTextFileOptions
-	): Promise<void> {
+	return decoder.decode(bytes)
+}
 
-		const n = options?.notification
-		const notification = n != null ? { ...n, forceIndeterminateProgressBar: true } : null
-		const { open, write, close } = resolveCmdWriteFileStream("plugin:android-fs|write_text_file")
+/**
+ * Writes data to a file.   
+ * 
+ * @param uri - URI or path of the file to write to. 
+ * @param data - Bytes to write.
+ * @param options - Optional settings: `append`, `create`, `notification`. See `WriteFileOptions` for details.
+ * 
+ * @returns Promise that resolves when the operation completes successfully.
+ * 
+ * @throws
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a directory, not a file.
+ * - When the app does not have write permissions for the file.
+ * - When `options.create` is `false` or a URI is specified, and the file does not exist.
+ * - When `options.append` is `true`, and a provider of the file via File/Directory Picker does not support append mode.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_writable | AndroidFs::open_file_writable}
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file | AndroidFs::open_file}
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/enum.FileAccessMode.html#variant.WriteAppend | AndroidFs::FileAccessMode::WriteAppend}
+ * 
+ * @since 25.1.0
+ */
+export async function writeFile(
+	uri: FsUri | string | URL,
+	data: Uint8Array<ArrayBufferLike>,
+	options?: WriteFileOptions
+): Promise<void> {
 
-		try {
-			await open({
-				uri: mapFsPathForInput(uri),
-				append: options?.append ?? false, 
-				create: options?.create ?? true, 
-				notification
-			})
-			await write(data)
-			await close("Ok")
-		}
-		catch (e) {
-			await close("Err").catch(() => { })
-			throw e
-		}
-	}
+	const n = options?.notification
+	const notification = n != null ? { ...n, forceIndeterminateProgressBar: true } : null
+	const { open, write, close } = resolveCmdWriteFileStream("plugin:android-fs|write_file")
 
-	/**
-	 * Copies the contents of a source file to a destination file.
-	 * 
-	 * @remarks
-	 * The existing content of the destination file will be truncated before writing. 
-	 * 
-	 * @param srcUri - URI or path of the source file to copy. 
-	 * @param destUri - URI or path of the destination file to copy. 
-	 * @param options - Optional settings: `create`, `notification`. See `AndroidCopyFileOptions` for details.
-	 * 
-	 * @returns Promise that resolves when the operation completes successfully.
-	 * 
-	 * @throws
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the src/dest entry is a directory, not a file.
-	 * - When the src file does not exist.
-	 * - When `options.create` is `false` or a URI is specified, and the dest file does not exist.
-	 * - When the app does not have read permissions for the src file.
-	 * - When the app does not have write permissions for the dest file.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.copy | AndroidFs::copy}
-	 * @since 22.0.0
-	 */
-	public static async copyFile(
-		srcUri: AndroidFsUri | FsPath,
-		destUri: AndroidFsUri | FsPath,
-		options?: AndroidCopyFileOptions,
-	): Promise<void> {
-
-		const create = options?.create ?? true
-		const notification = options?.notification ?? null
-
-		return await invoke('plugin:android-fs|copy_file', {
-			srcUri: mapFsPathForInput(srcUri),
-			destUri: mapFsPathForInput(destUri),
-			create,
-			notification,
+	try {
+		await open({
+			uri: mapFsPathForInput(uri),
+			append: options?.append ?? false,
+			create: options?.create ?? true,
+			notification
 		})
+		await write(data)
+		await close("Ok")
 	}
-
-	/**
-	 * Truncates a file to zero length.
-	 * 
-	 * @param uri - URI of the file to truncate.
-	 * 
-	 * @returns Promise that resolves when the operation completes successfully.
-	 * 
-	 * @throws
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry is a directory, not a file.
-	 * - When the file does not exist.
-	 * - When the app does not have write permissions for the file.
-	 * - When a provider of the file via File/Directory Picker does not support the truncate operation.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_writable | AndroidFs::open_file_writable}
-	 * @since 22.0.0
-	 */
-	public static async truncateFile(uri: AndroidFsUri): Promise<void> {
-		return await invoke('plugin:android-fs|truncate_file', { uri })
+	catch (e) {
+		await close("Err").catch(() => { })
+		throw e
 	}
+}
 
-	/**
-	 * Renames a file and returns its new URI.
-	 * 
-	 * @remarks
-	 * For URIs from File/Directory Picker,
-	 * all permissions are lost after this operation, including for the returned new URI.
-	 * 
-	 * @param uri - URI of the file to rename.
-	 * @param name - New name, including the file extension if needed. If a entry with the same name already exists, a sequential number is automatically appended.
-	 * 
-	 * @returns Promise that resolves to a new URI of the file.
-	 * 
-	 * @throws
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry is a directory, not a file.
-	 * - When the file does not exist.
-	 * - When the app does not have write permissions for the file.
-	 * - When a provider of the file via File/Directory Picker does not support the rename operation.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.rename | AndroidFs::rename}
-	 * @since 24.1.0
-	 */
-	public static async renameFile(
-		uri: AndroidFsUri,
-		name: string
-	): Promise<AndroidFsUri> {
+/**
+ * Writes text data to a file as UTF-8.      
+ * 
+ * @param uri - URI or path of the file to write to. 
+ * @param data - String to write.
+ * @param options - Optional settings: `append`, `create`, `notification`. See `WriteTextFileOptions` for details.
+ * 
+ * @returns Promise that resolves when the operation completes successfully.
+ * 
+ * @throws
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a directory, not a file.
+ * - When the app does not have write permissions for the file.
+ * - When `options.create` is `false` or a URI is specified, and the file does not exist.
+ * - When `options.append` is `true`, and a provider of the file via File/Directory Picker does not support append mode.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_writable | AndroidFs::open_file_writable}
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file | AndroidFs::open_file}
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/enum.FileAccessMode.html#variant.WriteAppend | AndroidFs::FileAccessMode::WriteAppend}
+ * @see {@link https://developer.mozilla.org/en-us/docs/Web/API/TextEncoder | WebAPI TextEncoder}
+ * @since 25.1.0
+ */
+export async function writeTextFile(
+	uri: FsUri | string | URL,
+	data: string,
+	options?: WriteTextFileOptions
+): Promise<void> {
 
-		return await invoke('plugin:android-fs|rename_file', {
-			uri,
-			name
+	const n = options?.notification
+	const notification = n != null ? { ...n, forceIndeterminateProgressBar: true } : null
+	const { open, write, close } = resolveCmdWriteFileStream("plugin:android-fs|write_text_file")
+
+	try {
+		await open({
+			uri: mapFsPathForInput(uri),
+			append: options?.append ?? false,
+			create: options?.create ?? true,
+			notification
 		})
+		await write(data)
+		await close("Ok")
 	}
-
-	/**
-	 * Renames a directory and returns its new URI.
-	 * 
-	 * @remarks
-	 * For URIs from Directory Picker,
-	 * all permissions are lost after this operation, including for the returned new URI.
-	 * 
-	 * @param uri - URI of the directory to rename.
-	 * @param name - New name. If a entry with the same name already exists, a sequential number is automatically appended.
-	 * 
-	 * @returns Promise that resolves to a new URI of the directory.
-	 * 
-	 * @throws
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry is a file, not a directory.
-	 * - When the directory does not exist.
-	 * - When the app does not have write permissions for the directory.
-	 * - When a provider of the directory via Directory Picker does not support the rename operation.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.rename | AndroidFs::rename}
-	 * @since 24.1.0
-	 */
-	public static async renameDir(
-		uri: AndroidFsUri,
-		name: string
-	): Promise<AndroidFsUri> {
-
-		return await invoke('plugin:android-fs|rename_dir', {
-			uri,
-			name
-		})
+	catch (e) {
+		await close("Err").catch(() => { })
+		throw e
 	}
+}
 
-	/**
-	 * Removes a file.
-	 * 
-	 * @param uri - URI of the file to remove.
-	 * 
-	 * @returns Promise that resolves when the operation completes successfully.
-	 * 
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry is a directory, not a file.
-	 * - When the file does not exist.
-	 * - When the app does not have write permissions for the file.
-	 * - When a provider of the file via File/Directory Picker does not support the remove operation.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.remove_file | AndroidFs::remove_file}
-	 * @since 22.0.0
-	 */
-	public static async removeFile(uri: AndroidFsUri): Promise<void> {
-		return await invoke('plugin:android-fs|remove_file', { uri })
-	}
+/**
+ * Copies the contents of a source file to a destination file.
+ * 
+ * @remarks
+ * The existing content of the destination file will be truncated before writing. 
+ * 
+ * @param srcUri - URI or path of the source file to copy. 
+ * @param destUri - URI or path of the destination file to copy. 
+ * @param options - Optional settings: `create`, `notification`. See `CopyFileOptions` for details.
+ * 
+ * @returns Promise that resolves when the operation completes successfully.
+ * 
+ * @throws
+ * The returned Promise rejects with an error in the following cases:
+ * - When the src/dest entry is a directory, not a file.
+ * - When the src file does not exist.
+ * - When `options.create` is `false` or a URI is specified, and the dest file does not exist.
+ * - When the app does not have read permissions for the src file.
+ * - When the app does not have write permissions for the dest file.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.copy | AndroidFs::copy}
+ * @since 22.0.0
+ */
+export async function copyFile(
+	srcUri: FsUri | string | URL,
+	destUri: FsUri | string | URL,
+	options?: CopyFileOptions,
+): Promise<void> {
 
-	/**
-	 * Removes a directory and all of its contents recursively.
-	 * 
-	 * @param uri - URI of the file to remove.
-	 * 
-	 * @returns Promise that resolves when the operation completes successfully.
-	 * 
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry is a file, not a directory.
-	 * - When the directory does not exist.
-	 * - When the app does not have read/write permissions for the directory.
-	 * - When a provider of the directory via Directory Picker does not support the remove or read-directory operations.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.remove_dir_all | AndroidFs::remove_dir_all}
-	 * @since 22.0.0
-	 */
-	public static async removeDirAll(uri: AndroidFsUri): Promise<void> {
-		return await invoke('plugin:android-fs|remove_dir_all', { uri })
-	}
+	const create = options?.create ?? true
+	const notification = options?.notification ?? null
 
-	/**
-	 * Removes a empty directory.
-	 * 
-	 * @param uri - URI of the file to remove.
-	 * 
-	 * @returns Promise that resolves when the operation completes successfully.
-	 * 
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry is a file, not a directory.
-	 * - When the directory does not exist.
-	 * - When the directory is not empty.
-	 * - When the app does not have read/write permissions for the directory.
-	 * - When a provider of the directory via Directory Picker does not support the remove or read-directory operations.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.remove_dir | AndroidFs::remove_dir}
-	 * @since 22.0.0
-	 */
-	public static async removeEmptyDir(uri: AndroidFsUri): Promise<void> {
-		return await invoke('plugin:android-fs|remove_empty_dir', { uri })
-	}
+	await invoke('plugin:android-fs|copy_file', {
+		srcUri: mapFsPathForInput(srcUri),
+		destUri: mapFsPathForInput(destUri),
+		create,
+		notification,
+	})
+}
 
-	/**
-	 * Retrieves metadata and URIs for the immediate children of a directory.
-	 * 
-	 * @param uri - URI of the directory to read.
-	 * @param options - Optional settings: `offset`, `limit`. See `AndroidReadDirOptions` for details.
-	 *
-	 * @returns Promise that resolves to an array of entries. Each entry includes metadata and the URI of the file or directory. 
-	 * 
-	 * @throws
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry is a file, not a directory.
-	 * - When the directory does not exist.
-	 * - When the app does not have read permissions for the directory.
-	 * - When a provider of the directory via Directory Picker does not support the read-directory operation.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.read_dir | AndroidFs::read_dir}
-	 * @since 22.0.0
-	 */
-	public static async readDir(
-		uri: AndroidFsUri,
-		options?: AndroidReadDirOptions
-	): Promise<AndroidEntryMetadataWithUri[]> {
+/**
+ * Truncates a file to zero length.
+ * 
+ * @param uri - URI of the file to truncate.
+ * 
+ * @returns Promise that resolves when the operation completes successfully.
+ * 
+ * @throws
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a directory, not a file.
+ * - When the file does not exist.
+ * - When the app does not have write permissions for the file.
+ * - When a provider of the file via File/Directory Picker does not support the truncate operation.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_writable | AndroidFs::open_file_writable}
+ * @since 22.0.0
+ */
+export async function truncateFile(uri: FsUri): Promise<void> {
+	await invoke('plugin:android-fs|truncate_file', { uri })
+}
 
-		const offset = options?.offset ?? null
-		const limit = options?.limit ?? null
-		const entries = await invoke<AndroidEntryMetadataWithUriInner[]>('plugin:android-fs|read_dir', {
-			uri,
-			offset,
-			limit,
-		})
+/**
+ * Renames a file and returns its new URI.
+ * 
+ * @remarks
+ * For URIs from File/Directory Picker,
+ * all permissions are lost after this operation, including for the returned new URI.
+ * 
+ * @param uri - URI of the file to rename.
+ * @param name - New name, including the file extension if needed. If an entry with the same name already exists, a sequential number is automatically appended.
+ * 
+ * @returns Promise that resolves to a new URI of the file.
+ * 
+ * @throws
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a directory, not a file.
+ * - When the file does not exist.
+ * - When the app does not have write permissions for the file.
+ * - When a provider of the file via File/Directory Picker does not support the rename operation.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.rename | AndroidFs::rename}
+ * @since 24.1.0
+ */
+export async function renameFile(
+	uri: FsUri,
+	name: string
+): Promise<FsUri> {
 
-		const buffer: AndroidEntryMetadataWithUri[] = new Array(entries.length)
+	return await invoke('plugin:android-fs|rename_file', {
+		uri,
+		name
+	})
+}
 
-		for (let i = 0; i < entries.length; i++) {
-			const e = entries[i];
-			const lastModified = new Date(e.lastModified);
+/**
+ * Renames a directory and returns its new URI.
+ * 
+ * @remarks
+ * For URIs from Directory Picker,
+ * all permissions are lost after this operation, including for the returned new URI.
+ * 
+ * @param uri - URI of the directory to rename.
+ * @param name - New name. If an entry with the same name already exists, a sequential number is automatically appended.
+ * 
+ * @returns Promise that resolves to a new URI of the directory.
+ * 
+ * @throws
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a file, not a directory.
+ * - When the directory does not exist.
+ * - When the app does not have write permissions for the directory.
+ * - When a provider of the directory via Directory Picker does not support the rename operation.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.rename | AndroidFs::rename}
+ * @since 24.1.0
+ */
+export async function renameDir(
+	uri: FsUri,
+	name: string
+): Promise<FsUri> {
 
-			buffer[i] = e.type === "Dir"
-				? { type: "Dir", name: e.name, uri: e.uri, lastModified }
-				: { type: "File", name: e.name, uri: e.uri, lastModified, byteLength: e.byteLength, mimeType: e.mimeType };
-		}
+	return await invoke('plugin:android-fs|rename_dir', {
+		uri,
+		name
+	})
+}
 
-		return buffer
-	}
+/**
+ * Removes a file.
+ * 
+ * @param uri - URI of the file to remove.
+ * 
+ * @returns Promise that resolves when the operation completes successfully.
+ * 
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a directory, not a file.
+ * - When the file does not exist.
+ * - When the app does not have write permissions for the file.
+ * - When a provider of the file via File/Directory Picker does not support the remove operation.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.remove_file | AndroidFs::remove_file}
+ * @since 22.0.0
+ */
+export async function removeFile(uri: FsUri): Promise<void> {
+	await invoke('plugin:android-fs|remove_file', { uri })
+}
 
-	/**
-	 * Opens the system file picker to let the user select an existing file.
-	 * 
-	 * @param options - Optional settings: `mimeTypes`, `multiple`, `pickerType`, `needWritePermission`, `localOnly`, `initialLocation`. See `AndroidOpenFilePickerOptions` for details.
-	 * 
-	 * @returns Promise that resolves to an array of URIs representing the picked files, or an empty array if no files are selected. By default, the app has read access to the URIs, and this permission remains valid until the app or device is terminated. The app can gain persistent access to the files using `AndroidFs.persistPickerUriPermission`.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.pick_files | Picker::pick_files}
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.pick_visual_medias | Picker::pick_visual_medias}
-	 * @since 22.0.0
-	 */
-	public static async showOpenFilePicker(
-		options?: AndroidOpenFilePickerOptions
-	): Promise<AndroidFsUri[]> {
+/**
+ * Removes a directory and all of its contents recursively.
+ * 
+ * @param uri - URI of the file to remove.
+ * 
+ * @returns Promise that resolves when the operation completes successfully.
+ * 
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a file, not a directory.
+ * - When the directory does not exist.
+ * - When the app does not have read/write permissions for the directory.
+ * - When a provider of the directory via Directory Picker does not support the remove or read-directory operations.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.remove_dir_all | AndroidFs::remove_dir_all}
+ * @since 22.0.0
+ */
+export async function removeDirAll(uri: FsUri): Promise<void> {
+	await invoke('plugin:android-fs|remove_dir_all', { uri })
+}
 
-		const _mimeTypes: string[] | string = options?.mimeTypes ?? []
-		const mimeTypes: string[] = Array.isArray(_mimeTypes) ? _mimeTypes : [_mimeTypes]
-		const multiple: boolean = options?.multiple ?? false
-		const pickerType: "FilePicker" | "Gallery" | null = options?.pickerType ?? null
-		const needWritePermission: boolean = options?.needWritePermission ?? false
-		const localOnly = options?.localOnly ?? false
-		const initialLocation = mapPickerInitialLocationForInput(options?.initialLocation)
+/**
+ * Removes a empty directory.
+ * 
+ * @param uri - URI of the file to remove.
+ * 
+ * @returns Promise that resolves when the operation completes successfully.
+ * 
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a file, not a directory.
+ * - When the directory does not exist.
+ * - When the directory is not empty.
+ * - When the app does not have read/write permissions for the directory.
+ * - When a provider of the directory via Directory Picker does not support the remove or read-directory operations.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.remove_dir | AndroidFs::remove_dir}
+ * @since 22.0.0
+ */
+export async function removeEmptyDir(uri: FsUri): Promise<void> {
+	await invoke('plugin:android-fs|remove_empty_dir', { uri })
+}
 
-		return await invoke("plugin:android-fs|show_open_file_picker", {
-			mimeTypes,
-			multiple,
-			pickerType,
-			needWritePermission,
-			localOnly,
-			initialLocation,
-		})
-	}
+/**
+ * Retrieves metadata and URIs for the immediate children of a directory.
+ * 
+ * @param uri - URI of the directory to read.
+ * @param options - Optional settings: `offset`, `limit`. See `ReadDirOptions` for details.
+ *
+ * @returns Promise that resolves to an array of entries. Each entry includes metadata and the URI of the file or directory. 
+ * 
+ * @throws
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a file, not a directory.
+ * - When the directory does not exist.
+ * - When the app does not have read permissions for the directory.
+ * - When a provider of the directory via Directory Picker does not support the read-directory operation.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.read_dir | AndroidFs::read_dir}
+ * @since 22.0.0
+ */
+export async function readDir(
+	uri: FsUri,
+	options?: ReadDirOptions
+): Promise<EntryMetadataWithUri[]> {
 
-	/**
-	 * Opens the system directory picker to let the user select a new or existing directory.
-	 * 
-	 * @param options - Optional settings: `localOnly`, `initialLocation`. See `AndroidOpenDirPickerOptions` for details.
-	 * 
-	 * @returns Promise that resolves to a URI representing the picked directory (which may be newly created or already existing), or `null` if no directory is selected. By default, the app has read-write access to the URI, and this permission remains valid until the app or device is terminated. The app can gain persistent access to the directory using `AndroidFs.persistPickerUriPermission`. Permissions for derived entries, such as `AndroidFs.readDir` and `AndroidFs.createNewFile`, depend on the permissions granted to this picked directory.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.pick_dir | Picker::pick_dir}
-	 * @since 22.0.0
-	 */
-	public static async showOpenDirPicker(
-		options?: AndroidOpenDirPickerOptions
-	): Promise<AndroidFsUri | null> {
+	const offset = options?.offset ?? null
+	const limit = options?.limit ?? null
+	const entries = await invoke<EntryMetadataWithUriInner[]>('plugin:android-fs|read_dir', {
+		uri,
+		offset,
+		limit,
+	})
 
-		const localOnly = options?.localOnly ?? false
-		const initialLocation = mapPickerInitialLocationForInput(options?.initialLocation)
+	return mutateEntryMetadataArray(entries)
+}
 
-		return await invoke("plugin:android-fs|show_open_dir_picker", {
-			localOnly,
-			initialLocation
-		})
-	}
+/**
+ * Opens the system file picker to let the user select an existing file.
+ * 
+ * @param options - Optional settings: `mimeTypes`, `multiple`, `pickerType`, `needWritePermission`, `localOnly`, `initialLocation`. See `OpenFilePickerOptions` for details.
+ * 
+ * @returns Promise that resolves to an array of URIs representing the picked files, or an empty array if no files are selected. By default, the app has read access to the URIs, and this permission remains valid until the app or device is terminated. The app can gain persistent access to the files using `persistPickerUriPermission`.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.pick_files | Picker::pick_files}
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.pick_visual_medias | Picker::pick_visual_medias}
+ * @since 22.0.0
+ */
+export async function showOpenFilePicker(
+	options?: OpenFilePickerOptions
+): Promise<FsUri[]> {
 
-	/**
-	 * Opens the system file saver to let the user specify a file destination.
-	 * 
-	 * @param defaultFileName - Initial file name. The user may change this value before saving the file.
-	 * @param mimeType - MIME type of the file to save. If `null`, it is inferred from the extension of `defaultFileName`.
-	 * @param options - Optional settings: `localOnly`, `initialLocation`. See `AndroidSaveFilePickerOptions` for details.
-	 * 
-	 * @returns Promise that resolves to a URI representing the picked file (which may be a newly created empty file or an existing file), or `null` if no file is selected. By default, the app has write access to the URI, and this permission remains valid until the app or device is terminated. The app can gain persistent access to the file using `AndroidFs.persistPickerUriPermission`.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.save_file | Picker::save_file}
-	 * @since 22.0.0
-	 */
-	public static async showSaveFilePicker(
-		defaultFileName: string,
-		mimeType: string | null,
-		options?: AndroidSaveFilePickerOptions
-	): Promise<AndroidFsUri | null> {
+	const _mimeTypes: string[] | string = options?.mimeTypes ?? []
+	const mimeTypes: string[] = Array.isArray(_mimeTypes) ? _mimeTypes : [_mimeTypes]
+	const multiple: boolean = options?.multiple ?? false
+	const pickerType: "FilePicker" | "Gallery" | null = options?.pickerType ?? null
+	const needWritePermission: boolean = options?.needWritePermission ?? false
+	const localOnly = options?.localOnly ?? false
+	const initialLocation = mapPickerInitialLocationForInput(options?.initialLocation)
 
-		const localOnly = options?.localOnly ?? false
-		const initialLocation = mapPickerInitialLocationForInput(options?.initialLocation)
+	return await invoke("plugin:android-fs|show_open_file_picker", {
+		mimeTypes,
+		multiple,
+		pickerType,
+		needWritePermission,
+		localOnly,
+		initialLocation,
+	})
+}
 
-		return await invoke("plugin:android-fs|show_save_file_picker", {
-			defaultFileName,
-			mimeType,
-			localOnly,
-			initialLocation
-		})
-	}
+/**
+ * Opens the system directory picker to let the user select a new or existing directory.
+ * 
+ * @param options - Optional settings: `localOnly`, `initialLocation`. See `OpenDirPickerOptions` for details.
+ * 
+ * @returns Promise that resolves to a URI representing the picked directory (which may be newly created or already existing), or `null` if no directory is selected. By default, the app has read-write access to the URI, and this permission remains valid until the app or device is terminated. The app can gain persistent access to the directory using `persistPickerUriPermission`. Permissions for derived entries, such as `readDir` and `createNewFile`, depend on the permissions granted to this picked directory.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.pick_dir | Picker::pick_dir}
+ * @since 22.0.0
+ */
+export async function showOpenDirPicker(
+	options?: OpenDirPickerOptions
+): Promise<FsUri | null> {
 
-	/**
-	 * Shows the app chooser for sharing files with other applications.
-	 * 
-	 * @remarks
-	 * This sends the files as a single unit.  
-	 * Available applications depend on the MIME types associated with the files.   
-	 * This does not result in an error even if no compatible applications are found; 
-	 * instead, an empty app chooser is displayed.
-	 * 
-	 * @param uris - Array of URIs of the target files.
-	 * 
-	 * @returns Promise that resolves after the app chooser is launched.
-	 * 
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the app does not have read permissions for the files.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Opener.html#method.share_files | Opener::share_files}
-	 * @since 22.0.0
-	 */
-	public static async showShareFileDialog(
-		uris: AndroidFsUri | AndroidFsUri[]
-	): Promise<void> {
+	const localOnly = options?.localOnly ?? false
+	const initialLocation = mapPickerInitialLocationForInput(options?.initialLocation)
 
-		return await invoke("plugin:android-fs|show_share_file_dialog", {
-			uris: Array.isArray(uris) ? uris : [uris]
-		})
-	}
+	return await invoke("plugin:android-fs|show_open_dir_picker", {
+		localOnly,
+		initialLocation
+	})
+}
 
-	/**
-	 * Shows the app chooser for opening a file with other applications.
-	 * 
-	 * @remarks 
-	 * Available applications depend on the MIME types associated with the file.   
-	 * This does not result in an error even if no compatible applications are found; 
-	 * instead, an empty app chooser is displayed.
-	 * 
-	 * @param uri - URI of the target file.
-	 * 
-	 * @returns Promise that resolves after the app chooser is launched.
-	 * 
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the app does not have read permissions for the file.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Opener.html#method.open_file | Opener::open_file}
-	 * @since 22.0.0
-	 */
-	public static async showViewFileDialog(uri: AndroidFsUri): Promise<void> {
-		return await invoke("plugin:android-fs|show_view_file_dialog", { uri })
-	}
+/**
+ * Opens the system file saver to let the user specify a file destination.
+ * 
+ * @param defaultFileName - Initial file name. The user may change this value before saving the file.
+ * @param mimeType - MIME type of the file to save. If `null`, it is inferred from the extension of `defaultFileName`.
+ * @param options - Optional settings: `localOnly`, `initialLocation`. See `SaveFilePickerOptions` for details.
+ * 
+ * @returns Promise that resolves to a URI representing the picked file (which may be a newly created empty file or an existing file), or `null` if no file is selected. By default, the app has write access to the URI, and this permission remains valid until the app or device is terminated. The app can gain persistent access to the file using `persistPickerUriPermission`.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.save_file | Picker::save_file}
+ * @since 22.0.0
+ */
+export async function showSaveFilePicker(
+	defaultFileName: string,
+	mimeType: string | null,
+	options?: SaveFilePickerOptions
+): Promise<FsUri | null> {
 
-	/**
-	 * Shows the app chooser for opening a directory with other applications.
-	 * 
-	 * @remarks 
-	 * This does not result in an error even if no compatible applications are found; 
-	 * instead, an empty app chooser is displayed.
-	 * 
-	 * @param uri - URI of the target directory.
-	 * 
-	 * @returns Promise that resolves after the app chooser is launched.
-	 * 
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the app does not have read permissions for the directory.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Opener.html#method.open_dir | Opener::open_dir}
-	 * @since 22.0.0
-	 */
-	public static async showViewDirDialog(uri: AndroidFsUri): Promise<void> {
-		return await invoke("plugin:android-fs|show_view_dir_dialog", { uri })
-	}
+	const localOnly = options?.localOnly ?? false
+	const initialLocation = mapPickerInitialLocationForInput(options?.initialLocation)
 
-	/**
-	 * Shows the app chooser for editing a file with other applications.
-	 * 
-	 * @remarks 
-	 * Available applications depend on the MIME types associated with the file.   
-	 * This does not result in an error even if no compatible applications are found; 
-	 * instead, an empty app chooser is displayed.
-	 * 
-	 * OPINION:
-	 * I think this is probably the least commonly used request for sending a file to an app.
-	 * Even if you want to open an image or video editing app,
-	 * `AndroidFs.showViewFileDialog` often lets you choose from a wider range of apps.
-	 *
-	 * @param uri - URI of the target file.
-	 * 
-	 * @returns Promise that resolves after the app chooser is launched.
-	 * 
-	 * @throws 
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the app does not have read/write permissions for the file.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Opener.html#method.edit_file | Opener::edit_file}
-	 * @since 28.4.0
-	 */
-	public static async showEditFileDialog(uri: AndroidFsUri): Promise<void> {
-		return await invoke("plugin:android-fs|show_edit_file_dialog", { uri })
-	}
+	return await invoke("plugin:android-fs|show_save_file_picker", {
+		defaultFileName,
+		mimeType,
+		localOnly,
+		initialLocation
+	})
+}
 
-	/**
-	 * Checks the permission state of a URI granted by File/Directory Picker.
-	 * 
-	 * @param uri - URI of the target file or directory.
-	 * @param state - Permission state to check. One of: `"Read"`, `"Write"`, `"ReadAndWrite"`, `"ReadOrWrite"`.
-	 * 
-	 * @returns Promise that resolves to a boolean indicating whether the specified permission is granted.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.check_uri_permission | Picker::check_uri_permission}
-	 * @since 24.1.0
-	 */
-	public static async checkPickerUriPermission(
-		uri: AndroidFsUri,
-		state: AndroidUriPermissionState
-	): Promise<boolean> {
+/**
+ * Shows the app chooser for sharing files with other applications.
+ * 
+ * @remarks
+ * This sends the files as a single unit.  
+ * 
+ * Available applications depend on the MIME types associated with the files.   
+ * This does not result in an error even if no compatible applications are found; 
+ * instead, an empty app chooser is displayed.
+ * 
+ * @param uris - URIs of the target files.
+ * 
+ * @returns Promise that resolves after the app chooser is launched.
+ * 
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entries contain a directory.
+ * - When the files do not exist.
+ * - When the app does not have read permissions for the files.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Opener.html#method.share_files | Opener::share_files}
+ * @since 22.0.0
+ */
+export async function showShareFileAppChooser(
+	uris: FsUri | FsUri[]
+): Promise<void> {
 
-		return await invoke("plugin:android-fs|check_picker_uri_permission", { uri, state })
-	}
+	await invoke("plugin:android-fs|show_share_file_app_chooser", {
+		uris: Array.isArray(uris) ? uris : [uris]
+	})
+}
 
-	/**
-	 * Takes a persistent permission to access the file or directory (and its descendants) selected via File/Directory Picker.  
-	 * 
-	 * @remarks
-	 * This prolongs an already acquired permission rather than acquiring a new one.
-	 * 
-	 * Android imposes a strict limit on the total number of URIs
-	 * that can be made persistent at the same time. 
-	 * Therefore, it is highly recommended to release unnecessary persisted URIs
-	 * via `AndroidFs.releasePersistedPickerUriPermission}`
-	 * or `AndroidFs.releaseAllPersistedPickerUriPermissions`.
-	 * 
-	 * Persisted permissions may be revoked by other applications or the user, 
-	 * by modifying set permissions, or by moving/removing entries.   
-	 * To verify validity,
-	 * use `AndroidFs.checkPersistedPickerUriPermission`
-	 * or `AndroidFs.checkPickerUriPermission`.
-	 * 
-	 * @param uri - URI of the target file or directory.
-	 * 
-	 * @returns Promise that resolves when the operation is complete.
-	 * 
-	 * @throws
-	 * The returned Promise rejects with an error in the following cases:
-	 * - When the entry does not exist.
-	 * - When the app does not have any permissions for the entry.
-	 * - When a provider of the entry via File/Directory Picker does not support the persist-permissions operation.
-	 * - When an unexpected error occurs.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.persist_picker_uri_permission | Picker::persist_picker_uri_permission}
-	 * @see {@link https://stackoverflow.com/questions/71099575/should-i-release-persistableuripermission-when-a-new-storage-location-is-chosen/71100621#71100621 | Android Persistable URI Permission Limit Discussion}
-	 * @since 24.1.0
-	 */
-	public static async persistPickerUriPermission(uri: AndroidFsUri): Promise<void> {
-		return await invoke("plugin:android-fs|persist_picker_uri_permission", { uri })
-	}
+/**
+ * Shows the app chooser for opening a file with other applications.
+ * 
+ * @remarks 
+ * Available applications depend on the MIME types associated with the file.   
+ * This does not result in an error even if no compatible applications are found; 
+ * instead, an empty app chooser is displayed.
+ * 
+ * @param uri - URI of the target file.
+ * 
+ * @returns Promise that resolves after the app chooser is launched.
+ * 
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a directory, not a file.
+ * - When the file does not exist.
+ * - When the app does not have read permissions for the file.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Opener.html#method.open_file | Opener::open_file}
+ * @since 22.0.0
+ */
+export async function showViewFileAppChooser(uri: FsUri): Promise<void> {
+	await invoke("plugin:android-fs|show_view_file_app_chooser", { uri })
+}
 
-	/**
-	 * Checks the persisted permission state of a URI granted via `AndroidFs.persistPickerUriPermission`.
-	 * 
-	 * @param uri - URI of the target file or directory.
-	 * @param state - Permission state to check. One of: `"Read"`, `"Write"`, `"ReadAndWrite"`, `"ReadOrWrite"`.
-	 * 
-	 * @returns Promise that resolves to a boolean; `false` if only non-persistent permissions exist or if there are no permissions.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.check_persisted_picker_uri_permission | Picker::check_persisted_picker_uri_permission}
-	 * @since 24.1.0
-	 */
-	public static async checkPersistedPickerUriPermission(
-		uri: AndroidFsUri,
-		state: AndroidUriPermissionState
-	): Promise<boolean> {
-		return await invoke("plugin:android-fs|check_persisted_picker_uri_permission", { uri, state })
-	}
+/**
+ * Shows the app chooser for opening a directory with other applications.
+ * 
+ * @remarks 
+ * This does not result in an error even if no compatible applications are found; 
+ * instead, an empty app chooser is displayed.
+ * 
+ * @param uri - URI of the target directory.
+ * 
+ * @returns Promise that resolves after the app chooser is launched.
+ * 
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a file, not a directory.
+ * - When the directory does not exist.
+ * - When the app does not have read permissions for the directory.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Opener.html#method.open_dir | Opener::open_dir}
+ * @since 22.0.0
+ */
+export async function showViewDirAppChooser(uri: FsUri): Promise<void> {
+	await invoke("plugin:android-fs|show_view_dir_app_chooser", { uri })
+}
 
-	/**
-	 * Relinquishes a persisted permission of a URI granted via {@link AndroidFs.persistPickerUriPermission}.
-	 * 
-	 * @param uri - URI of the target file or directory.
-	 * @returns Promise that resolves to a boolean; `true` if a persisted permission exists for the specified URI and was successfully released, or `false` if no persisted permission existed.
-	 *
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.release_persisted_picker_uri_permission | Picker::release_persisted_picker_uri_permission}
-	 * @since 24.1.0
-	 */
-	public static async releasePersistedPickerUriPermission(uri: AndroidFsUri): Promise<boolean> {
-		return await invoke("plugin:android-fs|release_persisted_picker_uri_permission", { uri })
-	}
+/**
+ * Shows the app chooser for editing a file with other applications.
+ * 
+ * @remarks 
+ * Available applications depend on the MIME types associated with the file.   
+ * This does not result in an error even if no compatible applications are found; 
+ * instead, an empty app chooser is displayed.
+ * 
+ * OPINION:
+ * I think this is probably the least commonly used request for sending a file to an app.
+ * Even if you want to open an image or video editing app,
+ * `showViewFileAppChooser` often lets you choose from a wider range of apps.
+ *
+ * @param uri - URI of the target file.
+ * 
+ * @returns Promise that resolves after the app chooser is launched.
+ * 
+ * @throws 
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry is a directory, not a file.
+ * - When the file does not exist.
+ * - When the app does not have read/write permissions for the file.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Opener.html#method.edit_file | Opener::edit_file}
+ * @since 28.4.0
+ */
+export async function showEditFileAppChooser(uri: FsUri): Promise<void> {
+	await invoke("plugin:android-fs|show_edit_file_app_chooser", { uri })
+}
 
-	/**
-	 * Relinquishes all persisted permissions of URIs granted via {@link AndroidFs.persistPickerUriPermission}.
-	 * 
-	 * @returns Promise that resolves when the operation is complete.
-	 * 
-	 * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.release_all_persisted_picker_uri_permissions | Picker::release_all_persisted_picker_uri_permissions}
-	 * @since 24.1.0
-	 */
-	public static async releaseAllPersistedPickerUriPermissions(): Promise<void> {
-		return await invoke("plugin:android-fs|release_all_persisted_picker_uri_permissions")
-	}
+/**
+ * Checks the permission state of a URI granted by File/Directory Picker.
+ * 
+ * @param uri - URI of the target file or directory.
+ * @param state - Permission state to check. One of: `"Read"`, `"Write"`, `"ReadAndWrite"`, `"ReadOrWrite"`.
+ * 
+ * @returns Promise that resolves to a boolean indicating whether the specified permission is granted.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.check_uri_permission | Picker::check_uri_permission}
+ * @since 24.1.0
+ */
+export async function checkPickerUriPermission(
+	uri: FsUri,
+	state: UriPermissionState
+): Promise<boolean> {
+
+	return await invoke("plugin:android-fs|check_picker_uri_permission", { uri, state })
+}
+
+/**
+ * Takes a persistent permission to access the file or directory (and its descendants) selected via File/Directory Picker.  
+ * 
+ * @remarks
+ * This prolongs an already acquired permission rather than acquiring a new one.
+ * 
+ * Android imposes a strict limit on the total number of URIs
+ * that can be made persistent at the same time. 
+ * Therefore, it is highly recommended to release unnecessary persisted URIs
+ * via `releasePersistedPickerUriPermission`
+ * or `releaseAllPersistedPickerUriPermissions`.
+ * 
+ * Persisted permissions may be revoked by other applications or the user, 
+ * by modifying set permissions, or by moving/removing entries.   
+ * To verify validity,
+ * use `checkPersistedPickerUriPermission`
+ * or `checkPickerUriPermission`.
+ * 
+ * @param uri - URI of the target file or directory.
+ * 
+ * @returns Promise that resolves when the operation is complete.
+ * 
+ * @throws
+ * The returned Promise rejects with an error in the following cases:
+ * - When the entry does not exist.
+ * - When the app does not have any permissions for the entry.
+ * - When a provider of the entry via File/Directory Picker does not support the persist-permissions operation.
+ * - When an unexpected error occurs.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.persist_picker_uri_permission | Picker::persist_picker_uri_permission}
+ * @see {@link https://stackoverflow.com/questions/71099575/should-i-release-persistableuripermission-when-a-new-storage-location-is-chosen/71100621#71100621 | Android Persistable URI Permission Limit Discussion}
+ * @since 24.1.0
+ */
+export async function persistPickerUriPermission(uri: FsUri): Promise<void> {
+	await invoke("plugin:android-fs|persist_picker_uri_permission", { uri })
+}
+
+/**
+ * Checks the persisted permission state of a URI granted via `persistPickerUriPermission`.
+ * 
+ * @param uri - URI of the target file or directory.
+ * @param state - Permission state to check. One of: `"Read"`, `"Write"`, `"ReadAndWrite"`, `"ReadOrWrite"`.
+ * 
+ * @returns Promise that resolves to a boolean; `false` if only non-persistent permissions exist or if there are no permissions.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.check_persisted_picker_uri_permission | Picker::check_persisted_picker_uri_permission}
+ * @since 24.1.0
+ */
+export async function checkPersistedPickerUriPermission(
+	uri: FsUri,
+	state: UriPermissionState
+): Promise<boolean> {
+
+	return await invoke("plugin:android-fs|check_persisted_picker_uri_permission", { uri, state })
+}
+
+/**
+ * Relinquishes a persisted permission of a URI granted via `persistPickerUriPermission`.
+ * 
+ * @param uri - URI of the target file or directory.
+ * @returns Promise that resolves to a boolean; `true` if a persisted permission exists for the specified URI and was successfully released, or `false` if no persisted permission existed.
+ *
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.release_persisted_picker_uri_permission | Picker::release_persisted_picker_uri_permission}
+ * @since 24.1.0
+ */
+export async function releasePersistedPickerUriPermission(uri: FsUri): Promise<boolean> {
+	return await invoke("plugin:android-fs|release_persisted_picker_uri_permission", { uri })
+}
+
+/**
+ * Relinquishes all persisted permissions of URIs granted via `persistPickerUriPermission`.
+ * 
+ * @returns Promise that resolves when the operation is complete.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.release_all_persisted_picker_uri_permissions | Picker::release_all_persisted_picker_uri_permissions}
+ * @since 24.1.0
+ */
+export async function releaseAllPersistedPickerUriPermissions(): Promise<void> {
+	await invoke("plugin:android-fs|release_all_persisted_picker_uri_permissions")
 }
 
 
@@ -3514,7 +3437,7 @@ function mapEncodingLabelForInput(label?: string): string {
 	}
 }
 
-function mapMaxLineByteLength(s?: number): number {
+function mapMaxLineByteLengthForInput(s?: number): number {
 	if (s == null) return 0
 
 	if (!Number.isSafeInteger(s) || s < 0) {
@@ -3630,10 +3553,10 @@ function resolveCmdWriteFileStream(cmdName: string): CmdWriteFileStreamHandler {
 			else {
 				if (typeof chunk === "string") {
 					await cmd(
-						"Write", 
+						"Write",
 						{
-							data: chunk, 
-							format: "textToUtf8" 
+							data: chunk,
+							format: "textToUtf8"
 						},
 						{ id }
 					)
@@ -3645,11 +3568,11 @@ function resolveCmdWriteFileStream(cmdName: string): CmdWriteFileStreamHandler {
 					// Data URL を用いる理由は web API の FileReader で比較的効率的に作成できるため。
 					// <https://github.com/tauri-apps/tauri/issues/10573>
 					await cmd(
-						"Write", 
-						{ 
-							data: await bytesToDataUrl(chunk), 
+						"Write",
+						{
+							data: await bytesToDataUrl(chunk),
 							format: "dataUrlToDecodedData"
-						}, 
+						},
 						{ id }
 					)
 				}

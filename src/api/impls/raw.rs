@@ -1164,6 +1164,7 @@ impl Consts {
             PublicDir::Video(dir) => match dir {
                 PublicVideoDir::Movies => &self.env_dir_movies,
                 PublicVideoDir::DCIM => &self.env_dir_dcim,
+                PublicVideoDir::Pictures => &self.env_dir_pictures,
             },
             PublicDir::Audio(dir) => match dir  {
                 PublicAudioDir::Music => &self.env_dir_music,

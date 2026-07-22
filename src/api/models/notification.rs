@@ -1,7 +1,8 @@
 
 /// Icon type used for notification UI.
 /// 
-/// # TypeScript
+/// # Serialization
+/// Serialized by `serde` as the following TypeScript type:
 ///
 /// ```ts
 /// // NOTE: New variants may be added in the future

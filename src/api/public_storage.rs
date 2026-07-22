@@ -890,24 +890,4 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
             self.impls().scan_file_in_public_storage_for_result(uri, true).await
         }
     }
-
-
-
-    #[deprecated = "Use `Picker::resolve_public_storage_initial_location` instead."]
-    #[maybe_async]
-    pub fn resolve_initial_location(
-        &self,
-        volume_id: Option<&StorageVolumeId>,
-        base_dir: impl Into<PublicDir>,
-        relative_path: impl AsRef<std::path::Path>,
-        create_dir_all: bool
-    ) -> Result<FsUri> {
-
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().resolve_initial_location_in_public_storage(volume_id, base_dir, relative_path, create_dir_all).await
-        }
-    }
 }

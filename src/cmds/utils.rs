@@ -121,7 +121,7 @@ pub fn convert_to_thumbnail_preferred_size(w: f64, h: f64) -> Result<Size> {
         return Err(Error::with(format!("non-positive width or height: ({w}, {h})")));
     }
 
-    const MAX: u32 = 1000;
+    const MAX: u32 = 2048;
 
     let width = u32::clamp(w.round() as u32, 1, MAX);
     let height = u32::clamp(h.round() as u32, 1, MAX);

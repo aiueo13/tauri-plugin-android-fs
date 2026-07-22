@@ -11,11 +11,11 @@ First, install the plugin to your Tauri project:
 ```toml
 [dependencies]
 tauri-plugin-android-fs = {
-  version = "=28.4.0",
+  version = "=29.0.0",
   features = [
     # To access public files on older Android versions
     "legacy_storage_permission",
-    # To enable notification options
+    # To use notification options
     "notification_permission"
   ]
 }
@@ -49,11 +49,11 @@ Then, configure the APIs that can be called from the frontend JavaScript binding
 Finally, install the frontend JavaScript bindings:
 
 ```bash
-pnpm add tauri-plugin-android-fs-api@28.4.0 -E
+pnpm add tauri-plugin-android-fs-api@29.0.0 -E
 # or
-npm install tauri-plugin-android-fs-api@28.4.0 --save-exact
+npm install tauri-plugin-android-fs-api@29.0.0 --save-exact
 # or
-yarn add tauri-plugin-android-fs-api@28.4.0 --exact
+yarn add tauri-plugin-android-fs-api@29.0.0 --exact
 ```
 
 **NOTE**: Please ensure that the backend package, `tauri-plugin-android-fs` (crates io), and the frontend package, `tauri-plugin-android-fs-api` (npm), have exactly matching versions.
@@ -66,7 +66,7 @@ This plugin operates on files and directories via URIs rather than paths.
 When passing URIs to this plugin's functions, no scope configuration is required.  
 This is because the plugin only provides and accepts URIs whose permissions are already managed by the Android system, such as those explicitly selected by the user through a file picker or files created by the app in public directories.
 
-Some functions accept not only URIs but also absolute paths, including app-specific directories. In this case, you need to set the scope configuration for security, [like in plugin-fs](https://v2.tauri.app/reference/javascript/fs/#security).  
+Some functions accept not only URIs but also absolute paths. In this case, you need to set the scope configuration for security, [like in plugin-fs](https://v2.tauri.app/reference/javascript/fs/#security).  
 You can set a global scope for the plugin, or assign specific scopes to individual commands:
 
 `src-tauri/capabilities/*.json`
@@ -89,10 +89,7 @@ You can set a global scope for the plugin, or assign specific scopes to individu
 # Example
 
 ```typescript
-import { 
-  AndroidFs, 
-  AndroidPublicGeneralPurposeDir, 
-} from 'tauri-plugin-android-fs-api';
+import * as AndroidFs from 'tauri-plugin-android-fs-api';
 
 /** 
  * Saves data to '~/Download/MyApp/{fileName}'
@@ -107,7 +104,7 @@ async function download(
   try {
     // Creates a new empty file
     uri = await AndroidFs.createNewPublicFile(
-      AndroidPublicGeneralPurposeDir.Download,
+      AndroidFs.PublicGeneralPurposeDir.Download,
       `MyApp/${fileName}`,
       mimeType,
       { isPending: true }
@@ -156,77 +153,77 @@ async function download(
 This plugin provides following APIs:
 
 ### 1. APIs to get entries such as files and directories
-- `AndroidFs.showOpenFilePicker` 
-- `AndroidFs.showOpenDirPicker` 
-- `AndroidFs.showSaveFilePicker` 
-- `AndroidFs.readDir` 
-- `AndroidFs.createNewFile` 
-- `AndroidFs.createNewDir` 
-- `AndroidFs.createDir` 
-- `AndroidFs.createNewPublicFile` 
-- `AndroidFs.createNewPublicImageFile` 
-- `AndroidFs.createNewPublicVideoFile` 
-- `AndroidFs.createNewPublicAudioFile` 
-- `AndroidFs.listVolumes`
+- `showOpenFilePicker` 
+- `showOpenDirPicker` 
+- `showSaveFilePicker` 
+- `readDir` 
+- `createNewFile` 
+- `createNewDir` 
+- `createDir` 
+- `createNewPublicFile` 
+- `createNewPublicImageFile` 
+- `createNewPublicVideoFile` 
+- `createNewPublicAudioFile` 
+- `listVolumes`
 
 ### 2. APIs to operate entries
-- `AndroidFs.copyFile`
-- `AndroidFs.truncateFile`
-- `AndroidFs.renameFile`
-- `AndroidFs.renameDir`
-- `AndroidFs.removeFile`
-- `AndroidFs.removeEmptyDir`
-- `AndroidFs.removeDirAll`
-- `AndroidFs.scanPublicFile`
-- `AndroidFs.setPublicFilePending`
+- `copyFile`
+- `truncateFile`
+- `renameFile`
+- `renameDir`
+- `removeFile`
+- `removeEmptyDir`
+- `removeDirAll`
+- `scanPublicFile`
+- `setPublicFilePending`
 
 ### 3. APIs to get entry data
-- `AndroidFs.getFsPath` 
-- `AndroidFs.getMetadata` 
-- `AndroidFs.getName` 
-- `AndroidFs.getType` 
-- `AndroidFs.getMimeType` 
-- `AndroidFs.getByteLength` 
-- `AndroidFs.getThumbnail` 
-- `AndroidFs.getThumbnailAsBytes` 
-- `AndroidFs.getThumbnailAsBase64` 
-- `AndroidFs.getThumbnailAsDataURL` 
+- `getFsPath`
+- `getMetadata` 
+- `getName` 
+- `getType` 
+- `getFileMimeType` 
+- `getFileByteLength` 
+- `getFileThumbnail` 
+- `getFileThumbnailAsBase64` 
+- `getFileThumbnailAsDataURL` 
 
 ### 4. APIs to get source URLs
-- `AndroidFs.convertFileSrc`
-- `AndroidFs.convertThumbnailSrc`
+- `convertFileSrc`
+- `convertFileThumbnailSrc`
 
 ### 5. APIs to read/write files
-- `AndroidFs.readFile`
-- `AndroidFs.readFileAsBase64`
-- `AndroidFs.readFileAsDataURL`
-- `AndroidFs.readTextFile`
-- `AndroidFs.writeFile`
-- `AndroidFs.writeTextFile`
+- `readFile`
+- `readFileAsBase64`
+- `readFileAsDataURL`
+- `readTextFile`
+- `writeFile`
+- `writeTextFile`
 
 ### 6. APIs to stream files
-- `AndroidFs.openReadFileStream`
-- `AndroidFs.openReadTextFileLinesStream`
-- `AndroidFs.openWriteFileStream`
-- `AndroidFs.closeAllFileStreams`
-- `AndroidFs.countAllFileStreams`
+- `openReadFileStream`
+- `openReadTextFileLinesStream`
+- `openWriteFileStream`
+- `closeAllFileStreams`
+- `countAllFileStreams`
 
 ### 7. APIs to send entries to other apps
-- `AndroidFs.showViewFileDialog`
-- `AndroidFs.showViewDirDialog`
-- `AndroidFs.showEditFileDialog`
-- `AndroidFs.showShareFileDialog`
+- `showViewFileAppChooser`
+- `showViewDirAppChooser`
+- `showEditFileAppChooser`
+- `showShareFileAppChooser`
 
 ### 8. APIs to manage permissions
-- `AndroidFs.checkPickerUriPermission`
-- `AndroidFs.persistPickerUriPermission`
-- `AndroidFs.checkPersistedPickerUriPermission`
-- `AndroidFs.releasePersistedPickerUriPermission`
-- `AndroidFs.releaseAllPersistedPickerUriPermissions`
-- `AndroidFs.checkPublicFilesPermission`
-- `AndroidFs.requestPublicFilesPermission`
+- `checkPickerUriPermission`
+- `persistPickerUriPermission`
+- `checkPersistedPickerUriPermission`
+- `releasePersistedPickerUriPermission`
+- `releaseAllPersistedPickerUriPermissions`
+- `checkPublicFilesPermission`
+- `requestPublicFilesPermission`
 
 ### 9. Helper
+- `isFsUri`
 - `isAndroid`
 - `getAndroidApiLevel`
 

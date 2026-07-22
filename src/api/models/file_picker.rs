@@ -1,8 +1,5 @@
-use serde::{Deserialize, Serialize};
-
-
 /// Filters for VisualMediaPicker.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum VisualMediaTarget<'a> {
 

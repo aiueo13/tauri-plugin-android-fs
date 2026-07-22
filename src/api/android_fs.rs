@@ -1141,29 +1141,4 @@ impl<R: tauri::Runtime> AndroidFs<R> {
             self.impls().resolve_dir_uri(dir, relative_path, true).await
         }
     }
-
-
-
-    #[deprecated = "Use `opener()` instead."]
-    #[always_sync]
-    pub fn file_opener(&self) -> Opener<'_, R> {
-        Opener { handle: &self.handle }
-    }
-
-    #[deprecated = "Use `picker()` instead."]
-    #[always_sync]
-    pub fn file_picker(&self) -> Picker<'_, R> {
-        Picker { handle: &self.handle }
-    }
-
-    #[deprecated = "Use `Picker::resolve_initial_location` instead."]
-    #[maybe_async]
-    pub fn resolve_root_initial_location(&self, volume_id: Option<&StorageVolumeId>) -> Result<FsUri> {
-        #[cfg(not(target_os = "android"))] {
-            Err(Error::NOT_ANDROID)
-        }
-        #[cfg(target_os = "android")] {
-            self.impls().resolve_root_initial_location(volume_id).await
-        }
-    }
 }

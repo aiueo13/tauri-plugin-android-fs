@@ -1,9 +1,17 @@
-use serde::{Deserialize, Serialize};
 use std::str::FromStr;
+use serde::{Deserialize, Serialize};
 use crate::*;
 
 
 /// Directory for the app’s use only.
+/// 
+/// # Serialization
+/// Serialized by `serde` as the following TypeScript type:
+///
+/// ```ts
+/// // NOTE: New variants may be added in the future
+/// type PrivateDir = "Data" | "Cache" | "NoBackupData";
+/// ```
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[non_exhaustive]
 pub enum PrivateDir {
@@ -56,6 +64,14 @@ pub enum PrivateDir {
 }
 
 /// Directory for the app’s use.  
+/// 
+/// # Serialization
+/// Serialized by `serde` as the following TypeScript type:
+///
+/// ```ts
+/// // NOTE: New variants may be added in the future
+/// type AppDir = "Data" | "Cache" | "PublicMedia";
+/// ```
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[non_exhaustive]
 pub enum AppDir {
@@ -104,6 +120,14 @@ pub enum AppDir {
 }
 
 /// Directory in which to place files that are available to other applications and users. 
+/// 
+/// # Serialization
+/// Serialized by `serde` as the following TypeScript type:
+///
+/// ```ts
+/// // NOTE: New variants may be added in the future
+/// type PublicDir = "Pictures" | "Movies" | "DCIM" | "Music" | "Alarms" | "Audiobooks" | "Notifications" | "Podcasts" | "Ringtones" | "Recordings" | "Documents" | "Download";
+/// ```
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[non_exhaustive]
 pub enum PublicDir {
@@ -122,6 +146,14 @@ pub enum PublicDir {
 }
 
 /// Directory in which to place images that are available to other applications and users.  
+/// 
+/// # Serialization
+/// Serialized by `serde` as the following TypeScript type:
+///
+/// ```ts
+/// // NOTE: New variants may be added in the future
+/// type PublicImageDir = "Pictures" | "DCIM";
+/// ```
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[non_exhaustive]
 pub enum PublicImageDir {
@@ -132,6 +164,14 @@ pub enum PublicImageDir {
 }
 
 /// Directory in which to place videos that are available to other applications and users.  
+/// 
+/// # Serialization
+/// Serialized by `serde` as the following TypeScript type:
+///
+/// ```ts
+/// // NOTE: New variants may be added in the future
+/// type PublicVideoDir = "Movies" | "DCIM" | "Pictures";
+/// ```
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[non_exhaustive]
 pub enum PublicVideoDir {
@@ -139,9 +179,19 @@ pub enum PublicVideoDir {
 	Movies,
 
 	DCIM,
+
+    Pictures,
 }
 
 /// Directory in which to place audios that are available to other applications and users.  
+/// 
+/// # Serialization
+/// Serialized by `serde` as the following TypeScript type:
+///
+/// ```ts
+/// // NOTE: New variants may be added in the future
+/// type PublicAudioDir = "Music" | "Alarms" | "Audiobooks" | "Notifications" | "Podcasts" | "Ringtones" | "Recordings";
+/// ```
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[non_exhaustive]
 pub enum PublicAudioDir {
@@ -163,7 +213,15 @@ pub enum PublicAudioDir {
     Recordings,
 }
 
-/// Directory in which to place files that are available to other applications and users.  
+/// Directory in which to place files that are available to other applications and users. 
+/// 
+/// # Serialization
+/// Serialized by `serde` as the following TypeScript type:
+///
+/// ```ts
+/// // NOTE: New variants may be added in the future
+/// type PublicGeneralPurposeDir = "Documents" | "Download";
+/// ```
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[non_exhaustive]
 pub enum PublicGeneralPurposeDir {
@@ -189,6 +247,7 @@ impl std::fmt::Display for PublicVideoDir {
         match self {
             PublicVideoDir::Movies => write!(f, "Movies"),
             PublicVideoDir::DCIM => write!(f, "DCIM"),
+            PublicVideoDir::Pictures => write!(f, "Pictures")
         }
     }
 }
@@ -267,6 +326,9 @@ impl FromStr for PublicVideoDir {
         else if s.eq_ignore_ascii_case("dcim") {
             Ok(PublicVideoDir::DCIM)
         }
+        else if s.eq_ignore_ascii_case("pictures") {
+            Ok(PublicVideoDir::Pictures)
+        }
         else {
             Err(Error::with(format!("invalid PublicVideoDir: {s}")))
         }
@@ -311,10 +373,7 @@ impl FromStr for PublicGeneralPurposeDir {
         if s.eq_ignore_ascii_case("documents") {
             Ok(PublicGeneralPurposeDir::Documents)
         }
-        else if s.eq_ignore_ascii_case("download") {
-            Ok(PublicGeneralPurposeDir::Download)
-        } 
-        else if s.eq_ignore_ascii_case("downloads") {
+        else if s.eq_ignore_ascii_case("download") || s.eq_ignore_ascii_case("downloads") {
             Ok(PublicGeneralPurposeDir::Download)
         } 
         else {

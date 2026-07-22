@@ -475,28 +475,64 @@
           "markdownDescription": "Denies the get_android_api_level command without any pre-configured scope."
         },
         {
-          "description": "Enables the get_byte_length command without any pre-configured scope.",
+          "description": "Enables the get_file_byte_length command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-get-byte-length",
-          "markdownDescription": "Enables the get_byte_length command without any pre-configured scope."
+          "const": "allow-get-file-byte-length",
+          "markdownDescription": "Enables the get_file_byte_length command without any pre-configured scope."
         },
         {
-          "description": "Denies the get_byte_length command without any pre-configured scope.",
+          "description": "Denies the get_file_byte_length command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-get-byte-length",
-          "markdownDescription": "Denies the get_byte_length command without any pre-configured scope."
+          "const": "deny-get-file-byte-length",
+          "markdownDescription": "Denies the get_file_byte_length command without any pre-configured scope."
         },
         {
-          "description": "Enables the get_fs_path command without any pre-configured scope.",
+          "description": "Enables the get_file_mime_type command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-get-fs-path",
-          "markdownDescription": "Enables the get_fs_path command without any pre-configured scope."
+          "const": "allow-get-file-mime-type",
+          "markdownDescription": "Enables the get_file_mime_type command without any pre-configured scope."
         },
         {
-          "description": "Denies the get_fs_path command without any pre-configured scope.",
+          "description": "Denies the get_file_mime_type command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-get-fs-path",
-          "markdownDescription": "Denies the get_fs_path command without any pre-configured scope."
+          "const": "deny-get-file-mime-type",
+          "markdownDescription": "Denies the get_file_mime_type command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_file_thumbnail command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-file-thumbnail",
+          "markdownDescription": "Enables the get_file_thumbnail command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_file_thumbnail command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-file-thumbnail",
+          "markdownDescription": "Denies the get_file_thumbnail command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_file_thumbnail_as_base64 command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-file-thumbnail-as-base64",
+          "markdownDescription": "Enables the get_file_thumbnail_as_base64 command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_file_thumbnail_as_base64 command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-file-thumbnail-as-base64",
+          "markdownDescription": "Denies the get_file_thumbnail_as_base64 command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_file_thumbnail_as_data_url command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-file-thumbnail-as-data-url",
+          "markdownDescription": "Enables the get_file_thumbnail_as_data_url command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_file_thumbnail_as_data_url command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-file-thumbnail-as-data-url",
+          "markdownDescription": "Denies the get_file_thumbnail_as_data_url command without any pre-configured scope."
         },
         {
           "description": "Enables the get_metadata command without any pre-configured scope.",
@@ -511,18 +547,6 @@
           "markdownDescription": "Denies the get_metadata command without any pre-configured scope."
         },
         {
-          "description": "Enables the get_mime_type command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-get-mime-type",
-          "markdownDescription": "Enables the get_mime_type command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the get_mime_type command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-get-mime-type",
-          "markdownDescription": "Denies the get_mime_type command without any pre-configured scope."
-        },
-        {
           "description": "Enables the get_name command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-name",
@@ -535,54 +559,6 @@
           "markdownDescription": "Denies the get_name command without any pre-configured scope."
         },
         {
-          "description": "Enables the get_thumbnail command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-get-thumbnail",
-          "markdownDescription": "Enables the get_thumbnail command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the get_thumbnail command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-get-thumbnail",
-          "markdownDescription": "Denies the get_thumbnail command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the get_thumbnail_as_base64 command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-get-thumbnail-as-base64",
-          "markdownDescription": "Enables the get_thumbnail_as_base64 command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the get_thumbnail_as_base64 command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-get-thumbnail-as-base64",
-          "markdownDescription": "Denies the get_thumbnail_as_base64 command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the get_thumbnail_as_bytes command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-get-thumbnail-as-bytes",
-          "markdownDescription": "Enables the get_thumbnail_as_bytes command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the get_thumbnail_as_bytes command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-get-thumbnail-as-bytes",
-          "markdownDescription": "Denies the get_thumbnail_as_bytes command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the get_thumbnail_as_data_url command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-get-thumbnail-as-data-url",
-          "markdownDescription": "Enables the get_thumbnail_as_data_url command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the get_thumbnail_as_data_url command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-get-thumbnail-as-data-url",
-          "markdownDescription": "Denies the get_thumbnail_as_data_url command without any pre-configured scope."
-        },
-        {
           "description": "Enables the get_type command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-type",
@@ -593,18 +569,6 @@
           "type": "string",
           "const": "deny-get-type",
           "markdownDescription": "Denies the get_type command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the has_public_files_permission command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-has-public-files-permission",
-          "markdownDescription": "Enables the has_public_files_permission command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the has_public_files_permission command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-has-public-files-permission",
-          "markdownDescription": "Denies the has_public_files_permission command without any pre-configured scope."
         },
         {
           "description": "Enables the list_volumes command without any pre-configured scope.",
@@ -847,16 +811,16 @@
           "markdownDescription": "Denies the set_public_file_pending command without any pre-configured scope."
         },
         {
-          "description": "Enables the show_edit_file_dialog command without any pre-configured scope.",
+          "description": "Enables the show_edit_file_app_chooser command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-show-edit-file-dialog",
-          "markdownDescription": "Enables the show_edit_file_dialog command without any pre-configured scope."
+          "const": "allow-show-edit-file-app-chooser",
+          "markdownDescription": "Enables the show_edit_file_app_chooser command without any pre-configured scope."
         },
         {
-          "description": "Denies the show_edit_file_dialog command without any pre-configured scope.",
+          "description": "Denies the show_edit_file_app_chooser command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-show-edit-file-dialog",
-          "markdownDescription": "Denies the show_edit_file_dialog command without any pre-configured scope."
+          "const": "deny-show-edit-file-app-chooser",
+          "markdownDescription": "Denies the show_edit_file_app_chooser command without any pre-configured scope."
         },
         {
           "description": "Enables the show_open_dir_picker command without any pre-configured scope.",
@@ -895,40 +859,40 @@
           "markdownDescription": "Denies the show_save_file_picker command without any pre-configured scope."
         },
         {
-          "description": "Enables the show_share_file_dialog command without any pre-configured scope.",
+          "description": "Enables the show_share_file_app_chooser command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-show-share-file-dialog",
-          "markdownDescription": "Enables the show_share_file_dialog command without any pre-configured scope."
+          "const": "allow-show-share-file-app-chooser",
+          "markdownDescription": "Enables the show_share_file_app_chooser command without any pre-configured scope."
         },
         {
-          "description": "Denies the show_share_file_dialog command without any pre-configured scope.",
+          "description": "Denies the show_share_file_app_chooser command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-show-share-file-dialog",
-          "markdownDescription": "Denies the show_share_file_dialog command without any pre-configured scope."
+          "const": "deny-show-share-file-app-chooser",
+          "markdownDescription": "Denies the show_share_file_app_chooser command without any pre-configured scope."
         },
         {
-          "description": "Enables the show_view_dir_dialog command without any pre-configured scope.",
+          "description": "Enables the show_view_dir_app_chooser command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-show-view-dir-dialog",
-          "markdownDescription": "Enables the show_view_dir_dialog command without any pre-configured scope."
+          "const": "allow-show-view-dir-app-chooser",
+          "markdownDescription": "Enables the show_view_dir_app_chooser command without any pre-configured scope."
         },
         {
-          "description": "Denies the show_view_dir_dialog command without any pre-configured scope.",
+          "description": "Denies the show_view_dir_app_chooser command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-show-view-dir-dialog",
-          "markdownDescription": "Denies the show_view_dir_dialog command without any pre-configured scope."
+          "const": "deny-show-view-dir-app-chooser",
+          "markdownDescription": "Denies the show_view_dir_app_chooser command without any pre-configured scope."
         },
         {
-          "description": "Enables the show_view_file_dialog command without any pre-configured scope.",
+          "description": "Enables the show_view_file_app_chooser command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-show-view-file-dialog",
-          "markdownDescription": "Enables the show_view_file_dialog command without any pre-configured scope."
+          "const": "allow-show-view-file-app-chooser",
+          "markdownDescription": "Enables the show_view_file_app_chooser command without any pre-configured scope."
         },
         {
-          "description": "Denies the show_view_file_dialog command without any pre-configured scope.",
+          "description": "Denies the show_view_file_app_chooser command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-show-view-file-dialog",
-          "markdownDescription": "Denies the show_view_file_dialog command without any pre-configured scope."
+          "const": "deny-show-view-file-app-chooser",
+          "markdownDescription": "Denies the show_view_file_app_chooser command without any pre-configured scope."
         },
         {
           "description": "Enables the truncate_file command without any pre-configured scope.",

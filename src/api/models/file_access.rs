@@ -2,7 +2,15 @@ use serde::{Deserialize, Serialize};
 use crate::*;
 
 
-/// Access mode
+/// Access mode.
+/// 
+/// # Serialization
+/// Serialized by `serde` as the following TypeScript type:
+///
+/// ```ts
+/// // NOTE: New variants may be added in the future
+/// type FileAccessMode = "Read" | "Write" | "WriteTruncate" | "WriteAppend" | "ReadWrite" | "ReadWriteTruncate";
+/// ```
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Deserialize, Serialize)]
 #[non_exhaustive]
 pub enum FileAccessMode {
@@ -78,6 +86,14 @@ impl FileAccessMode {
     }
 }
 
+/// Uri permission
+/// 
+/// # Serialization
+/// Serialized by `serde` as the following TypeScript type:
+///
+/// ```ts
+/// type UriPermission = "Read" | "Write" | "ReadAndWrite" | "ReadOrWrite";
+/// ```
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Deserialize, Serialize)]
 pub enum UriPermission {
 
@@ -94,16 +110,41 @@ pub enum UriPermission {
     ReadOrWrite,
 }
 
+/// Persisted uri permission state
+/// 
+/// # Serialization
+/// Serialized by `serde` as the following TypeScript type:
+///
+/// ```ts
+/// type PersistedUriPermissionState = {
+///     type: "Dir" | "Dir", 
+///     uri: FsUri, 
+///     canRead: boolean, 
+///     canWrite: boolean,
+/// };
+/// 
+/// // See `tauri_plugin_android_fs::FsUri` for details
+/// type FsUri = unknown;
+/// ```
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(tag = "type")]
 pub enum PersistedUriPermissionState {
     File {
         uri: FsUri,
+
+        #[serde(rename = "canRead")]
         can_read: bool,
+
+        #[serde(rename = "canWrite")]
         can_write: bool,
     },
     Dir {
         uri: FsUri,
+
+        #[serde(rename = "canRead")]
         can_read: bool,
+
+        #[serde(rename = "canWrite")]
         can_write: bool,
     }
 }
