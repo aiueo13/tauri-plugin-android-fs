@@ -308,7 +308,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// If a file with the same name already exists, a sequential number is appended to ensure uniqueness.  
     /// If the file has no extension, one may be inferred from ***mime_type*** and appended to the file name.  
     /// Strings may also be sanitized as needed, so they may not be used exactly as provided.
-    /// Note that append-exntesion and sanitize-path operation may vary depending on the device model and Android version.  
+    /// Note that append-extension and sanitize-path operation may vary depending on the device model and Android version.  
     ///
     /// - ***mime_type*** :  
     /// The MIME type of the file to be created.  
@@ -359,7 +359,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// Scanning is triggered when the file descriptor is closed
     /// or as part of the [`pending`](PublicStorage::set_pending) lifecycle.
     /// 
-    /// Diffrences from [`PublicStorage::create_new_file`] are that
+    /// Differences from [`PublicStorage::create_new_file`] are that
     /// files are marked as pending and will not be visible to other apps until 
     /// [`PublicStorage::set_pending(..., false)`](PublicStorage::set_pending) is called. 
     ///
@@ -400,7 +400,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// If a file with the same name already exists, a sequential number is appended to ensure uniqueness.  
     /// If the file has no extension, one may be inferred from ***mime_type*** and appended to the file name.  
     /// Strings may also be sanitized as needed, so they may not be used exactly as provided.
-    /// Note that append-exntesion and sanitize-path operation may vary depending on the device model and Android version.  
+    /// Note that append-extension and sanitize-path operation may vary depending on the device model and Android version.  
     ///
     /// - ***mime_type*** :  
     /// The MIME type of the file to be created.  
@@ -534,7 +534,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// If a file with the same name already exists, a sequential number is appended to ensure uniqueness.  
     /// If the file has no extension, one may be inferred from ***mime_type*** and appended to the file name.  
     /// Strings may also be sanitized as needed, so they may not be used exactly as provided.
-    /// Note that append-exntesion and sanitize-path operation may vary depending on the device model and Android version.  
+    /// Note that append-extension and sanitize-path operation may vary depending on the device model and Android version.  
     ///
     /// - ***mime_type*** :  
     /// The MIME type of the file to be created.  
@@ -572,7 +572,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     }
 
     /// Scans the specified file in MediaStore.   
-    /// By doing this, the file will be visible with corrent metadata in the Gallery and etc.
+    /// By doing this, the file will be visible with correct metadata in the Gallery and etc.
     ///
     /// You don’t need to call this after [`PublicStorage::write_new`].   
     /// 
@@ -705,7 +705,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// 
     /// # Support
     /// All Android versions supported by Tauri.
-    #[deprecated = "File operations via paths may result in unstable behaviour and inconsistent outcomes."]
+    #[deprecated = "File operations via paths may result in unstable behavior and inconsistent outcomes."]
     #[maybe_async]
     pub fn get_path(
         &self,
@@ -738,7 +738,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// Therefore, **operate files via paths only when it is truly necessary**.
     /// 
     /// Do not use operations such as rename or remove that rely on paths 
-    /// (including URIs obtained via [`FileUri::from_path`] with this paths), 
+    /// (including URIs obtained via [`FsUri::from_path`] with this paths), 
     /// as they may break consistency with the MediaStore on old version.
     /// Instead, use the URI obtained through [`PublicStorage::scan_by_path`] together with methods 
     /// such as [`AndroidFs::rename`] or [`AndroidFs::remove_file`].
@@ -746,7 +746,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// ### Android 11 or higher
     /// When using [`PublicImageDir`], use only image type for file name extension, 
     /// using other type extension or none may cause errors.
-    /// Similarly, use only the corresponding extesions for [`PublicVideoDir`] and [`PublicAudioDir`].
+    /// Similarly, use only the corresponding extensions for [`PublicVideoDir`] and [`PublicAudioDir`].
     /// Only [`PublicGeneralPurposeDir`] supports all extensions and no extension. 
     /// 
     /// ### Android 10 or lower
@@ -802,7 +802,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// - [`PublicAudioDir::Recordings`] is not available on Android 11 (API level 30) and lower.
     /// Availability on a given device can be verified by calling [`PublicStorage::is_recordings_dir_available`].  
     /// - Others dirs are available in all Android versions.
-    #[deprecated = "File operations via paths may result in unstable behaviour and inconsistent outcomes."]
+    #[deprecated = "File operations via paths may result in unstable behavior and inconsistent outcomes."]
     #[maybe_async]
     pub fn resolve_path(
         &self,

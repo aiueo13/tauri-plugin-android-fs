@@ -564,6 +564,32 @@ Denies the get_metadata command without any pre-configured scope.
 <tr>
 <td>
 
+`android-fs:allow-get-mime-type-from-extension`
+
+</td>
+<td>
+
+Enables the get_mime_type_from_extension command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-get-mime-type-from-extension`
+
+</td>
+<td>
+
+Denies the get_mime_type_from_extension command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `android-fs:allow-get-name`
 
 </td>
@@ -609,6 +635,58 @@ Enables the get_type command without any pre-configured scope.
 <td>
 
 Denies the get_type command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-get-uri-for-file-path`
+
+</td>
+<td>
+
+Enables the get_uri_for_file_path command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-get-uri-for-file-path`
+
+</td>
+<td>
+
+Denies the get_uri_for_file_path command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-list-all-persisted-picker-uri-permissions`
+
+</td>
+<td>
+
+Enables the list_all_persisted_picker_uri_permissions command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-list-all-persisted-picker-uri-permissions`
+
+</td>
+<td>
+
+Denies the list_all_persisted_picker_uri_permissions command without any pre-configured scope.
 
 </td>
 </tr>

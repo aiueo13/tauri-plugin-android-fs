@@ -1,4 +1,4 @@
-package com.plugin.android_fs
+package okayu.tauri.plugin.android.fs
 
 import app.tauri.plugin.JSArray
 import app.tauri.plugin.JSObject

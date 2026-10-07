@@ -1,9 +1,11 @@
+#[cfg(target_os = "android")]
+use std::any::Any;
+
 #[allow(unused_imports)]
 use crate::*;
 
 #[cfg(target_os = "android")]
 mod async_sleep;
-
 
 #[cfg(target_os = "android")]
 #[sync_async::sync_async]
@@ -128,6 +130,12 @@ pub fn encode_android_uri_component(input: impl AsRef<str>) -> String {
 }
 
 #[cfg(target_os = "android")]
+pub fn decode_android_uri_component(input: impl AsRef<str>) -> String {
+    percent_encoding::percent_decode_str(input.as_ref()).decode_utf8_lossy().to_string()
+}
+
+
+#[cfg(target_os = "android")]
 pub fn range_to_offset_and_len(range: impl std::ops::RangeBounds<u64>) -> (u128, Option<u128>) {
     use std::ops::Bound::{Included, Excluded, Unbounded};
 
@@ -164,6 +172,85 @@ pub fn validate_relative_path(path: &std::path::Path) -> Result<&std::path::Path
     }
 
     Ok(path)
+}
+
+#[cfg(target_os = "android")]
+pub fn panic_message(payload: Box<dyn Any + Send>) -> Option<String> {
+    let payload = sync_wrapper::SyncWrapper::new(payload);
+    panic_payload_as_str(&payload).map(|m| m.to_string())
+}
+
+/// Based on code from Tokio crate
+///
+/// Source:
+/// - <https://docs.rs/tokio/1.53.1/src/tokio/runtime/task/error.rs.html>
+/// - Copyright (c) Tokio Contributors
+/// - Licensed under the MIT License
+#[cfg(target_os = "android")]
+fn panic_payload_as_str(payload: &sync_wrapper::SyncWrapper<Box<dyn Any + Send>>) -> Option<&str> {
+    // Panic payloads are almost always `String` (if invoked with formatting arguments)
+    // or `&'static str` (if invoked with a string literal).
+    //
+    // Non-string panic payloads have niche use-cases,
+    // so we don't really need to worry about those.
+    if let Some(s) = payload.downcast_ref_sync::<String>() {
+        return Some(s);
+    }
+
+    if let Some(s) = payload.downcast_ref_sync::<&'static str>() {
+        return Some(s);
+    }
+
+    None
+}
+
+/// Based on code from Tokio crate
+///
+/// Source:
+/// - <https://docs.rs/tokio/1.53.1/src/tokio/util/sync_wrapper.rs.html>
+/// - Copyright (c) Tokio Contributors
+/// - Licensed under the MIT License
+#[allow(unused)]
+#[cfg(target_os = "android")]
+mod sync_wrapper {
+    // This module contains a type that can make `Send + !Sync` types `Sync` by
+    // disallowing all immutable access to the value.
+    //
+    // A similar primitive is provided in the `sync_wrapper` crate.
+
+    use std::any::Any;
+
+    pub struct SyncWrapper<T> {
+        value: T,
+    }
+
+    // safety: The SyncWrapper being send allows you to send the inner value across
+    // thread boundaries.
+    unsafe impl<T: Send> Send for SyncWrapper<T> {}
+
+    // safety: An immutable reference to a SyncWrapper is useless, so moving such an
+    // immutable reference across threads is safe.
+    unsafe impl<T> Sync for SyncWrapper<T> {}
+
+    impl<T> SyncWrapper<T> {
+
+        pub(crate) fn new(value: T) -> Self {
+            Self { value }
+        }
+
+        pub(crate) fn into_inner(self) -> T {
+            self.value
+        }
+    }
+
+    impl SyncWrapper<Box<dyn Any + Send>> {
+        /// Attempt to downcast using `Any::downcast_ref()` to a type that is known to be `Sync`.
+        pub(crate) fn downcast_ref_sync<T: Any + Sync>(&self) -> Option<&T> {
+            // SAFETY: if the downcast fails, the inner value is not touched,
+            // so no thread-safety violation can occur.
+            self.value.downcast_ref()
+        }
+    }
 }
 
 // Based on code from Tokio crate ver. 1.47.1

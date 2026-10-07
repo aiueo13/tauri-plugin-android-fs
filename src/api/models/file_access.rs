@@ -12,7 +12,6 @@ use crate::*;
 /// type FileAccessMode = "Read" | "Write" | "WriteTruncate" | "WriteAppend" | "ReadWrite" | "ReadWriteTruncate";
 /// ```
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Deserialize, Serialize)]
-#[non_exhaustive]
 pub enum FileAccessMode {
 
     /// Opens the file in read-only mode.
@@ -22,10 +21,8 @@ pub enum FileAccessMode {
 
     /// Opens the file in write-only mode.  
     /// 
-    /// Until Android 10, this will always truncate existing contents.   
-    /// Since Android 10, this may or may not truncate existing contents.   
+    /// Note that this may or may not truncate existing contents.   
     /// If the new file is smaller than the old one, **this may cause the file to become corrupted**.
-    /// <https://issuetracker.google.com/issues/180526528>
     /// 
     /// The reason this is marked as deprecated is because of that behavior, 
     /// and it is not scheduled to be removed in the future. 
@@ -117,7 +114,7 @@ pub enum UriPermission {
 ///
 /// ```ts
 /// type PersistedUriPermissionState = {
-///     type: "Dir" | "Dir", 
+///     type: "Dir" | "File", 
 ///     uri: FsUri, 
 ///     canRead: boolean, 
 ///     canWrite: boolean,

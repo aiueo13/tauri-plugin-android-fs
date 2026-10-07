@@ -55,7 +55,7 @@ impl<'a, R: tauri::Runtime> AppStorage<'a, R> {
     /// such as USB flash drives connected to handheld devices.
     /// 
     /// This typically includes [`primary storage volume`](AppStorage::get_primary_volume),
-    /// but it may occasionally be absent if primary torage volume is inaccessible 
+    /// but it may occasionally be absent if primary storage volume is inaccessible 
     /// (e.g., mounted on a computer, removed, or another issue).
     ///
     /// Primary storage volume is always listed first, if included. 
@@ -111,7 +111,7 @@ impl<'a, R: tauri::Runtime> AppStorage<'a, R> {
     /// This function does **not** create any directories; it only constructs the path.
     ///    
     /// These entries will be deleted when the app is uninstalled 
-    /// and may also be deleted at the user’s initialising request.   
+    /// and may also be deleted at the user’s initializing request.   
     /// 
     /// Since storage volume id and returned paths can change,
 	/// only relative paths should be stored.
@@ -147,7 +147,7 @@ impl<'a, R: tauri::Runtime> AppStorage<'a, R> {
     /// displayed in a more user-friendly way in gallery apps and file managers.  
     /// 
     /// For file in this directory, do not use operations such as rename or remove that rely on paths 
-    /// (including URIs obtained via [`FileUri::from_path`] with this paths), 
+    /// (including URIs obtained via [`FsUri::from_path`] with this paths), 
     /// as they may break consistency with the MediaStore on old version.
     /// Instead, use the URI obtained through [`AppStorage::scan_public_media_by_path`] together with methods 
     /// such as [`AndroidFs::rename`] or [`AndroidFs::remove_file`].
@@ -174,7 +174,7 @@ impl<'a, R: tauri::Runtime> AppStorage<'a, R> {
         }
     }
 
-    /// See [`AppStorage::resolve_path`] and [`FileUri::from_path`].
+    /// See [`AppStorage::resolve_path`] and [`FsUri::from_path`].
     #[maybe_async]
     pub fn resolve_uri(
         &self, 

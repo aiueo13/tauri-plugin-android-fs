@@ -1,10 +1,11 @@
 //! Overview and usage is [here](https://crates.io/crates/tauri-plugin-android-fs)
 
-#![cfg_attr(not(target_os = "android"), allow(unused_variables))]
+#![cfg_attr(not(target_os = "android"), allow(unused))]
 
+mod builder;
 mod cmds;
-mod protocols;
 mod config;
+mod protocols;
 mod scope;
 mod utils;
 
@@ -12,14 +13,37 @@ pub mod api;
 
 use utils::*;
 
-pub use api::models::*;
 pub use api::consts::*;
+pub use api::models::*;
+pub use builder::*;
 
-/// Initializes the plugin.
-/// 
+/// Creates the plugin builder.
+///
 /// # Usage
 /// `src-tauri/src/lib.rs`
+/// ```ignore
+/// #[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// pub fn run() {
+///     tauri::Builder::default()
+///         .plugin(
+///             tauri_plugin_android_fs::builder()
+///                 .build()
+///         )
+///         .run(tauri::generate_context!())
+///         .expect("error while running tauri application");
+/// }
 /// ```
+pub fn builder<R: tauri::Runtime>() -> Builder<R> {
+    Builder::new()
+}
+
+/// Initializes the plugin.
+///
+/// This is same as `builder().build()`.
+///
+/// # Usage
+/// `src-tauri/src/lib.rs`
+/// ```ignore
 /// #[cfg_attr(mobile, tauri::mobile_entry_point)]
 /// pub fn run() {
 ///     tauri::Builder::default()
@@ -29,118 +53,12 @@ pub use api::consts::*;
 /// }
 /// ```
 pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R, Option<config::Config>> {
-    let builder = tauri::plugin::Builder::<R, Option<config::Config>>::new("android-fs")
-        .setup(|app, api| {
-            use tauri::Manager as _;
-
-            #[cfg(target_os = "android")] {
-                let handle = api.register_android_plugin("com.plugin.android_fs", "AndroidFsPlugin")?;
-                let afs_sync = crate::api::api_sync::AndroidFs { handle: handle.clone() };
-                let afs_async = crate::api::api_async::AndroidFs { handle: handle.clone() };
-                app.manage(afs_sync);
-                app.manage(afs_async);
-
-                #[cfg(feature = "commands")] {
-                    app.manage(cmds::new_file_stream_resources_state(app.app_handle().clone()));
-                    app.manage(cmds::new_file_writer_resources_state(app.app_handle().clone()));
-                }
-
-                #[cfg(any(feature = "protocol_content", feature = "protocol_thumbnail"))] {
-                    app.manage(protocols::new_config_state(api.config().as_ref(), app));
-                }
-            }
-            #[cfg(not(target_os = "android"))] {
-                let afs_sync = crate::api::api_sync::AndroidFs::<R> { handle: Default::default() };
-                let afs_async = crate::api::api_async::AndroidFs::<R> { handle: Default::default() };
-                app.manage(afs_sync);
-                app.manage(afs_async);
-            }
-
-            Ok(())
-        });
-
-    #[cfg(feature = "commands")]
-    let builder = builder
-        .js_init_script(format!(
-            "window.__TAURI_ANDROID_FS_PLUGIN_INTERNALS__ = {{ isAndroid: {} }};",
-            cfg!(target_os = "android")
-        ))
-        .invoke_handler(tauri::generate_handler![
-            cmds::get_android_api_level,
-            cmds::get_name,
-            cmds::get_type,
-            cmds::get_metadata,
-            cmds::get_file_byte_length,
-            cmds::get_file_mime_type,
-            cmds::get_file_thumbnail,
-            cmds::get_file_thumbnail_as_base64,
-            cmds::get_file_thumbnail_as_data_url,
-            cmds::list_volumes,
-            cmds::create_new_public_file,
-            cmds::create_new_public_image_file,
-            cmds::create_new_public_video_file,
-            cmds::create_new_public_audio_file,
-            cmds::scan_public_file,
-            cmds::set_public_file_pending,
-            cmds::request_public_files_permission,
-            cmds::check_public_files_permission,
-            cmds::create_new_file,
-            cmds::create_new_dir,
-            cmds::create_dir,
-            cmds::count_all_file_streams,
-            cmds::close_all_file_streams,
-            cmds::open_read_file_stream,
-            cmds::open_read_text_file_lines_stream,
-            cmds::open_write_file_stream,
-            cmds::read_file,
-            cmds::read_file_as_base64,
-            cmds::read_file_as_data_url,
-            cmds::read_text_file,
-            cmds::write_file,
-            cmds::write_text_file,
-            cmds::copy_file,
-            cmds::truncate_file,
-            cmds::read_dir,
-            cmds::rename_file,
-            cmds::rename_dir,
-            cmds::remove_file,
-            cmds::remove_empty_dir,
-            cmds::remove_dir_all,
-            cmds::check_picker_uri_permission,
-            cmds::persist_picker_uri_permission,
-            cmds::check_persisted_picker_uri_permission,
-            cmds::release_persisted_picker_uri_permission,
-            cmds::release_all_persisted_picker_uri_permissions,
-            cmds::show_open_file_picker,
-            cmds::show_open_dir_picker,
-            cmds::show_save_file_picker,
-            cmds::show_share_file_app_chooser,
-            cmds::show_view_file_app_chooser,
-            cmds::show_view_dir_app_chooser,
-            cmds::show_edit_file_app_chooser,
-        ]);
-
-    #[cfg(all(target_os = "android", feature = "protocol_thumbnail"))]
-    let builder = builder
-        .register_asynchronous_uri_scheme_protocol(
-            protocols::protocol_thumbnail::URI_SCHEME, 
-            protocols::protocol_thumbnail::protocol,
-        );
-
-    #[cfg(all(target_os = "android", feature = "protocol_content"))]
-    let builder = builder
-        .register_asynchronous_uri_scheme_protocol(
-            protocols::protocol_content::URI_SCHEME, 
-            protocols::protocol_content::protocol,
-        );
-    
-    builder.build()
+    Builder::new().build()
 }
 
 pub trait AndroidFsExt<R: tauri::Runtime> {
-
     /// Provides an API for accessing the Android file system.
-    /// 
+    ///
     /// It is a blocking-based API. If you need an asynchronous API, use [`AndroidFsExt::android_fs_async`].
     fn android_fs(&self) -> &api::api_sync::AndroidFs<R>;
 
@@ -149,7 +67,6 @@ pub trait AndroidFsExt<R: tauri::Runtime> {
 }
 
 impl<R: tauri::Runtime, T: tauri::Manager<R>> AndroidFsExt<R> for T {
-
     fn android_fs(&self) -> &api::api_sync::AndroidFs<R> {
         self.try_state::<api::api_sync::AndroidFs<R>>()
             .map(|i| i.inner())

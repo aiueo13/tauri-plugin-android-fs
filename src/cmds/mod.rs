@@ -9,7 +9,6 @@ use crate::*;
 
 pub use state::*;
 
-
 #[tauri::command]
 pub async fn get_android_api_level<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
@@ -21,6 +20,22 @@ pub async fn get_android_api_level<R: tauri::Runtime>(
     #[cfg(target_os = "android")] {
         let api = app.android_fs_async();
         api.api_level()
+    }
+}
+
+#[tauri::command]
+pub async fn get_uri_for_file_path<R: tauri::Runtime>(
+    path: String,
+    mime_type: Option<String>,
+    app: tauri::AppHandle<R>,
+) -> Result<FsUri> {
+
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        let api = app.android_fs_async();
+        api.get_uri_for_file_path(path, mime_type.as_deref())
     }
 }
 
@@ -154,7 +169,7 @@ pub async fn get_metadata<R: tauri::Runtime>(
 
         let api = app.android_fs_async();
 
-        match api.get_info(&uri).await? {
+        match api.get_metadata(&uri).await? {
             Entry::File { name, last_modified, len, mime_type, .. } => {
                 let last_modified = convert_time_to_f64_millis(last_modified)?;
                 Ok(EntryMetadata::File { name, last_modified, len, mime_type })
@@ -806,7 +821,7 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
 
             let use_noti = 
                 options.notification.is_some() &&
-                api.utils().request_notification_permission().await.unwrap_or(false);
+                api.notifications().request_permission().await.unwrap_or(false);
 
             let noti = match use_noti {
                 true => {
@@ -826,7 +841,7 @@ async fn write_file_stream<R: tauri::Runtime, K: Send + Sync + 'static>(
                             progress_max
                         );
                         let handler = api
-                            .utils()
+                            .notifications()
                             .create_progress_notification(
                                 settings.icon(),
                                 resolve_placeholders(settings.title_progress()).as_deref(), 
@@ -1147,7 +1162,7 @@ pub async fn copy_file<R: tauri::Runtime>(
 
         let use_noti = 
             notification.is_some() &&
-            api.utils().request_notification_permission().await.unwrap_or(false);
+            api.notifications().request_permission().await.unwrap_or(false);
 
         if !use_noti {
             api.copy(&src_uri, &dest_uri).await?;
@@ -1167,7 +1182,7 @@ pub async fn copy_file<R: tauri::Runtime>(
             noti_settings.expected_byte_length()
         );      
         let handler = api
-            .utils()
+            .notifications()
             .create_progress_notification(
                 noti_settings.icon(),
                 resolve_placeholders(noti_settings.title_progress()).as_deref(), 
@@ -1481,6 +1496,48 @@ pub async fn release_all_persisted_picker_uri_permissions<R: tauri::Runtime>(
         let api = app.android_fs_async();
         api.picker().release_all_persisted_uri_permissions().await?;
         Ok(())
+    }
+}
+
+#[tauri::command]
+pub async fn list_all_persisted_picker_uri_permissions<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<Vec<impl serde::Serialize>> {
+
+    #[cfg(not(target_os = "android"))] {
+        Result::<Vec<()>>::Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        let api = app.android_fs_async();
+        let permissions = api
+            .picker()
+            .get_all_persisted_uri_permissions().await?
+            .into_iter()
+            .map(|p| serde_json::json!({
+                "type": if p.is_file() { "File" } else { "Dir" },
+                "hasReadPermission": p.can_read(),
+                "hasWritePermission": p.can_write(),
+                "uri": p.uri(),
+            }))
+            .collect();
+
+        Ok(permissions)
+    }
+}
+
+#[tauri::command]
+pub async fn get_mime_type_from_extension<R: tauri::Runtime>(
+    extension: String,
+    app: tauri::AppHandle<R>,
+) -> Result<Option<String>> {
+
+    #[cfg(not(target_os = "android"))] {
+        Err(Error::NOT_ANDROID)
+    }
+    #[cfg(target_os = "android")] {
+        let api = app.android_fs_async();
+        let mime_type = api.get_mime_type_from_extension(extension).await?;
+        Ok(mime_type)
     }
 }
 

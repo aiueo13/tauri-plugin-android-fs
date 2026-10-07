@@ -1,3 +1,4 @@
+mod custom_file_provider;
 mod dir;
 mod entry;
 mod error;
@@ -8,6 +9,7 @@ mod image;
 mod notification;
 mod storage_volume;
 
+pub use custom_file_provider::*;
 pub use dir::*;
 pub use error::*;
 pub use entry::*;

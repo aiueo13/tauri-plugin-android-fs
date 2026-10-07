@@ -547,6 +547,18 @@
           "markdownDescription": "Denies the get_metadata command without any pre-configured scope."
         },
         {
+          "description": "Enables the get_mime_type_from_extension command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-mime-type-from-extension",
+          "markdownDescription": "Enables the get_mime_type_from_extension command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_mime_type_from_extension command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-mime-type-from-extension",
+          "markdownDescription": "Denies the get_mime_type_from_extension command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_name command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-name",
@@ -569,6 +581,30 @@
           "type": "string",
           "const": "deny-get-type",
           "markdownDescription": "Denies the get_type command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_uri_for_file_path command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-uri-for-file-path",
+          "markdownDescription": "Enables the get_uri_for_file_path command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_uri_for_file_path command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-uri-for-file-path",
+          "markdownDescription": "Denies the get_uri_for_file_path command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the list_all_persisted_picker_uri_permissions command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-list-all-persisted-picker-uri-permissions",
+          "markdownDescription": "Enables the list_all_persisted_picker_uri_permissions command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the list_all_persisted_picker_uri_permissions command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-list-all-persisted-picker-uri-permissions",
+          "markdownDescription": "Denies the list_all_persisted_picker_uri_permissions command without any pre-configured scope."
         },
         {
           "description": "Enables the list_volumes command without any pre-configured scope.",

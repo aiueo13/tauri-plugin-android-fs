@@ -10,15 +10,12 @@ First, install the plugin to your Tauri project:
 
 ```toml
 [dependencies]
-tauri-plugin-android-fs = {
-  version = "=29.0.0",
-  features = [
-    # To access public files on older Android versions
-    "legacy_storage_permission",
-    # To use notification options
-    "notification_permission"
-  ]
-}
+tauri-plugin-android-fs = { version = "=30.0.0", features = [
+  # To use notification options
+  "notification_permission",
+  # To access public files on older Android versions
+  "legacy_storage_permission"
+] }
 ```
 
 Next, register the plugin:
@@ -49,11 +46,11 @@ Then, configure the APIs that can be called from the frontend JavaScript binding
 Finally, install the frontend JavaScript bindings:
 
 ```bash
-pnpm add tauri-plugin-android-fs-api@29.0.0 -E
+pnpm add tauri-plugin-android-fs-api@30.0.0 -E
 # or
-npm install tauri-plugin-android-fs-api@29.0.0 --save-exact
+npm install tauri-plugin-android-fs-api@30.0.0 --save-exact
 # or
-yarn add tauri-plugin-android-fs-api@29.0.0 --exact
+yarn add tauri-plugin-android-fs-api@30.0.0 --exact
 ```
 
 **NOTE**: Please ensure that the backend package, `tauri-plugin-android-fs` (crates io), and the frontend package, `tauri-plugin-android-fs-api` (npm), have exactly matching versions.
@@ -80,7 +77,7 @@ You can set a global scope for the plugin, or assign specific scopes to individu
         },
         {
             "identifier": "android-fs:allow-copy-file",
-            "allow": ["$APPDATA/my-data/**/*"]
+            "allow": ["$APPDATA/my-media/**/*"]
         }
     ]
 }
@@ -214,15 +211,18 @@ This plugin provides following APIs:
 - `showShareFileAppChooser`
 
 ### 8. APIs to manage permissions
-- `checkPickerUriPermission`
 - `persistPickerUriPermission`
+- `checkPickerUriPermission`
 - `checkPersistedPickerUriPermission`
 - `releasePersistedPickerUriPermission`
 - `releaseAllPersistedPickerUriPermissions`
+- `listAllPersistedPickerUriPermissions`
 - `checkPublicFilesPermission`
 - `requestPublicFilesPermission`
 
 ### 9. Helper
+- `getUriForFilePath`
+- `getMimeTypeFromExtension`
 - `isFsUri`
 - `isAndroid`
 - `getAndroidApiLevel`

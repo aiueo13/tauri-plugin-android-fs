@@ -1,4 +1,4 @@
-package com.plugin.android_fs
+package okayu.tauri.plugin.android.fs
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -53,6 +53,9 @@ class ReadDirEntryOptions(
     val len: Boolean = false,
 )
 
+
+const val LOG_TAG_FOR_CUSTOM_FILE_PROVIDER = "TauriPluginAndroidFs:CustomFileProvider"
+const val LOG_TAG_FOR_CUSTOM_FILE_CALLBACK = "TauriPluginAndroidFs:CustomFileCallback"
 
 val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -142,33 +145,36 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun getConsts(invoke: Invoke) {
-        try {
-            val res = JSObject()
-            res.put("buildVersionSdkInt", Build.VERSION.SDK_INT)
-            res.put("envDirPictures", Environment.DIRECTORY_PICTURES)
-            res.put("envDirDcim", Environment.DIRECTORY_DCIM)
-            res.put("envDirMovies", Environment.DIRECTORY_MOVIES)
-            res.put("envDirMusic", Environment.DIRECTORY_MUSIC)
-            res.put("envDirAlarms", Environment.DIRECTORY_ALARMS)
-            res.put("envDirNotifications", Environment.DIRECTORY_NOTIFICATIONS)
-            res.put("envDirPodcasts", Environment.DIRECTORY_PODCASTS)
-            res.put("envDirRingtones", Environment.DIRECTORY_RINGTONES)
-            res.put("envDirDocuments", Environment.DIRECTORY_DOCUMENTS)
-            res.put("envDirDownload", Environment.DIRECTORY_DOWNLOADS)
-            // S は Android 12
-            if (Build.VERSION_CODES.S <= Build.VERSION.SDK_INT) {
-                res.put("envDirRecordings", Environment.DIRECTORY_RECORDINGS)
-            }
-            // Q は Android 10
-            if (Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT) {
-                res.put("envDirAudiobooks", Environment.DIRECTORY_AUDIOBOOKS)
-                res.put("mediaStorePrimaryVolumeName", MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            }
+        scope.launch {
+            try {
+                val res = JSObject()
+                res.put("appId", activity.packageName)
+                res.put("buildVersionSdkInt", Build.VERSION.SDK_INT)
+                res.put("envDirPictures", Environment.DIRECTORY_PICTURES)
+                res.put("envDirDcim", Environment.DIRECTORY_DCIM)
+                res.put("envDirMovies", Environment.DIRECTORY_MOVIES)
+                res.put("envDirMusic", Environment.DIRECTORY_MUSIC)
+                res.put("envDirAlarms", Environment.DIRECTORY_ALARMS)
+                res.put("envDirNotifications", Environment.DIRECTORY_NOTIFICATIONS)
+                res.put("envDirPodcasts", Environment.DIRECTORY_PODCASTS)
+                res.put("envDirRingtones", Environment.DIRECTORY_RINGTONES)
+                res.put("envDirDocuments", Environment.DIRECTORY_DOCUMENTS)
+                res.put("envDirDownload", Environment.DIRECTORY_DOWNLOADS)
+                // S は Android 12
+                if (Build.VERSION_CODES.S <= Build.VERSION.SDK_INT) {
+                    res.put("envDirRecordings", Environment.DIRECTORY_RECORDINGS)
+                }
+                // Q は Android 10
+                if (Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT) {
+                    res.put("envDirAudiobooks", Environment.DIRECTORY_AUDIOBOOKS)
+                    res.put("mediaStorePrimaryVolumeName", MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                }
 
-            invoke.resolve(res)
-        }
-        catch (e: Exception) {
-            invoke.reject(e.message ?: "unknown error: $e")
+                invoke.resolve(res)
+            }
+            catch (e: Exception) {
+                invoke.reject(e.message ?: "unknown error: $e")
+            }
         }
     }
 
@@ -220,57 +226,61 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun isLegacyStorage(invoke: Invoke) {
-        try {
-            val isLegacyStorage = when {
-                // Q は Android 10
-                Build.VERSION_CODES.Q < Build.VERSION.SDK_INT -> false
-                Build.VERSION_CODES.Q == Build.VERSION.SDK_INT -> Environment.isExternalStorageLegacy()
-                else -> true
-            }
+        scope.launch {
+            try {
+                val isLegacyStorage = when {
+                    // Q は Android 10
+                    Build.VERSION_CODES.Q < Build.VERSION.SDK_INT -> false
+                    Build.VERSION_CODES.Q == Build.VERSION.SDK_INT -> Environment.isExternalStorageLegacy()
+                    else -> true
+                }
 
-            invoke.resolve(JSObject().apply { put("value", isLegacyStorage) })
-        }
-        catch (e: Exception) {
-            invoke.reject(e.message ?: "unknown error: $e")
+                invoke.resolve(JSObject().apply { put("value", isLegacyStorage) })
+            }
+            catch (e: Exception) {
+                invoke.reject(e.message ?: "unknown error: $e")
+            }
         }
     }
 
     @Command
     fun requestLegacyStoragePermission(invoke: Invoke) {
-        try {
-            val writeGranted = when (getPermissionState(ALIAS_LEGACY_WRITE_STORAGE_PERMISSION)) {
-                PermissionState.GRANTED -> true
-                else -> false
-            }
-            val readGranted = when (getPermissionState(ALIAS_LEGACY_READ_STORAGE_PERMISSION)) {
-                PermissionState.GRANTED -> true
-                else -> false
-            }
+        scope.launch {
+            try {
+                val writeGranted = when (getPermissionState(ALIAS_LEGACY_WRITE_STORAGE_PERMISSION)) {
+                    PermissionState.GRANTED -> true
+                    else -> false
+                }
+                val readGranted = when (getPermissionState(ALIAS_LEGACY_READ_STORAGE_PERMISSION)) {
+                    PermissionState.GRANTED -> true
+                    else -> false
+                }
 
-            val permissions = mutableListOf<String>()
-            if (!writeGranted) {
-                permissions.add(ALIAS_LEGACY_WRITE_STORAGE_PERMISSION)
-            }
-            if (!readGranted) {
-                permissions.add(ALIAS_LEGACY_READ_STORAGE_PERMISSION)
-            }
+                val permissions = mutableListOf<String>()
+                if (!writeGranted) {
+                    permissions.add(ALIAS_LEGACY_WRITE_STORAGE_PERMISSION)
+                }
+                if (!readGranted) {
+                    permissions.add(ALIAS_LEGACY_READ_STORAGE_PERMISSION)
+                }
 
-            if (permissions.isEmpty()) {
-                invoke.resolve(JSObject().apply {
-                    put("granted", true)
-                    put("prompted", false)
-                })
+                if (permissions.isEmpty()) {
+                    invoke.resolve(JSObject().apply {
+                        put("granted", true)
+                        put("prompted", false)
+                    })
+                }
+                else {
+                    requestPermissionForAliases(
+                        permissions.toTypedArray(),
+                        invoke,
+                        "handleRequestLegacyStoragePermission"
+                    )
+                }
             }
-            else {
-                requestPermissionForAliases(
-                    permissions.toTypedArray(),
-                    invoke,
-                    "handleRequestLegacyStoragePermission"
-                )
+            catch (e: Exception) {
+                invoke.reject(e.message ?: "unknown error: $e")
             }
-        }
-        catch (e: Exception) {
-            invoke.reject(e.message ?: "unknown error: $e")
         }
     }
 
@@ -298,22 +308,24 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun checkLegacyStoragePermission(invoke: Invoke) {
-        try {
-            val writeGranted = when (getPermissionState(ALIAS_LEGACY_WRITE_STORAGE_PERMISSION)) {
-                PermissionState.GRANTED -> true
-                else -> false
-            }
-            val readGranted = when (getPermissionState(ALIAS_LEGACY_READ_STORAGE_PERMISSION)) {
-                PermissionState.GRANTED -> true
-                else -> false
-            }
+        scope.launch {
+            try {
+                val writeGranted = when (getPermissionState(ALIAS_LEGACY_WRITE_STORAGE_PERMISSION)) {
+                    PermissionState.GRANTED -> true
+                    else -> false
+                }
+                val readGranted = when (getPermissionState(ALIAS_LEGACY_READ_STORAGE_PERMISSION)) {
+                    PermissionState.GRANTED -> true
+                    else -> false
+                }
 
-            invoke.resolve(JSObject().apply {
-                put("granted", writeGranted && readGranted)
-            })
-        }
-        catch (e: Exception) {
-            invoke.reject(e.message ?: "unknown error: $e")
+                invoke.resolve(JSObject().apply {
+                    put("granted", writeGranted && readGranted)
+                })
+            }
+            catch (e: Exception) {
+                invoke.reject(e.message ?: "unknown error: $e")
+            }
         }
     }
 
@@ -1503,51 +1515,51 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             lateinit var uris: Array<AFUri>
         }
 
-        try {
-            val args = invoke.parseArgs(Args::class.java)
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
 
-            if (args.uris.isEmpty()) throw IllegalArgumentException("uris must not be empty")
+                if (args.uris.isEmpty()) throw IllegalArgumentException("uris must not be empty")
 
-            val uris = mutableListOf<Uri>();
-            val mimeTypes = mutableListOf<String>();
-            for (uri in args.uris) {
-                var mimeType = when (val entry = AFUtils.getEntryType(uri, activity)) {
-                    is EntryType.File -> entry.mimeType
-                    else -> throw Exception("not a file: ${uri}")
+                val uris = mutableListOf<Uri>();
+                val mimeTypes = mutableListOf<String>();
+                for (uri in args.uris) {
+                    var mimeType = when (val entry = AFUtils.getEntryType(uri, activity)) {
+                        is EntryType.File -> entry.mimeType
+                        else -> throw Exception("not a file: ${uri}")
+                    }
+
+                    if (mimeType == "application/octet-stream") {
+                        mimeType = "*/*"
+                    }
+
+                    mimeTypes.add(mimeType)
+                    uris.add(Uri.parse(uri.uri))
                 }
 
-                if (mimeType == "application/octet-stream") {
-                    mimeType = "*/*"
+                val commonMimeType = getCommonMimeType(mimeTypes)
+                val builder = ShareCompat
+                    .IntentBuilder(activity)
+                    .setType(commonMimeType)
+
+                for (uri in uris) {
+                    builder.addStream(uri)
                 }
 
-                mimeTypes.add(mimeType)
-                uris.add(Uri.parse(uri.uri))
+                val intentChooser = Intent.createChooser(
+                    builder.intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
+                    ""
+                ).apply {
+
+                    putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(activity.componentName))
+                }
+
+                activity.startActivity(intentChooser)
+                invoke.resolve()
             }
-
-            val commonMimeType = getCommonMimeType(mimeTypes)
-            val builder = ShareCompat.IntentBuilder(activity)
-                .setType(commonMimeType)
-
-            for (uri in uris) {
-                builder.addStream(uri)
+            catch (e: Exception) {
+                invoke.reject(e.message ?: "unknown error: $e")
             }
-
-            val intentChooser = Intent.createChooser(
-                builder.intent
-                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                ""
-            ).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(activity.componentName))
-            }
-
-            activity.applicationContext.startActivity(intentChooser)
-            invoke.resolve()
-        }
-        catch (e: Exception) {
-            invoke.reject(e.message ?: "unknown error: $e")
         }
     }
 
@@ -1558,31 +1570,31 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             lateinit var uri: AFUri
         }
 
-        try {
-            val args = invoke.parseArgs(Args::class.java)
-            val uri = Uri.parse(args.uri.uri)
-            val mimeType = when (AFUtils.getEntryType(args.uri, activity)) {
-                is EntryType.File -> throw Exception("not a directory: ${args.uri.uri}")
-                else -> DocumentsContract.Document.MIME_TYPE_DIR
-            }
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val uri = Uri.parse(args.uri.uri)
+                val mimeType = when (AFUtils.getEntryType(args.uri, activity)) {
+                    is EntryType.File -> throw Exception("not a directory: ${args.uri.uri}")
+                    else -> DocumentsContract.Document.MIME_TYPE_DIR
+                }
 
-            val intentChooser = Intent.createChooser(
-                Intent(Intent.ACTION_VIEW)
-                    .setDataAndType(uri, mimeType)
-                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                ""
-            ).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(activity.componentName))
-            }
+                val intentChooser = Intent.createChooser(
+                    Intent(Intent.ACTION_VIEW)
+                        .setDataAndType(uri, mimeType)
+                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
+                    ""
+                ).apply {
 
-            activity.applicationContext.startActivity(intentChooser)
-            invoke.resolve()
-        }
-        catch (e: Exception) {
-            invoke.reject(e.message ?: "unknown error: $e")
+                    putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(activity.componentName))
+                }
+
+                activity.startActivity(intentChooser)
+                invoke.resolve()
+            }
+            catch (e: Exception) {
+                invoke.reject(e.message ?: "unknown error: $e")
+            }
         }
     }
 
@@ -1593,31 +1605,31 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             lateinit var uri: AFUri
         }
 
-        try {
-            val args = invoke.parseArgs(Args::class.java)
-            val mimeType = when (val entry = AFUtils.getEntryType(args.uri, activity)) {
-                is EntryType.File -> entry.mimeType
-                else -> throw Exception("not a file: ${args.uri.uri}")
-            }
-            val uri = Uri.parse(args.uri.uri)
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val mimeType = when (val entry = AFUtils.getEntryType(args.uri, activity)) {
+                    is EntryType.File -> entry.mimeType
+                    else -> throw Exception("not a file: ${args.uri.uri}")
+                }
+                val uri = Uri.parse(args.uri.uri)
 
-            val intentChooser =  Intent.createChooser(
-                Intent(Intent.ACTION_VIEW)
-                    .setDataAndType(uri, mimeType)
-                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                ""
-            ).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(activity.componentName))
-            }
+                val intentChooser = Intent.createChooser(
+                    Intent(Intent.ACTION_VIEW)
+                        .setDataAndType(uri, mimeType)
+                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
+                    ""
+                ).apply {
 
-            activity.applicationContext.startActivity(intentChooser)
-            invoke.resolve()
-        }
-        catch (e: Exception) {
-            invoke.reject(e.message ?: "unknown error: $e")
+                    putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(activity.componentName))
+                }
+
+                activity.startActivity(intentChooser)
+                invoke.resolve()
+            }
+            catch (e: Exception) {
+                invoke.reject(e.message ?: "unknown error: $e")
+            }
         }
     }
 
@@ -1628,33 +1640,32 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             lateinit var uri: AFUri
         }
 
-        try {
-            val args = invoke.parseArgs(Args::class.java)
-            val mimeType = when (val entry = AFUtils.getEntryType(args.uri, activity)) {
-                is EntryType.File -> entry.mimeType
-                else -> throw Exception("not a file: ${args.uri.uri}")
-            }
-            val uri = Uri.parse(args.uri.uri)
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val mimeType = when (val entry = AFUtils.getEntryType(args.uri, activity)) {
+                    is EntryType.File -> entry.mimeType
+                    else -> throw Exception("not a file: ${args.uri.uri}")
+                }
+                val uri = Uri.parse(args.uri.uri)
 
-            val intentChooser = Intent.createChooser(
-                Intent(Intent.ACTION_EDIT)
-                    .setDataAndType(uri, mimeType)
-                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                ""
-            ).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-                putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(activity.componentName))
-            }
+                val intentChooser = Intent.createChooser(
+                    Intent(Intent.ACTION_EDIT)
+                        .setDataAndType(uri, mimeType)
+                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION),
+                    ""
+                ).apply {
 
-            activity.applicationContext.startActivity(intentChooser)
-            invoke.resolve()
-        }
-        catch (e: Exception) {
-            invoke.reject(e.message ?: "unknown error: $e")
+                    putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(activity.componentName))
+                }
+
+                activity.startActivity(intentChooser)
+                invoke.resolve()
+            }
+            catch (e: Exception) {
+                invoke.reject(e.message ?: "unknown error: $e")
+            }
         }
     }
 
@@ -1742,15 +1753,17 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun getPrivateBaseDirAbsolutePaths(invoke: Invoke) {
-        try {
-            val res = JSObject()
-            res.put("data", activity.filesDir.absolutePath)
-            res.put("cache", activity.cacheDir.absolutePath)
-            res.put("noBackupData", activity.noBackupFilesDir.absolutePath)
-            invoke.resolve(res)
-        }
-        catch (e: Exception) {
-            invoke.reject(e.message ?: "unknown error: $e")
+        scope.launch {
+            try {
+                val res = JSObject()
+                res.put("data", activity.filesDir.absolutePath)
+                res.put("cache", activity.cacheDir.absolutePath)
+                res.put("noBackupData", activity.noBackupFilesDir.absolutePath)
+                invoke.resolve(res)
+            }
+            catch (e: Exception) {
+                invoke.reject(e.message ?: "unknown error: $e")
+            }
         }
     }
 
@@ -1928,13 +1941,15 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun isVisualMediaDialogAvailable(invoke: Invoke) {
-        try {
-            val res = JSObject()
-            res.put("value", PickVisualMedia.isPhotoPickerAvailable())
-            invoke.resolve(res)
-        }
-        catch (e: Exception) {
-            invoke.reject(e.message ?: "unknown error: $e")
+        scope.launch {
+            try {
+                val res = JSObject()
+                res.put("value", PickVisualMedia.isPhotoPickerAvailable())
+                invoke.resolve(res)
+            }
+            catch (e: Exception) {
+                invoke.reject(e.message ?: "unknown error: $e")
+            }
         }
     }
 
@@ -1987,8 +2002,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                         fd = AFFileDescriptor
                             .getPfd(uri, m, activity)
                             .detachFd()
-                    } catch (ignore: Exception) {
-                    }
+                    } catch (ignore: Exception) { }
 
                     if (fd != null) break
                 }

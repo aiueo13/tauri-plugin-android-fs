@@ -16,7 +16,7 @@ Register this plugin in your Tauri project:
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_android_fs::init()) // This
+        .plugin(tauri_plugin_android_fs::builder().build()) // This
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -35,6 +35,7 @@ The plugin provides the following APIs:
 | [PublicStorage](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html) | Provides access to public directories accessible to other applications and users. |
 | [PrivateStorage](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PrivateStorage.html) | Provides access to app-specific private directories. |
 | [AppStorage](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AppStorage.html) | Provides access to directories used by the app. Compared with `PrivateStorage`, it provides additional functionality, but the directories may be more easily accessible to other applications. |
+| [⁠CustomFileProvider](https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/struct.Builder.html#method.register_custom_file_provider) | Defines files backed by sources such as network shares, cloud storage, or other non-filesystem sources. |
 
 For documentation and examples, see the API links above.
 

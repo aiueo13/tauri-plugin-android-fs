@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-get-uri-for-file-path"
+description = "Enables the get_uri_for_file_path command without any pre-configured scope."
+commands.allow = ["get_uri_for_file_path"]
+
+[[permission]]
+identifier = "deny-get-uri-for-file-path"
+description = "Denies the get_uri_for_file_path command without any pre-configured scope."
+commands.deny = ["get_uri_for_file_path"]

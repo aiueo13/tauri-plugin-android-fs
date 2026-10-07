@@ -3,9 +3,9 @@ use crate::*;
 use super::*;
 
 
-/// API of utils.
+/// API of notifications.
 #[sync_async]
-pub struct Utils<'a, R: tauri::Runtime> {
+pub struct Notifications<'a, R: tauri::Runtime> {
     #[cfg(target_os = "android")]
     pub(crate) handle: &'a tauri::plugin::PluginHandle<R>,
 
@@ -19,7 +19,7 @@ pub struct Utils<'a, R: tauri::Runtime> {
     use(if_sync) impls::SyncImpls as Impls;
     use(if_async) impls::AsyncImpls as Impls;
 )]
-impl<'a, R: tauri::Runtime> Utils<'a, R> {
+impl<'a, R: tauri::Runtime> Notifications<'a, R> {
     
     #[always_sync]
     fn impls(&self) -> Impls<'_, R> {
@@ -31,7 +31,7 @@ impl<'a, R: tauri::Runtime> Utils<'a, R> {
     use(if_async) api_async::{AndroidFs, ProgressNotificationGuard};
     use(if_sync) api_sync::{AndroidFs, ProgressNotificationGuard};
 )]
-impl<'a, R: tauri::Runtime> Utils<'a, R> {
+impl<'a, R: tauri::Runtime> Notifications<'a, R> {
 
     /// Displays a notification indicating progress on status bar.  
     /// 
@@ -52,7 +52,7 @@ impl<'a, R: tauri::Runtime> Utils<'a, R> {
     ///     you can declare the permissions automatically at build time.  
     ///
     /// 2. Runtime request :  
-    ///     By calling [`Utils::request_notification_permission`],
+    ///     By calling [`Notifications::request_permission`],
     ///     you can request the permissions from the user at runtime.  
     /// 
     /// # Support
@@ -85,7 +85,7 @@ impl<'a, R: tauri::Runtime> Utils<'a, R> {
     }
 
     #[maybe_async]
-    pub fn cancel_all_notifications(&self) -> Result<()> {
+    pub fn cancel_all(&self) -> Result<()> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -99,7 +99,7 @@ impl<'a, R: tauri::Runtime> Utils<'a, R> {
     /// By enabling the `notification_permission` feature,
     /// the permissions will be declared automatically.
     #[maybe_async]
-    pub fn request_notification_permission(&self) -> Result<bool> {
+    pub fn request_permission(&self) -> Result<bool> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -109,7 +109,7 @@ impl<'a, R: tauri::Runtime> Utils<'a, R> {
     }
 
     #[maybe_async]
-    pub fn check_notification_permission(&self) -> Result<bool> {
+    pub fn check_permission(&self) -> Result<bool> {
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }

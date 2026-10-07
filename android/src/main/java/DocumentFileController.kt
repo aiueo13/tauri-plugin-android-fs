@@ -1,4 +1,4 @@
-package com.plugin.android_fs
+package okayu.tauri.plugin.android.fs
 
 import android.app.Activity
 import android.content.Context

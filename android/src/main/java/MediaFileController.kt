@@ -1,4 +1,4 @@
-package com.plugin.android_fs
+package okayu.tauri.plugin.android.fs
 
 import android.app.Activity
 import android.net.Uri
@@ -44,6 +44,7 @@ class MediaFileController(private val activity: Activity): FileController {
             Uri.parse(uri.uri),
             arrayOf(
                 MediaStore.MediaColumns.DATE_MODIFIED,
+                MediaStore.MediaColumns.DATE_ADDED,
                 MediaStore.MediaColumns.DATE_TAKEN, // PickerMediaColumns.DATE_TAKEN
             ),
             null,
@@ -52,11 +53,15 @@ class MediaFileController(private val activity: Activity): FileController {
         )
 
         cursor?.use {
-            val lastModifiedColumnIndex = it.getColumnIndex(MediaStore.MediaColumns.DATE_MODIFIED)
+            val dateModifiedColumnIndex = it.getColumnIndex(MediaStore.MediaColumns.DATE_MODIFIED)
+            val dateAddedColumnIndex = it.getColumnIndex(MediaStore.MediaColumns.DATE_ADDED)
             val dateTakenColumnIndex = it.getColumnIndex(MediaStore.MediaColumns.DATE_TAKEN)
 
             while (it.moveToNext()) {
-                return it.getLongOrNull(lastModifiedColumnIndex)
+                // MediaStore.MediaColumns.DATE_MODIFIED や DATE_ADDED は秒単位だが、
+                // DATE_TAKEN はミリ秒単位であることに注意。
+                return it.getLongOrNull(dateModifiedColumnIndex)?.times(1000L)
+                    ?: it.getLongOrNull(dateAddedColumnIndex)?.times(1000L)
                     ?: it.getLongOrNull(dateTakenColumnIndex)
                     ?: 0
             }
@@ -77,6 +82,7 @@ class MediaFileController(private val activity: Activity): FileController {
                 MediaStore.MediaColumns.DISPLAY_NAME,
                 MediaStore.MediaColumns.SIZE,
                 MediaStore.MediaColumns.DATE_MODIFIED,
+                MediaStore.MediaColumns.DATE_ADDED,
                 MediaStore.MediaColumns.DATE_TAKEN // PickerMediaColumns.DATE_TAKEN
             ),
             null,
@@ -87,7 +93,8 @@ class MediaFileController(private val activity: Activity): FileController {
         cursor?.use {
             val mimeTypeColumnIndex = it.getColumnIndex(MediaStore.MediaColumns.MIME_TYPE)
             val nameColumnIndex = it.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME)
-            val lastModifiedColumnIndex = it.getColumnIndex(MediaStore.MediaColumns.DATE_MODIFIED)
+            val dateModifiedColumnIndex = it.getColumnIndex(MediaStore.MediaColumns.DATE_MODIFIED)
+            val dateAddedColumnIndex = it.getColumnIndex(MediaStore.MediaColumns.DATE_ADDED)
             val dateTakenColumnIndex = it.getColumnIndex(MediaStore.MediaColumns.DATE_TAKEN)
             val sizeColumnIndex = it.getColumnIndex(MediaStore.MediaColumns.SIZE)
 
@@ -100,7 +107,10 @@ class MediaFileController(private val activity: Activity): FileController {
                 })
                 obj.put("name", it.getString(nameColumnIndex))
 
-                val lastModified = it.getLongOrNull(lastModifiedColumnIndex)
+                // MediaStore.MediaColumns.DATE_MODIFIED や DATE_ADDED は秒単位だが、
+                // DATE_TAKEN はミリ秒単位であることに注意。
+                val lastModified = it.getLongOrNull(dateModifiedColumnIndex)?.times(1000L)
+                    ?: it.getLongOrNull(dateAddedColumnIndex)?.times(1000L)
                     ?: it.getLongOrNull(dateTakenColumnIndex)
 
                 obj.put("lastModified", lastModified ?: 0)

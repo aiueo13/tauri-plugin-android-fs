@@ -1,4 +1,4 @@
-package com.plugin.android_fs
+package okayu.tauri.plugin.android.fs
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -154,9 +154,6 @@ private fun fetchThumbnailFromContentFile(
             )
         }
     }
-    catch (e: FileNotFoundException) {
-        throw FileNotFoundException("file not found: $fileUri")
-    }
     catch (ignore: Exception) {}
 
     return null
@@ -175,9 +172,6 @@ private fun fetchThumbnailFromDocumentFile(
             Point(preferredSize.width, preferredSize.height),
             null
         )
-    }
-    catch (e: FileNotFoundException) {
-        throw FileNotFoundException("file not found: $fileUri")
     }
     catch (_: Exception) {}
 
@@ -207,9 +201,6 @@ private fun fetchThumbnailFromFile(file: File, preferredSize: Size): Bitmap? {
                 )
             }
         }
-    }
-    catch (e: FileNotFoundException) {
-        throw FileNotFoundException("file not found: ${file.path}")
     }
     catch (_: Exception) {}
 
@@ -302,9 +293,6 @@ private fun createVideoThumbnailWithoutResizeFromContentFile(
 
             return mediaMetadataRetriever.frameAtTime
         }
-    }
-    catch (e: FileNotFoundException) {
-        throw FileNotFoundException("file not found: $uri")
     }
     catch (_: Exception) {}
 

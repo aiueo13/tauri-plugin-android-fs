@@ -3,6 +3,7 @@ mod scope;
 
 const COMMANDS: &'static [&'static str] = &[
     "get_android_api_level",
+    "get_uri_for_file_path",
     "get_name",
     "get_type",
     "get_metadata",
@@ -44,6 +45,7 @@ const COMMANDS: &'static [&'static str] = &[
     "check_persisted_picker_uri_permission",
     "release_persisted_picker_uri_permission",
     "release_all_persisted_picker_uri_permissions",
+    "list_all_persisted_picker_uri_permissions",
     "remove_file",
     "remove_empty_dir",
     "remove_dir_all",
@@ -54,6 +56,7 @@ const COMMANDS: &'static [&'static str] = &[
     "show_view_file_app_chooser",
     "show_view_dir_app_chooser",
     "show_edit_file_app_chooser",
+    "get_mime_type_from_extension",
 ];
 
 fn main() {
@@ -62,25 +65,53 @@ fn main() {
         .global_scope_schema(schemars::schema_for!(scope::Scope))
         .build();
 
-    let mut permissions = Vec::new();
+    let permissions = {
+        let mut p = Vec::new();
 
-    if std::env::var("CARGO_FEATURE_NOTIFICATION_PERMISSION").is_ok() {
-        permissions.push(r#"<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />"#);
-    }
+        if std::env::var("CARGO_FEATURE_NOTIFICATION_PERMISSION").is_ok() {
+            p.push(r#"<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />"#);
+        }
 
-    if std::env::var("CARGO_FEATURE_LEGACY_STORAGE_PERMISSION_INCLUDE_ANDROID_10").is_ok() {
-        permissions.push(r#"<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />"#);
-        permissions.push(r#"<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" />"#);
-    }
-	else if std::env::var("CARGO_FEATURE_LEGACY_STORAGE_PERMISSION").is_ok() {
-        permissions.push(r#"<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />"#);
-        permissions.push(r#"<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="28" />"#);
-    }
+        if std::env::var("CARGO_FEATURE_LEGACY_STORAGE_PERMISSION_INCLUDE_ANDROID_10").is_ok() {
+            p.push(r#"<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />"#);
+            p.push(r#"<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" />"#);
+        }
+	    else if std::env::var("CARGO_FEATURE_LEGACY_STORAGE_PERMISSION").is_ok() {
+            p.push(r#"<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />"#);
+            p.push(r#"<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="28" />"#);
+        }
+
+        p
+    };
 
     tauri_plugin::mobile::update_android_manifest(
         "ANDROID FS PLUGIN",
         "manifest",
-        // 空の文字列の場合でも、書き込むことで古い宣言を上書きして消すことができる。
+        // 空の文字列の場合でも書き込むことで古い必要ない宣言を上書きして消すことができる。
         permissions.join("\n"),
+    ).expect("failed to rewrite AndroidManifest.xml");
+
+    let providers = {
+        let mut p = Vec::new();
+
+        if std::env::var("CARGO_FEATURE_CUSTOM_FILE_PROVIDER").is_ok() {
+            p.push(vec![
+                r#"<provider"#,
+                r#"    android:name="okayu.tauri.plugin.android.fs.AFCustomFileProvider""#,
+                r#"    android:authorities="${applicationId}.tpafs-custom-file-provider""#,
+                r#"    android:exported="false""#,
+                r#"    android:grantUriPermissions="true" >"#,
+                r#"</provider>"#,
+            ].join("\n"));
+        }
+
+        p
+    };
+
+    tauri_plugin::mobile::update_android_manifest(
+        "PROVIDERS FOR ANDROID FS PLUGIN",
+        "application",
+        // 空の文字列の場合でも書き込むことで古い必要ない宣言を上書きして消すことができる。
+        providers.join("\n"),
     ).expect("failed to rewrite AndroidManifest.xml");
 }

@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.plugin.android_fs"
+    namespace = "okayu.tauri.plugin.android.fs"
     compileSdk = 36
 
     defaultConfig {
@@ -14,15 +14,6 @@ android {
         consumerProguardFiles("consumer-rules.pro")
     }
 
-    buildTypes {
-        release {
-            isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-        }
-    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8

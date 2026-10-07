@@ -1,4 +1,4 @@
-package com.plugin.android_fs
+package okayu.tauri.plugin.android.fs
 
 import android.content.Context
 import android.content.res.AssetFileDescriptor.UNKNOWN_LENGTH

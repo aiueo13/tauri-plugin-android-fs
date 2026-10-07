@@ -5,6 +5,7 @@ identifier = "all"
 description = "This enables all commands."
 commands.allow = [
     "get_android_api_level",
+    "get_uri_for_file_path",
     "get_name",
     "get_type",
     "get_metadata",
@@ -49,11 +50,13 @@ commands.allow = [
     "check_persisted_picker_uri_permission",
     "release_persisted_picker_uri_permission",
     "release_all_persisted_picker_uri_permissions",
+    "list_all_persisted_picker_uri_permissions",
     "show_open_file_picker",
     "show_open_dir_picker",
     "show_save_file_picker",
     "show_share_file_app_chooser",
     "show_view_file_app_chooser",
     "show_view_dir_app_chooser",
-    "show_edit_file_app_chooser"
+    "show_edit_file_app_chooser",
+    "get_mime_type_from_extension"
 ]

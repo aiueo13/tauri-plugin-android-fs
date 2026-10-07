@@ -9,6 +9,7 @@ package-lock.json
 yarn.lock
 .check_all_features.sh
 .my_memo.md
+.vscode
 
 /.tauri
 /target

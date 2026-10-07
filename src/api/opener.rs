@@ -56,7 +56,9 @@ impl<'a, R: tauri::Runtime> Opener<'a, R> {
     /// - ***uris*** :  
     /// Target file URIs to share.  
     /// This all needs to be **readable**.  
-    /// URIs converted directly from a path, such as via [`FileUri::from_path`], can **not** be used.   
+    /// URIs converted directly from a path, such as via [`FsUri::from_path`], can **not** be used.   
+    /// Use [`AndroidFs::get_uri_for_file_path`], 
+    /// or [custom file provider](Builder::register_custom_file_provider) instead.
     /// 
     /// # Support
     /// All Android versions supported by Tauri.
@@ -90,7 +92,9 @@ impl<'a, R: tauri::Runtime> Opener<'a, R> {
     /// - ***uri*** :  
     /// Target file URI to share.  
     /// Must be **readable**.  
-    /// URIs converted directly from a path, such as via [`FileUri::from_path`], can **not** be used.  
+    /// URIs converted directly from a path, such as via [`FsUri::from_path`], can **not** be used.  
+    /// Use [`AndroidFs::get_uri_for_file_path`], 
+    /// or [custom file provider](Builder::register_custom_file_provider) instead.
     /// 
     /// # Support
     /// All Android versions supported by Tauri.
@@ -123,7 +127,9 @@ impl<'a, R: tauri::Runtime> Opener<'a, R> {
     /// - ***uri*** :  
     /// Target file URI to view.  
     /// Must be **readable**.  
-    /// URIs converted directly from a path, such as via [`FileUri::from_path`], can **not** be used.  
+    /// URIs converted directly from a path, such as via [`FsUri::from_path`], can **not** be used.  
+    /// Use [`AndroidFs::get_uri_for_file_path`], 
+    /// or [custom file provider](Builder::register_custom_file_provider) instead.
     /// 
     /// # Support
     /// All Android versions supported by Tauri.
@@ -155,7 +161,9 @@ impl<'a, R: tauri::Runtime> Opener<'a, R> {
     /// - ***uri*** :  
     /// Target dir URI to view.  
     /// Must be **readable**.  
-    /// URIs converted directly from a path, such as via [`FileUri::from_path`], can **not** be used.  
+    /// URIs converted directly from a path, such as via [`FsUri::from_path`], can **not** be used.  
+    /// Use [`AndroidFs::get_uri_for_file_path`], 
+    /// or [custom file provider](Builder::register_custom_file_provider) instead.
     /// 
     /// # Support
     /// All Android versions supported by Tauri.
@@ -193,7 +201,9 @@ impl<'a, R: tauri::Runtime> Opener<'a, R> {
     /// - ***uri*** :  
     /// Target file URI to view.  
     /// Must be **read-writeable**.  
-    /// URIs converted directly from a path, such as via [`FileUri::from_path`], can **not** be used.  
+    /// URIs converted directly from a path, such as via [`FsUri::from_path`], can **not** be used.  
+    /// Use [`AndroidFs::get_uri_for_file_path`], 
+    /// or [custom file provider](Builder::register_custom_file_provider) instead.
     /// 
     /// # Support
     /// All Android versions supported by Tauri.

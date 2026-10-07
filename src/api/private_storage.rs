@@ -98,7 +98,7 @@ impl<'a, R: tauri::Runtime> PrivateStorage<'a, R> {
         }
     }
 
-    /// See [`PrivateStorage::resolve_path`] and [`FileUri::from_path`]
+    /// See [`PrivateStorage::resolve_path`] and [`FsUri::from_path`]
     #[maybe_async]
     pub fn resolve_uri(
         &self, 

@@ -72,8 +72,8 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
 }
 
 #[sync_async(
-    use(if_async) api_async::{AndroidFs, Utils};
-    use(if_sync) api_sync::{AndroidFs, Utils};
+    use(if_async) api_async::{AndroidFs, Notifications};
+    use(if_sync) api_sync::{AndroidFs, Notifications};
 )]
 impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
 
@@ -85,56 +85,6 @@ impl<R: tauri::Runtime> ProgressNotificationGuard<R> {
     #[always_sync]
     pub fn into_async(self) -> AsyncProgressNotificationGuard<R> {
         AsyncProgressNotificationGuard { inner: self.inner }
-    }
-
-    #[always_sync]
-    pub fn title(&self) -> Option<String> {
-        #[cfg(not(target_os = "android"))] {
-            None
-        }
-        #[cfg(target_os = "android")] {
-            self.inner.lock_current_state().title.clone()
-        }
-    }
-
-    #[always_sync]
-    pub fn text(&self) -> Option<String> {
-        #[cfg(not(target_os = "android"))] {
-            None
-        }
-        #[cfg(target_os = "android")] {
-            self.inner.lock_current_state().text.clone()
-        }
-    }
-
-    #[always_sync]
-    pub fn sub_text(&self) -> Option<String> {
-        #[cfg(not(target_os = "android"))] {
-            None
-        }
-        #[cfg(target_os = "android")] {
-            self.inner.lock_current_state().sub_text.clone()
-        }
-    }
-
-    #[always_sync]
-    pub fn progress(&self) -> Option<u64> {
-        #[cfg(not(target_os = "android"))] {
-            None
-        }
-        #[cfg(target_os = "android")] {
-            self.inner.lock_current_state().progress
-        }
-    }
-
-    #[always_sync]
-    pub fn progress_max(&self) -> Option<u64> {
-        #[cfg(not(target_os = "android"))] {
-            None
-        }
-        #[cfg(target_os = "android")] {
-            self.inner.lock_current_state().progress_max
-        }
     }
 
     #[maybe_async]

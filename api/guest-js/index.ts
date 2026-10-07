@@ -17,8 +17,6 @@ declare global {
  * Returns whether the Tauri runtime environment is Android.
  *
  * @returns `true` if built for Android; otherwise, `false`.
- *
- * @since 22.0.0
  */
 export function isAndroid(): boolean {
 	const isAndroid = window.__TAURI_ANDROID_FS_PLUGIN_INTERNALS__?.isAndroid
@@ -46,7 +44,6 @@ let cachedApiLevel: Promise<number> | null = null
  * @returns Promise that resolves to the Android API level. This value is constant during the application lifecycle.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_sync/struct.AndroidFs.html#method.api_level | AndroidFs::api_level }
- * @since 24.2.0
  */
 export async function getAndroidApiLevel(): Promise<number> {
 	if (!cachedApiLevel) {
@@ -106,7 +103,10 @@ export type FsUri = {
 }
 
 /**
- * @since 29.0.0
+ * Checks whether a value is a valid `FsUri`.
+ *
+ * @param value - The value to check.
+ * @returns `true` if the value is a valid `FsUri`; otherwise, `false`.
  */
 export function isFsUri(value: unknown): value is FsUri {
 	if (typeof value !== "object" || value === null) {
@@ -267,6 +267,18 @@ function mutateEntryMetadataArray<T>(entries: Array<EntryMetadataInner & T>): Ar
 export type EntryMetadataWithUri = EntryMetadata & { uri: FsUri }
 
 type EntryMetadataWithUriInner = EntryMetadataInner & { uri: FsUri }
+
+export type GetUriForFilePathOptions = {
+
+	/**
+	 * MIME type for the file.
+	 *
+	 * @remarks
+	 * If not specified, the MIME type is inferred from the extension. 
+	 */
+	mimeType?: string
+}
+
 
 export type ReadFileAsDataUrlOptions = {
 
@@ -1220,6 +1232,20 @@ export const UriPermissionState = Object.freeze({
 
 export type UriPermissionState = typeof UriPermissionState[keyof typeof UriPermissionState]
 
+export type PersistedUriPermission = {
+	type: "Dir" | "File", 
+	uri: FsUri, 
+	hasReadPermission: boolean, 
+	hasWritePermission: boolean,
+};
+
+export const ListVolumesPurpose = Object.freeze({
+	CreatePublicFile: "CreatePublicFile",
+	PickerInitialLocation: "PickerInitialLocation"
+} as const)
+
+export type ListVolumesPurpose = (typeof ListVolumesPurpose)[keyof typeof ListVolumesPurpose]
+
 export type ListVolumesOptions = {
 
 	/**
@@ -1237,7 +1263,7 @@ export type ListVolumesOptions = {
 	 * This includes all detected volumes.
 	 * - `undefined`: Lists only volumes available for all purposes.
 	 */
-	purpose?: "CreatePublicFile" | "PickerInitialLocation"
+	purpose?: ListVolumesPurpose
 }
 
 /**
@@ -1674,7 +1700,6 @@ export async function getName(uri: FsUri | string | URL): Promise<string> {
  * - When an unexpected error occurs.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_type | AndroidFs::get_type}
- * @since 22.0.0
  */
 export async function getType(uri: FsUri | string | URL): Promise<EntryType> {
 	return await invoke('plugin:android-fs|get_type', {
@@ -1696,7 +1721,6 @@ export async function getType(uri: FsUri | string | URL): Promise<EntryType> {
  * - When an unexpected error occurs.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_info | AndroidFs::get_info}
- * @since 22.0.0
  */
 export async function getMetadata(uri: FsUri | string | URL): Promise<EntryMetadata> {
 	const md = await invoke<EntryMetadataInner>('plugin:android-fs|get_metadata', {
@@ -1743,7 +1767,6 @@ export async function getFileByteLength(uri: FsUri | string | URL): Promise<numb
  * - When an unexpected error occurs.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_mime_type | AndroidFs::get_mime_type}
- * @since 22.0.0
  */
 export async function getFileMimeType(uri: FsUri | string | URL): Promise<string> {
 	return await invoke('plugin:android-fs|get_file_mime_type', {
@@ -1770,7 +1793,6 @@ export async function getFileMimeType(uri: FsUri | string | URL): Promise<string
  * - When an unexpected error occurs.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_thumbnail | AndroidFs::get_thumbnail}
- * @since 26.1.0
  */
 export async function getFileThumbnailAsDataURL(
 	uri: FsUri | string | URL,
@@ -1809,7 +1831,6 @@ export async function getFileThumbnailAsDataURL(
  * - When an unexpected error occurs.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_thumbnail | AndroidFs::get_thumbnail}
- * @since 26.1.0
  */
 export async function getFileThumbnailAsBase64(
 	uri: FsUri | string | URL,
@@ -1848,7 +1869,6 @@ export async function getFileThumbnailAsBase64(
  * - When an unexpected error occurs.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_thumbnail | AndroidFs::get_thumbnail}
- * @since 26.1.0
  */
 export async function getFileThumbnail(
 	uri: FsUri | string | URL,
@@ -1884,8 +1904,6 @@ export async function getFileThumbnail(
  * 
  * @param uri - URI or path of the target file or directory.
  * @returns A string of the path. Note that while it is called a "path", it may actually be a URI that is compatible with `@tauri-apps/plugin-fs`.
- * 
- * @since 22.0.0
  */
 export function getFsPath(uri: FsUri | string | URL): string {
 	if (isFsUri(uri)) {
@@ -1895,6 +1913,68 @@ export function getFsPath(uri: FsUri | string | URL): string {
 		return uri
 	}
 	return uri.toString()
+}
+
+/**
+ * Constructs a URI for a file at the specified absolute path.
+ *
+ * @remarks
+ * This is Available on Android 8 (API level 26) or higher.
+ *
+ * This function only constructs a URI. To actually access the file
+ * using the returned URI, the file provider feature must be enabled
+ * and configured as described below.
+ *
+ * ### 1. Enable the file provider feature
+ * Enable the `file_provider` feature. 
+ * 
+ * `src-tauri/Cargo.toml`:
+ * ```toml
+ * [dependencies]
+ * tauri-plugin-android-fs = { features = ["file_provider"], ... }
+ * ```
+ *
+ * ### 2. Configure the file provider
+ * Configure the file provider to allow the file to be loaded
+ * and specify its scope as with other APIs.
+ * 
+ * `src-tauri/tauri.conf.json`:
+ * ```json
+ * {
+ *   "plugins": {
+ *     "android-fs": {
+ *       "fileProvider": {
+ *         "enable": true,
+ *         "scope": {
+ *           "allow": [
+ *             "$APPDATA/my-data/shared/*",
+ *             "$APPDATA/my-data/shared/document/thumbnail/*"
+ *           ]
+ *         }
+ *       }
+ *     }
+ *   }
+ * }
+ * ```
+ *
+ * NOTE:
+ * Ensure that `serde_json` is present in your Rust dependencies. 
+ * It is included by default in Tauri project templates, but if it has been removed, add it back.
+ * If it is missing, the project will fail to build.
+ *
+ * @param path - Absolute path of the target file.
+ * @param options - Optional settings: `mimeType`. See `GetUriForFilePathOptions` for details.
+ * 
+ * @returns Promise that resolves to a URI of the file. The URI remains valid until the current application process terminates, after which it can no longer be accessed. The URI is an Android Content URI and can be shared with other applications using `showShareFileAppChooser` and etc.
+ * @throws The returned Promise rejects with an error if Android 7 or lower.
+ */
+export async function getUriForFilePath(
+	path: string,
+	options?: GetUriForFilePathOptions
+): Promise<FsUri> {
+
+	const mimeType = options?.mimeType ?? null
+	return await invoke("plugin:android-fs|get_uri_for_file_path", { path, mimeType })
 }
 
 /**
@@ -1928,7 +2008,10 @@ export function getFsPath(uri: FsUri | string | URL): string {
  *       "thumbnailProtocol": {
  *         "enable": true,
  *         "scope": {
- *           "allow": ["$APPDATA/my-data/*"],
+ *           "allow": [
+ *             "$APPDATA/my-data/*",
+ *             "$APPDATA/my-data/shared/image/*"
+ *           ]
  *         }
  *       }
  *     }
@@ -1947,8 +2030,6 @@ export function getFsPath(uri: FsUri | string | URL): string {
  * 
  * @param uri - URI or path of the target file.
  * @param options - Optional settings: `width`, `height`, `format`. See `ConvertThumbnailSrcOptions` for details.
- * 
- * @since 27.2.0
  */
 export function convertFileThumbnailSrc(
 	uri: FsUri | string | URL,
@@ -1983,6 +2064,14 @@ export function convertFileThumbnailSrc(
  * @remarks
  * This is backed by Tauri’s custom protocol.
  * 
+ * ## Known Issues (As of October 5, 2026)
+ * File loading may fail. 
+ * This issue occurs frequently with `<video>` and `<audio>` elements, but is not limited to them, 
+ * because Tauri’s custom protocol currently {@link https://github.com/tauri-apps/tauri/issues/12019 | cannot handle range requests on Android}.
+ * As a workaround, 
+ * you can host your own server on the Tauri backend 
+ * or use {@link https://www.npmjs.com/package/tauri-plugin-android-player-api?activeTab=readme | tauri_plugin_android_player} to use Android native player.
+ * 
  * ## Setup
  * This function only constructs a URL.  
  * To actually load a file using the returned URL, follow the steps below.
@@ -2008,7 +2097,10 @@ export function convertFileThumbnailSrc(
  *       "contentProtocol": {
  *         "enable": true,
  *         "scope": {
- *           "allow": ["$APPDATA/my-data/*"],
+ *           "allow": [
+ *             "$APPDATA/my-data/*",
+ *             "$APPDATA/my-data/shared/image/*"
+ *           ]
  *         }
  *       }
  *     }
@@ -2025,15 +2117,7 @@ export function convertFileThumbnailSrc(
  * If you are using a CSP, 
  * add `http://android-fs-content.localhost` to {@link https://v2.tauri.app/reference/config/#csp-1 | app.security.csp} in `src-tauri/tauri.conf.json`.
  * 
- * ## Known Issues (As of July 20, 2026)
- * File loading may fail. 
- * This issue occurs frequently with `<video>` and `<audio>` elements, but is not limited to them, 
- * because Tauri’s custom protocol currently {@link https://github.com/tauri-apps/tauri/issues/12019 | cannot handle range requests on Android}.
- * As a workaround, you can host your own local server on the backend.
- * 
  * @param uri - URI or path of the target file.
- * 
- * @since 27.2.0
  */
 export function convertFileSrc(uri: FsUri | string | URL): string {
 	return convertCustomProtocolSrc(
@@ -2050,8 +2134,6 @@ export function convertFileSrc(uri: FsUri | string | URL): string {
  * @returns Promise that resolves to an array of the storage volumes. 
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_volumes | AndroidFs::get_volumes}
- * 
- * @since 22.2.0
  */
 export async function listVolumes(
 	options?: ListVolumesOptions
@@ -2081,7 +2163,6 @@ export async function listVolumes(
  * @returns Promise that resolves to a boolean indicating whether the app is allowed to create files in public storage and access them.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.request_permission | PublicStorage::request_permission}
- * @since 22.0.0
  */
 export async function requestPublicFilesPermission(): Promise<boolean> {
 	return await invoke('plugin:android-fs|request_public_files_permission')
@@ -2096,7 +2177,6 @@ export async function requestPublicFilesPermission(): Promise<boolean> {
  * @returns Promise that resolves to a boolean indicating whether the app is allowed to create files in public storage and access them.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.check_permission | PublicStorage::check_permission}
- * @since 27.1.0
  */
 export async function checkPublicFilesPermission(): Promise<boolean> {
 	return await invoke('plugin:android-fs|check_public_files_permission')
@@ -2118,7 +2198,6 @@ export async function checkPublicFilesPermission(): Promise<boolean> {
  * - When an unexpected error occurs.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.scan | PublicStorage::scan}
- * @since 22.0.0
  */
 export async function scanPublicFile(uri: FsUri): Promise<void> {
 	return await invoke('plugin:android-fs|scan_public_file', {
@@ -2147,7 +2226,6 @@ export async function scanPublicFile(uri: FsUri): Promise<void> {
  * - When an unexpected error occurs.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.set_pending | PublicStorage::set_pending}
- * @since 25.0.0
  */
 export async function setPublicFilePending(
 	uri: FsUri,
@@ -2177,7 +2255,6 @@ export async function setPublicFilePending(
  * - When an unexpected error occurs.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.create_new_file | PublicStorage::create_new_file}
- * @since 22.0.0
  */
 export async function createNewPublicFile(
 	baseDir: PublicGeneralPurposeDir,
@@ -2218,7 +2295,6 @@ export async function createNewPublicFile(
  * - When an unexpected error occurs.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.create_new_file | PublicStorage::create_new_file}
- * @since 22.0.0
  */
 export async function createNewPublicImageFile(
 	baseDir: PublicImageDir | PublicGeneralPurposeDir,
@@ -2259,7 +2335,6 @@ export async function createNewPublicImageFile(
  * - When an unexpected error occurs.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.create_new_file | PublicStorage::create_new_file}
- * @since 22.0.0
  */
 export async function createNewPublicVideoFile(
 	baseDir: PublicVideoDir | PublicGeneralPurposeDir,
@@ -2300,7 +2375,6 @@ export async function createNewPublicVideoFile(
  * - When an unexpected error occurs.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.PublicStorage.html#method.create_new_file | PublicStorage::create_new_file}
- * @since 22.0.0
  */
 export async function createNewPublicAudioFile(
 	baseDir: PublicAudioDir | PublicGeneralPurposeDir,
@@ -2341,7 +2415,6 @@ export async function createNewPublicAudioFile(
  * - When an unexpected error occurs.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.create_new_file | AndroidFs::create_new_file}
- * @since 22.0.0
  */
 export async function createNewFile(
 	baseDirUri: FsUri,
@@ -2374,7 +2447,6 @@ export async function createNewFile(
  * - When an unexpected error occurs.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.create_new_dir | AndroidFs::create_new_dir}
- * @since 28.2.0
 */
 export async function createNewDir(
 	baseDirUri: FsUri,
@@ -2404,7 +2476,6 @@ export async function createNewDir(
  * - When an unexpected error occurs.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.create_dir_all | AndroidFs::create_dir_all}
- * @since 26.1.0
  */
 export async function createDir(
 	baseDirUri: FsUri,
@@ -2447,7 +2518,6 @@ export async function createDir(
  * - When an unexpected error occurs.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_readable | AndroidFs::open_file_readable}
- * @since 25.1.0
  */
 export async function openReadFileStream(
 	uri: FsUri | string | URL,
@@ -2507,7 +2577,6 @@ export async function openReadFileStream(
  * - When an unexpected error occurs.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_readable | AndroidFs::open_file_readable}
- * @since 25.1.0
  */
 export async function openReadTextFileLinesStream(
 	uri: FsUri | string | URL,
@@ -2575,8 +2644,6 @@ export async function openReadTextFileLinesStream(
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_writable | AndroidFs::open_file_writable}
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file | AndroidFs::open_file}
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/enum.FileAccessMode.html#variant.WriteAppend | AndroidFs::FileAccessMode::WriteAppend}
- * 
- * @since 25.1.0
  */
 export async function openWriteFileStream(
 	uri: FsUri | string | URL,
@@ -2634,8 +2701,6 @@ export async function openWriteFileStream(
  * Instead, use the stream's APIs or abort the associated {@link https://developer.mozilla.org/en-US/docs/Web/API/AbortController | AbortController}.
  * 
  * @returns Promise that resolves when the operation completes successfully.
- *
- * @since 26.0.0
  */
 export async function closeAllFileStreams(): Promise<void> {
 	await invoke("plugin:android-fs|close_all_file_streams")
@@ -2654,8 +2719,6 @@ export async function closeAllFileStreams(): Promise<void> {
  * - `openWriteFileStream`
  * 
  * @returns Promise that resolves to a number of currently active file streams.
- *
- * @since 26.0.0
  */
 export async function countAllFileStreams(): Promise<number> {
 	return await invoke("plugin:android-fs|count_all_file_streams")
@@ -2676,7 +2739,6 @@ export async function countAllFileStreams(): Promise<number> {
  * - When an unexpected error occurs.
  *
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.read_file | AndroidFs::read_file}
- * @since 25.1.0
  */
 export async function readFile(
 	uri: FsUri | string | URL,
@@ -2704,7 +2766,6 @@ export async function readFile(
  * - When an unexpected error occurs.
  *
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.read_file | AndroidFs::read_file}
- * @since 26.1.0
  */
 export async function readFileAsBase64(
 	uri: FsUri | string | URL,
@@ -2734,7 +2795,6 @@ export async function readFileAsBase64(
  *
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.read_file | AndroidFs::read_file}
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.get_mime_type | AndroidFs::get_mime_type}
- * @since 26.1.0
  */
 export async function readFileAsDataURL(
 	uri: FsUri | string | URL,
@@ -2768,7 +2828,6 @@ export async function readFileAsDataURL(
  *
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_readable | AndroidFs::open_file_readable}
  * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder | WebAPI TextDecoder}
- * @since 25.1.0
  */
 export async function readTextFile(
 	uri: FsUri | string | URL,
@@ -2809,8 +2868,6 @@ export async function readTextFile(
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_writable | AndroidFs::open_file_writable}
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file | AndroidFs::open_file}
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/enum.FileAccessMode.html#variant.WriteAppend | AndroidFs::FileAccessMode::WriteAppend}
- * 
- * @since 25.1.0
  */
 export async function writeFile(
 	uri: FsUri | string | URL,
@@ -2859,7 +2916,6 @@ export async function writeFile(
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file | AndroidFs::open_file}
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/enum.FileAccessMode.html#variant.WriteAppend | AndroidFs::FileAccessMode::WriteAppend}
  * @see {@link https://developer.mozilla.org/en-us/docs/Web/API/TextEncoder | WebAPI TextEncoder}
- * @since 25.1.0
  */
 export async function writeTextFile(
 	uri: FsUri | string | URL,
@@ -2909,7 +2965,6 @@ export async function writeTextFile(
  * - When an unexpected error occurs.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.copy | AndroidFs::copy}
- * @since 22.0.0
  */
 export async function copyFile(
 	srcUri: FsUri | string | URL,
@@ -2944,7 +2999,6 @@ export async function copyFile(
  * - When an unexpected error occurs.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.open_file_writable | AndroidFs::open_file_writable}
- * @since 22.0.0
  */
 export async function truncateFile(uri: FsUri): Promise<void> {
 	await invoke('plugin:android-fs|truncate_file', { uri })
@@ -2971,7 +3025,6 @@ export async function truncateFile(uri: FsUri): Promise<void> {
  * - When an unexpected error occurs.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.rename | AndroidFs::rename}
- * @since 24.1.0
  */
 export async function renameFile(
 	uri: FsUri,
@@ -3005,7 +3058,6 @@ export async function renameFile(
  * - When an unexpected error occurs.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.rename | AndroidFs::rename}
- * @since 24.1.0
  */
 export async function renameDir(
 	uri: FsUri,
@@ -3034,7 +3086,6 @@ export async function renameDir(
  * - When an unexpected error occurs.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.remove_file | AndroidFs::remove_file}
- * @since 22.0.0
  */
 export async function removeFile(uri: FsUri): Promise<void> {
 	await invoke('plugin:android-fs|remove_file', { uri })
@@ -3056,7 +3107,6 @@ export async function removeFile(uri: FsUri): Promise<void> {
  * - When an unexpected error occurs.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.remove_dir_all | AndroidFs::remove_dir_all}
- * @since 22.0.0
  */
 export async function removeDirAll(uri: FsUri): Promise<void> {
 	await invoke('plugin:android-fs|remove_dir_all', { uri })
@@ -3079,7 +3129,6 @@ export async function removeDirAll(uri: FsUri): Promise<void> {
  * - When an unexpected error occurs.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.remove_dir | AndroidFs::remove_dir}
- * @since 22.0.0
  */
 export async function removeEmptyDir(uri: FsUri): Promise<void> {
 	await invoke('plugin:android-fs|remove_empty_dir', { uri })
@@ -3102,7 +3151,6 @@ export async function removeEmptyDir(uri: FsUri): Promise<void> {
  * - When an unexpected error occurs.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.AndroidFs.html#method.read_dir | AndroidFs::read_dir}
- * @since 22.0.0
  */
 export async function readDir(
 	uri: FsUri,
@@ -3129,7 +3177,6 @@ export async function readDir(
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.pick_files | Picker::pick_files}
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.pick_visual_medias | Picker::pick_visual_medias}
- * @since 22.0.0
  */
 export async function showOpenFilePicker(
 	options?: OpenFilePickerOptions
@@ -3161,7 +3208,6 @@ export async function showOpenFilePicker(
  * @returns Promise that resolves to a URI representing the picked directory (which may be newly created or already existing), or `null` if no directory is selected. By default, the app has read-write access to the URI, and this permission remains valid until the app or device is terminated. The app can gain persistent access to the directory using `persistPickerUriPermission`. Permissions for derived entries, such as `readDir` and `createNewFile`, depend on the permissions granted to this picked directory.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.pick_dir | Picker::pick_dir}
- * @since 22.0.0
  */
 export async function showOpenDirPicker(
 	options?: OpenDirPickerOptions
@@ -3186,7 +3232,6 @@ export async function showOpenDirPicker(
  * @returns Promise that resolves to a URI representing the picked file (which may be a newly created empty file or an existing file), or `null` if no file is selected. By default, the app has write access to the URI, and this permission remains valid until the app or device is terminated. The app can gain persistent access to the file using `persistPickerUriPermission`.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.save_file | Picker::save_file}
- * @since 22.0.0
  */
 export async function showSaveFilePicker(
 	defaultFileName: string,
@@ -3226,7 +3271,6 @@ export async function showSaveFilePicker(
  * - When the app does not have read permissions for the files.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Opener.html#method.share_files | Opener::share_files}
- * @since 22.0.0
  */
 export async function showShareFileAppChooser(
 	uris: FsUri | FsUri[]
@@ -3256,7 +3300,6 @@ export async function showShareFileAppChooser(
  * - When the app does not have read permissions for the file.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Opener.html#method.open_file | Opener::open_file}
- * @since 22.0.0
  */
 export async function showViewFileAppChooser(uri: FsUri): Promise<void> {
 	await invoke("plugin:android-fs|show_view_file_app_chooser", { uri })
@@ -3280,7 +3323,6 @@ export async function showViewFileAppChooser(uri: FsUri): Promise<void> {
  * - When the app does not have read permissions for the directory.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Opener.html#method.open_dir | Opener::open_dir}
- * @since 22.0.0
  */
 export async function showViewDirAppChooser(uri: FsUri): Promise<void> {
 	await invoke("plugin:android-fs|show_view_dir_app_chooser", { uri })
@@ -3310,7 +3352,6 @@ export async function showViewDirAppChooser(uri: FsUri): Promise<void> {
  * - When the app does not have read/write permissions for the file.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Opener.html#method.edit_file | Opener::edit_file}
- * @since 28.4.0
  */
 export async function showEditFileAppChooser(uri: FsUri): Promise<void> {
 	await invoke("plugin:android-fs|show_edit_file_app_chooser", { uri })
@@ -3325,7 +3366,6 @@ export async function showEditFileAppChooser(uri: FsUri): Promise<void> {
  * @returns Promise that resolves to a boolean indicating whether the specified permission is granted.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.check_uri_permission | Picker::check_uri_permission}
- * @since 24.1.0
  */
 export async function checkPickerUriPermission(
 	uri: FsUri,
@@ -3366,7 +3406,6 @@ export async function checkPickerUriPermission(
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.persist_picker_uri_permission | Picker::persist_picker_uri_permission}
  * @see {@link https://stackoverflow.com/questions/71099575/should-i-release-persistableuripermission-when-a-new-storage-location-is-chosen/71100621#71100621 | Android Persistable URI Permission Limit Discussion}
- * @since 24.1.0
  */
 export async function persistPickerUriPermission(uri: FsUri): Promise<void> {
 	await invoke("plugin:android-fs|persist_picker_uri_permission", { uri })
@@ -3381,7 +3420,6 @@ export async function persistPickerUriPermission(uri: FsUri): Promise<void> {
  * @returns Promise that resolves to a boolean; `false` if only non-persistent permissions exist or if there are no permissions.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.check_persisted_picker_uri_permission | Picker::check_persisted_picker_uri_permission}
- * @since 24.1.0
  */
 export async function checkPersistedPickerUriPermission(
 	uri: FsUri,
@@ -3398,7 +3436,6 @@ export async function checkPersistedPickerUriPermission(
  * @returns Promise that resolves to a boolean; `true` if a persisted permission exists for the specified URI and was successfully released, or `false` if no persisted permission existed.
  *
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.release_persisted_picker_uri_permission | Picker::release_persisted_picker_uri_permission}
- * @since 24.1.0
  */
 export async function releasePersistedPickerUriPermission(uri: FsUri): Promise<boolean> {
 	return await invoke("plugin:android-fs|release_persisted_picker_uri_permission", { uri })
@@ -3410,11 +3447,34 @@ export async function releasePersistedPickerUriPermission(uri: FsUri): Promise<b
  * @returns Promise that resolves when the operation is complete.
  * 
  * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.release_all_persisted_picker_uri_permissions | Picker::release_all_persisted_picker_uri_permissions}
- * @since 24.1.0
  */
 export async function releaseAllPersistedPickerUriPermissions(): Promise<void> {
 	await invoke("plugin:android-fs|release_all_persisted_picker_uri_permissions")
 }
+
+/**
+ * Gets all persisted permissions of URIs granted via `persistPickerUriPermission`.
+ *
+ * @returns Promise that resolves to an array containing currently available persisted permissions. Each entry always has at least one of read or write permissions.
+ * 
+ * @see {@link https://docs.rs/tauri-plugin-android-fs/latest/tauri_plugin_android_fs/api/api_async/struct.Picker.html#method.get_all_persisted_picker_uri_permissions | Picker::get_all_persisted_picker_uri_permissions}
+ */
+export async function listAllPersistedPickerUriPermissions(): Promise<PersistedUriPermission[]> {
+	return await invoke("plugin:android-fs|list_all_persisted_picker_uri_permissions")
+}
+
+/**
+ * Gets the MIME type associated with a file extension.
+ *
+ * @param extension - File extension. A leading `.` is optional, and the extension is automatically normalized to lowercase.
+ * @returns A promise that resolves to the MIME type, or null if the MIME type cannot be determined from the specified extension.
+ * 
+ * @see {@link https://developer.android.com/reference/kotlin/android/webkit/MimeTypeMap | AndroidAPI MimeTypeMap}
+ */
+export async function getMimeTypeFromExtension(extension: string): Promise<string | null> {
+	return await invoke("plugin:android-fs|get_mime_type_from_extension", { extension })
+}
+
 
 
 /** 512 KiB */

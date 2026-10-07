@@ -1,6 +1,6 @@
 @file:Suppress("NAME_SHADOWING")
 
-package com.plugin.android_fs
+package okayu.tauri.plugin.android.fs
 
 import android.content.ContentResolver
 import android.content.ContentValues
