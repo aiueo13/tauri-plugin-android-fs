@@ -514,7 +514,7 @@ fn throw_unsupported_operation_exception<'local>(
         return;
     }
 
-    let _ = env.throw_new("java/lang/UnsupportedOperationException ", err.to_string());
+    let _ = env.throw_new("java/lang/UnsupportedOperationException", err.to_string());
 }
 
 fn throw_for_panic<'local>(
