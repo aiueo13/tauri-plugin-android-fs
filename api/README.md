@@ -10,7 +10,7 @@ First, install the plugin to your Tauri project:
 
 ```toml
 [dependencies]
-tauri-plugin-android-fs = { version = "=30.0.0", features = [
+tauri-plugin-android-fs = { version = "=30.0.1", features = [
   # To use notification options
   "notification_permission",
   # To access public files on older Android versions
@@ -46,11 +46,11 @@ Then, configure the APIs that can be called from the frontend JavaScript binding
 Finally, install the frontend JavaScript bindings:
 
 ```bash
-pnpm add tauri-plugin-android-fs-api@30.0.0 -E
+pnpm add tauri-plugin-android-fs-api@30.0.1 -E
 # or
-npm install tauri-plugin-android-fs-api@30.0.0 --save-exact
+npm install tauri-plugin-android-fs-api@30.0.1 --save-exact
 # or
-yarn add tauri-plugin-android-fs-api@30.0.0 --exact
+yarn add tauri-plugin-android-fs-api@30.0.1 --exact
 ```
 
 **NOTE**: Please ensure that the backend package, `tauri-plugin-android-fs` (crates io), and the frontend package, `tauri-plugin-android-fs-api` (npm), have exactly matching versions.
