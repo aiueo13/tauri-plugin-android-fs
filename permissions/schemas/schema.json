@@ -727,6 +727,18 @@
           "markdownDescription": "Denies the read_text_file command without any pre-configured scope."
         },
         {
+          "description": "Enables the register_readonly_custom_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-register-readonly-custom-file",
+          "markdownDescription": "Enables the register_readonly_custom_file command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the register_readonly_custom_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-register-readonly-custom-file",
+          "markdownDescription": "Denies the register_readonly_custom_file command without any pre-configured scope."
+        },
+        {
           "description": "Enables the release_all_persisted_picker_uri_permissions command without any pre-configured scope.",
           "type": "string",
           "const": "allow-release-all-persisted-picker-uri-permissions",
@@ -941,6 +953,18 @@
           "type": "string",
           "const": "deny-truncate-file",
           "markdownDescription": "Denies the truncate_file command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the unregister_custom_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-unregister-custom-file",
+          "markdownDescription": "Enables the unregister_custom_file command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the unregister_custom_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-unregister-custom-file",
+          "markdownDescription": "Denies the unregister_custom_file command without any pre-configured scope."
         },
         {
           "description": "Enables the write_file command without any pre-configured scope.",

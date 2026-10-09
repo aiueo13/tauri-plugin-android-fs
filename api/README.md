@@ -10,7 +10,7 @@ First, install the plugin to your Tauri project:
 
 ```toml
 [dependencies]
-tauri-plugin-android-fs = { version = "=30.0.1", features = [
+tauri-plugin-android-fs = { version = "=30.1.0", features = [
   # To use notification options
   "notification_permission",
   # To access public files on older Android versions
@@ -46,11 +46,11 @@ Then, configure the APIs that can be called from the frontend JavaScript binding
 Finally, install the frontend JavaScript bindings:
 
 ```bash
-pnpm add tauri-plugin-android-fs-api@30.0.1 -E
+pnpm add tauri-plugin-android-fs-api@30.1.0 -E
 # or
-npm install tauri-plugin-android-fs-api@30.0.1 --save-exact
+npm install tauri-plugin-android-fs-api@30.1.0 --save-exact
 # or
-yarn add tauri-plugin-android-fs-api@30.0.1 --exact
+yarn add tauri-plugin-android-fs-api@30.1.0 --exact
 ```
 
 **NOTE**: Please ensure that the backend package, `tauri-plugin-android-fs` (crates io), and the frontend package, `tauri-plugin-android-fs-api` (npm), have exactly matching versions.
@@ -204,13 +204,17 @@ This plugin provides following APIs:
 - `closeAllFileStreams`
 - `countAllFileStreams`
 
-### 7. APIs to send entries to other apps
+### 7. APIs to define custom files
+- `registerReadonlyCustomFile`
+- `unregisterCustomFile`
+
+### 8. APIs to send entries to other apps
 - `showViewFileAppChooser`
 - `showViewDirAppChooser`
 - `showEditFileAppChooser`
 - `showShareFileAppChooser`
 
-### 8. APIs to manage permissions
+### 9. APIs to manage permissions
 - `persistPickerUriPermission`
 - `checkPickerUriPermission`
 - `checkPersistedPickerUriPermission`
@@ -220,7 +224,7 @@ This plugin provides following APIs:
 - `checkPublicFilesPermission`
 - `requestPublicFilesPermission`
 
-### 9. Helper
+### 10. Helper
 - `getUriForFilePath`
 - `getMimeTypeFromExtension`
 - `isFsUri`

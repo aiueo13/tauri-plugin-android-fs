@@ -57,6 +57,8 @@ const COMMANDS: &'static [&'static str] = &[
     "show_view_dir_app_chooser",
     "show_edit_file_app_chooser",
     "get_mime_type_from_extension",
+    "register_readonly_custom_file",
+    "unregister_custom_file"
 ];
 
 fn main() {

@@ -954,6 +954,32 @@ Denies the read_text_file command without any pre-configured scope.
 <tr>
 <td>
 
+`android-fs:allow-register-readonly-custom-file`
+
+</td>
+<td>
+
+Enables the register_readonly_custom_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-register-readonly-custom-file`
+
+</td>
+<td>
+
+Denies the register_readonly_custom_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `android-fs:allow-release-all-persisted-picker-uri-permissions`
 
 </td>
@@ -1415,6 +1441,32 @@ Enables the truncate_file command without any pre-configured scope.
 <td>
 
 Denies the truncate_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:allow-unregister-custom-file`
+
+</td>
+<td>
+
+Enables the unregister_custom_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-fs:deny-unregister-custom-file`
+
+</td>
+<td>
+
+Denies the unregister_custom_file command without any pre-configured scope.
 
 </td>
 </tr>

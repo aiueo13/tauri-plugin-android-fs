@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-register-readonly-custom-file"
+description = "Enables the register_readonly_custom_file command without any pre-configured scope."
+commands.allow = ["register_readonly_custom_file"]
+
+[[permission]]
+identifier = "deny-register-readonly-custom-file"
+description = "Denies the register_readonly_custom_file command without any pre-configured scope."
+commands.deny = ["register_readonly_custom_file"]

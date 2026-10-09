@@ -31,10 +31,6 @@ class AFCustomFileProvider: ContentProvider() {
 
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
         try {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-                throw UnsupportedOperationException("Custom file provider is only for Android 8 or higher")
-            }
-
             // mode が r, w, wa, wt, rw, rwt 以外の場合はここでエラーになる。
             val fileResult = CustomFileProviderBridge.open(uri.toString(), mode)
             val fileType = fileResult[0]
@@ -49,6 +45,11 @@ class AFCustomFileProvider: ContentProvider() {
                     var token: ThreadToken? = null
                     try {
                         fileId = fileValue
+
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                            throw UnsupportedOperationException("Custom file provider is only for Android 8 or higher")
+                        }
+
                         val sm = context!!.getSystemService(Context.STORAGE_SERVICE) as StorageManager
                         token = ThreadHandlerManager.acquire()
 

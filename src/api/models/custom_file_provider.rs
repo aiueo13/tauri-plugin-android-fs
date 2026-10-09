@@ -1,11 +1,15 @@
 use crate::*;
 use std::sync::Arc;
 
+
+/// Custom file provider.
 pub trait CustomFileProvider: Send + Sync + 'static {
     
     /// Opens the custom file represented by the specified logical path.
     ///
     /// Returns an error if the specified mode is not supported.
+    /// See the documentation for each [`FileAccessMode`] variant
+    /// for the definition and the behaviors.
     /// In particular,
     /// if [`FileAccessMode::WriteTruncate`] or [`FileAccessMode::ReadWriteTruncate`] is supported,
     /// the implementation must handle truncation if such modes are provided.
@@ -112,82 +116,116 @@ pub(crate) enum CustomFileRepr {
 
 impl CustomFile {
 
-    fn new(repr: CustomFileRepr) -> Self {
-        Self { repr }
+    fn new_custom(callback: impl CustomFileCallback) -> Self {
+        Self { repr: CustomFileRepr::Custom(Box::new(callback))}
+    }
+
+    fn new_raw(file: std::fs::File) -> Self {
+        Self { repr: CustomFileRepr::Raw(file)}
     }
 
     /// Creates a new custom file backed by the given [`std::fs::File`].
+    /// 
+    /// # Invocation Context
+    /// In this plugin, the file descriptor is passed directly to the caller.
     pub fn from_file(file: std::fs::File) -> Self {
-        Self::new(CustomFileRepr::Raw(file))
+        Self::new_raw(file)
     }
 
     /// Creates a new custom file backed by the given raw file descriptor.
     ///
     /// Ownership of the descriptor is transferred to the returned custom file,
     /// and the descriptor is closed when the returned custom file is dropped.
+    /// 
+    /// # Invocation Context
+    /// In this plugin, the file descriptor is passed directly to the caller.
     ///
     /// # Safety
-    /// The fd must be an open file descriptor owned by the caller.
-    /// See [`std::os::fd::FromRawFd::from_raw_fd`] for details.
+    /// `fd` must be an owned, open file descriptor.
     #[cfg(unix)]
     pub unsafe fn from_raw_fd(fd: std::os::fd::RawFd) -> Self {
         use std::os::fd::FromRawFd;
-        Self::new(CustomFileRepr::Raw(std::fs::File::from_raw_fd(fd)))
+        Self::new_raw(std::fs::File::from_raw_fd(fd))
     }
 
     /// Creates a new custom file backed by the given [`CustomFileCallback`].
+    /// 
+    /// # Invocation Context
+    /// In this plugin, it is passed to the caller as an [Android Proxy File](https://developer.android.com/reference/android/os/storage/StorageManager#openProxyFileDescriptor(int,%20android.os.ProxyFileDescriptorCallback,%20android.os.Handler))
+    /// which is available for Android 8 (API level 26) or higher
+    /// If unavailable, an error is returned to the caller when the file is opened.
     pub fn from_custom_callback(callback: impl CustomFileCallback) -> Self {
-        Self::new(CustomFileRepr::Custom(Box::new(callback)))
+        Self::new_custom(callback)
     }
 
     /// Creates a new read-only custom file backed by the given [`ReadableCustomFileCallback`].
+    /// 
+    /// # Invocation Context
+    /// In this plugin, it is passed to the caller as an [Android Proxy File](https://developer.android.com/reference/android/os/storage/StorageManager#openProxyFileDescriptor(int,%20android.os.ProxyFileDescriptorCallback,%20android.os.Handler))
+    /// which is available for Android 8 (API level 26) or higher
+    /// If unavailable, an error is returned to the caller when the file is opened.
     pub fn from_custom_readonly_callback(callback: impl ReadableCustomFileCallback) -> Self {
-        struct CustomFileCallbackImpl<T>(T);
-        impl<T: ReadableCustomFileCallback> CustomFileCallback for CustomFileCallbackImpl<T> {
-
-            fn len(&mut self) -> std::io::Result<u64> {
-                ReadableCustomFileCallback::len(&mut self.0)
-            }
-
-            fn read_at(&mut self, buf: &mut [u8], offset: u64) -> std::io::Result<usize> {
-                ReadableCustomFileCallback::read_at(&mut self.0, buf, offset)
-            }
-
-            fn fsync(&mut self) -> std::io::Result<()> {
-                Ok(())
-            }
-
-            fn write_at(&mut self, _data: &[u8], _offset: u64) -> std::io::Result<usize> {
-                Err(std::io::Error::from_raw_os_error(9 /* EBADF */))
-            }
-        }
-
-        Self::from_custom_callback(CustomFileCallbackImpl(callback))
+        Self::from_custom_callback(custom_callback_impl::ReadableImpl(callback))
     }
 
     /// Creates a new write-only custom file backed by the given [`WritableCustomFileCallback`].
+    /// 
+    /// # Invocation Context
+    /// In this plugin, it is passed to the caller as an [Android Proxy File](https://developer.android.com/reference/android/os/storage/StorageManager#openProxyFileDescriptor(int,%20android.os.ProxyFileDescriptorCallback,%20android.os.Handler))
+    /// which is available for Android 8 (API level 26) or higher
+    /// If unavailable, an error is returned to the caller when the file is opened.
     pub fn from_custom_writeonly_callback(callback: impl WritableCustomFileCallback) -> Self {
-        struct CustomFileCallbackImpl<T>(T);
-        impl<T: WritableCustomFileCallback> CustomFileCallback for CustomFileCallbackImpl<T> {
+        Self::from_custom_callback(custom_callback_impl::WritableImpl(callback))
+    }
 
-            fn len(&mut self) -> std::io::Result<u64> {
-                WritableCustomFileCallback::len(&mut self.0)
-            }
+    /// Creates a new read-only custom file backed by the implementation of [`std::io::Read`] and [`std::io::Seek`].
+    /// 
+    /// # Invocation Context
+    /// In this plugin, it is passed to the caller as an [Android Proxy File](https://developer.android.com/reference/android/os/storage/StorageManager#openProxyFileDescriptor(int,%20android.os.ProxyFileDescriptorCallback,%20android.os.Handler))
+    /// which is available for Android 8 (API level 26) or higher
+    /// If unavailable, an error is returned to the caller when the file is opened.
+    pub fn from_read_seek(callback: impl std::io::Read + std::io::Seek + Send + 'static) -> Self {
+        Self::new_custom(custom_callback_impl::ReadSeekImpl(callback))
+    }
 
-            fn write_at(&mut self, data: &[u8], offset: u64) -> std::io::Result<usize> {
-                WritableCustomFileCallback::write_at(&mut self.0, data, offset)
-            }
+    /// Creates a new write-only custom file backed by the implementation of [`std::io::Write`] and [`std::io::Seek`].
+    /// 
+    /// # Invocation Context
+    /// In this plugin, it is passed to the caller as an [Android Proxy File](https://developer.android.com/reference/android/os/storage/StorageManager#openProxyFileDescriptor(int,%20android.os.ProxyFileDescriptorCallback,%20android.os.Handler))
+    /// which is available for Android 8 (API level 26) or higher
+    /// If unavailable, an error is returned to the caller when the file is opened.
+    pub fn from_write_seek(callback: impl std::io::Write + std::io::Seek + Send + 'static) -> Self {
+        Self::new_custom(custom_callback_impl::WriteSeekImpl(callback))
+    }
 
-            fn fsync(&mut self) -> std::io::Result<()> {
-                WritableCustomFileCallback::fsync(&mut self.0)
-            }
+    /// Creates a new custom file backed by the implementation of [`std::io::Read`], [`std::io::Write`] and [`std::io::Seek`].
+    /// 
+    /// # Invocation Context
+    /// In this plugin, it is passed to the caller as an [Android Proxy File](https://developer.android.com/reference/android/os/storage/StorageManager#openProxyFileDescriptor(int,%20android.os.ProxyFileDescriptorCallback,%20android.os.Handler))
+    /// which is available for Android 8 (API level 26) or higher
+    /// If unavailable, an error is returned to the caller when the file is opened.
+    pub fn from_read_write_seek(callback: impl std::io::Read + std::io::Write + std::io::Seek + Send + 'static) -> Self {
+        Self::new_custom(custom_callback_impl::ReadWriteSeekImpl(callback))
+    }
 
-            fn read_at(&mut self, _buf: &mut [u8], _offset: u64) -> std::io::Result<usize> {
-                Err(std::io::Error::from_raw_os_error(9 /* EBADF */))
-            }
-        }
+    /// Creates a new read-only custom file backed by the bytes in memory.
+    /// 
+    /// # Invocation Context
+    /// In this plugin, it is passed to the caller as an [Android Proxy File](https://developer.android.com/reference/android/os/storage/StorageManager#openProxyFileDescriptor(int,%20android.os.ProxyFileDescriptorCallback,%20android.os.Handler))
+    /// which is available for Android 8 (API level 26) or higher
+    /// If unavailable, an error is returned to the caller when the file is opened.
+    pub fn from_bytes(content: impl AsRef<[u8]> + Send + 'static) -> Self {
+        Self::new_custom(custom_callback_impl::BytesImpl(content))
+    }
 
-        Self::from_custom_callback(CustomFileCallbackImpl(callback))
+    /// Creates a new read-only custom file backed by the bytes in memory.
+    /// 
+    /// # Invocation Context
+    /// In this plugin, it is passed to the caller as an [Android Proxy File](https://developer.android.com/reference/android/os/storage/StorageManager#openProxyFileDescriptor(int,%20android.os.ProxyFileDescriptorCallback,%20android.os.Handler))
+    /// which is available for Android 8 (API level 26) or higher
+    /// If unavailable, an error is returned to the caller when the file is opened.
+    pub fn from_arc_bytes(content: Arc<impl AsRef<[u8]> + Send + Sync + 'static>) -> Self {
+        Self::new_custom(custom_callback_impl::ArcBytesImpl(content))
     }
 }
 
@@ -250,6 +288,7 @@ pub trait CustomFileCallback: Send + 'static {
     /// If this function does not write all of the given data, 
     /// it will be called repeatedly with the offset advanced accordingly, 
     /// until all of the data has been written or an error occurs.
+    /// If nothing is written and 0 is returned, it is treated as an error.
     /// 
     /// See: [ProxyFileDescriptorCallback.onWrite](https://developer.android.com/reference/android/os/ProxyFileDescriptorCallback#onWrite())
     fn write_at(&mut self, data: &[u8], offset: u64) -> std::io::Result<usize>;
@@ -328,6 +367,7 @@ pub trait WritableCustomFileCallback: Send + 'static {
     /// If this function does not write all of the given data, 
     /// it will be called repeatedly with the offset advanced accordingly, 
     /// until all of the data has been written or an error occurs.
+    /// If nothing is written and 0 is returned, it is treated as an error.
     /// 
     /// See: [ProxyFileDescriptorCallback.onWrite](https://developer.android.com/reference/android/os/ProxyFileDescriptorCallback#onWrite())
     fn write_at(&mut self, data: &[u8], offset: u64) -> std::io::Result<usize>;
@@ -360,8 +400,9 @@ impl<T: CustomFileCallback> WritableCustomFileCallback for T {
     }
 }
 
-/// One implementation of [`CustomFileProvider`] with [`std::fs`]
-/// that is useful when you want to specify a file
+/// One implementation of [`CustomFileProvider`] with [`std::fs`].
+/// 
+/// This is useful when you want to specify a file
 /// by its absolute path and treat it directly as a custom file.
 pub struct StdFileProvider<R: tauri::Runtime> {
     resolve_path: Arc<dyn Fn(String) -> Option<tauri::path::SafePathBuf> + Send + Sync + 'static>,
@@ -382,7 +423,7 @@ impl<R: tauri::Runtime> StdFileProvider<R> {
     /// The MIME type is inferred from the file extension.
     /// If the inference fails, it defaults to `application/octet-stream`.
     /// If an explicit MIME type needs to be specified for each path,
-    /// use [`FileProvider::new_custom`].
+    /// use [`StdFileProvider::new_custom`].
     ///
     /// [`AndroidFs::build_custom_file_uri`]: crate::api::api_async::AndroidFs::build_custom_file_uri
     pub fn new(
@@ -486,8 +527,8 @@ impl<R: tauri::Runtime> CustomFileProvider for StdFileProvider<R> {
 
         let mut options = std::fs::OpenOptions::new();
 
+        // FileProvider の実装と同じように、w は wt と同じで切り捨てるように扱う
         // <https://android.googlesource.com/platform/frameworks/support/%2B/refs/heads/androidx-main/core/core/src/main/java/androidx/core/content/FileProvider.java?utm_source=chatgpt.com#555>
-        #[allow(deprecated)]
         match mode {
             FileAccessMode::Read => options.read(true),
             FileAccessMode::Write |
@@ -531,5 +572,202 @@ impl<R: tauri::Runtime> CustomFileProvider for StdFileProvider<R> {
         let path = self.resolve_path(path)?;
         let path = path.as_ref();
         std::fs::metadata(&path).and_then(|m| Some(m.modified()).transpose())
+    }
+}
+
+mod custom_callback_impl {
+    use super::*;
+
+
+    pub struct ReadableImpl<T>(pub T);
+
+    impl<T: ReadableCustomFileCallback> CustomFileCallback for ReadableImpl<T> {
+
+        fn len(&mut self) -> std::io::Result<u64> {
+            ReadableCustomFileCallback::len(&mut self.0)
+        }
+
+        fn read_at(&mut self, buf: &mut [u8], offset: u64) -> std::io::Result<usize> {
+            ReadableCustomFileCallback::read_at(&mut self.0, buf, offset)
+        }
+
+        fn fsync(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+
+        fn write_at(&mut self, _data: &[u8], _offset: u64) -> std::io::Result<usize> {
+            Err(std::io::Error::from_raw_os_error(9 /* EBADF */))
+        }
+    }
+
+
+    pub struct WritableImpl<T>(pub T);
+
+    impl<T: WritableCustomFileCallback> CustomFileCallback for WritableImpl<T> {
+
+        fn len(&mut self) -> std::io::Result<u64> {
+            WritableCustomFileCallback::len(&mut self.0)
+        }
+
+        fn write_at(&mut self, data: &[u8], offset: u64) -> std::io::Result<usize> {
+            WritableCustomFileCallback::write_at(&mut self.0, data, offset)
+        }
+
+        fn fsync(&mut self) -> std::io::Result<()> {
+            WritableCustomFileCallback::fsync(&mut self.0)
+        }
+
+        fn read_at(&mut self, _buf: &mut [u8], _offset: u64) -> std::io::Result<usize> {
+            Err(std::io::Error::from_raw_os_error(9 /* EBADF */))
+        }
+    }
+
+
+    pub struct ReadSeekImpl<T>(pub T);
+
+    impl<T: std::io::Read + std::io::Seek + Send + 'static> CustomFileCallback for ReadSeekImpl<T> {
+        
+        fn len(&mut self) -> std::io::Result<u64> {
+            with_retry_if_io_interrupted(|| self.0.seek(std::io::SeekFrom::End(0)))
+        }
+    
+        fn read_at(&mut self, buf: &mut [u8], offset: u64) -> std::io::Result<usize> {
+            with_retry_if_io_interrupted(|| self.0.seek(std::io::SeekFrom::Start(offset)))?;
+            with_retry_if_io_interrupted(|| self.0.read(buf))
+        }
+
+        fn fsync(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+
+        fn write_at(&mut self, _data: &[u8], _offset: u64) -> std::io::Result<usize> {
+            Err(std::io::Error::from_raw_os_error(9 /* EBADF */))
+        }
+    }
+
+    pub struct WriteSeekImpl<T>(pub T);
+
+    impl<T: std::io::Write + std::io::Seek + Send + 'static> CustomFileCallback for WriteSeekImpl<T> {
+        
+        fn len(&mut self) -> std::io::Result<u64> {
+            with_retry_if_io_interrupted(|| self.0.seek(std::io::SeekFrom::End(0)))
+        }
+
+        fn fsync(&mut self) -> std::io::Result<()> {
+            with_retry_if_io_interrupted(|| self.0.flush())
+        }
+
+        fn write_at(&mut self, data: &[u8], offset: u64) -> std::io::Result<usize> {
+            with_retry_if_io_interrupted(|| self.0.seek(std::io::SeekFrom::Start(offset)))?;
+            with_retry_if_io_interrupted(|| self.0.write(data))
+        }
+
+        fn read_at(&mut self, _buf: &mut [u8], _offset: u64) -> std::io::Result<usize> {
+            Err(std::io::Error::from_raw_os_error(9 /* EBADF */))
+        }
+    }
+
+
+    pub struct ReadWriteSeekImpl<T>(pub T);
+
+    impl<T: std::io::Read + std::io::Write + std::io::Seek + Send + 'static> CustomFileCallback for ReadWriteSeekImpl<T> {
+        
+        fn len(&mut self) -> std::io::Result<u64> {
+            with_retry_if_io_interrupted(|| self.0.seek(std::io::SeekFrom::End(0)))
+        }
+
+        fn fsync(&mut self) -> std::io::Result<()> {
+            with_retry_if_io_interrupted(|| self.0.flush())
+        }
+
+        fn write_at(&mut self, data: &[u8], offset: u64) -> std::io::Result<usize> {
+            with_retry_if_io_interrupted(|| self.0.seek(std::io::SeekFrom::Start(offset)))?;
+            with_retry_if_io_interrupted(|| self.0.write(data))
+        }
+
+        fn read_at(&mut self, buf: &mut [u8], offset: u64) -> std::io::Result<usize> {
+            with_retry_if_io_interrupted(|| self.0.seek(std::io::SeekFrom::Start(offset)))?;
+            with_retry_if_io_interrupted(|| self.0.read(buf))
+        }
+    }
+
+
+    pub struct BytesImpl<T>(pub T);
+
+    impl<T: AsRef<[u8]> + Send + 'static> CustomFileCallback for BytesImpl<T> {
+        
+        fn len(&mut self) -> std::io::Result<u64> {
+            Ok(self.0.as_ref().len() as u64)
+        }
+    
+        fn read_at(&mut self, buf: &mut [u8], offset: u64) -> std::io::Result<usize> {
+            let Ok(offset) = usize::try_from(offset) else {
+                return Ok(0)
+            };
+
+            let content = self.0.as_ref();
+            if content.len() <= offset {
+                return Ok(0);
+            }
+
+            let nread = buf.len().min(content.len() - offset);
+            buf[..nread].copy_from_slice(&content[offset..offset + nread]);
+            Ok(nread)
+        }
+
+        fn fsync(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+
+        fn write_at(&mut self, _data: &[u8], _offset: u64) -> std::io::Result<usize> {
+            Err(std::io::Error::from_raw_os_error(9 /* EBADF */))
+        }
+    }
+
+
+    pub struct ArcBytesImpl<T>(pub Arc<T>);
+
+    impl<T: AsRef<[u8]> + Send + Sync + 'static> CustomFileCallback for ArcBytesImpl<T> {
+        
+        fn len(&mut self) -> std::io::Result<u64> {
+            Ok(self.0.as_ref().as_ref().len() as u64)
+        }
+    
+        fn read_at(&mut self, buf: &mut [u8], offset: u64) -> std::io::Result<usize> {
+            let Ok(offset) = usize::try_from(offset) else {
+                return Ok(0)
+            };
+
+            let content = self.0.as_ref().as_ref();
+            if content.len() <= offset {
+                return Ok(0);
+            }
+
+            let nread = buf.len().min(content.len() - offset);
+            buf[..nread].copy_from_slice(&content[offset..offset + nread]);
+            Ok(nread)
+        }
+
+        fn fsync(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+
+        fn write_at(&mut self, _data: &[u8], _offset: u64) -> std::io::Result<usize> {
+            Err(std::io::Error::from_raw_os_error(9 /* EBADF */))
+        }
+    }
+
+
+    fn with_retry_if_io_interrupted<F, T>(mut operation: F) -> std::io::Result<T>
+    where
+        F: FnMut() -> std::io::Result<T>,
+    {
+        loop {
+            match operation() {
+                Ok(value) => return Ok(value),
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+                Err(e) => return Err(e),
+            }
+        }
     }
 }

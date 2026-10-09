@@ -1919,13 +1919,12 @@ export function getFsPath(uri: FsUri | string | URL): string {
  * Constructs a URI for a file at the specified absolute path.
  *
  * @remarks
- * This is Available on Android 8 (API level 26) or higher.
+ * ## Setup
+ * This function only constructs a URI. 
+ * To actually access the file using the returned URI, 
+ * the file provider feature must be enabled and configured as described below.
  *
- * This function only constructs a URI. To actually access the file
- * using the returned URI, the file provider feature must be enabled
- * and configured as described below.
- *
- * ### 1. Enable the file provider feature
+ * #### 1. Enable the file provider feature
  * Enable the `file_provider` feature. 
  * 
  * `src-tauri/Cargo.toml`:
@@ -1934,7 +1933,7 @@ export function getFsPath(uri: FsUri | string | URL): string {
  * tauri-plugin-android-fs = { features = ["file_provider"], ... }
  * ```
  *
- * ### 2. Configure the file provider
+ * #### 2. Configure the file provider
  * Configure the file provider to allow the file to be loaded
  * and specify its scope as with other APIs.
  * 
@@ -1966,7 +1965,6 @@ export function getFsPath(uri: FsUri | string | URL): string {
  * @param options - Optional settings: `mimeType`. See `GetUriForFilePathOptions` for details.
  * 
  * @returns Promise that resolves to a URI of the file. The URI remains valid until the current application process terminates, after which it can no longer be accessed. The URI is an Android Content URI and can be shared with other applications using `showShareFileAppChooser` and etc.
- * @throws The returned Promise rejects with an error if Android 7 or lower.
  */
 export async function getUriForFilePath(
 	path: string,
@@ -3475,6 +3473,57 @@ export async function getMimeTypeFromExtension(extension: string): Promise<strin
 	return await invoke("plugin:android-fs|get_mime_type_from_extension", { extension })
 }
 
+/**
+ * Defines a virtual read-only file in memory from the specified byte data and metadata.
+ * 
+ * To release the resource, 
+ * `unregisterCustomFile` must always be called when no longer needed.
+ * 
+ * @remarks
+ * This is Available on Android 8 (API level 26) or higher.
+ * 
+ * ## Setup
+ * To use this API, enable the `custom_file_provider` feature. 
+ * 
+ * `src-tauri/Cargo.toml`:
+ * ```toml
+ * [dependencies]
+ * tauri-plugin-android-fs = { features = ["custom_file_provider"], ... }
+ * ```
+ * 
+ * @param name - Name of the custom file.　Even if this is duplicated, each occurrence is treated as a separate custom file.
+ * @param mimeType - MIME type of the custom file. If `null`, it is inferred from the extension of the name.
+ * @param data - Content bytes of the custom file.　
+ * 
+ * @returns Promise that resolves to a URI of the registered custom file. The URI remains valid until the current application process terminates or `unregisterCustomFile` is called, after which it can no longer be accessed. The URI is an Android Content URI and can be shared with other applications using `showShareFileAppChooser` and etc. 
+ * @throws The returned Promise rejects with an error if Android 7 or lower.
+ */
+export async function registerReadonlyCustomFile(
+	name: string,
+	mimeType: string | null,
+	data: Uint8Array<ArrayBufferLike>,
+): Promise<FsUri> {
+
+	const { register } = resolveCmdRegisterReadonlyCustomFile("plugin:android-fs|register_readonly_custom_file")
+
+	return await register(data, {
+		name,
+		mimeType: mimeType ?? undefined,
+	})
+}
+
+/**
+ * Unregisters the registered custom file and releases its resources.
+ * 
+ * Does nothing if the custom file has already been unregistered.
+ * 
+ * @param uri - URI of the target custom file to unregister.
+ */
+export async function unregisterCustomFile(uri: FsUri): Promise<void> {
+	await invoke("plugin:android-fs|unregister_custom_file", {
+		uri
+	})
+}
 
 
 /** 512 KiB */
@@ -3645,6 +3694,83 @@ function resolveCmdWriteFileStream(cmdName: string): CmdWriteFileStreamHandler {
 			const error = result === "Err"
 			await cmd("Close", {}, { id, error })
 		},
+	}
+}
+
+type CmdRegisterReadonlyCustomFileHandler = {
+	register: (data: Uint8Array<ArrayBufferLike> | string, metadata: { name: string, mimeType?: string, lastModified?: number }) => Promise<FsUri>,
+}
+function resolveCmdRegisterReadonlyCustomFile(cmdName: string): CmdRegisterReadonlyCustomFileHandler {
+	// Tauri IPC の制約により、大きいバイトを送る際は body で、それ以外の値は headers で送信する。
+	type CmdEvents = {
+		Check: { in: { body: Uint8Array, args: {} }, out: { supportsRawIpcRequestBody: boolean } },
+		Register: { in: { body: Uint8Array | { data: string, format: "dataUrlToDecodedData" | "textToUtf8" }, args: { name: string, lastModified?: number, mimeType?: string} }, out: { uri: FsUri } },
+	}
+	type CmdType = keyof CmdEvents
+	type CmdInputBody<T extends CmdType> = CmdEvents[T]["in"]["body"]
+	type CmdInputArgs<T extends CmdType> = CmdEvents[T]["in"]["args"]
+	type CmdOutput<T extends CmdType> = CmdEvents[T]["out"]
+	function cmd<T extends CmdType>(type: T, body: CmdInputBody<T>, args: CmdInputArgs<T>): Promise<CmdOutput<T>> {
+		return invoke(cmdName, body, {
+			headers: {
+				"tpafs-cmd-type": type,
+				"tpafs-cmd-args": encodeURIComponent(JSON.stringify(args))
+			}
+		})
+	}
+
+
+	const PAYLOAD_FOR_CHECKING_RAW_IPC_REQUEST_BODY_SUPPORTED = new Uint8Array([0]);
+
+	return {
+		register: async (data, metadata) => {
+			const { supportsRawIpcRequestBody } = await cmd(
+				"Check",
+				PAYLOAD_FOR_CHECKING_RAW_IPC_REQUEST_BODY_SUPPORTED,
+				{}
+			)
+
+			if (supportsRawIpcRequestBody) {
+				const result = await cmd(
+					"Register",
+					typeof data === "string" ? encodeUtf8(data) : data,
+					metadata
+				)
+
+				return result.uri
+			}
+			else {
+				if (typeof data === "string") {
+					const result = await cmd(
+						"Register",
+						{
+							data,
+							format: "textToUtf8"
+						},
+						metadata
+					)
+
+					return result.uri
+				}
+				else {
+					// IPC のリクエストで raw Body を送れない場合、
+					// 大きな配列に対して非常に非効率な形式にシリアライズされる。
+					// よって、まだマシな dataURL としてデータを送る。
+					// Data URL を用いる理由は web API の FileReader で比較的効率的に作成できるため。
+					// <https://github.com/tauri-apps/tauri/issues/10573>
+					const result = await cmd(
+						"Register",
+						{
+							data: await bytesToDataUrl(data),
+							format: "dataUrlToDecodedData"
+						},
+						metadata
+					)
+
+					return result.uri
+				}
+			}
+		}
 	}
 }
 

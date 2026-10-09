@@ -52,6 +52,9 @@ impl<R: tauri::Runtime> Builder<R> {
     /// URIs created by a previous application process are rejected 
     /// before they are handled by the provided [`CustomFileProvider`].
     /// 
+    /// If only read-only custom files with fixed metadata and data need to be provided, 
+    /// the simplified [`AndroidFs::register_simple_readonly_custom_file`] can be used instead.
+    /// 
     /// # Security
     /// Custom files are accessed internally through Android's `ContentProvider`,
     /// but it is not exported.
@@ -64,10 +67,12 @@ impl<R: tauri::Runtime> Builder<R> {
     /// so it must not contain any information that should not be exposed.
     ///  
     /// # Support
-    /// This is available for Android 8 (API level 26) or higher.
-    /// If unavailable, this is ignored.
+    /// This API is available on all Android versions supported by Tauri. 
+    /// However, some [`CustomFile`] variants are only available on Android 8.0 (API level 26) or higher. 
+    /// See the documentation for `CustomFile::from_*` for details.
     /// 
     /// [`Opener`]: crate::api::api_async::Opener
+    /// [`AndroidFs::register_simple_readonly_custom_file`]: crate::api::api_async::AndroidFs::register_simple_readonly_custom_file
     /// [`AndroidFs::build_custom_file_uri`]: crate::api::api_async::AndroidFs::build_custom_file_uri
     pub fn register_custom_file_provider<P: CustomFileProvider>(
         mut self,
@@ -97,6 +102,8 @@ impl<R: tauri::Runtime> Builder<R> {
                     app.manage(afs_sync);
                     app.manage(afs_async);
 
+                    app.manage(api::new_simple_custom_files_state(app.app_handle().clone()));
+
                     #[cfg(feature = "commands")] {
                         app.manage(cmds::new_file_stream_resources_state(app.app_handle().clone()));
                         app.manage(cmds::new_file_writer_resources_state(app.app_handle().clone()));
@@ -108,6 +115,13 @@ impl<R: tauri::Runtime> Builder<R> {
 
                     let mut custom_file_providers = self.custom_file_providers;
 
+                    custom_file_providers.push((
+                        api::SIMPLE_CUSTOM_FILE_PROVIDER_NAME.to_string(),
+                        Box::new(move |app| {
+                            Arc::new(api::SimpleCustomFileProvider::new(app))
+                        })
+                    ));
+
                     let file_provider_config = api
                         .config()
                         .as_ref()
@@ -115,6 +129,7 @@ impl<R: tauri::Runtime> Builder<R> {
                         .unwrap_or_default();
 
                     if cfg!(feature = "file_provider") && file_provider_config.enable {
+
                         custom_file_providers.push((
                             crate::api::FILE_PROVIDER_NAME.to_string(),
                             Box::new(move |app| {
@@ -195,6 +210,8 @@ impl<R: tauri::Runtime> Builder<R> {
                 cmds::get_file_thumbnail,
                 cmds::get_file_thumbnail_as_base64,
                 cmds::get_file_thumbnail_as_data_url,
+                cmds::register_readonly_custom_file,
+                cmds::unregister_custom_file,
                 cmds::list_volumes,
                 cmds::create_new_public_file,
                 cmds::create_new_public_image_file,

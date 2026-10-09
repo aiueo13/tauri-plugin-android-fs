@@ -397,6 +397,126 @@ impl Throttler {
 }
 
 #[cfg_attr(not(target_os = "android"), allow(unused))]
+pub enum RegisterCustomFileInMemoryEventInput {
+    Check {
+        supports_raw_ipc_request_body: bool,
+    },
+    Register {
+        data: Vec<u8>,
+        name: String,
+        mime_type: Option<String>,
+        last_modified: Option<std::time::SystemTime>,
+    },
+}
+
+#[cfg(target_os = "android")]
+impl<'a> TryInto<RegisterCustomFileInMemoryEventInput> for tauri::ipc::Request<'a> {
+    type Error = Error;
+
+    fn try_into(self) -> std::result::Result<RegisterCustomFileInMemoryEventInput, Self::Error> {
+        macro_rules! get_args {
+            () => {
+                self.headers()
+                    .get("tpafs-cmd-args")
+                    .ok_or_else(|| Error::missing_value("tpafs-cmd-args"))
+                    .map(|s| percent_encoding::percent_decode(s.as_ref()))
+                    .and_then(|s| s.decode_utf8().map_err(Into::into))
+                    .and_then(|s| serde_json::from_str(&s).map_err(Into::into))
+            };
+        }
+        
+        let cmd_type = self.headers()
+            .get("tpafs-cmd-type")
+            .ok_or_else(|| Error::missing_value("tpafs-cmd-type"))?
+            .to_str()?;
+
+        match cmd_type {
+            "Check" => {
+                // 呼び出し時に body として与えられた判定用の payload をチェックして
+                // 生の body を受け取り可能かどうかを調べる。
+                // <https://github.com/tauri-apps/tauri/issues/10573>
+                let supports_raw_ipc_request_body = match self.body() {
+                    tauri::ipc::InvokeBody::Json(_) => false,
+                    tauri::ipc::InvokeBody::Raw(_) => true,
+                };
+
+                Ok(RegisterCustomFileInMemoryEventInput::Check {
+                    supports_raw_ipc_request_body,
+                })
+            },
+            "Register" => {
+                let data = match self.body() {
+                    tauri::ipc::InvokeBody::Raw(body) => {
+                        body.clone()
+                    },
+                    tauri::ipc::InvokeBody::Json(body) => {
+                        let format = body
+                            .get("format")
+                            .ok_or_else(|| Error::missing_value("format"))?
+                            .as_str()
+                            .ok_or_else(|| Error::invalid_type("format"))?;
+
+                        let data = body
+                            .get("data")
+                            .ok_or_else(|| Error::missing_value("data"))?
+                            .as_str()
+                            .ok_or_else(|| Error::invalid_type("data"))?;
+
+                        match format {
+                            "dataUrlToDecodedData" => {
+                                let comma_i = data
+                                    .find(",")
+                                    .ok_or_else(|| Error::with("invalid Data URL"))?;
+
+                                let (_, b64) = data.split_at(comma_i + 1);
+                                use base64::engine::Engine;
+                                base64::engine::general_purpose::STANDARD.decode(b64)?
+                            },
+                            "textToUtf8" => data.to_string().into_bytes(),
+                            _ => Err(Error::invalid_value("format"))?
+                        }
+                    },
+                };
+
+                #[derive(serde::Deserialize)]
+                #[serde(rename_all = "camelCase")]
+                struct Args {
+                    name: String,
+                    mime_type: Option<String>,
+                    last_modified: Option<u64>,
+                }
+                let args: Args = get_args!()?;
+
+                let last_modified = args
+                    .last_modified
+                    .map(|l| std::time::UNIX_EPOCH + std::time::Duration::from_millis(l));
+
+                Ok(RegisterCustomFileInMemoryEventInput::Register {
+                    data,
+                    name: args.name, 
+                    mime_type: args.mime_type,
+                    last_modified,
+                })
+            },
+            _ => Err(Error::invalid_value("tpafs-cmd-type"))
+        }
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(untagged)]
+#[cfg_attr(not(target_os = "android"), allow(unused))]
+pub enum RegisterCustomFileInMemoryEventOutput {
+    Check {
+        #[serde(rename="supportsRawIpcRequestBody")]
+        supports_raw_ipc_request_body: bool
+    },
+    Register {
+        uri: FsUri
+    },
+}
+
+#[cfg_attr(not(target_os = "android"), allow(unused))]
 pub enum WriteFileStreamEventInput {
     Open {
         uri: AfsUriOrFsPath,

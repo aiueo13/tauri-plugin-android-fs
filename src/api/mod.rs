@@ -9,12 +9,15 @@ mod private_storage;
 mod public_storage;
 mod notification;
 mod progress_notification_guard;
+mod simple_custom_file_provider;
 
 pub(crate) mod models;
 pub(crate) mod consts;
 
 #[cfg(target_os = "android")]
 pub(crate) use impls::{CUSTOM_FILE_PROVIDERS, PLUGIN_MAIN_CLASS, PLUGIN_PACKAGE, FILE_PROVIDER_NAME};
+
+pub(crate) use simple_custom_file_provider::*;
 
 pub mod api_async {
     pub use crate::api::android_fs::AsyncAndroidFs as AndroidFs;

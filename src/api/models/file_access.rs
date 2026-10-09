@@ -16,24 +16,27 @@ pub enum FileAccessMode {
 
     /// Opens the file in read-only mode.
     /// 
+    /// The file could be a pipe or socket pair to enable streaming of data.
+    /// 
     /// FileDescriptor mode: "r"
     Read,
 
     /// Opens the file in write-only mode.  
     /// 
+    /// The file could be a pipe or socket pair to enable streaming of data.
+    /// 
     /// Note that this may or may not truncate existing contents.   
     /// If the new file is smaller than the old one, **this may cause the file to become corrupted**.
     /// 
-    /// The reason this is marked as deprecated is because of that behavior, 
-    /// and it is not scheduled to be removed in the future. 
-    /// 
     /// FileDescriptor mode: "w"
-    #[deprecated(note = "This may or may not truncate existing contents. If the new file is smaller than the old one, this may cause the file to become corrupted.")]
     Write,
 
     /// Opens the file in write-only mode.
-    /// The existing content is truncated (deleted), and new data is written from the beginning.
+    /// The existing content is truncated (deleted), 
+    /// and new data is written from the beginning.
     ///
+    /// The file can be a pipe or socket pair to enable streaming of data.
+    /// 
     /// FileDescriptor mode: "wt"
     WriteTruncate,
 
@@ -45,18 +48,22 @@ pub enum FileAccessMode {
 
     /// Opens the file in read-write mode.  
     /// 
+    /// The file must be seekable.
+    /// 
     /// FileDescriptor mode: "rw"
     ReadWrite,
 
     /// Opens the file in read-write mode.
-    /// The existing content is truncated (deleted), and new data is written from the beginning.
+    /// The existing content is truncated (deleted), 
+    /// and new data is written from the beginning.
     ///
+    /// The file must be seekable.
+    /// 
     /// FileDescriptor mode: "rwt"
     ReadWriteTruncate,
 }
 
 #[allow(unused)]
-#[allow(deprecated)]
 impl FileAccessMode {
  
     pub(crate) fn to_mode(&self) -> &'static str {

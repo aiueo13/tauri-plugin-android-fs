@@ -1,6 +1,7 @@
 use super::*;
 use crate::*;
 use sync_async::sync_async;
+use tauri::Manager;
 
 /// ***Root API***
 ///
@@ -1004,8 +1005,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Therefore, do not include any information that should not be disclosed if the URI may be shared with other applications or otherwise exposed.
     ///
     /// # Support
-    /// This is available for Android 8 (API level 26) or higher.
-    /// If unavailable, throws an error.
+    /// All Android versions supported by Tauri.
     #[always_sync]
     pub fn build_custom_file_uri(
         &self,
@@ -1021,6 +1021,73 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         }
     }
 
+    /// Registers a readonly custom file and returns a URI for accessing it.
+    ///
+    /// **Note**: Enable `custom_file_provider` feature to use.
+    /// 
+    /// The registered custom file remains valid until the current application process terminates or
+    /// [`AndroidFs::unregister_simple_custom_file`] is called. 
+    /// Call [`AndroidFs::unregister_simple_custom_file`] to release the associated resources
+    /// when the custom file is no longer needed.
+    /// 
+    /// This is a simplified version of [Builder::register_custom_file_provider]
+    /// and [AndroidFs::build_custom_file_uri].
+    /// See those methods for details.
+    /// 
+    /// # Args
+    /// - **name** :
+    /// Name of the custom file.
+    /// This can be duplicated. 
+    /// Even if a simple custom file with the same name already exists, 
+    /// they are treated as separate custom files.
+    ///
+    /// # Support
+    /// This API is available on all Android versions supported by Tauri. 
+    /// However, some [`CustomFile`] variants are only available on Android 8.0 (API level 26) or higher. 
+    /// See the documentation for `CustomFile::from_*` for details.
+    #[always_sync]
+    pub fn register_simple_readonly_custom_file(
+        &self,
+        name: String,
+        mime_type: Option<String>,
+        len: Option<u64>,
+        last_modified: Option<std::time::SystemTime>,
+        open_custom_file: impl Fn() -> std::io::Result<CustomFile> + Send + Sync + 'static,
+    ) -> Result<FsUri> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            let simple_custom_files: SimpleCustomFilesState<'_, R> = self.handle.app().state();
+            simple_custom_files.add(name, mime_type, len, last_modified, open_custom_file)
+        }
+    }
+
+    /// Unregisters a custom file previously registered with
+    /// [`AndroidFs::register_simple_readonly_custom_file`].
+    ///
+    /// After this method returns, the URI can no longer be used to access the custom file.
+    /// Any resources associated with the registered custom file are released.
+    ///
+    /// # Support
+    /// All Android versions supported by Tauri.
+    #[always_sync]
+    pub fn unregister_simple_custom_file(&self, uri: &FsUri) -> Result<()> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            let Ok(id) = take_simple_custom_file_id(uri) else {
+                return Ok(())
+            };
+
+            let simple_custom_files: SimpleCustomFilesState<'_, R> = self.handle.app().state();
+            simple_custom_files.close(id);
+            Ok(())
+        }
+    }
+
     /// Constructs a URI for a file at the specified absolute path.
     ///
     /// The returned URI remains valid until the current application process terminates,
@@ -1033,13 +1100,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// To actually access the file using the returned URI, follow the steps below.
     ///
     /// ### 1. Enable file provider feature
-    /// Enable file_provider feature.
-    ///
-    /// `src-tauri/Cargo.toml`
-    /// ```toml
-    /// [dependencies]
-    /// tauri-plugin-android-fs = { features = ["file_provider"], ... }
-    /// ```
+    /// Enable `file_provider` feature.
     ///
     /// ### 2. Configuration
     /// Set the configuration to allow files to be loaded,
@@ -1067,8 +1128,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// If it is missing, the project will fail to build.
     ///
     /// # Support
-    /// This is available for Android 8 (API level 26) or higher.
-    /// If unavailable, throws an error.
+    /// All Android versions supported by Tauri.
     #[always_sync]
     pub fn get_uri_for_file_path(
         &self,

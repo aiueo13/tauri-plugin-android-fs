@@ -89,10 +89,14 @@ pub fn take_provider_id_and_custom_file_path(
     uri = uri.trim_start_matches("content://");
 
     let mut components = uri.splitn(4, "/");
-    components.next();
+    let authority = components.next().ok_or_else(|| std::io::Error::other("invalid uri"))?;
     let app_process_id = components.next().ok_or_else(|| std::io::Error::other("invalid uri"))?;
     let provider_id = components.next().ok_or_else(|| std::io::Error::other("invalid uri"))?;
-    let encoded_path = components.next().ok_or_else(|| std::io::Error::other("invalid uri"))?;
+    let encoded_path = components.next().unwrap_or("");
+
+    if !authority.ends_with(".tpafs-custom-file-provider") {
+        return Err(std::io::Error::other("invalid authority"));
+    }
 
     // 古い URI を防ぐ
     if app_process_id != &*APP_PROCESS_INSTANCE_ID {
@@ -120,10 +124,6 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         path: impl AsRef<str>,
     ) -> Result<FsUri> {
 
-        if self.api_level()? < api_level::ANDROID_8 {
-            return Err(Error::with("unsupported Android 7 or lower"));
-        }
-
         let provider_name = provider_name.as_ref();
         let Some(file_provider_id) = CUSTOM_FILE_PROVIDERS.get_provider_id_from_name(provider_name) else {
             return Err(Error::with(format!("provider not found: {provider_name}")));
@@ -145,10 +145,6 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         path: impl AsRef<std::path::Path>,
         mime_type: Option<&str>,
     ) -> Result<FsUri> {
-
-        if self.api_level()? < api_level::ANDROID_8 {
-            return Err(Error::with("unsupported Android 7 or lower"));
-        }
 
         let path = path.as_ref();
         let mime_type = match mime_type {
@@ -1816,18 +1812,15 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
     #[maybe_async]
     pub fn open_file_writable(&self, uri: &FsUri) -> Result<std::fs::File> {
         // w は既存コンテンツの切り捨てを保証しない。
-        #[allow(deprecated)]
-        const WRITE_TRUNCATE_OR_NOT: FileAccessMode = FileAccessMode::Write;
-
-        // 切り捨ててファイルを開く wt と rwt は全ての file provider が対応しているとは限らない。
+        // ただし切り捨ててファイルを開く wt と rwt は全ての file provider が対応しているとは限らない。
         // よってフォールバックを用いてなるべく切り捨てて開けるように試みる。
         let (file, mode) = self.open_file_with_fallback(uri, [
             FileAccessMode::WriteTruncate,
             FileAccessMode::ReadWriteTruncate,
-            WRITE_TRUNCATE_OR_NOT,
+            FileAccessMode::Write,
         ]).await?;
 
-        if mode == WRITE_TRUNCATE_OR_NOT {
+        if mode == FileAccessMode::Write {
             // file provider が既存コンテンツを切り捨てず、
             // かつ書き込むデータ量が元のそれより少ない場合にファイルが壊れる可能性がある。
             // これを避けるため強制的にデータを切り捨てる。
