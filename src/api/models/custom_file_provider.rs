@@ -258,7 +258,7 @@ pub trait CustomFileCallback: Send + 'static {
     /// See: [ProxyFileDescriptorCallback.onGetSize](https://developer.android.com/reference/android/os/ProxyFileDescriptorCallback#onGetSize())
     fn len(&mut self) -> std::io::Result<u64>;
 
-    /// Ensures that all written data is committed to persistent storage.
+    /// Ensures that all previously written data has been committed to the underlying storage.
     /// 
     /// # Invocation Context
     /// In this plugin, this function is executed on a dedicated Java thread for performing blocking operations.
@@ -358,7 +358,7 @@ pub trait WritableCustomFileCallback: Send + 'static {
     /// See: [ProxyFileDescriptorCallback.onGetSize](https://developer.android.com/reference/android/os/ProxyFileDescriptorCallback#onGetSize())
     fn len(&mut self) -> std::io::Result<u64>;
 
-    /// Ensures that all written data is committed to persistent storage.
+    /// Ensures that all previously written data has been committed to the underlying storage.
     /// 
     /// # Invocation Context
     /// In this plugin, this function is executed on a dedicated Java thread for performing blocking operations.
