@@ -90,8 +90,9 @@ export const AndroidApiLevel = Object.freeze({
 export type FsUri = {
 
 	/**
-	 * @remarks
-	 * You do not need to be aware of this value.
+	 * URI of the file.
+	 * 
+	 * This value must be an Android content URI.
 	 */
 	uri: string,
 
@@ -3480,7 +3481,13 @@ export async function getMimeTypeFromExtension(extension: string): Promise<strin
  * `unregisterCustomFile` must always be called when no longer needed.
  * 
  * @remarks
- * This is Available on Android 8 (API level 26) or higher.
+ * This API allows content such as images to be shared
+ * with other apps using `showShareFileAppChooser` or similar APIs 
+ * without using an intermediate file.
+ * However, note that APIs such as `showShareFileAppChooser`
+ * return control immediately after opening the app chooser. 
+ * Therefore, calling `unregisterCustomFile` immediately afterward 
+ * may cause the receiving app to be unable to access the file.
  * 
  * ## Setup
  * To use this API, enable the `custom_file_provider` feature. 
@@ -3495,8 +3502,7 @@ export async function getMimeTypeFromExtension(extension: string): Promise<strin
  * @param mimeType - MIME type of the custom file. If `null`, it is inferred from the extension of the name.
  * @param data - Content bytes of the custom file.　
  * 
- * @returns Promise that resolves to a URI of the registered custom file. The URI remains valid until the current application process terminates or `unregisterCustomFile` is called, after which it can no longer be accessed. The URI is an Android Content URI and can be shared with other applications using `showShareFileAppChooser` and etc. 
- * @throws The returned Promise rejects with an error if Android 7 or lower.
+ * @returns Promise that resolves to a URI of the registered custom file. The URI remains valid until the current application process terminates or `unregisterCustomFile` is called, after which it can no longer be accessed.
  */
 export async function registerReadonlyCustomFile(
 	name: string,

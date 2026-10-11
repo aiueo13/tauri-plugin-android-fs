@@ -23,6 +23,8 @@ pub struct AndroidFs<R: tauri::Runtime> {
     #[cfg(not(target_os = "android"))]
     #[allow(unused)]
     pub(crate) handle: std::marker::PhantomData<fn() -> R>,
+    // TODO:
+    // AppHandleに変更
 }
 
 #[cfg(target_os = "android")]
@@ -263,17 +265,17 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// As a result, this processing may take longer than with regular local files.
     /// And files might be a pair of pipe or socket for streaming data.
     ///
-    /// 2. **File mode restrictions**:
-    /// Files provided by third-party apps may not support modes other than
-    /// [`FileAccessMode::Write`] or [`FileAccessMode::Read`].
-    /// However, [`FileAccessMode::Write`] does not guarantee
-    /// that existing contents will always be truncated.
-    /// As a result, if the new contents are shorter than the original, the file may
-    /// become corrupted. To avoid this, consider using
-    /// [`AndroidFs::open_file_writable`], which
-    /// ensure that existing contents are truncated and also automatically apply the
-    /// maximum possible fallbacks.
-    /// - <https://issuetracker.google.com/issues/180526528>
+    /// 2. **Support for file mode**:
+    /// Files provided by third parties are not guaranteed to support all [`FileAccessMode`] values. 
+    /// The only modes that can be assumed to be supported are
+    /// [`FileAccessMode::Read`] and [`FileAccessMode::Write`];
+    /// however, FileAccessMode::Write does not, by definition, 
+    /// specify whether existing content is truncated.
+    /// As a result, if fewer bytes are written to a non-truncated file than it already contains,
+    /// old data may remain at the end of the file, corrupting it.
+    /// To prevent this issue, when opening a file in a generic write mode, 
+    /// use [`AndroidFs::open_file_writable`],
+    /// which guarantees truncation and provides the broadest possible fallback.
     ///
     /// # Args
     /// - ***uri*** :
@@ -306,6 +308,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         uri: &FsUri,
         candidate_modes: impl IntoIterator<Item = FileAccessMode>,
     ) -> Result<(std::fs::File, FileAccessMode)> {
+
         #[cfg(not(target_os = "android"))] {
             Err(Error::NOT_ANDROID)
         }
@@ -1060,13 +1063,76 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         }
         #[cfg(target_os = "android")] {
             let simple_custom_files: SimpleCustomFilesState<'_, R> = self.handle.app().state();
-            simple_custom_files.add(name, mime_type, len, last_modified, open_custom_file)
+            simple_custom_files.add(
+                move || Ok(name.clone()), 
+                move || Ok(mime_type.as_ref().map(Clone::clone)), 
+                move || Ok(len),
+                move || Ok(last_modified),
+                move |mode| {
+                    if mode != FileAccessMode::Read {
+                        return Err(std::io::Error::new(std::io::ErrorKind::Unsupported, "unsupported mode"))
+                    }
+                    (open_custom_file)()
+                }
+            )
+        }
+    }
+
+    /// Registers a custom file and returns a URI for accessing it.
+    ///
+    /// **Note**: Enable `custom_file_provider` feature to use.
+    /// 
+    /// The registered custom file remains valid until the current application process terminates or
+    /// [`AndroidFs::unregister_simple_custom_file`] is called. 
+    /// Call [`AndroidFs::unregister_simple_custom_file`] to release the associated resources
+    /// when the custom file is no longer needed.
+    /// 
+    /// This is a simplified version of [Builder::register_custom_file_provider]
+    /// and [AndroidFs::build_custom_file_uri].
+    /// See those methods for details.
+    /// 
+    /// # Args
+    /// - **name** :
+    /// Name of the custom file.
+    /// This can be duplicated. 
+    /// Even if a simple custom file with the same name already exists, 
+    /// they are treated as separate custom files.
+    ///
+    /// # Support
+    /// This API is available on all Android versions supported by Tauri. 
+    /// However, some [`CustomFile`] variants are only available on Android 8.0 (API level 26) or higher. 
+    /// See the documentation for `CustomFile::from_*` for details.
+    #[always_sync]
+    pub fn register_simple_custom_file(
+        &self,
+        name: String,
+        mime_type: Option<String>,
+        get_len: impl Fn() -> std::io::Result<Option<u64>> + Send + Sync + 'static,
+        get_last_modified: impl Fn() -> std::io::Result<Option<std::time::SystemTime>> + Send + Sync + 'static,
+        open_custom_file: impl Fn(FileAccessMode) -> std::io::Result<CustomFile> + Send + Sync + 'static,
+    ) -> Result<FsUri> {
+
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            let simple_custom_files: SimpleCustomFilesState<'_, R> = self.handle.app().state();
+            simple_custom_files.add(
+                move || Ok(name.clone()), 
+                move || Ok(mime_type.as_ref().map(Clone::clone)),
+                get_len,
+                get_last_modified,
+                open_custom_file
+            )
         }
     }
 
     /// Unregisters a custom file previously registered with
-    /// [`AndroidFs::register_simple_readonly_custom_file`].
+    /// [`AndroidFs::register_simple_readonly_custom_file`] or
+    /// [`AndroidFs::register_simple_custom_file`].
     ///
+    /// Does nothing if the custom file has already been unregistered.
+    /// 
     /// After this method returns, the URI can no longer be used to access the custom file.
     /// Any resources associated with the registered custom file are released.
     ///
@@ -1284,6 +1350,20 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         }
         #[cfg(target_os = "android")] {
             self.impls().resolve_dir_uri(dir, relative_path, true).await
+        }
+    }
+
+    /// Returns `true` if the [Android Proxy File](https://developer.android.com/reference/android/os/storage/StorageManager#openProxyFileDescriptor(int,%20android.os.ProxyFileDescriptorCallback,%20android.os.Handler)) is available for the current Android device.
+    ///
+    /// # See
+    /// - [`CustomFile::from_custom_callback`]
+    #[always_sync]
+    pub fn is_proxy_file_available(&self) -> Result<bool> {
+        #[cfg(not(target_os = "android"))] {
+            Err(Error::NOT_ANDROID)
+        }
+        #[cfg(target_os = "android")] {
+            Ok(api_level::ANDROID_8 <= self.api_level()?)
         }
     }
 }

@@ -15,11 +15,13 @@ import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.util.Base64
 import android.util.Size
+import android.webkit.WebView
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia
 import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
 import androidx.core.app.ShareCompat
+import app.tauri.Logger
 import app.tauri.PermissionState
 import app.tauri.annotation.ActivityCallback
 import app.tauri.annotation.Command
@@ -54,6 +56,7 @@ class ReadDirEntryOptions(
 )
 
 
+const val LOG_TAG_FOR_ROOT = "TauriPluginAndroidFs"
 const val LOG_TAG_FOR_CUSTOM_FILE_PROVIDER = "TauriPluginAndroidFs:CustomFileProvider"
 const val LOG_TAG_FOR_CUSTOM_FILE_CALLBACK = "TauriPluginAndroidFs:CustomFileCallback"
 
@@ -118,6 +121,22 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         }
 
         return null
+    }
+
+    private var isTempDirCleaned = false
+
+    override fun load(webView: WebView) {
+        super.load(webView)
+
+        if (!isTempDirCleaned) {
+            isTempDirCleaned = true
+            try {
+                AFUtils.tempDir(activity).delete()
+            }
+            catch (e: Exception) {
+                Logger.error(LOG_TAG_FOR_ROOT, "load: Unexpected exception", e)
+            }
+        }
     }
 
 /*

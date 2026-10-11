@@ -208,6 +208,7 @@ extern "system" fn Java_okayu_tauri_plugin_android_fs_CustomFileProviderBridge_o
     mode: JString<'l>,
 ) -> jintArray {
 
+    let mut fd_to_release_on_err = None;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> std::io::Result<_> {
         let uri = env.get_string(&uri)
             .expect("uri instance should be java.lang.String")
@@ -224,10 +225,11 @@ extern "system" fn Java_okayu_tauri_plugin_android_fs_CustomFileProviderBridge_o
         let mode = FileAccessMode::from_mode(&mode)
             .map_err(|_| std::io::Error::other("invalid mode"))?;
 
-        let value = match CUSTOM_FILE_PROVIDERS.open_file(provider_id, path, mode)? {
+        let file_value = match CUSTOM_FILE_PROVIDERS.open_file(provider_id, path, mode)? {
             CustomFileDescriptor::File { file } => {
                 use std::os::fd::IntoRawFd;
                 let fd = file.into_raw_fd();
+                fd_to_release_on_err = Some(fd);
                 [0, fd]
             },
             CustomFileDescriptor::CustomFile { id } => {
@@ -237,17 +239,35 @@ extern "system" fn Java_okayu_tauri_plugin_android_fs_CustomFileProviderBridge_o
         };
 
         let array = env.new_int_array(2).expect("failed to create new int array");
-        env.set_int_array_region(&array, 0, &value).expect("failed to set array region");
+        env.set_int_array_region(&array, 0, &file_value).expect("failed to set array region");
         Ok(array.into_raw())
     }));
+
+    // Safety:
+    // 所有権つき fd を含む file_value がこの呼び出し後に使用されない
+    let unsafe_release_fd_for_err = || unsafe {
+        use std::os::fd::{FromRawFd, OwnedFd};
+
+        if let Some(fd) = fd_to_release_on_err {
+            OwnedFd::from_raw_fd(fd);
+        }
+    };
 
     match result {
         Ok(Ok(file_value)) => file_value,
         Ok(Err(err)) => {
+            // Safety:
+            // file_value が使用されない
+            unsafe_release_fd_for_err();
+
             throw_io_exception(env, err);
             Default::default()
         },
         Err(panic) => {
+            // Safety:
+            // file_value が使用されない
+            unsafe_release_fd_for_err();
+
             throw_for_panic(env, panic);
             Default::default()
         },

@@ -397,7 +397,7 @@ impl Throttler {
 }
 
 #[cfg_attr(not(target_os = "android"), allow(unused))]
-pub enum RegisterCustomFileInMemoryEventInput {
+pub enum RegisterReadonlyCustomFileEventInput {
     Check {
         supports_raw_ipc_request_body: bool,
     },
@@ -410,10 +410,10 @@ pub enum RegisterCustomFileInMemoryEventInput {
 }
 
 #[cfg(target_os = "android")]
-impl<'a> TryInto<RegisterCustomFileInMemoryEventInput> for tauri::ipc::Request<'a> {
+impl<'a> TryInto<RegisterReadonlyCustomFileEventInput> for tauri::ipc::Request<'a> {
     type Error = Error;
 
-    fn try_into(self) -> std::result::Result<RegisterCustomFileInMemoryEventInput, Self::Error> {
+    fn try_into(self) -> std::result::Result<RegisterReadonlyCustomFileEventInput, Self::Error> {
         macro_rules! get_args {
             () => {
                 self.headers()
@@ -440,7 +440,7 @@ impl<'a> TryInto<RegisterCustomFileInMemoryEventInput> for tauri::ipc::Request<'
                     tauri::ipc::InvokeBody::Raw(_) => true,
                 };
 
-                Ok(RegisterCustomFileInMemoryEventInput::Check {
+                Ok(RegisterReadonlyCustomFileEventInput::Check {
                     supports_raw_ipc_request_body,
                 })
             },
@@ -491,7 +491,7 @@ impl<'a> TryInto<RegisterCustomFileInMemoryEventInput> for tauri::ipc::Request<'
                     .last_modified
                     .map(|l| std::time::UNIX_EPOCH + std::time::Duration::from_millis(l));
 
-                Ok(RegisterCustomFileInMemoryEventInput::Register {
+                Ok(RegisterReadonlyCustomFileEventInput::Register {
                     data,
                     name: args.name, 
                     mime_type: args.mime_type,
@@ -506,7 +506,7 @@ impl<'a> TryInto<RegisterCustomFileInMemoryEventInput> for tauri::ipc::Request<'
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(untagged)]
 #[cfg_attr(not(target_os = "android"), allow(unused))]
-pub enum RegisterCustomFileInMemoryEventOutput {
+pub enum RegisterReadonlyCustomFileEventOutput {
     Check {
         #[serde(rename="supportsRawIpcRequestBody")]
         supports_raw_ipc_request_body: bool

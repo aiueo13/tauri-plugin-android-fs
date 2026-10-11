@@ -73,6 +73,7 @@ impl<R: tauri::Runtime> Builder<R> {
     /// 
     /// [`Opener`]: crate::api::api_async::Opener
     /// [`AndroidFs::register_simple_readonly_custom_file`]: crate::api::api_async::AndroidFs::register_simple_readonly_custom_file
+    /// [`AndroidFs::register_simple_custom_file`]: crate::api::api_async::AndroidFs::register_simple_custom_file
     /// [`AndroidFs::build_custom_file_uri`]: crate::api::api_async::AndroidFs::build_custom_file_uri
     pub fn register_custom_file_provider<P: CustomFileProvider>(
         mut self,
@@ -129,7 +130,6 @@ impl<R: tauri::Runtime> Builder<R> {
                         .unwrap_or_default();
 
                     if cfg!(feature = "file_provider") && file_provider_config.enable {
-
                         custom_file_providers.push((
                             crate::api::FILE_PROVIDER_NAME.to_string(),
                             Box::new(move |app| {

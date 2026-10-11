@@ -21,6 +21,13 @@ sealed class EntryType {
 
 class AFUtils private constructor() { companion object {
 
+    fun tempDir(ctx: Context): File {
+        return File(
+            ctx.applicationContext.cacheDir.absolutePath,
+            "tauri-plugin-android-fs-temp-dir"
+        )
+    }
+
     fun openFileWt(
         uri: Uri,
         ctx: Context

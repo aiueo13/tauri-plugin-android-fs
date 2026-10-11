@@ -3,6 +3,9 @@ use std::sync::Arc;
 
 
 /// Custom file provider.
+/// 
+/// # See
+/// - [`Builder::register_custom_file_provider`]
 pub trait CustomFileProvider: Send + Sync + 'static {
     
     /// Opens the custom file represented by the specified logical path.
@@ -105,6 +108,9 @@ pub trait CustomFileProvider: Send + Sync + 'static {
 }
 
 /// A handle to a custom file.
+/// 
+/// # See
+/// - [`CustomFileProvider::open`]
 pub struct CustomFile {
     pub(crate) repr: CustomFileRepr,
 }
@@ -153,7 +159,10 @@ impl CustomFile {
     /// # Invocation Context
     /// In this plugin, it is passed to the caller as an [Android Proxy File](https://developer.android.com/reference/android/os/storage/StorageManager#openProxyFileDescriptor(int,%20android.os.ProxyFileDescriptorCallback,%20android.os.Handler))
     /// which is available for Android 8 (API level 26) or higher.
-    /// If unavailable, an error is returned to the caller when the file is opened.
+    /// If unavailable and a read-only open is requested, 
+    /// the data is written to a plugin-managed temporary file and 
+    /// its read-only file descriptor is passed to the caller; 
+    /// otherwise, an error is returned to the caller.
     pub fn from_custom_callback(callback: impl CustomFileCallback) -> Self {
         Self::new_custom(callback)
     }
@@ -163,7 +172,8 @@ impl CustomFile {
     /// # Invocation Context
     /// In this plugin, it is passed to the caller as an [Android Proxy File](https://developer.android.com/reference/android/os/storage/StorageManager#openProxyFileDescriptor(int,%20android.os.ProxyFileDescriptorCallback,%20android.os.Handler))
     /// which is available for Android 8 (API level 26) or higher.
-    /// If unavailable, an error is returned to the caller when the file is opened.
+    /// If unavailable, the data is written to a plugin-managed temporary file,
+    /// and its read-only file descriptor is passed to the caller.
     pub fn from_custom_readonly_callback(callback: impl ReadableCustomFileCallback) -> Self {
         Self::from_custom_callback(custom_callback_impl::ReadableImpl(callback))
     }
@@ -183,7 +193,8 @@ impl CustomFile {
     /// # Invocation Context
     /// In this plugin, it is passed to the caller as an [Android Proxy File](https://developer.android.com/reference/android/os/storage/StorageManager#openProxyFileDescriptor(int,%20android.os.ProxyFileDescriptorCallback,%20android.os.Handler))
     /// which is available for Android 8 (API level 26) or higher.
-    /// If unavailable, an error is returned to the caller when the file is opened.
+    /// If unavailable, the data is written to a plugin-managed temporary file,
+    /// and its read-only file descriptor is passed to the caller.
     pub fn from_read_seek(callback: impl std::io::Read + std::io::Seek + Send + 'static) -> Self {
         Self::new_custom(custom_callback_impl::ReadSeekImpl(callback))
     }
@@ -203,7 +214,10 @@ impl CustomFile {
     /// # Invocation Context
     /// In this plugin, it is passed to the caller as an [Android Proxy File](https://developer.android.com/reference/android/os/storage/StorageManager#openProxyFileDescriptor(int,%20android.os.ProxyFileDescriptorCallback,%20android.os.Handler))
     /// which is available for Android 8 (API level 26) or higher.
-    /// If unavailable, an error is returned to the caller when the file is opened.
+    /// If unavailable and a read-only open is requested, 
+    /// the data is written to a plugin-managed temporary file and 
+    /// its read-only file descriptor is passed to the caller; 
+    /// otherwise, an error is returned to the caller.
     pub fn from_read_write_seek(callback: impl std::io::Read + std::io::Write + std::io::Seek + Send + 'static) -> Self {
         Self::new_custom(custom_callback_impl::ReadWriteSeekImpl(callback))
     }
@@ -213,7 +227,8 @@ impl CustomFile {
     /// # Invocation Context
     /// In this plugin, it is passed to the caller as an [Android Proxy File](https://developer.android.com/reference/android/os/storage/StorageManager#openProxyFileDescriptor(int,%20android.os.ProxyFileDescriptorCallback,%20android.os.Handler))
     /// which is available for Android 8 (API level 26) or higher.
-    /// If unavailable, an error is returned to the caller when the file is opened.
+    /// If unavailable, the data is written to a plugin-managed temporary file,
+    /// and its read-only file descriptor is passed to the caller.
     pub fn from_bytes(content: impl AsRef<[u8]> + Send + 'static) -> Self {
         Self::new_custom(custom_callback_impl::BytesImpl(content))
     }
@@ -223,7 +238,8 @@ impl CustomFile {
     /// # Invocation Context
     /// In this plugin, it is passed to the caller as an [Android Proxy File](https://developer.android.com/reference/android/os/storage/StorageManager#openProxyFileDescriptor(int,%20android.os.ProxyFileDescriptorCallback,%20android.os.Handler))
     /// which is available for Android 8 (API level 26) or higher.
-    /// If unavailable, an error is returned to the caller when the file is opened.
+    /// If unavailable, the data is written to a plugin-managed temporary file,
+    /// and its read-only file descriptor is passed to the caller.
     pub fn from_arc_bytes(content: Arc<impl AsRef<[u8]> + Send + Sync + 'static>) -> Self {
         Self::new_custom(custom_callback_impl::ArcBytesImpl(content))
     }

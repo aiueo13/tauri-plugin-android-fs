@@ -19,9 +19,11 @@ import android.system.ErrnoException
 import android.system.OsConstants
 import androidx.annotation.RequiresApi
 import app.tauri.Logger
+import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.lang.IllegalStateException
+import kotlin.math.min
 
 class AFCustomFileProvider: ContentProvider() {
 
@@ -47,7 +49,51 @@ class AFCustomFileProvider: ContentProvider() {
                         fileId = fileValue
 
                         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-                            throw UnsupportedOperationException("Custom file provider is only for Android 8 or higher")
+                            if (mode != "r") {
+                                throw UnsupportedOperationException("Custom file provider is only for Android 8 or higher")
+                            }
+
+                            // Proxy File が使えない Android 7 以下の場合、
+                            // 読み取り専用のカスタムファイルを一時ファイルに保存した後、
+                            // その一時ファイルの fd を呼び出し元に渡す。
+                            // パフォーマンスは良くないが、Android 7 以下が使われることは少ないので許容する。
+
+                            val tempDir = AFUtils.tempDir(context!!)
+                            tempDir.mkdirs()
+                            val tempFile = File.createTempFile("tpafs", null, tempDir)
+
+                            return try {
+                                val len = CustomFileBridge.len(fileId).coerceAtLeast(0L)
+                                if (len != 0L) {
+                                    tempFile.outputStream().use { out ->
+                                        var totalN = 0L
+                                        val buf = ByteArray(min(8L * 1024L, len).toInt())
+                                        while (totalN < len) {
+                                            val n = CustomFileBridge.readAt(fileId, totalN, buf.size, buf)
+                                            if (n <= 0) break
+                                            out.write(buf, 0, n)
+                                            totalN += n
+                                        }
+
+                                        if (totalN != len) throw IOException("short read: $totalN / $len")
+                                    }
+                                }
+                                CustomFileBridge.close(fileId)
+
+                                val fd = ParcelFileDescriptor.open(
+                                    tempFile,
+                                    ParcelFileDescriptor.MODE_READ_ONLY
+                                )
+                                // unlink しても fd が開いている限り実体は生存する。
+                                // これにより呼び出し元に渡した fd が閉じられた時点で一時ファイルも削除される。
+                                tempFile.delete()
+
+                                fd
+                            }
+                            catch (e: Exception) {
+                                tempFile.delete()
+                                throw e
+                            }
                         }
 
                         val sm = context!!.getSystemService(Context.STORAGE_SERVICE) as StorageManager

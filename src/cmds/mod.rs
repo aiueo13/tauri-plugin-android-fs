@@ -629,7 +629,7 @@ pub async fn create_new_file<R: tauri::Runtime>(
 pub async fn register_readonly_custom_file<R: tauri::Runtime>(
     req: tauri::ipc::Request<'_>,
     app: tauri::AppHandle<R>,
-) -> Result<RegisterCustomFileInMemoryEventOutput> {
+) -> Result<RegisterReadonlyCustomFileEventOutput> {
 
     #[cfg(not(target_os = "android"))] {
         Err(Error::NOT_ANDROID)
@@ -637,30 +637,14 @@ pub async fn register_readonly_custom_file<R: tauri::Runtime>(
     #[cfg(target_os = "android")] {
         let api = app.android_fs_async();
 
-        // CustomFile::from_arc_bytes は Android 8 以降でのみ使用できる
-        if api.api_level()? < api_level::ANDROID_8 {
-            return Err(Error::with("unsupported Android 7 or lower"));
-        }
-
         let req = req.try_into()?;
         match req {
-            RegisterCustomFileInMemoryEventInput::Check { supports_raw_ipc_request_body } => {
-                Ok(RegisterCustomFileInMemoryEventOutput::Check { supports_raw_ipc_request_body })
+            RegisterReadonlyCustomFileEventInput::Check { supports_raw_ipc_request_body } => {
+                Ok(RegisterReadonlyCustomFileEventOutput::Check { supports_raw_ipc_request_body })
             }
-            RegisterCustomFileInMemoryEventInput::Register { data, name, mime_type, last_modified } => {
+            RegisterReadonlyCustomFileEventInput::Register { data, name, mime_type, last_modified } => {
                 let data = std::sync::Arc::new(data);
-                let mime_type = match mime_type {
-                    Some(mime_type) => mime_type,
-                    None => {
-                        if let Some((_, ext)) = name.rsplit_once(".") {
-                            api.get_mime_type_from_extension(ext).await?
-                                .unwrap_or_else(|| "application/octet-stream".to_string())
-                        }
-                        else {
-                            "application/octet-stream".to_string()
-                        }
-                    }
-                };
+                let mime_type = resolve_mime_type(mime_type.as_deref(), &name, &app).await?.into_owned();
 
                 let uri = api.register_simple_readonly_custom_file(
                     name,
@@ -670,7 +654,7 @@ pub async fn register_readonly_custom_file<R: tauri::Runtime>(
                     move || Ok(CustomFile::from_arc_bytes(std::sync::Arc::clone(&data)))
                 )?;
             
-                Ok(RegisterCustomFileInMemoryEventOutput::Register { uri })
+                Ok(RegisterReadonlyCustomFileEventOutput::Register { uri })
             }
         }
     }

@@ -70,24 +70,27 @@ impl<R: tauri::Runtime> SimpleCustomFileManager<R> {
     }
 
     pub fn add(&self, 
-        name: String,
-        mime_type: Option<String>,
-        len: Option<u64>,
-        last_modified: Option<std::time::SystemTime>,
-        open: impl Fn() -> std::io::Result<CustomFile> + Send + Sync + 'static,
+        get_name: impl Fn() -> std::io::Result<String> + Send + Sync + 'static,
+        get_mime_type: impl Fn() -> std::io::Result<Option<String>> + Send + Sync + 'static,
+        get_len: impl Fn() -> std::io::Result<Option<u64>> + Send + Sync + 'static,
+        get_last_modified: impl Fn() -> std::io::Result<Option<std::time::SystemTime>> + Send + Sync + 'static,
+        open: impl Fn(FileAccessMode) -> std::io::Result<CustomFile> + Send + Sync + 'static,
     ) -> Result<FsUri> {
 
         let file = Arc::new(SimpleCustomFileHandle {
-            name: Some(name),
-            mime_type,
-            len,
-            last_modified,
+            get_name: Box::new(get_name),
+            get_mime_type: Box::new(get_mime_type),
+            get_len: Box::new(get_len),
+            get_last_modified: Box::new(get_last_modified),
             open: Box::new(open)
         });
 
-        let mut locked_state = self.state.lock().unwrap_or_else(|e| e.into_inner());
-        let id = locked_state.next_id();
-        locked_state.files.insert(id, file);
+        let id = {
+            let mut locked_state = self.state.lock().unwrap_or_else(|e| e.into_inner());
+            let id = locked_state.next_id();
+            locked_state.files.insert(id, file);
+            id
+        };
 
         self.app.android_fs().build_custom_file_uri(
             &*SIMPLE_CUSTOM_FILE_PROVIDER_NAME,
@@ -110,11 +113,11 @@ impl<R: tauri::Runtime> SimpleCustomFileManager<R> {
 }
 
 struct SimpleCustomFileHandle {
-    pub open: Box<dyn Fn() -> std::io::Result<CustomFile> + Send + Sync + 'static>,
-    pub len: Option<u64>,
-    pub name: Option<String>,
-    pub mime_type: Option<String>,
-    pub last_modified: Option<std::time::SystemTime>,
+    pub get_name: Box<dyn Fn() -> std::io::Result<String> + Send + Sync + 'static>,
+    pub get_mime_type: Box<dyn Fn() -> std::io::Result<Option<String>> + Send + Sync + 'static>,
+    pub get_len: Box<dyn Fn() -> std::io::Result<Option<u64>> + Send + Sync + 'static>,
+    pub get_last_modified: Box<dyn Fn() -> std::io::Result<Option<std::time::SystemTime>> + Send + Sync + 'static>,
+    pub open: Box<dyn Fn(FileAccessMode) -> std::io::Result<CustomFile> + Send + Sync + 'static>,
 }
 
 
@@ -139,28 +142,25 @@ impl<R: tauri::Runtime> SimpleCustomFileProvider<R> {
 impl<R: tauri::Runtime> CustomFileProvider for SimpleCustomFileProvider<R> {
 
     fn open(&self, path: String, mode: FileAccessMode) -> std::io::Result<CustomFile> {
-        if mode != FileAccessMode::Read {
-            return Err(std::io::Error::new(std::io::ErrorKind::Unsupported, "unsupported mode"))?;
-        }
-
-        let file = (self.get_handle(path)?.open)()?;
+        let file_handle = self.get_handle(path)?;
+        let file = (file_handle.open)(mode)?;
         Ok(file)
     }
 
     fn get_name(&self, path: String) -> std::io::Result<Option<String>> {
-        Ok(self.get_handle(path)?.name.to_owned())
-    }
-
-    fn get_len(&self, path: String) -> std::io::Result<Option<u64>> {
-        Ok(self.get_handle(path)?.len.clone())
+        (self.get_handle(path)?.get_name)().map(Some)
     }
 
     fn get_mime_type(&self, path: String) -> std::io::Result<Option<String>> {
-        Ok(self.get_handle(path)?.mime_type.to_owned())
+        (self.get_handle(path)?.get_mime_type)()
+    }
+
+    fn get_len(&self, path: String) -> std::io::Result<Option<u64>> {
+        (self.get_handle(path)?.get_len)()
     }
 
     fn get_last_modified(&self, path: String) -> std::io::Result<Option<std::time::SystemTime>> {
-        Ok(self.get_handle(path)?.last_modified.clone())
+        (self.get_handle(path)?.get_last_modified)()
     }
 }
 
