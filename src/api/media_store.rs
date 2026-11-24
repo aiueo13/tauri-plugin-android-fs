@@ -86,7 +86,7 @@ use super::*;
 /// **3. Enumerating directories that contain images**
 /// ```no_run
 /// use std::{collections::{HashMap, HashSet}, path::PathBuf, time::{Duration, SystemTime}};
-/// use tauri_plugin_android_fs::{AndroidFsExt, MediaStoreColumn, MediaStoreQueryFilesOptions, MediaStoreTable, SortDirection};
+/// use tauri_plugin_android_fs::{AndroidFsExt, MediaStoreColumn, MediaStoreQueryFilesOptions, MediaStoreTable};
 /// 
 /// #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 /// pub struct ImageDirectory {
@@ -150,6 +150,7 @@ use super::*;
 ///             projection,
 ///             MediaStoreQueryFilesOptions {
 ///                 limit: Some(page_size),
+///                 sort_order: Some("_id ASC"),
 ///                 selection: match last_file_id {
 ///                     Some(_) => Some("media_type = ? AND _id > ?"),
 ///                     None => Some("media_type = ?"),
@@ -158,8 +159,6 @@ use super::*;
 ///                     Some(id) => Some(vec![media_type_image.to_string(), id.to_string()]),
 ///                     None => Some(vec![media_type_image.to_string()]),
 ///                 }).as_deref(),
-///                 sort_columns: Some(&["_id".into()]),
-///                 sort_direction: Some(SortDirection::Ascending),
 ///                 ..Default::default()
 ///             }
 ///         ).await?;
@@ -200,7 +199,6 @@ use super::*;
 ///                         directory.latest_file_taken = Some(date_taken);
 ///                     }
 ///                 }
-///                 
 ///                 directory.image_count += 1;
 ///                 directory.total_file_size += file_size;
 ///             }
@@ -236,7 +234,7 @@ use super::*;
 /// **4. Enumerating the images in a directory**
 /// ```no_run
 /// use std::time::{Duration, SystemTime};
-/// use tauri_plugin_android_fs::{AndroidFsExt, FsUri, MediaStoreColumn, MediaStoreQueryFilesOptions, MediaStoreTable, SortDirection};
+/// use tauri_plugin_android_fs::{AndroidFsExt, FsUri, MediaStoreColumn, MediaStoreQueryFilesOptions, MediaStoreTable};
 /// 
 /// #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 /// pub struct ImageFile {
@@ -266,7 +264,7 @@ use super::*;
 /// pub async fn list_image_files_in_directory<R: tauri::Runtime>(
 ///     directory_id: i64,
 ///     sort_key: ImageFileSortKey,
-///     sort_order_is_desc: bool,
+///     sort_direction_is_desc: bool,
 ///     offset: Option<u64>,
 ///     limit: Option<u64>,
 ///     app: &tauri::AppHandle<R>,
@@ -305,6 +303,10 @@ use super::*;
 ///         ImageFileSortKey::Modified => "date_modified".to_string(),
 ///         ImageFileSortKey::Taken => "datetaken".to_string(),
 ///     };
+///     let sort_direction = match sort_direction_is_desc {
+///         true => "DESC",
+///         false => "ASC",
+///     };
 /// 
 ///     let queried_files = media_store.query_files(
 ///         MediaStoreTable::File,
@@ -312,11 +314,7 @@ use super::*;
 ///         MediaStoreQueryFilesOptions {
 ///             selection: Some("media_type = ? AND parent = ?"),
 ///             selection_args: Some(&[media_type_image.to_string(), directory_id.to_string()]),
-///             sort_columns: Some(&[primary_sort_column, "_id".to_string()]),
-///             sort_direction: match sort_order_is_desc {
-///                 true => Some(SortDirection::Descending),
-///                 false => Some(SortDirection::Ascending),
-///             },
+///             sort_order: Some(&format!("{primary_sort_column} {sort_direction}, _id")),
 ///             offset,
 ///             limit,
 ///             ..Default::default()
@@ -622,7 +620,7 @@ impl<'a, R: tauri::Runtime> MediaStore<'a, R> {
     /// - `options`:
     /// Optional settings.
     /// These options can be used to filter files and implement pagination;
-    /// `selection`, `selection_args`, `sort_columns`, `sort_direction`,
+    /// `selection`, `selection_args`, `sort_order`,
     /// `offset`, `limit`, `volume`, `match_pending`, `match_favorite`, `match_trashed`.
     /// See [`MediaStoreQueryFilesOptions`] for a description of each option.
     /// 
@@ -646,8 +644,7 @@ impl<'a, R: tauri::Runtime> MediaStore<'a, R> {
                 options.volume,
                 options.selection, 
                 options.selection_args, 
-                options.sort_columns, 
-                options.sort_direction,
+                options.sort_order,
                 options.offset, 
                 options.limit,
                 options.match_pending,

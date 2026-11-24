@@ -216,33 +216,22 @@ pub enum MediaStoreMatchMode {
     Only,
 }
 
-#[derive(Debug, Hash, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum SortDirection {
-    Ascending,
-    Descending,
-}
-
-impl SortDirection {
-
-    pub(crate) fn is_desc(&self) -> bool {
-        matches!(self, Self::Descending)
-    }
-}
-
 #[derive(Default)]
 pub struct MediaStoreQueryFilesOptions<'a> {
 
     /// SQL WHERE clause used to filter the queried files.
+    /// 
+    /// User-supplied values must not be directly included in the selection string, 
+    /// as doing so can expose the application to SQL injection attacks.
+    /// Instead, ? placeholders should be used to represent values in the selection string, 
+    /// with the corresponding values provided through `selection_args`.
     pub selection: Option<&'a str>,
 
-    /// Arguments to replace placeholders (?) in the selection clause.
+    /// Arguments to replace ? placeholders in `selection`.
     pub selection_args: Option<&'a [String]>,
 
-    /// Column names used to sort the query results.
-    pub sort_columns: Option<&'a [String]>,
-
-    /// Sort direction applied to all specified sort columns.
-    pub sort_direction: Option<SortDirection>,
+    /// SQL ORDER BY clause used to specify the sort order of the queried files.
+    pub sort_order: Option<&'a str>,
 
     /// Number of matching files to skip before returning results.
     pub offset: Option<u64>,

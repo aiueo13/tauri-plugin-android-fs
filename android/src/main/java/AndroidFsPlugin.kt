@@ -1620,8 +1620,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
             lateinit var columnMinApiLevels: Array<Int>
             var selection: String? = null
             lateinit var selectionArgs: Array<String>
-            lateinit var sortColumns: Array<String>
-            var sortDirectionIsDesc: Boolean? = null
+            var sortOrder: String? = null
             var offset: Int? = null
             var limit: Int? = null
             var matchFavorite: QueryMatchType? = null
@@ -1683,8 +1682,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                     }.toTypedArray(),
                     selection = args.selection,
                     selectionArgs = args.selectionArgs,
-                    sortColumns = args.sortColumns,
-                    sortDirectionIsDesc = args.sortDirectionIsDesc,
+                    sortOrder = args.sortOrder,
                     offset = args.offset,
                     limit = args.limit,
                     matchPending = parseQueryMatchType(args.matchPending),

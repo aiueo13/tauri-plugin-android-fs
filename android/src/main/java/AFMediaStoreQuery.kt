@@ -67,8 +67,7 @@ object AFMediaStoreQuery {
         columns: Array<Column>,
         selection: String?,
         selectionArgs: Array<String>,
-        sortColumns: Array<String>,
-        sortDirectionIsDesc: Boolean?,
+        sortOrder: String?,
         offset: Int?,
         limit: Int?,
         matchPending: Int?,
@@ -84,20 +83,17 @@ object AFMediaStoreQuery {
             .toMutableSet()
             .apply {
                 add(MediaStore.MediaColumns._ID)
-                for (sortColumn in sortColumns) {
-                    add(sortColumn)
-                }
             }
             .toTypedArray()
 
         val collectionUri = resolveCollectionUri(table, volume)
         val result = if (Build.VERSION_CODES.R <= Build.VERSION.SDK_INT) {
-            val queryArgs = resolveBundle(selection, selectionArgs,  sortColumns, sortDirectionIsDesc, offset, limit, matchPending, matchFavorite, matchTrashed)
+            val queryArgs = resolveBundle(selection, selectionArgs,  sortOrder, offset, limit, matchPending, matchFavorite, matchTrashed)
             ctx.contentResolver.query(collectionUri, projection, queryArgs, null)
         }
         else {
-            val sortOrder = resolveSortOrder(sortColumns, sortDirectionIsDesc, offset, limit)
-            ctx.contentResolver.query(collectionUri, projection, selection, selectionArgs, sortOrder, null)
+            val sortOrderWithPagination = resolveSortOrderWithPagination(sortOrder, offset, limit)
+            ctx.contentResolver.query(collectionUri, projection, selection, selectionArgs, sortOrderWithPagination)
         }
 
         result?.use {
@@ -204,8 +200,7 @@ private fun getCursorColumnValue(
 private fun resolveBundle(
     selection: String?,
     selectionArgs: Array<String>?,
-    sortColumns: Array<String>?,
-    sortDirectionIsDesc: Boolean?,
+    sortOrder: String?,
     offset: Int?,
     limit: Int?,
     matchPending: Int?,
@@ -237,17 +232,10 @@ private fun resolveBundle(
             putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, selectionArgs)
         }
 
-        val hasSortOrder = !sortColumns.isNullOrEmpty()
-        if (hasSortOrder) {
-            putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, sortColumns!!)
-            if (sortDirectionIsDesc != null) {
-                putInt(ContentResolver.QUERY_ARG_SORT_DIRECTION, when (sortDirectionIsDesc) {
-                    true -> ContentResolver.QUERY_SORT_DIRECTION_DESCENDING
-                    false -> ContentResolver.QUERY_SORT_DIRECTION_ASCENDING
-                })
-            }
-        }
-
+        // ContentResolver.QUERY_ARG_OFFSET と ContentResolver.QUERY_ARG_LIMIT
+        // は MediaStore は Android 11 からのみ対応しているという情報がある。(未確認なので要チェック)
+        // この関数は現在 Android 11 からのみ呼ばれるので大丈夫だが、
+        // Android 11 未満でも使用する場合は要確認。
         val hasOffset = offset != null && 0 < offset
         val hasLimit = limit != null && 0 < limit
         if (hasOffset) {
@@ -256,9 +244,16 @@ private fun resolveBundle(
         if (hasLimit) {
             putInt(ContentResolver.QUERY_ARG_LIMIT, limit!!)
         }
-        // limit や offset があるにも関わらず sort order がない場合は sort order を指定する
-        if ((hasOffset || hasLimit) && !hasSortOrder) {
-            putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, arrayOf(MediaStore.MediaColumns._ID))
+
+        // ContentResolver.QUERY_ARG_SORT_COLUMNS で複数の列を指定した場合に
+        // ContentResolver.QUERY_ARG_SORT_DIRECTION をしてもその値は最後の列にしか適用されず、
+        // 最後以外の列は強制的に ASC にされる。(Android 16 でこのバグに遭遇）
+        // よって sortOrder を用いる。
+        if (sortOrder != null) {
+            putString(ContentResolver.QUERY_ARG_SQL_SORT_ORDER, sortOrder)
+        }
+        else if (hasLimit || hasOffset) {
+            putString(ContentResolver.QUERY_ARG_SQL_SORT_ORDER, MediaStore.MediaColumns._ID)
         }
     }
 }
@@ -266,22 +261,11 @@ private fun resolveBundle(
 /**
  * Android 11 以降で offset と limit を指定するとエラーになることに注意。
  */
-private fun resolveSortOrder(
-    sortColumns: Array<String>?,
-    sortDirectionIsDesc: Boolean?,
+private fun resolveSortOrderWithPagination(
+    sortOrder: String?,
     offset: Int?,
     limit: Int?
 ): String? {
-
-    val sortClause = sortColumns
-        ?.takeIf { it.isNotEmpty() }
-        ?.joinToString(", ") { column ->
-            when (sortDirectionIsDesc) {
-                true -> "$column DESC"
-                false -> "$column ASC"
-                null -> column
-            }
-        }
 
     val effectiveOffset = offset?.takeIf { 0 <= it} ?: 0
     val effectiveLimit = limit?.takeIf { 0 <= it } ?: -1
@@ -292,10 +276,9 @@ private fun resolveSortOrder(
         else -> "LIMIT $effectiveLimit OFFSET $effectiveOffset"
     }
 
-    return when {
-        paging == null -> sortClause
-        // LIMIT を付けるなら ORDER BY 式が必要
-        else -> "${sortClause ?: MediaStore.MediaColumns._ID} $paging"
+    return when (paging) {
+        null -> sortOrder
+        else -> "${sortOrder ?: MediaStore.MediaColumns._ID} $paging"
     }
 }
 
