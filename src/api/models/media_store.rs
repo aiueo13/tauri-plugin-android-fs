@@ -216,7 +216,7 @@ pub enum MediaStoreMatchMode {
     Only,
 }
 
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct MediaStoreQueryFilesOptions<'a> {
 
     /// SQL WHERE clause used to filter the queried files.
@@ -270,7 +270,7 @@ pub struct MediaStoreQueryFilesOptions<'a> {
 }
 
 /// File metadata returned by a MediaStore query.
-#[derive(Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaStoreQueriedFile {
 
@@ -356,7 +356,7 @@ impl MediaStoreQueriedFile {
             .and_then(|value| u32::try_from(value).ok())
     }
 
-    pub fn get_required_i32(&self, column_index: usize) -> Result<i32> {
+    pub fn get_required_integer_as_i32(&self, column_index: usize) -> Result<i32> {
         self.get_integer_as_i32(column_index).ok_or_else(|| Error::with("Missing or invalid MediaStore column"))
     }
 
@@ -386,5 +386,12 @@ impl MediaStoreQueriedFile {
         self.column_values
             .get(column_index)
             .and_then(serde_json::Value::as_f64)
+    }
+
+
+    // TODO: メジャーアップデートで削除する
+    #[deprecated = "Use `get_required_integer_as_i32` instead."]
+    pub fn get_required_i32(&self, column_index: usize) -> Result<i32> {
+        self.get_required_integer_as_i32(column_index)
     }
 }

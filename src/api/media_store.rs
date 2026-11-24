@@ -11,7 +11,7 @@ use super::*;
 /// Each file is generally represented by a row, and its metadata is stored in columns.
 /// 
 /// This is a low-level API.
-/// To create files to MediaStore, consider using [`PublicStorage`] instead of this API.
+/// To create files in MediaStore, consider using [`PublicStorage`] instead of this API.
 /// To retrieve images and videos for general use, consider using [`Picker`] instead.
 /// This API is most useful for apps such as gallery and music apps
 /// that need to list the media files on the device or look up
@@ -21,7 +21,7 @@ use super::*;
 /// See [`MediaStore::request_read_permission`] for the required setup and important caveats.
 /// 
 /// # Examples
-/// For example, when building an image gallery app, you will need following:
+/// For example, when building an image gallery app, you will need the following:
 /// 1. Defining permissions to access images
 /// 2. Requesting permissions to access images
 /// 3. Enumerating directories that contain images
@@ -99,12 +99,12 @@ use super::*;
 ///     pub total_file_size: u64,
 /// }
 /// 
-/// /// Lists all directories that contains images,
+/// /// Lists all directories that contain images,
 /// /// along with metadata aggregated over their images.
 /// /// 
 /// /// # Performance
 /// /// On my mid-range Android 16 device,
-/// /// this processing around 100,000 images takes approximately 1–3 seconds.
+/// /// processing around 100,000 images takes approximately 1–3 seconds.
 /// pub async fn list_image_directories<R: tauri::Runtime>(
 ///     app: &tauri::AppHandle<R>
 /// ) -> tauri_plugin_android_fs::Result<HashSet<ImageDirectory>> {
@@ -259,8 +259,7 @@ use super::*;
 /// 
 /// /// Lists the images in a directory, sorted and paginated.
 /// /// 
-/// /// `directory_id` is the MediaStore "parent" column, 
-/// /// i.e., the `id` of an [`ImageDirectory`] returned by [`list_image_directories`].
+/// /// `directory_id` is `id` of an `ImageDirectory` returned by `list_image_directories`.
 /// pub async fn list_image_files_in_directory<R: tauri::Runtime>(
 ///     directory_id: i64,
 ///     sort_key: ImageFileSortKey,
@@ -371,9 +370,9 @@ use super::*;
 ///     // File data can be retrieved using the general Android FS API.
 ///     {
 ///         let file: std::fs::File = fs.open_file_readable(uri).await?;
-///         let name = fs.get_name(&uri).await?;
-///         let mime_type = fs.get_mime_type(&uri).await?;
-///         let size = fs.get_len(&uri).await?;
+///         let name = fs.get_name(uri).await?;
+///         let mime_type = fs.get_mime_type(uri).await?;
+///         let size = fs.get_len(uri).await?;
 ///         let thumbnail = fs.get_thumbnail(uri, Size { width: 500, height: 500 }, ImageFormat::Webp).await?;
 ///     }
 /// 
@@ -467,7 +466,7 @@ impl<'a, R: tauri::Runtime> MediaStore<'a, R> {
     /// - **Audio**: `media_store_audio_read_permission`
     /// 
     /// Each of these features guarantees that the app can access at least the corresponding media type. 
-    /// Note, however, that on Android 12 (API level 31) or lower,
+    /// Note, however, that on Android 12L (API level 32) or lower,
     /// enabling just one of these features is enough to gain access to all media types, 
     /// because the legacy `READ_EXTERNAL_STORAGE` permission which covers every media and non media type 
     /// is used instead of the granular media permissions.
@@ -477,8 +476,8 @@ impl<'a, R: tauri::Runtime> MediaStore<'a, R> {
     /// for the specified permissions.
     /// 
     /// - `Granted`:
-    /// The permission has been granted, but the level of access depends on the current state
-    ///  With "full access", all files of the target media can be accessed, 
+    /// The permission has been granted, but the level of access depends on the current state.
+    /// With "full access", all files of the target media can be accessed, 
     /// and requesting the permission again does not display a prompt. 
     /// With "partial access", only files selected by the user can be accessed,
     /// and requesting the permission again displays a prompt allowing the user to change the selection.
