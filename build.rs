@@ -69,18 +69,53 @@ fn main() {
 
     let permissions = {
         let mut p = Vec::new();
+        let media_store_image_read_permission = std::env::var("CARGO_FEATURE_MEDIA_STORE_IMAGE_READ_PERMISSION").is_ok();
+        let media_store_video_read_permission = std::env::var("CARGO_FEATURE_MEDIA_STORE_VIDEO_READ_PERMISSION").is_ok();
+        let media_store_audio_read_permission = std::env::var("CARGO_FEATURE_MEDIA_STORE_AUDIO_READ_PERMISSION").is_ok();
+        let notification_permission = std::env::var("CARGO_FEATURE_NOTIFICATION_PERMISSION").is_ok();
+        let legacy_storage_permission_include_android_10 = std::env::var("CARGO_FEATURE_LEGACY_STORAGE_PERMISSION_INCLUDE_ANDROID_10").is_ok();
+        let legacy_storage_permission = std::env::var("CARGO_FEATURE_LEGACY_STORAGE_PERMISSION").is_ok();
 
-        if std::env::var("CARGO_FEATURE_NOTIFICATION_PERMISSION").is_ok() {
+        let read_media_store =
+            media_store_image_read_permission ||
+            media_store_video_read_permission ||
+            media_store_audio_read_permission;
+
+        if notification_permission {
             p.push(r#"<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />"#);
         }
 
-        if std::env::var("CARGO_FEATURE_LEGACY_STORAGE_PERMISSION_INCLUDE_ANDROID_10").is_ok() {
+        if legacy_storage_permission_include_android_10 {
             p.push(r#"<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />"#);
+        }
+	    else if legacy_storage_permission {
+            p.push(r#"<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />"#);
+        }
+
+        if read_media_store {
+            p.push(r#"<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />"#);
+        }
+        else if legacy_storage_permission_include_android_10 {
             p.push(r#"<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" />"#);
         }
-	    else if std::env::var("CARGO_FEATURE_LEGACY_STORAGE_PERMISSION").is_ok() {
-            p.push(r#"<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />"#);
+        else if legacy_storage_permission {
             p.push(r#"<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="28" />"#);
+        }
+        
+        if media_store_image_read_permission {
+            p.push(r#"<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />"#);
+        }
+
+        if media_store_video_read_permission {
+            p.push(r#"<uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />"#);
+        }
+
+        if media_store_audio_read_permission {
+            p.push(r#"<uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />"#);
+        }
+
+        if read_media_store {
+            p.push(r#"<uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />"#);
         }
 
         p

@@ -10,7 +10,7 @@ pub trait CustomFileProvider: Send + Sync + 'static {
     
     /// Opens the custom file represented by the specified logical path.
     ///
-    /// Returns an error if the specified mode is not supported.
+    /// Returns an error with [`std::io::ErrorKind::Unsupported`] if the specified mode is not supported.
     /// See the documentation for each [`FileAccessMode`] variant
     /// for the definition and the behaviors.
     /// In particular,
@@ -21,6 +21,10 @@ pub trait CustomFileProvider: Send + Sync + 'static {
     /// [`FileAccessMode::Write`] does not prescribe whether the file should be truncated.
     /// However, for consistency with common conventions,
     /// it is strongly recommended to truncate the file and treat it the same as [`FileAccessMode::WriteTruncate`].
+    /// 
+    /// If the specified Custom File does not exist,
+    /// return an error with [`std::io::ErrorKind::NotFound`].
+    /// If the operation fails, return the resulting error.
     /// 
     /// # Invocation Context
     /// In this plugin, this function is executed on the caller's Java thread or the Android Binder thread.

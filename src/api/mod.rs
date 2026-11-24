@@ -4,12 +4,14 @@ mod impls;
 mod android_fs;
 mod opener;
 mod picker;
+mod media_store;
 mod app_storage;
 mod private_storage;
 mod public_storage;
 mod notification;
 mod progress_notification_guard;
 mod simple_custom_file_provider;
+mod helper;
 
 pub(crate) mod models;
 pub(crate) mod consts;
@@ -28,6 +30,8 @@ pub mod api_async {
     pub use crate::api::public_storage::AsyncPublicStorage as PublicStorage;
     pub use crate::api::notification::AsyncNotifications as Notifications;
     pub use crate::api::progress_notification_guard::AsyncProgressNotificationGuard as ProgressNotificationGuard;
+    pub use crate::api::media_store::AsyncMediaStore as MediaStore;
+    pub use crate::api::helper::AsyncHelper as Helper;
 }
 
 pub mod api_sync {
@@ -39,4 +43,6 @@ pub mod api_sync {
     pub use crate::api::public_storage::SyncPublicStorage as PublicStorage;
     pub use crate::api::notification::SyncNotifications as Notifications;
     pub use crate::api::progress_notification_guard::SyncProgressNotificationGuard as ProgressNotificationGuard;
+    pub use crate::api::media_store::SyncMediaStore as MediaStore;
+    pub use crate::api::helper::SyncHelper as Helper;
 }

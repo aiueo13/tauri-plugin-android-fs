@@ -168,6 +168,222 @@ impl<'a, R: tauri::Runtime> Impls<'a, R> {
         )
     }
 
+     #[maybe_async]
+    pub fn open_app_settings(&self) -> Result<()> {
+        self.invoke::<()>("openAppSettings", ())
+            .await
+            .map_err(Into::into)
+    }
+
+    #[maybe_async]
+    pub fn show_open_app_settings_dialog(
+        &self,
+        message: &str,
+        open_button_label: &str,
+    ) -> Result<()> {
+
+        self.invoke::<()>("showOpenAppSettingsDialog", serde_json::json!({
+                "message": message,
+                "openButtonLabel": open_button_label,
+            }))
+            .await
+            .map_err(Into::into)
+    }
+
+    #[maybe_async]
+    pub fn request_read_media_store_permission(
+        &self,
+        permission: MediaStoreReadPermissionType
+    ) -> Result<MediaStoreReadPermissionState> {
+
+        impl_de!(struct Res {
+            granted: bool,
+            prompted: bool,
+            permanently_denied: bool,
+        });
+
+        let result = self
+            .invoke::<Res>("requestReadMediaStorePermission", serde_json::json!({
+                "permission": permission
+            }))
+            .await?;
+
+        if result.prompted {
+            // show_pick_file_dialog 内のコメントを参照
+            sleep(std::time::Duration::from_millis(200)).await;
+        }
+
+        if result.granted {
+            Ok(MediaStoreReadPermissionState::Granted)
+        }
+        else if result.permanently_denied {
+            Ok(MediaStoreReadPermissionState::PermanentlyDenied)
+        }
+        else {
+            Ok(MediaStoreReadPermissionState::Denied)
+        }
+    }
+
+    #[maybe_async]
+    pub fn check_read_media_store_permission(
+        &self,
+        permission: MediaStoreReadPermissionType
+    ) -> Result<bool> {
+
+        impl_de!(struct Res {
+            granted: bool,
+        });
+
+        let result = self
+            .invoke::<Res>("checkReadMediaStorePermission", serde_json::json!({
+                "permission": permission
+            }))
+            .await?;
+
+        Ok(result.granted)
+    }
+
+    #[maybe_async]
+    pub fn check_partial_read_media_store_permission(
+        &self,
+        permission: MediaStoreReadPermissionType
+    ) -> Result<bool> {
+
+        impl_de!(struct Res {
+            granted: bool,
+        });
+
+        let result = self
+            .invoke::<Res>("checkPartialReadMediaStorePermission", serde_json::json!({
+                "permission": permission
+            }))
+            .await?;
+
+        Ok(result.granted)
+    }
+
+    #[maybe_async]
+    pub fn query_media_store_file(
+        &self,
+        uri: &FsUri,
+        projection: &[MediaStoreColumn<'_>],
+    ) -> Result<MediaStoreQueriedFile> {
+
+        impl_de!(struct Res {
+            column_values: Vec<serde_json::Value>,
+        });
+
+        let (column_names_and_types, column_min_api_levels): (Vec<_>, Vec<_>) = projection.into_iter()
+            .map(|c| ((c.name().to_string(), c.type_name().to_string()), c.min_api_level()))
+            .unzip();
+        let (column_names, column_types): (Vec<_>, Vec<_>) = column_names_and_types.into_iter().unzip();
+
+        self.invoke::<Res>("queryMediaStoreFile", serde_json::json!({
+                "uri": uri,
+                "columnTypes": column_types,
+                "columnNames": column_names,
+                "columnMinApiLevels": column_min_api_levels,
+            }))
+            .await
+            .map(|item| MediaStoreQueriedFile {
+                column_values: item.column_values,
+                uri: uri.clone(),
+            })
+            .map_err(Into::into)
+    }
+
+    #[maybe_async]
+    pub fn query_media_store_files(
+        &self,
+        table: MediaStoreTable,
+        projection: &[MediaStoreColumn<'_>],
+        volume: Option<MediaStoreStorageVolume<'_>>,
+        selection: Option<&str>,
+        selection_args: Option<&[String]>,
+        sort_columns: Option<&[String]>,
+        sort_direction: Option<SortDirection>,
+        offset: Option<u64>,
+        limit: Option<u64>,
+        match_pending: Option<MediaStoreMatchMode>,
+        match_favorite: Option<MediaStoreMatchMode>,
+        match_trashed: Option<MediaStoreMatchMode>
+    ) -> Result<Vec<MediaStoreQueriedFile>> {
+
+        impl_de!(struct Res {
+            items: Vec<Item>,
+            collection_uri: String,
+        });
+        impl_de!(struct Item {
+            // column_values
+            // None の際は空の Vec として扱う
+            c: Option<Vec<serde_json::Value>>,
+            // id
+            i: i64,
+        });
+
+        let (column_names_and_types, column_min_api_levels): (Vec<_>, Vec<_>) = projection.into_iter()
+            .map(|c| ((c.name().to_string(), c.type_name().to_string()), c.min_api_level()))
+            .unzip();
+        let (column_names, column_types): (Vec<_>, Vec<_>) = column_names_and_types.into_iter().unzip();
+
+        // int 範囲外の offset は空の Vec を返す。
+        if offset.map(i32::try_from).transpose().is_err() {
+            return Ok(Vec::new())
+        }
+
+        // int 範囲外の limit はクランプする。
+        let limit = limit.map(|l| {
+            i32::try_from(l).unwrap_or(i32::MAX)
+        });
+
+        let result = self.invoke::<Res>("queryMediaStoreFiles", serde_json::json!({
+            "table": table.as_str_for_cmd_arg(),
+            "volume": volume.unwrap_or(MediaStoreStorageVolume::All).as_str_for_cmd_arg(),
+            "columnTypes": column_types,
+            "columnNames": column_names,
+            "columnMinApiLevels": column_min_api_levels,
+            "selection": selection,
+            "selectionArgs": selection_args.unwrap_or_default(),
+            "sortColumns": sort_columns.unwrap_or_default(),
+            "sortDirectionIsDesc": sort_direction.map(|s| s.is_desc()),
+            "offset": offset,
+            "limit": limit,
+            "match_pending": match_pending,
+            "match_favorite": match_favorite,
+            "match_trashed": match_trashed,
+        })).await?;
+
+        let collection_uri = result.collection_uri.trim_end_matches("/");
+        let items = result.items
+            .into_iter()
+            .map(|i| MediaStoreQueriedFile {
+                column_values: i.c.unwrap_or_default(),
+                uri: FsUri::from_uri(format!("{}/{}", collection_uri, i.i))
+            })
+            .collect();
+
+        Ok(items)
+    }
+
+    #[maybe_async]
+    pub fn get_available_storage_volumes_for_media_store(&self) -> Result<Vec<StorageVolume>> {
+        let volumes = self
+            .get_available_storage_volumes()
+            .await?
+            .into_iter()
+            .filter(|v| v.is_available_for_media_store)
+            .collect::<Vec<_>>();
+
+        Ok(volumes)
+    }
+
+    #[maybe_async]
+    pub fn get_primary_storage_volume_if_available_for_media_store(&self) -> Result<Option<StorageVolume>> {
+        self.get_primary_storage_volume_if_available()
+            .await
+            .map(|v| v.filter(|v| v.is_available_for_media_store))
+    }
+
     #[maybe_async]
     pub fn get_entry_name(&self, uri: &FsUri) -> Result<String> {
         impl_se!(struct Req<'a> {

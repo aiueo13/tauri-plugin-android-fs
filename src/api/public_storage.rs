@@ -113,8 +113,7 @@ pub struct PublicStorage<'a, R: tauri::Runtime> {
     pub(crate) handle: &'a tauri::plugin::PluginHandle<R>,
 
     #[cfg(not(target_os = "android"))]
-    #[allow(unused)]
-    pub(crate) handle: &'a std::marker::PhantomData<fn() -> R>,
+    pub(crate) handle: &'a tauri::AppHandle<R>,
 }
 
 #[cfg(target_os = "android")]
@@ -289,7 +288,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// After writing content to the file, call [`PublicStorage::scan`].  
     /// Until then, the file may not appear in the gallery or other apps.
     /// 
-    /// # Args
+    /// # Parameters
     /// - ***volume_id*** :  
     /// The ID of the storage volume, such as internal storage or an SD card.  
     /// Usually, you don't need to specify this unless there is a special reason.  
@@ -381,7 +380,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// After writing content to the file, call [`PublicStorage::scan`].  
     /// Until then, the file may not appear in the gallery or other apps.
     /// 
-    /// # Args
+    /// # Parameters
     /// - ***volume_id*** :  
     /// The ID of the storage volume, such as internal storage or an SD card.  
     /// Usually, you don't need to specify this unless there is a special reason.  
@@ -458,7 +457,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     ///     By calling [`PublicStorage::request_permission`],
     ///     you can request the permissions from the user at runtime.  
     ///
-    /// # Args  
+    /// # Parameters  
     /// - ***volume_id*** :  
     /// ID of the storage volume, such as internal storage, SD card, etc.  
     /// If `None` is provided, [`the primary storage volume`](PublicStorage::get_primary_volume) will be used.  
@@ -515,7 +514,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     ///     By calling [`PublicStorage::request_permission`],
     ///     you can request the permissions from the user at runtime.  
     ///
-    /// # Args
+    /// # Parameters
     /// - ***volume_id*** :  
     /// The ID of the storage volume, such as internal storage or an SD card.  
     /// Usually, you don't need to specify this unless there is a special reason.  
@@ -590,7 +589,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// Requests the specified file to be scanned by MediaStore.  
     /// This function returns when the scan request has been initiated.   
     /// 
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :  
     /// The target file URI.
     /// This must be a URI obtained from one of the following:  
@@ -622,7 +621,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// Unlike [`PublicStorage::scan`], 
     /// this function waits until the scan is complete and then returns either success or an error.
     /// 
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :  
     /// Absolute path of the target file.
     /// This must be a path obtained from one of the following:  
@@ -661,7 +660,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// This is available for Android 10 or higher.  
     /// On Android 9 or lower, this does nothing. 
     /// 
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :  
     /// Target file URI.
     /// This must be a URI obtained from one of the following:  
@@ -694,7 +693,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
     /// It involves important constraints and required settings. 
     /// Therefore, **operate files via paths only when it is truly necessary**.
     /// 
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :   
     /// Target file URI.
     /// This must be a URI obtained from one of the following:  
@@ -784,7 +783,7 @@ impl<'a, R: tauri::Runtime> PublicStorage<'a, R> {
 	/// or [`StorageVolume::is_available_for_public_storage`] may not work correctly, 
 	/// as these are intended for access via URIs.
     /// 
-    /// # Args
+    /// # Parameters
     /// - ***volume_id*** :  
     /// ID of the storage volume, such as internal storage, SD card, etc.  
     /// If `None` is provided, [`the primary storage volume`](PublicStorage::get_primary_volume) will be used.  

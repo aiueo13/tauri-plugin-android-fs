@@ -20,8 +20,7 @@ pub struct AppStorage<'a, R: tauri::Runtime> {
     pub(crate) handle: &'a tauri::plugin::PluginHandle<R>,
 
     #[cfg(not(target_os = "android"))]
-    #[allow(unused)]
-    pub(crate) handle: &'a std::marker::PhantomData<fn() -> R>,
+    pub(crate) handle: &'a tauri::AppHandle<R>,
 }
 
 #[cfg(target_os = "android")]
@@ -152,7 +151,7 @@ impl<'a, R: tauri::Runtime> AppStorage<'a, R> {
     /// Instead, use the URI obtained through [`AppStorage::scan_public_media_by_path`] together with methods 
     /// such as [`AndroidFs::rename`] or [`AndroidFs::remove_file`].
     /// 
-    /// # Args
+    /// # Parameters
     /// - ***volume_id*** :  
     /// ID of the storage volume, such as internal storage, SD card, etc.  
     /// If `None` is provided, [`the primary storage volume`](AppStorage::get_primary_volume) will be used.  
@@ -196,7 +195,7 @@ impl<'a, R: tauri::Runtime> AppStorage<'a, R> {
     /// Scans the specified file in MediaStore and returns it's URI if success.   
     /// By doing this, the file will be visible in the Gallery and etc.
     ///
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :  
     /// Absolute path of the target file.   
     /// This must be a path obtained from [`AppStorage::resolve_path`] with [`AppDir::PublicMedia`]
@@ -226,7 +225,7 @@ impl<'a, R: tauri::Runtime> AppStorage<'a, R> {
 
     /// Gets the absolute path of the specified file.
     /// 
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :   
     /// Target file URI.
     /// This must be a URI obtained from [`AppStorage::scan_public_media_by_path`].

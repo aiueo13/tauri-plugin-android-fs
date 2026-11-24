@@ -131,8 +131,7 @@ pub struct Picker<'a, R: tauri::Runtime> {
     pub(crate) handle: &'a tauri::plugin::PluginHandle<R>,
 
     #[cfg(not(target_os = "android"))]
-    #[allow(unused)]
-    pub(crate) handle: &'a std::marker::PhantomData<fn() -> R>,
+    pub(crate) handle: &'a tauri::AppHandle<R>,
 }
 
 #[cfg(target_os = "android")]
@@ -166,7 +165,7 @@ impl<'a, R: tauri::Runtime> Picker<'a, R> {
     /// Removing the returned files is also supported in most cases, 
     /// but note that files provided by third-party apps may not be removable.  
     ///  
-    /// # Args  
+    /// # Parameters  
     /// - ***initial_location*** :  
     /// Indicate the initial location of dialog.  
     /// This URI works even without any permissions.  
@@ -223,7 +222,7 @@ impl<'a, R: tauri::Runtime> Picker<'a, R> {
     /// Removing the returned files is also supported in most cases, 
     /// but note that files provided by third-party apps may not be removable.  
     ///  
-    /// # Args  
+    /// # Parameters  
     /// - ***initial_location*** :  
     /// Indicate the initial location of dialog.  
     /// This URI works even without any permissions.  
@@ -279,7 +278,7 @@ impl<'a, R: tauri::Runtime> Picker<'a, R> {
     /// This media picker provides a gallery, 
     /// sorted by date from newest to oldest. 
     /// 
-    /// # Args  
+    /// # Parameters  
     /// - ***target*** :  
     /// The media type of the file to be selected.  
     /// Images or videos, or both.  
@@ -327,7 +326,7 @@ impl<'a, R: tauri::Runtime> Picker<'a, R> {
     /// This media picker provides a gallery, 
     /// sorted by date from newest to oldest. 
     /// 
-    /// # Args  
+    /// # Parameters  
     /// - ***target*** :  
     /// The media type of the file to be selected.  
     /// Images or videos, or both.  
@@ -377,7 +376,7 @@ impl<'a, R: tauri::Runtime> Picker<'a, R> {
     /// Recent devices often have the similar behaviour as [`Picker::pick_visual_medias`] or [`Picker::pick_files`].  
     /// In older versions, third-party apps often handle request instead.
     /// 
-    /// # Args  
+    /// # Parameters  
     /// - ***mime_types*** :  
     /// The MIME types of the file to be selected.  
     /// However, there is no guarantee that the returned file will match the specified types.  
@@ -412,7 +411,7 @@ impl<'a, R: tauri::Runtime> Picker<'a, R> {
     /// Recent devices often have the similar behaviour as [`Picker::pick_visual_media`] or [`Picker::pick_file`].  
     /// In older versions, third-party apps often handle request instead.
     /// 
-    /// # Args  
+    /// # Parameters  
     /// - ***mime_types*** :  
     /// The MIME types of the file to be selected.  
     /// However, there is no guarantee that the returned file will match the specified types.  
@@ -451,7 +450,7 @@ impl<'a, R: tauri::Runtime> Picker<'a, R> {
     /// This provides a standardized file explorer-style interface,
     /// and also allows directory selection from part of third-party apps or cloud storage.
     /// 
-    /// # Args  
+    /// # Parameters  
     /// - ***initial_location*** :  
     /// Indicate the initial location of dialog.    
     /// This URI works even without any permissions.  
@@ -504,7 +503,7 @@ impl<'a, R: tauri::Runtime> Picker<'a, R> {
     /// Removing and reading the returned files is also supported in most cases, 
     /// but note that files provided by third-party apps may not.  
     ///  
-    /// # Args  
+    /// # Parameters  
     /// - ***initial_location*** :  
     /// Indicate the initial location of dialog.    
     /// This URI works even without any permissions.  
@@ -565,7 +564,7 @@ impl<'a, R: tauri::Runtime> Picker<'a, R> {
     /// This is useful when selecting save location, 
     /// but when selecting existing entries, `initial_location` is often better with None.
     /// 
-    /// # Args  
+    /// # Parameters  
     /// - ***volume_id*** :  
     /// ID of the storage volume, such as internal storage, SD card, etc.  
     /// If `None` is provided, [`the primary storage volume`](PublicStorage::get_primary_volume) will be used.  
@@ -615,7 +614,7 @@ impl<'a, R: tauri::Runtime> Picker<'a, R> {
     /// This is useful when selecting save location, 
     /// but when selecting existing entries, `initial_location` is often better with None.
     /// 
-    /// # Args  
+    /// # Parameters  
     /// - ***volume_id*** :  
     /// ID of the storage volume, such as internal storage, SD card, etc.  
     /// If `None` is provided, [`the primary storage volume`](AndroidFs::get_primary_volume) will be used.  
@@ -649,7 +648,7 @@ impl<'a, R: tauri::Runtime> Picker<'a, R> {
     /// Check a URI permission granted by the file picker.  
     /// Returns false if there are no permissions.
     /// 
-    /// # Args
+    /// # Parameters
     /// - **uri** :  
     /// URI of the target file or directory.  
     ///
@@ -685,7 +684,7 @@ impl<'a, R: tauri::Runtime> Picker<'a, R> {
     /// So check by [`Picker::check_persisted_uri_permission`].  
     /// And you can retrieve the list of persisted uris using [`Picker::get_all_persisted_uri_permissions`].
     /// 
-    /// # Args
+    /// # Parameters
     /// - **uri** :  
     /// URI of the target file or directory.   
     /// This must be a URI taken from following :  
@@ -714,7 +713,7 @@ impl<'a, R: tauri::Runtime> Picker<'a, R> {
     /// Check a persisted URI permission grant by [`Picker::persist_uri_permission`].  
     /// Returns false if there are only non-persistent permissions or no permissions.
     /// 
-    /// # Args
+    /// # Parameters
     /// - **uri** :  
     /// URI of the target file or directory.  
     /// This must be a URI taken from following :  
@@ -770,7 +769,7 @@ impl<'a, R: tauri::Runtime> Picker<'a, R> {
     /// Returns true if a persisted permission exists for the specified URI and was successfully released; 
     /// otherwise, returns false if no persisted permission existed in the first place.
     /// 
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :  
     /// URI of the target file or directory.  
     ///

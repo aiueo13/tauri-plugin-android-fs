@@ -895,7 +895,7 @@ export const PublicAudioDir = Object.freeze({
 	Music: "Music",
 
 	/**
-	 * Standard directory for user-accessible alams (not as regular music).
+	 * Standard directory for user-accessible alarms (not as regular music).
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.
@@ -1051,7 +1051,7 @@ export const PublicDir = Object.freeze({
 	Music: "Music",
 
 	/**
-	 * Standard directory for user-accessible alams (not as regular music).
+	 * Standard directory for user-accessible alarms (not as regular music).
 	 *
 	 * @remarks
 	 * This is a subdirectory under the user-visible top-level directory of the storage volume.

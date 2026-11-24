@@ -3,16 +3,20 @@ package okayu.tauri.plugin.android.fs
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.os.Process
 import android.os.storage.StorageManager
 import android.provider.DocumentsContract
 import android.provider.MediaStore
+import android.provider.Settings
 import android.util.Base64
 import android.util.Size
 import android.webkit.WebView
@@ -20,7 +24,9 @@ import androidx.activity.result.ActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia
 import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
+import androidx.core.app.ActivityCompat
 import androidx.core.app.ShareCompat
+import androidx.core.content.ContextCompat
 import app.tauri.Logger
 import app.tauri.PermissionState
 import app.tauri.annotation.ActivityCallback
@@ -33,6 +39,7 @@ import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSArray
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -55,6 +62,20 @@ class ReadDirEntryOptions(
     val len: Boolean = false,
 )
 
+@InvokeArg
+enum class ReadMediaStorePermissionType {
+    Image,
+    Video,
+    ImageAndVideo,
+    Audio,
+}
+
+@InvokeArg
+enum class QueryMatchType {
+    Include,
+    Exclude,
+    Only,
+}
 
 const val LOG_TAG_FOR_ROOT = "TauriPluginAndroidFs"
 const val LOG_TAG_FOR_CUSTOM_FILE_PROVIDER = "TauriPluginAndroidFs:CustomFileProvider"
@@ -62,22 +83,52 @@ const val LOG_TAG_FOR_CUSTOM_FILE_CALLBACK = "TauriPluginAndroidFs:CustomFileCal
 
 val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-private const val ALIAS_LEGACY_WRITE_STORAGE_PERMISSION = "WRITE_EXTERNAL_STORAGE_MAX"
-private const val ALIAS_LEGACY_READ_STORAGE_PERMISSION = "READ_EXTERNAL_STORAGE_MAX"
+private const val ALIAS_WRITE_EXTERNAL_STORAGE_PERMISSION = "WRITE_EXTERNAL_STORAGE_MAX"
+private const val ALIAS_READ_EXTERNAL_STORAGE_PERMISSION = "READ_EXTERNAL_STORAGE_MAX"
 private const val ALIAS_NOTIFICATION_PERMISSION = "NOTIFICATION_STORAGE"
+private const val ALIAS_READ_MEDIA_IMAGES = "TPAFS_READ_MEDIA_IMAGES"
+private const val ALIAS_READ_MEDIA_VIDEO = "TPAFS_READ_MEDIA_VIDEO"
+private const val ALIAS_READ_MEDIA_AUDIO = "TPAFS_READ_MEDIA_AUDIO"
+private const val ALIAS_READ_MEDIA_VISUAL_USER_SELECTED = "TPAFS_READ_MEDIA_VISUAL_USER_SELECTED"
+
+private val ALIAS_TO_PERMISSION = mapOf(
+    ALIAS_WRITE_EXTERNAL_STORAGE_PERMISSION to Manifest.permission.WRITE_EXTERNAL_STORAGE,
+    ALIAS_READ_EXTERNAL_STORAGE_PERMISSION to Manifest.permission.READ_EXTERNAL_STORAGE,
+    ALIAS_NOTIFICATION_PERMISSION to "android.permission.POST_NOTIFICATIONS",
+    ALIAS_READ_MEDIA_IMAGES to "android.permission.READ_MEDIA_IMAGES",
+    ALIAS_READ_MEDIA_VIDEO to "android.permission.READ_MEDIA_VIDEO",
+    ALIAS_READ_MEDIA_AUDIO to  "android.permission.READ_MEDIA_AUDIO",
+    ALIAS_READ_MEDIA_VISUAL_USER_SELECTED to "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+)
 
 @TauriPlugin(
     permissions = [
         Permission(
+            strings = ["android.permission.READ_MEDIA_IMAGES"],
+            alias = ALIAS_READ_MEDIA_IMAGES
+        ),
+        Permission(
+            strings = ["android.permission.READ_MEDIA_VIDEO"],
+            alias = ALIAS_READ_MEDIA_VIDEO
+        ),
+        Permission(
+            strings = ["android.permission.READ_MEDIA_AUDIO"],
+            alias = ALIAS_READ_MEDIA_AUDIO
+        ),
+        Permission(
+            strings = ["android.permission.READ_MEDIA_VISUAL_USER_SELECTED"],
+            alias = ALIAS_READ_MEDIA_VISUAL_USER_SELECTED
+        ),
+        Permission(
             strings = [Manifest.permission.WRITE_EXTERNAL_STORAGE],
-            alias = ALIAS_LEGACY_WRITE_STORAGE_PERMISSION
+            alias = ALIAS_WRITE_EXTERNAL_STORAGE_PERMISSION
         ),
         Permission(
             strings = [Manifest.permission.READ_EXTERNAL_STORAGE],
-            alias = ALIAS_LEGACY_READ_STORAGE_PERMISSION
+            alias = ALIAS_READ_EXTERNAL_STORAGE_PERMISSION
         ),
         Permission(
-            // Android 33 以上でないと使えないのでハードコーディングする
+            // Android 33 以上でないと const が使えないのでハードコーディングする
             strings = ["android.permission.POST_NOTIFICATIONS"],
             alias = ALIAS_NOTIFICATION_PERMISSION
         )
@@ -144,7 +195,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun template(invoke: Invoke) {
         @InvokeArg
         class Args {
-
+            lateinit var uri: AFUri
         }
 
         scope.launch {
@@ -266,21 +317,21 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun requestLegacyStoragePermission(invoke: Invoke) {
         scope.launch {
             try {
-                val writeGranted = when (getPermissionState(ALIAS_LEGACY_WRITE_STORAGE_PERMISSION)) {
+                val writeGranted = when (getPermissionState(ALIAS_WRITE_EXTERNAL_STORAGE_PERMISSION)) {
                     PermissionState.GRANTED -> true
                     else -> false
                 }
-                val readGranted = when (getPermissionState(ALIAS_LEGACY_READ_STORAGE_PERMISSION)) {
+                val readGranted = when (getPermissionState(ALIAS_READ_EXTERNAL_STORAGE_PERMISSION)) {
                     PermissionState.GRANTED -> true
                     else -> false
                 }
 
                 val permissions = mutableListOf<String>()
                 if (!writeGranted) {
-                    permissions.add(ALIAS_LEGACY_WRITE_STORAGE_PERMISSION)
+                    permissions.add(ALIAS_WRITE_EXTERNAL_STORAGE_PERMISSION)
                 }
                 if (!readGranted) {
-                    permissions.add(ALIAS_LEGACY_READ_STORAGE_PERMISSION)
+                    permissions.add(ALIAS_READ_EXTERNAL_STORAGE_PERMISSION)
                 }
 
                 if (permissions.isEmpty()) {
@@ -306,11 +357,11 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     @PermissionCallback
     fun handleRequestLegacyStoragePermission(invoke: Invoke) {
         try {
-            val writeGranted = when (getPermissionState(ALIAS_LEGACY_WRITE_STORAGE_PERMISSION)) {
+            val writeGranted = when (getPermissionState(ALIAS_WRITE_EXTERNAL_STORAGE_PERMISSION)) {
                 PermissionState.GRANTED -> true
                 else -> false
             }
-            val readGranted = when (getPermissionState(ALIAS_LEGACY_READ_STORAGE_PERMISSION)) {
+            val readGranted = when (getPermissionState(ALIAS_READ_EXTERNAL_STORAGE_PERMISSION)) {
                 PermissionState.GRANTED -> true
                 else -> false
             }
@@ -329,11 +380,11 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     fun checkLegacyStoragePermission(invoke: Invoke) {
         scope.launch {
             try {
-                val writeGranted = when (getPermissionState(ALIAS_LEGACY_WRITE_STORAGE_PERMISSION)) {
+                val writeGranted = when (getPermissionState(ALIAS_WRITE_EXTERNAL_STORAGE_PERMISSION)) {
                     PermissionState.GRANTED -> true
                     else -> false
                 }
-                val readGranted = when (getPermissionState(ALIAS_LEGACY_READ_STORAGE_PERMISSION)) {
+                val readGranted = when (getPermissionState(ALIAS_READ_EXTERNAL_STORAGE_PERMISSION)) {
                     PermissionState.GRANTED -> true
                     else -> false
                 }
@@ -1281,6 +1332,443 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
+    fun showOpenAppSettingsDialog(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var message: String
+            lateinit var openButtonLabel: String
+        }
+
+        try {
+            val args = invoke.parseArgs(Args::class.java)
+
+            Handler(Looper.getMainLooper()).post {
+                val openAppSettings = {
+                    try {
+                        activity.startActivity(Intent(
+                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.parse("package:${activity.packageName}")
+                        ).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        })
+                    }
+                    catch (e: Exception) {
+                        Logger.error(LOG_TAG_FOR_ROOT, "showOpenAppSettingsDialog: ${e.message}", null)
+                    }
+                }
+
+                try {
+                    MaterialAlertDialogBuilder(activity)
+                        .setMessage(args.message)
+                        .setPositiveButton(args.openButtonLabel) { _, _ -> openAppSettings() }
+                        .show()
+                }
+                catch (ignore: Exception) {
+                    AlertDialog.Builder(activity)
+                        .setMessage(args.message)
+                        .setPositiveButton(args.openButtonLabel) { _, _ -> openAppSettings()}
+                        .show()
+                }
+            }
+
+            invoke.resolve()
+        }
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "unknown error")
+        }
+    }
+
+    @Command
+    fun openAppSettings(invoke: Invoke) {
+        try {
+            activity.startActivity(Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.parse("package:${activity.packageName}")
+            ).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
+            invoke.resolve()
+        }
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "unknown error")
+        }
+    }
+
+    @Command
+    fun requestReadMediaStorePermission(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var permission: ReadMediaStorePermissionType
+        }
+
+        val callbackName = "callbackForRequestReadMediaStorePermission"
+
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+
+                if (Build.VERSION_CODES.TIRAMISU <= Build.VERSION.SDK_INT) {
+                    // 写真や動画のフルアクセスを意味する READ_MEDIA_IMAGES や READ_MEDIA_VIDEO が有効でなく
+                    // 写真や動画の部分アクセスを意味する READ_MEDIA_VISUAL_USER_SELECTED のみが有効である場合、
+                    // 権限リクエストを飛ばさずに行う。
+                    // これは部分アクセスを編集できるようにするためである。
+
+                    var isAudio = false
+                    val permissions = when (args.permission) {
+                        ReadMediaStorePermissionType.Image -> mutableListOf(ALIAS_READ_MEDIA_IMAGES)
+                        ReadMediaStorePermissionType.Video -> mutableListOf(ALIAS_READ_MEDIA_VIDEO)
+                        ReadMediaStorePermissionType.ImageAndVideo -> mutableListOf(ALIAS_READ_MEDIA_IMAGES, ALIAS_READ_MEDIA_VIDEO)
+                        ReadMediaStorePermissionType.Audio -> {
+                            isAudio = true
+                            mutableListOf(ALIAS_READ_MEDIA_AUDIO)
+                        }
+                    }
+
+                    val allGranted = permissions.all {
+                        ContextCompat.checkSelfPermission(activity, ALIAS_TO_PERMISSION[it]!!) == PackageManager.PERMISSION_GRANTED
+                    }
+
+                    if (allGranted) {
+                        invoke.resolve(JSObject().apply {
+                            put("granted", true)
+                            put("permanentlyDenied", false)
+                            put("prompted", false)
+                        })
+                    }
+                    else {
+                        if (!isAudio && Build.VERSION_CODES.UPSIDE_DOWN_CAKE <= Build.VERSION.SDK_INT) {
+                            permissions.add(ALIAS_READ_MEDIA_VISUAL_USER_SELECTED)
+                        }
+                        
+                        requestPermissionForAliases(permissions.toTypedArray(), invoke, callbackName)
+                    }
+                }
+                else {
+                    val alias = ALIAS_READ_EXTERNAL_STORAGE_PERMISSION
+                    if (ContextCompat.checkSelfPermission(activity, ALIAS_TO_PERMISSION[alias]!!) == PackageManager.PERMISSION_GRANTED) {
+                        invoke.resolve(JSObject().apply {
+                            put("granted", true)
+                            put("permanentlyDenied", false)
+                            put("prompted", false)
+                        })
+                    }
+                    else {
+                        requestPermissionForAliases(arrayOf(alias), invoke, callbackName)
+                    }
+                }
+            }
+            catch (e: Exception) {
+                invoke.reject(e.message ?: "unknown error")
+            }
+        }
+    }
+
+    @PermissionCallback
+    fun callbackForRequestReadMediaStorePermission(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var permission: ReadMediaStorePermissionType
+        }
+
+        try {
+            val args = invoke.parseArgs(Args::class.java)
+            val granted = isReadMediaStorePermissionGranted(args.permission)
+
+            var permanentlyDenied = false
+            if (!granted) {
+                val permissions = if (Build.VERSION_CODES.TIRAMISU <= Build.VERSION.SDK_INT) {
+                    var isAudio = false
+                    val permissions = when (args.permission) {
+                        ReadMediaStorePermissionType.Image -> mutableListOf(Manifest.permission.READ_MEDIA_IMAGES)
+                        ReadMediaStorePermissionType.Video -> mutableListOf(Manifest.permission.READ_MEDIA_VIDEO)
+                        ReadMediaStorePermissionType.ImageAndVideo -> mutableListOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
+                        ReadMediaStorePermissionType.Audio -> {
+                            isAudio = true
+                            mutableListOf(Manifest.permission.READ_MEDIA_AUDIO)
+                        }
+                    }
+
+                    if (!isAudio && Build.VERSION_CODES.UPSIDE_DOWN_CAKE <= Build.VERSION.SDK_INT) {
+                        permissions.add(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
+                    }
+
+                    permissions
+                }
+                else {
+                    mutableListOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+                }
+
+                for (permission in permissions) {
+                    // 一度権限要求が呼び出された後に rational が false になるのは永続拒否されたということ
+                    // https://developers.cyberagent.co.jp/blog/archives/62370/
+                    if(!ActivityCompat.shouldShowRequestPermissionRationale(activity, permission)) {
+                        permanentlyDenied = true
+                        break
+                    }
+                }
+            }
+
+            invoke.resolve(JSObject().apply {
+                put("granted", granted)
+                put("permanentlyDenied", permanentlyDenied)
+                put("prompted", true)
+            })
+        }
+        catch (e: Exception) {
+            invoke.reject(e.message ?: "unknown error: $e")
+        }
+    }
+
+    @Command
+    fun checkReadMediaStorePermission(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var permission: ReadMediaStorePermissionType
+        }
+
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+                val granted = isReadMediaStorePermissionGranted(args.permission)
+                invoke.resolve(JSObject().apply {
+                    put("granted", granted)
+                })
+            }
+            catch (e: Exception) {
+                invoke.reject(e.message ?: "unknown error: $e")
+            }
+        }
+    }
+
+    @Command
+    fun checkPartialReadMediaStorePermission(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var permission: ReadMediaStorePermissionType
+        }
+
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+
+                val partialPermissionGranted = if (
+                    args.permission != ReadMediaStorePermissionType.Audio &&
+                    Build.VERSION_CODES.UPSIDE_DOWN_CAKE <= Build.VERSION.SDK_INT
+                ) {
+                    val fullyAccessPermissionAliases = when (args.permission) {
+                        ReadMediaStorePermissionType.Image -> arrayOf(ALIAS_READ_MEDIA_IMAGES)
+                        ReadMediaStorePermissionType.Video -> arrayOf(ALIAS_READ_MEDIA_VIDEO)
+                        ReadMediaStorePermissionType.ImageAndVideo -> arrayOf(ALIAS_READ_MEDIA_IMAGES, ALIAS_READ_MEDIA_VIDEO)
+                        ReadMediaStorePermissionType.Audio -> arrayOf(ALIAS_READ_MEDIA_AUDIO)
+                    }
+
+                    val fullyAccessGranted = fullyAccessPermissionAliases.all {
+                        ContextCompat.checkSelfPermission(activity, ALIAS_TO_PERMISSION[it]!!) == PackageManager.PERMISSION_GRANTED
+                    }
+                    val selectedAccessGranted = ContextCompat.checkSelfPermission(activity, ALIAS_TO_PERMISSION[ALIAS_READ_MEDIA_VISUAL_USER_SELECTED]!!) == PackageManager.PERMISSION_GRANTED
+
+                    !fullyAccessGranted && selectedAccessGranted
+                }
+                else {
+                    false
+                }
+
+                invoke.resolve(JSObject().apply {
+                    put("granted", partialPermissionGranted)
+                })
+            }
+            catch (e: Exception) {
+                invoke.reject(e.message ?: "unknown error: $e")
+            }
+        }
+    }
+
+    private fun isReadMediaStorePermissionGranted(permission: ReadMediaStorePermissionType): Boolean {
+        return if (Build.VERSION_CODES.TIRAMISU <= Build.VERSION.SDK_INT) {
+            var isAudio = false
+            val permissions = when (permission) {
+                ReadMediaStorePermissionType.Image -> mutableListOf(ALIAS_READ_MEDIA_IMAGES)
+                ReadMediaStorePermissionType.Video -> mutableListOf(ALIAS_READ_MEDIA_VIDEO)
+                ReadMediaStorePermissionType.ImageAndVideo -> mutableListOf(ALIAS_READ_MEDIA_IMAGES, ALIAS_READ_MEDIA_VIDEO)
+                ReadMediaStorePermissionType.Audio -> {
+                    isAudio = true
+                    mutableListOf(ALIAS_READ_MEDIA_AUDIO)
+                }
+            }
+
+            if (!isAudio && Build.VERSION_CODES.UPSIDE_DOWN_CAKE <= Build.VERSION.SDK_INT) {
+                permissions.add(ALIAS_READ_MEDIA_VISUAL_USER_SELECTED)
+            }
+
+            permissions.any {
+                ContextCompat.checkSelfPermission(activity, ALIAS_TO_PERMISSION[it]!!) == PackageManager.PERMISSION_GRANTED
+            }
+        }
+        else {
+            ContextCompat.checkSelfPermission(activity, ALIAS_TO_PERMISSION[ALIAS_READ_EXTERNAL_STORAGE_PERMISSION]!!) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    @Command
+    fun queryMediaStoreFiles(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var table: String
+            lateinit var volume: String
+            lateinit var columnTypes: Array<String>
+            lateinit var columnNames: Array<String>
+            lateinit var columnMinApiLevels: Array<Int>
+            var selection: String? = null
+            lateinit var selectionArgs: Array<String>
+            lateinit var sortColumns: Array<String>
+            var sortDirectionIsDesc: Boolean? = null
+            var offset: Int? = null
+            var limit: Int? = null
+            var matchFavorite: QueryMatchType? = null
+            var matchPending: QueryMatchType? = null
+            var matchTrashed: QueryMatchType? = null
+        }
+
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+
+                val parseQueryMatchType = { t: QueryMatchType? ->
+                    if (t != null && Build.VERSION_CODES.R <= Build.VERSION.SDK_INT) {
+                        when (t) {
+                            QueryMatchType.Include -> MediaStore.MATCH_INCLUDE
+                            QueryMatchType.Exclude -> MediaStore.MATCH_EXCLUDE
+                            QueryMatchType.Only -> MediaStore.MATCH_ONLY
+                        }
+                    }
+                    else {
+                        null
+                    }
+                }
+
+                val items = JSArray()
+                val collectionUri = AFMediaStoreQuery.queryMediaStoreFiles(
+                    table = when (args.table.lowercase()) {
+                        "image" -> AFMediaStoreQuery.Table.Image
+                        "video" -> AFMediaStoreQuery.Table.Video
+                        "audio" -> AFMediaStoreQuery.Table.Audio
+                        "file" -> AFMediaStoreQuery.Table.File
+                        "download" -> AFMediaStoreQuery.Table.Download
+                        else -> throw IllegalArgumentException("invalid table: ${args.table}")
+                    },
+                    volume = when {
+                        args.volume == "all" -> AFMediaStoreQuery.StorageVolume.External
+                        args.volume == "primary" -> AFMediaStoreQuery.StorageVolume.ExternalPrimary
+                        args.volume.startsWith("specific:") -> {
+                            val volumeName = args.volume.removePrefix("specific:")
+                            AFMediaStoreQuery.StorageVolume.Specific(volumeName)
+                        }
+                        else -> throw IllegalArgumentException("invalid volume: ${args.volume}")
+                    },
+                    columns = args.columnTypes.zip(args.columnNames).zip(args.columnMinApiLevels).map {
+                        val t = it.first
+                        val columnType = t.first
+                        val columnName = t.second
+                        val minApiLevel = it.second
+
+                        // JSObject に put するため以下のいずれかに map する必要がある。
+                        // JSObject, JSArray, String, Boolean, Integer, Long, Double, null
+                        when (columnType.lowercase()) {
+                            "string" -> AFMediaStoreQuery.Column.String(columnName, minApiLevel)
+                            "integer" -> AFMediaStoreQuery.Column.Integer(columnName, minApiLevel)
+                            "float" -> AFMediaStoreQuery.Column.Float(columnName, minApiLevel)
+                            "blob" -> AFMediaStoreQuery.Column.Blob(columnName, minApiLevel) { JSArray(it) }
+                            else -> throw IllegalArgumentException("invalid columnType: ${columnType}")
+                        }
+                    }.toTypedArray(),
+                    selection = args.selection,
+                    selectionArgs = args.selectionArgs,
+                    sortColumns = args.sortColumns,
+                    sortDirectionIsDesc = args.sortDirectionIsDesc,
+                    offset = args.offset,
+                    limit = args.limit,
+                    matchPending = parseQueryMatchType(args.matchPending),
+                    matchFavorite = parseQueryMatchType(args.matchFavorite),
+                    matchTrashed = parseQueryMatchType(args.matchTrashed),
+                    ctx = activity,
+                ) { file ->
+                    items.put(JSObject().apply {
+                        put("i", file.id)
+                        if (file.columnValues.isNotEmpty()) {
+                            put("c", JSArray().apply {
+                                for (columnValue in file.columnValues) {
+                                    put(columnValue)
+                                }
+                            })
+                        }
+                    })
+                }
+
+                invoke.resolve(JSObject().apply {
+                    put("items", items)
+                    put("collectionUri", collectionUri.toString())
+                })
+            }
+            catch (e: Exception) {
+                invoke.reject(e.message ?: "unknown error: $e")
+            }
+        }
+    }
+
+    @Command
+    fun queryMediaStoreFile(invoke: Invoke) {
+        @InvokeArg
+        class Args {
+            lateinit var uri: AFUri
+            lateinit var columnTypes: Array<String>
+            lateinit var columnNames: Array<String>
+            lateinit var columnMinApiLevels: Array<Int>
+        }
+
+        scope.launch {
+            try {
+                val args = invoke.parseArgs(Args::class.java)
+
+                val file = AFMediaStoreQuery.queryMediaStoreFile(
+                    Uri.parse(args.uri.uri),
+                    columns = args.columnTypes.zip(args.columnNames).zip(args.columnMinApiLevels).map {
+                        val t = it.first
+                        val columnType = t.first
+                        val columnName = t.second
+                        val minApiLevel = it.second
+
+                        // JSObject に put するため以下のいずれかに map する必要がある。
+                        // JSObject, JSArray, String, Boolean, Integer, Long, Double, null
+                        when (columnType.lowercase()) {
+                            "string" -> AFMediaStoreQuery.Column.String(columnName, minApiLevel)
+                            "integer" -> AFMediaStoreQuery.Column.Integer(columnName, minApiLevel)
+                            "float" -> AFMediaStoreQuery.Column.Float(columnName, minApiLevel)
+                            "blob" -> AFMediaStoreQuery.Column.Blob(columnName, minApiLevel) { JSArray(it) }
+                            else -> throw IllegalArgumentException("invalid columnType: ${columnType}")
+                        }
+                    }.toTypedArray(),
+                    ctx = activity,
+                ) ?: throw IllegalArgumentException("No file or permission, or unavailable")
+
+                val columnValues = file.let {
+                    JSArray().apply {
+                        for (columnValue in file.columnValues) {
+                            put(columnValue)
+                        }
+                    }
+                }
+
+                invoke.resolve(JSObject().apply {
+                    put("columnValues", columnValues)
+                })
+            }
+            catch (e: Exception) {
+                invoke.reject(e.message ?: "unknown error: $e")
+            }
+        }
+    }
+
+    @Command
     fun getName(invoke: Invoke) {
         @InvokeArg
         class Args {
@@ -1354,10 +1842,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 val args = invoke.parseArgs(Args::class.java)
                 val c = getFileController(args.uri)
 
-                val fd: Int = AFFileDescriptor
-                    .getPfd(Uri.parse(args.uri.uri), "r", activity)
-                    .detachFd()
-
+                val fd: Int = AFFileDescriptor.openDetachedFd(Uri.parse(args.uri.uri), "r", activity)
                 val len: Long? = runCatching { c.getLen(args.uri) }.getOrNull()
                 val mimeType: String? = runCatching { c.getMimeType(args.uri) }.getOrNull()
 
@@ -1984,10 +2469,7 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
         scope.launch {
             try {
                 val args = invoke.parseArgs(Args::class.java)
-                val fd: Int = AFFileDescriptor
-                    .getPfd(Uri.parse(args.uri.uri), args.mode, activity)
-                    .detachFd()
-
+                val fd: Int = AFFileDescriptor.openDetachedFd(Uri.parse(args.uri.uri), args.mode, activity)
                 val res = JSObject()
                 res.put("fd", fd)
 
@@ -2018,10 +2500,9 @@ class AndroidFsPlugin(private val activity: Activity) : Plugin(activity) {
                 for (m in args.modes) {
                     try {
                         mode = m
-                        fd = AFFileDescriptor
-                            .getPfd(uri, m, activity)
-                            .detachFd()
-                    } catch (ignore: Exception) { }
+                        fd = AFFileDescriptor.openDetachedFd(uri, m, activity)
+                    }
+                    catch (ignore: Exception) { }
 
                     if (fd != null) break
                 }

@@ -1,6 +1,6 @@
 [package]
 name = "tauri-plugin-android-fs"
-version = "30.2.0"
+version = "31.0.0"
 edition = "2021"
 rust-version = "1.77.2"
 links = "tauri-plugin-android-fs"
@@ -40,6 +40,9 @@ file_provider = ["custom_file_provider"]
 notification_permission = []
 legacy_storage_permission = []
 legacy_storage_permission_include_android_10 = []
+media_store_image_read_permission = []
+media_store_video_read_permission = []
+media_store_audio_read_permission = []
 # 以下は互換性の為に残す
 protocol-content = ["protocol_content"]
 protocol-thumbnail = ["protocol_thumbnail"]
@@ -48,6 +51,9 @@ custom-file-provider = ["custom_file_provider"]
 notification-permission = ["notification_permission"]
 legacy-storage-permission = ["legacy_storage_permission"]
 legacy-storage-permission-include-android-10 = ["legacy_storage_permission_include_android_10"]
+media-store-image-read-permission = ["media_store_image_read_permission"]
+media-store-video-read-permission = ["media_store_video_read_permission"]
+media-store-audio-read-permission = ["media_store_audio_read_permission"]
 
 [dependencies]
 tauri = { version = "^2.12.0", default-features = false }

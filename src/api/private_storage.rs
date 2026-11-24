@@ -33,8 +33,7 @@ pub struct PrivateStorage<'a, R: tauri::Runtime> {
     pub(crate) handle: &'a tauri::plugin::PluginHandle<R>,
 
     #[cfg(not(target_os = "android"))]
-    #[allow(unused)]
-    pub(crate) handle: &'a std::marker::PhantomData<fn() -> R>,
+    pub(crate) handle: &'a tauri::AppHandle<R>,
 }
 
 #[cfg(target_os = "android")]

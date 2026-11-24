@@ -20,8 +20,7 @@ pub struct Opener<'a, R: tauri::Runtime> {
     pub(crate) handle: &'a tauri::plugin::PluginHandle<R>,
 
     #[cfg(not(target_os = "android"))]
-    #[allow(unused)]
-    pub(crate) handle: &'a std::marker::PhantomData<fn() -> R>,
+    pub(crate) handle: &'a tauri::AppHandle<R>,
 }
 
 #[cfg(target_os = "android")]
@@ -52,7 +51,7 @@ impl<'a, R: tauri::Runtime> Opener<'a, R> {
     /// This does not result in an error even if no available apps are found. 
     /// An empty app chooser is displayed.
     /// 
-    /// # Args
+    /// # Parameters
     /// - ***uris*** :  
     /// Target file URIs to share.  
     /// This all needs to be **readable**.  
@@ -88,7 +87,7 @@ impl<'a, R: tauri::Runtime> Opener<'a, R> {
     /// This does not result in an error even if no available apps are found. 
     /// An empty app chooser is displayed.
     /// 
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :  
     /// Target file URI to share.  
     /// Must be **readable**.  
@@ -123,7 +122,7 @@ impl<'a, R: tauri::Runtime> Opener<'a, R> {
     /// This does not result in an error even if no available apps are found. 
     /// An empty app chooser is displayed.
     /// 
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :  
     /// Target file URI to view.  
     /// Must be **readable**.  
@@ -157,7 +156,7 @@ impl<'a, R: tauri::Runtime> Opener<'a, R> {
     /// This does not result in an error even if no available apps are found. 
     /// An empty app chooser is displayed.
     /// 
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :  
     /// Target dir URI to view.  
     /// Must be **readable**.  
@@ -197,7 +196,7 @@ impl<'a, R: tauri::Runtime> Opener<'a, R> {
     /// Even if you want to open an image or video editing app, 
     /// [`Opener::open_file`] allows you to choose from a wider range of apps in many cases.
     /// 
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :  
     /// Target file URI to view.  
     /// Must be **read-writeable**.  

@@ -7,6 +7,7 @@ mod file_picker;
 mod file_access;
 mod image;
 mod notification;
+mod media_store;
 mod storage_volume;
 
 pub use custom_file_provider::*;
@@ -18,6 +19,7 @@ pub use file_picker::*;
 pub use file_access::*;
 pub use image::*;
 pub use notification::*;
+pub use media_store::*;
 pub use storage_volume::*;
 
 pub type Result<T> = std::result::Result<T, crate::Error>;

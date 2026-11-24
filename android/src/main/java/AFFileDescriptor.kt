@@ -17,13 +17,11 @@ import java.io.FileOutputStream
 import java.io.OutputStream
 import kotlin.math.max
 
-class AFFileDescriptor {
+object AFFileDescriptor {
 
-    companion object {
-        @Suppress("Recycle")
-        fun getPfd(uri: Uri, mode: String, ctx: Context): ParcelFileDescriptor {
-            return openFd(uri, mode, ctx)
-        }
+    fun openDetachedFd(uri: Uri, mode: String, ctx: Context): Int {
+        // TODO: https://github.com/aiueo13/tauri-plugin-android-fs/issues/16
+        return openFd(uri, mode, ctx).detachFd()
     }
 }
 
@@ -58,10 +56,8 @@ private fun openWritableFdViaOutputStream(uri: Uri, mode: String, ctx: Context):
     when (mode) {
         "w" -> {
             // NOTE:
-            // Until Android 10, "w" mode will always truncate existing contents.
-            // Since Android 10, "w" mode will or will not truncate existing contents.
-            // - https://issuetracker.google.com/issues/180526528
-
+            // "w" mode will or will not truncate existing contents.
+            // https://issuetracker.google.com/issues/180526528
             val fd = openAfd()
             val len = try { fd.length } catch (_: Exception) { UNKNOWN_LENGTH }
             outputInitLen = len

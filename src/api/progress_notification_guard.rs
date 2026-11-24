@@ -9,7 +9,7 @@ pub struct ProgressNotificationGuard<R: tauri::Runtime> {
     inner: Inner<R>,
 
     #[cfg(not(target_os = "android"))]
-    inner: std::marker::PhantomData<fn() -> R>,
+    inner: tauri::AppHandle<R>,
 }
 
 #[cfg(target_os = "android")]

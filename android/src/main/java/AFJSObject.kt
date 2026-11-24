@@ -34,7 +34,7 @@ class AFJSObject private constructor() { companion object {
         // アプリ専用フォルダはシステムに不安定と判断された StorageVolume に存在しない
         val isStable = sv.externalFilesDir != null || sv.externalCacheDir != null || sv.externalMediaDir != null
         
-        val isAvailableForPublicStorage = when {
+        val isAvailableForMediaStore = when {
 
             // Q は Android 10
             Build.VERSION_CODES.Q <= Build.VERSION.SDK_INT -> sv.mediaStoreVolumeName != null
@@ -54,12 +54,14 @@ class AFJSObject private constructor() { companion object {
                 put("storageUuid", sv.storageUuid?.toString())
             })
             put("description", sv.description)
+            put("mediaStoreVolumeName", sv.mediaStoreVolumeName)
             put("isPrimary", sv.isPrimary)
             put("isRemovable", sv.isRemovable)
             put("isStable", isStable)
             put("isEmulated", sv.isEmulated)
             put("isReadonly", sv.state == Environment.MEDIA_MOUNTED_READ_ONLY)
-            put("isAvailableForPublicStorage", isAvailableForPublicStorage)
+            put("isAvailableForPublicStorage", isAvailableForMediaStore)
+            put("isAvailableForMediaStore", isAvailableForMediaStore)
             put("isAvailableForAppStorage", isStable)
         }
     }

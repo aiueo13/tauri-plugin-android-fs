@@ -184,8 +184,8 @@ impl<R: tauri::Runtime> Builder<R> {
                     crate::api::CUSTOM_FILE_PROVIDERS.add_providers(providers);
                 }
                 #[cfg(not(target_os = "android"))] {
-                    let afs_sync = crate::api::api_sync::AndroidFs::<R> { handle: Default::default() };
-                    let afs_async = crate::api::api_async::AndroidFs::<R> { handle: Default::default() };
+                    let afs_sync = crate::api::api_sync::AndroidFs { handle: app.app_handle().clone() };
+                    let afs_async = crate::api::api_async::AndroidFs { handle: app.app_handle().clone() };
                     app.manage(afs_sync);
                     app.manage(afs_async);
                 }

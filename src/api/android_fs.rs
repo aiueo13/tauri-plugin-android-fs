@@ -21,10 +21,7 @@ pub struct AndroidFs<R: tauri::Runtime> {
     pub(crate) handle: tauri::plugin::PluginHandle<R>,
 
     #[cfg(not(target_os = "android"))]
-    #[allow(unused)]
-    pub(crate) handle: std::marker::PhantomData<fn() -> R>,
-    // TODO:
-    // AppHandleに変更
+    pub(crate) handle: tauri::AppHandle<R>,
 }
 
 #[cfg(target_os = "android")]
@@ -43,8 +40,8 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 }
 
 #[sync_async(
-    use(if_async) api_async::{Opener, Picker, AppStorage, PrivateStorage, PublicStorage, Notifications, ProgressNotificationGuard};
-    use(if_sync) api_sync::{Opener, Picker, AppStorage, PrivateStorage, PublicStorage, Notifications, ProgressNotificationGuard};
+    use(if_async) api_async::{Opener, Picker, AppStorage, PrivateStorage, PublicStorage, Notifications, ProgressNotificationGuard, MediaStore, Helper};
+    use(if_sync) api_sync::{Opener, Picker, AppStorage, PrivateStorage, PublicStorage, Notifications, ProgressNotificationGuard, MediaStore, Helper};
 )]
 impl<R: tauri::Runtime> AndroidFs<R> {
 
@@ -84,9 +81,30 @@ impl<R: tauri::Runtime> AndroidFs<R> {
         Notifications { handle: &self.handle, }
     }
 
+    /// API for accessing the MediaStore.
+    ///
+    /// MediaStore is an Android-provided mechanism for managing and searching
+    /// media files stored on the device, such as images, videos, and audio.
+    /// 
+    /// This is a low-level API.
+    /// To create files to MediaStore, consider using [`PublicStorage`] instead of this API.
+    /// To retrieve images and videos for general use, consider using [`Picker`] instead.
+    /// This API is most useful for apps such as gallery and music apps
+    /// that need to list the media files on the device or look up
+    /// detailed information about them.
+    #[always_sync]
+    pub fn media_store(&self) -> MediaStore<'_, R> {
+        MediaStore { handle: &self.handle }
+    }
+
+    #[always_sync]
+    pub fn helper(&self) -> Helper<'_, R> {
+        Helper { handle: &self.handle }
+    }
+
     /// Get the file or directory name.
     ///
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :
     /// Target URI.
     /// Must be **readable**.
@@ -130,7 +148,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// If the target is a directory, an error will occur.
     /// To check whether the target is a file or a directory, use [`AndroidFs::get_type`].
     ///
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :
     /// Target file URI.
     /// Must be **readable**.
@@ -156,7 +174,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// In most other cases, it uses the MIME type that was associated with the file when it was created.
     /// If the MIME type is unknown or unset, it falls back to `"application/octet-stream"`.
     ///
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :
     /// Target URI.
     /// Must be **readable**.
@@ -175,7 +193,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 
     /// Gets the entry metadata.
     ///
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :
     /// Target URI.
     /// Must be **readable**.
@@ -194,7 +212,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 
     /// Gets the file length in bytes.
     ///
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :
     /// Target URI.
     /// Must be **readable**.
@@ -219,7 +237,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// As a result, this processing may take longer than with regular local files.
     /// And files might be a pair of pipe or socket for streaming data.
     ///
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :
     /// Target file URI.
     /// This need to be **readable**.
@@ -239,7 +257,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Open the file in **writable** mode.
     /// This truncates the existing contents.
     ///
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :
     /// Target file URI.
     /// This need to be **writable**.
@@ -277,7 +295,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// use [`AndroidFs::open_file_writable`],
     /// which guarantees truncation and provides the broadest possible fallback.
     ///
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :
     /// Target file URI.
     /// This must have corresponding permissions (read, write, or both) for the specified ***mode***.
@@ -319,7 +337,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 
     /// Reads the entire contents of a file into a bytes vector.
     ///
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :
     /// Target file URI.
     /// Must be **readable**.
@@ -338,7 +356,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 
     /// Reads the entire contents of a file into a string.
     ///
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :
     /// Target file URI.
     /// Must be **readable**.
@@ -358,7 +376,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Writes a slice as the entire contents of a file.
     /// This function will entirely replace its contents if it does exist.
     ///
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :
     /// Target file URI.
     /// Must be **writable**.
@@ -378,7 +396,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// Copies the contents of the source file to the destination.
     /// If the destination already has contents, they are truncated before writing the source contents.
     ///
-    /// # Args
+    /// # Parameters
     /// - ***src*** :
     /// The URI of source file.
     /// Must be **readable**.
@@ -407,7 +425,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// However, for files created in PublicStorage, the URI remains unchanged even after such operations, and all permissions are retained.
     /// In this, this function returns the same URI as original URI.
     ///
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :
     /// URI of target entry.
     ///
@@ -434,7 +452,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 
     /// Remove the file.
     ///
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :
     /// Target file URI.
     /// Must be **read-writable**.
@@ -454,7 +472,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 
     /// Remove the **empty** directory.
     ///
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :
     /// Target directory URI.
     /// Must be **read-writable**.
@@ -474,7 +492,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
 
     /// Removes a directory and all its contents. Use carefully!
     ///
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :
     /// Target directory URI.
     /// Must be **read-writable**.
@@ -503,7 +521,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// However, this function does not perform any sanitization, so the same ***relative_path*** may still fail.
     /// So consider using [`AndroidFs::create_new_file_and_return_relative_path`].
     ///
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :
     /// Base directory URI.
     /// Must be **readable**.
@@ -539,7 +557,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// However, this function does not perform any sanitization, so the same ***relative_path*** may still fail.
     /// So consider using [`AndroidFs::create_dir_all_and_return_relative_path`].
     ///
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :
     /// Base directory URI.
     /// Must be **readable**.
@@ -589,7 +607,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ///
     /// Note this does not cache. Please do it in your part if need.
     ///
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :
     /// Targe file uri.
     /// Thumbnail availability depends on the file provider.
@@ -637,7 +655,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// This uses Kotlin's [`android.util.Base64.encodeToString(.., android.util.Base64.NO_WRAP)`](https://developer.android.com/reference/android/util/Base64#encodeToString(byte[],%20int)) internally.
     /// It is the same as [`base64::engine::general_purpose::STANDARD`](https://docs.rs/base64/0.22.1/base64/engine/general_purpose/constant.STANDARD.html) in `base64` crate.
     ///
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :
     /// Targe file uri.
     /// Thumbnail availability depends on the file provider.
@@ -681,7 +699,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// The permissions and validity period of the returned URIs depend on the origin directory
     /// (e.g., the top directory selected by [`Picker::pick_dir`])
     ///
-    /// # Args
+    /// # Parameters
     /// - ***dir*** :
     /// The URI of the base directory.
     /// Must be **read-write**.
@@ -727,7 +745,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// The permissions and validity period of the returned URIs depend on the origin directory
     /// (e.g., the top directory selected by [`Picker::pick_dir`])
     ///
-    /// # Args
+    /// # Parameters
     /// - ***dir*** :
     /// The URI of the base directory.
     /// Must be **read-write**.
@@ -769,7 +787,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ///
     /// [`AndroidFs::create_new_file`] does this automatically, so there is no need to use it together.
     ///
-    /// # Args
+    /// # Parameters
     /// - ***dir*** :
     /// The URI of the base directory.
     /// Must be **read-write**.
@@ -807,7 +825,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     ///
     /// [`AndroidFs::create_new_file`] does this automatically, so there is no need to use it together.
     ///
-    /// # Args
+    /// # Parameters
     /// - ***dir*** :
     /// The URI of the base directory.
     /// Must be **read-write**.
@@ -875,7 +893,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// The permissions and validity period of the returned URIs depend on the origin directory
     /// (e.g., the top directory selected by [`Picker::pick_dir`])
     ///
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :
     /// Target directory URI.
     /// Must be **readable**.
@@ -901,7 +919,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// The permissions and validity period of the returned URIs depend on the origin directory
     /// (e.g., the top directory selected by [`Picker::pick_dir`])
     ///
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :
     /// Target directory URI.
     /// Must be **readable**.
@@ -932,7 +950,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// The permissions and validity period of the returned URIs depend on the origin directory
     /// (e.g., the top directory selected by [`Picker::pick_dir`])
     ///
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :
     /// Target directory URI.
     /// Must be **readable**.
@@ -962,7 +980,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// The permissions and validity period of the returned URIs depend on the origin directory
     /// (e.g., the top directory selected by [`Picker::pick_dir`])
     ///
-    /// # Args
+    /// # Parameters
     /// - ***uri*** :
     /// Target directory URI.
     /// Must be **readable**.
@@ -994,7 +1012,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// The URI is an Android Content URI
     /// and can be shared with other applications using [`Opener`], for example.
     ///
-    /// # Args
+    /// # Parameters
     /// - **provider_name** :
     /// The identifier of the custom file provider registered by [`Builder::register_custom_file_provider`].
     /// If it does not exist, this function returns an error.
@@ -1037,7 +1055,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// and [AndroidFs::build_custom_file_uri].
     /// See those methods for details.
     /// 
-    /// # Args
+    /// # Parameters
     /// - **name** :
     /// Name of the custom file.
     /// This can be duplicated. 
@@ -1091,7 +1109,7 @@ impl<R: tauri::Runtime> AndroidFs<R> {
     /// and [AndroidFs::build_custom_file_uri].
     /// See those methods for details.
     /// 
-    /// # Args
+    /// # Parameters
     /// - **name** :
     /// Name of the custom file.
     /// This can be duplicated. 
